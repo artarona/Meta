@@ -1,11 +1,16 @@
 from flask import Flask, request, jsonify
 import json
 import os
+import sys
 
 app = Flask(__name__)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
+
+def log(message):
+    """Función para logging con flush automático"""
+    print(message, flush=True)
 
 # ========== RUTAS ==========
 @app.route("/")
@@ -57,29 +62,29 @@ def home():
     <body>
         <div class="container">
             <h1 class="success">✅ WhatsApp Webhook Funcionando</h1>
-            
+
             <div class="status active">
                 <strong>Estado:</strong> Servidor activo y recibiendo webhooks
             </div>
-            
+
             <h3>🔗 Configuración en Meta:</h3>
             <div class="url-box">
                 <strong>URL de Webhook:</strong><br>
                 https://meta-chat-npbx.onrender.com/webhook
             </div>
-            
+
             <div class="url-box">
                 <strong>Token de Verificación:</strong><br>
                 mi_token_secreto_123
             </div>
-            
+
             <h3>📊 Para probar:</h3>
             <ol>
                 <li>Envía un mensaje de WhatsApp al número: <strong>+1 555 149 2382</strong></li>
                 <li>Revisa los logs en Render para ver el JSON completo</li>
                 <li>El servidor responderá automáticamente "✅ OK" a Meta</li>
             </ol>
-            
+
             <p><em>Última actualización: Servidor listo para producción</em></p>
         </div>
     </body>
@@ -92,51 +97,51 @@ def webhook():
     
     # ========== GET: VERIFICACIÓN DE META ==========
     if request.method == "GET":
-        print("=" * 60)
-        print("🔍 SOLICITUD GET DE META (Verificación)")
-        print("=" * 60)
+        log("=" * 60)
+        log("🔍 SOLICITUD GET DE META (Verificación)")
+        log("=" * 60)
         
         mode = request.args.get("hub.mode")
         token = request.args.get("hub.verify_token")
         challenge = request.args.get("hub.challenge")
         
-        print(f"   Parámetros recibidos:")
-        print(f"   • hub.mode: {mode}")
-        print(f"   • hub.verify_token: {token}")
-        print(f"   • hub.challenge: {challenge}")
-        print(f"   • Token esperado: {VERIFY_TOKEN}")
+        log(f"   Parámetros recibidos:")
+        log(f"   • hub.mode: {mode}")
+        log(f"   • hub.verify_token: {token}")
+        log(f"   • hub.challenge: {challenge}")
+        log(f"   • Token esperado: {VERIFY_TOKEN}")
         
         if mode == "subscribe" and token == VERIFY_TOKEN:
-            print("   ✅ VERIFICACIÓN EXITOSA - Devolviendo challenge")
-            print("=" * 60)
+            log("   ✅ VERIFICACIÓN EXITOSA - Devolviendo challenge")
+            log("=" * 60)
             return challenge, 200
         else:
-            print("   ❌ FALLA DE VERIFICACIÓN")
-            print("=" * 60)
+            log("   ❌ FALLA DE VERIFICACIÓN")
+            log("=" * 60)
             return "Falla de verificación", 403
     
     # ========== POST: MENSAJE DE WHATSAPP ==========
     elif request.method == "POST":
-        print("=" * 60)
-        print("📨 ¡MENSAJE RECIBIDO DE WHATSAPP!")
-        print("=" * 60)
+        log("=" * 60)
+        log("📨 ¡MENSAJE RECIBIDO DE WHATSAPP!")
+        log("=" * 60)
         
         try:
             # 1. Obtener y mostrar JSON completo
             data = request.get_json()
-            print("📊 JSON COMPLETO RECIBIDO:")
-            print(json.dumps(data, indent=2))
-            print("-" * 40)
+            log("📊 JSON COMPLETO RECIBIDO:")
+            log(json.dumps(data, indent=2))
+            log("-" * 40)
             
             # 2. Verificar estructura básica
             if data.get("object") != "whatsapp_business_account":
-                print("⚠️  Estructura JSON inesperada")
+                log("⚠️  Estructura JSON inesperada")
                 return jsonify({"status": "error", "message": "Estructura inválida"}), 400
             
             # 3. Extraer información importante
             entries = data.get("entry", [])
             if not entries:
-                print("⚠️  No hay 'entry' en el JSON")
+                log("⚠️  No hay 'entry' en el JSON")
                 return jsonify({"status": "ok"}), 200
             
             for entry in entries:
@@ -145,7 +150,7 @@ def webhook():
                     value = change.get("value", {})
                     field = change.get("field", "")
                     
-                    print(f"   Campo: {field}")
+                    log(f"   Campo: {field}")
                     
                     # 4. Procesar mensajes
                     if "messages" in value:
@@ -156,13 +161,13 @@ def webhook():
                     # 5. Mostrar metadata
                     metadata = value.get("metadata", {})
                     if metadata:
-                        print(f"   📱 Metadata:")
-                        print(f"      • Número: {metadata.get('display_phone_number')}")
-                        print(f"      • Phone ID: {metadata.get('phone_number_id')}")
+                        log(f"   📱 Metadata:")
+                        log(f"      • Número: {metadata.get('display_phone_number')}")
+                        log(f"      • Phone ID: {metadata.get('phone_number_id')}")
             
-            print("=" * 60)
-            print("✅ Respondiendo OK a Meta")
-            print("=" * 60)
+            log("=" * 60)
+            log("✅ Respondiendo OK a Meta")
+            log("=" * 60)
             
             return jsonify({
                 "status": "ok",
@@ -171,9 +176,9 @@ def webhook():
             }), 200
             
         except Exception as e:
-            print("=" * 60)
-            print(f"❌ ERROR PROCESANDO WEBHOOK: {e}")
-            print("=" * 60)
+            log("=" * 60)
+            log(f"❌ ERROR PROCESANDO WEBHOOK: {e}")
+            log("=" * 60)
             import traceback
             traceback.print_exc()
             
@@ -194,54 +199,54 @@ def process_message(message, metadata):
     msg_id = message.get("id", "sin-id")
     timestamp = message.get("timestamp", "sin-timestamp")
     
-    print(f"   💬 MENSAJE {msg_type.upper()}:")
-    print(f"      • De: {from_number}")
-    print(f"      • ID: {msg_id}")
-    print(f"      • Hora: {timestamp}")
+    log(f"   💬 MENSAJE {msg_type.upper()}:")
+    log(f"      • De: {from_number}")
+    log(f"      • ID: {msg_id}")
+    log(f"      • Hora: {timestamp}")
     
     # Procesar según tipo de mensaje
     if msg_type == "text":
         text_body = message.get("text", {}).get("body", "")
-        print(f"      • Texto: '{text_body}'")
+        log(f"      • Texto: '{text_body}'")
         
     elif msg_type == "image":
         image = message.get("image", {})
-        print(f"      • Imagen ID: {image.get('id')}")
-        print(f"      • Caption: {image.get('caption', 'sin caption')}")
+        log(f"      • Imagen ID: {image.get('id')}")
+        log(f"      • Caption: {image.get('caption', 'sin caption')}")
         
     elif msg_type == "audio":
         audio = message.get("audio", {})
-        print(f"      • Audio ID: {audio.get('id')}")
+        log(f"      • Audio ID: {audio.get('id')}")
         
     elif msg_type == "document":
         document = message.get("document", {})
-        print(f"      • Documento: {document.get('filename')}")
-        print(f"      • Tipo: {document.get('mime_type')}")
+        log(f"      • Documento: {document.get('filename')}")
+        log(f"      • Tipo: {document.get('mime_type')}")
         
     elif msg_type == "location":
         location = message.get("location", {})
-        print(f"      • Latitud: {location.get('latitude')}")
-        print(f"      • Longitud: {location.get('longitude')}")
+        log(f"      • Latitud: {location.get('latitude')}")
+        log(f"      • Longitud: {location.get('longitude')}")
         
     else:
-        print(f"      • Datos: {json.dumps(message, indent=6)[:200]}...")
+        log(f"      • Datos: {json.dumps(message, indent=6)[:200]}...")
     
-    print(f"      • Metadata: {json.dumps(metadata, indent=6)}")
+    log(f"      • Metadata: {json.dumps(metadata, indent=6)}")
 
 # ========== INICIAR SERVIDOR ==========
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     
-    print("=" * 60)
-    print("🚀 INICIANDO WHATSAPP WEBHOOK SERVER")
-    print("=" * 60)
-    print(f"   Puerto: {port}")
-    print(f"   Token: {VERIFY_TOKEN}")
-    print(f"   Webhook: /webhook")
-    print(f"   URL: https://meta-chat-npbx.onrender.com")
-    print("=" * 60)
-    print("   Esperando webhooks de WhatsApp...")
-    print("   Envía un mensaje a +1 555 149 2382 para probar")
-    print("=" * 60)
+    log("=" * 60)
+    log("🚀 INICIANDO WHATSAPP WEBHOOK SERVER")
+    log("=" * 60)
+    log(f"   Puerto: {port}")
+    log(f"   Token: {VERIFY_TOKEN}")
+    log(f"   Webhook: /webhook")
+    log(f"   URL: https://meta-chat-npbx.onrender.com")
+    log("=" * 60)
+    log("   Esperando webhooks de WhatsApp...")
+    log("   Envía un mensaje a +1 555 149 2382 para probar")
+    log("=" * 60)
     
     app.run(host="0.0.0.0", port=port, debug=False)
