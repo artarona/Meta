@@ -10,6 +10,32 @@ VERIFY_TOKEN = "mi_token_secreto_123"
 ACCESS_TOKEN = "EAAJYsGl5pHgBQnTe6gLSHzfgLZCfOjXKzOOaPgB5fNjTLWa4ZAyRhzAfmLtrrLwUgbw2TJmvb4CNNgW0iwZAivM5wMPIXFaJpkD8syGR1tRIESJZClY9jy8yoNkszbXZAuqmIZCt90mb6ZBmDU5tnj7tNmq4ZBHGKQX3kZBy6PBFJqVuKNMb6phwBEJernQ8EKPQau9c5MXnmZAY6xKRETNTL1CNgwSIgt1yEzYVuZCzEpqbSv1iJcRPcumRGp1huGAVkzXEK09E0YZBOJBCmLPgN6w3Khzzy2XEF9fyIyUZD"  # ← REEMPLAZAR
 PHONE_NUMBER_ID = "1000705633118215"
 
+@app.route("/")
+def home():
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>✅ WhatsApp Webhook Funcionando</title>
+        <style>
+            body { font-family: Arial, sans-serif; padding: 40px; }
+            .success { color: green; font-size: 24px; }
+            .url { background: #f0f0f0; padding: 10px; border-radius: 5px; }
+        </style>
+    </head>
+    <body>
+        <h1 class="success">✅ WhatsApp Webhook Funcionando</h1>
+        <p><strong>URL del webhook:</strong></p>
+        <p class="url">https://meta-chat-npbx.onrender.com/webhook</p>
+        <p><strong>Token de verificación:</strong> <code>mi_token_secreto_123</code></p>
+        <p><a href="/webhook">Probar webhook GET</a> (devolverá 403 sin parámetros)</p>
+        <p><strong>Estado:</strong> Listo para configuración en Meta Sandbox</p>
+    </body>
+    </html>
+    """, 200
+
+
+
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
     if request.method == "GET":
