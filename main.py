@@ -2,7 +2,8 @@ from flask import Flask, request, jsonify
 import json
 import os
 import sys
-import requests  # ← IMPORTANTE: Para enviar respuestas a WhatsApp
+import requests
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -15,8 +16,8 @@ def log(message):
     """Función para logging con flush automático"""
     print(message, flush=True)
 
-def send_whatsapp_message(to_number, text):
-    """Envía un mensaje de WhatsApp usando la API de Meta"""
+def send_whatsapp_reply(to_number, text):
+    """Envía un mensaje de respuesta por WhatsApp"""
     try:
         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
         
@@ -33,19 +34,25 @@ def send_whatsapp_message(to_number, text):
             "text": {"body": text}
         }
         
-        log(f"📤 ENVIANDO RESPUESTA A {to_number}:")
-        log(f"   Texto: {text}")
+        log("=" * 40)
+        log(f"📤 ENVIANDO RESPUESTA A WHATSAPP:")
+        log(f"   Para: {to_number}")
+        log(f"   Mensaje: {text}")
+        log("=" * 40)
         
         response = requests.post(url, json=payload, headers=headers)
         result = response.json()
         
-        log(f"   Estado: {response.status_code}")
-        log(f"   Respuesta Meta: {json.dumps(result, indent=4)}")
+        log(f"   ✅ Estado: {response.status_code}")
+        if response.status_code == 200:
+            log(f"   📨 Mensaje ID: {result.get('messages', [{}])[0].get('id', 'Desconocido')}")
+        else:
+            log(f"   ❌ Error: {result}")
         
         return result
         
     except Exception as e:
-        log(f"❌ ERROR enviando mensaje: {e}")
+        log(f"🔥 ERROR CRÍTICO enviando mensaje: {e}")
         import traceback
         traceback.print_exc()
         return None
@@ -54,229 +61,90 @@ def send_whatsapp_message(to_number, text):
 @app.route("/")
 def home():
     return """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>✅ WhatsApp Bot con Respuestas Automáticas</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                max-width: 800px;
-                margin: 40px auto;
-                padding: 20px;
-                background: #f5f5f5;
-            }
-            .container {
-                background: white;
-                padding: 30px;
-                border-radius: 10px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            }
-            .success {
-                color: #28a745;
-                font-size: 24px;
-            }
-            .feature {
-                background: #e7f3ff;
-                padding: 15px;
-                border-radius: 5px;
-                margin: 10px 0;
-                border-left: 4px solid #007bff;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1 class="success">🤖 WhatsApp Bot con Respuestas Automáticas</h1>
-            
-            <div class="feature">
-                <strong>✨ NUEVA FUNCIÓN ACTIVADA:</strong> Ahora el bot RESPONDE automáticamente
-            </div>
-            
-            <h3>🔗 Configuración:</h3>
-            <ul>
-                <li><strong>URL Webhook:</strong> https://meta-chat-npbx.onrender.com/webhook</li>
-                <li><strong>Token:</strong> mi_token_secreto_123</li>
-                <li><strong>Número Sandbox:</strong> +1 555 149 2382</li>
-            </ul>
-            
-            <h3>🎯 Para probar:</h3>
-            <ol>
-                <li>Envía un WhatsApp al <strong>+1 555 149 2382</strong></li>
-                <li>El bot te responderá automáticamente</li>
-                <li>Revisa los logs para ver el proceso completo</li>
-            </ol>
-            
-            <h3>💬 Comandos disponibles:</h3>
-            <ul>
-                <li>"hola" → Saludo personalizado</li>
-                <li>"hora" → Hora actual</li>
-                <li>"ayuda" → Muestra comandos</li>
-                <li>Cualquier otro texto → Eco del mensaje</li>
-            </ul>
-            
-            <p><em>✅ Bot activo y respondiendo desde: Render + Meta WhatsApp API</em></p>
-        </div>
-    </body>
-    </html>
+    <h1>🤖 WhatsApp Bot RESPONDIENDO</h1>
+    <p><strong>Estado:</strong> ✅ Bot activo con respuestas automáticas</p>
+    <p><strong>Envía "Hola" al +1 555 149 2382</strong></p>
+    <p>El bot te responderá automáticamente</p>
     """, 200
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
-    """Endpoint principal para webhooks de WhatsApp"""
-    
-    # ========== GET: VERIFICACIÓN DE META ==========
     if request.method == "GET":
-        log("=" * 60)
-        log("🔍 SOLICITUD GET DE META (Verificación)")
-        log("=" * 60)
-        
         mode = request.args.get("hub.mode")
         token = request.args.get("hub.verify_token")
         challenge = request.args.get("hub.challenge")
         
-        log(f"   Parámetros recibidos:")
-        log(f"   • hub.mode: {mode}")
-        log(f"   • hub.verify_token: {token}")
-        log(f"   • hub.challenge: {challenge}")
-        log(f"   • Token esperado: {VERIFY_TOKEN}")
+        log(f"🔍 Verificación: mode={mode}, token={token}")
         
         if mode == "subscribe" and token == VERIFY_TOKEN:
-            log("   ✅ VERIFICACIÓN EXITOSA - Devolviendo challenge")
-            log("=" * 60)
+            log("✅ Webhook verificado por Meta")
             return challenge, 200
-        else:
-            log("   ❌ FALLA DE VERIFICACIÓN")
-            log("=" * 60)
-            return "Falla de verificación", 403
+        return "Error", 403
     
-    # ========== POST: MENSAJE DE WHATSAPP ==========
     elif request.method == "POST":
         log("=" * 60)
-        log("📨 ¡MENSAJE RECIBIDO DE WHATSAPP!")
+        log("📨 ¡NUEVO MENSAJE DE WHATSAPP!")
         log("=" * 60)
         
         try:
-            # 1. Obtener JSON del mensaje
             data = request.get_json()
-            log("📊 JSON COMPLETO RECIBIDO:")
-            log(json.dumps(data, indent=2))
-            log("-" * 40)
             
-            # 2. Verificar estructura básica
-            if data.get("object") != "whatsapp_business_account":
-                log("⚠️  Estructura JSON inesperada")
-                return jsonify({"status": "error", "message": "Estructura inválida"}), 400
+            # Extraer información del mensaje
+            messages = data["entry"][0]["changes"][0]["value"]["messages"]
+            from_number = messages[0]["from"]
+            message_text = messages[0]["text"]["body"].strip('"')  # Quitar comillas
             
-            # 3. Extraer información importante
-            entries = data.get("entry", [])
-            if not entries:
-                log("⚠️  No hay 'entry' en el JSON")
-                return jsonify({"status": "ok"}), 200
+            log(f"   👤 De: {from_number}")
+            log(f"   💬 Texto: {message_text}")
             
-            # Variable para almacenar respuesta
-            response_sent = False
+            # ========== ¡AQUÍ GENERAMOS LA RESPUESTA! ==========
+            response_text = ""
             
-            for entry in entries:
-                changes = entry.get("changes", [])
-                for change in changes:
-                    value = change.get("value", {})
-                    field = change.get("field", "")
-                    
-                    log(f"   Campo: {field}")
-                    
-                    # 4. Procesar mensajes y RESPONDER
-                    if "messages" in value:
-                        messages = value["messages"]
-                        for message in messages:
-                            from_number = message.get("from", "")
-                            msg_type = message.get("type", "")
-                            
-                            if msg_type == "text":
-                                text_body = message.get("text", {}).get("body", "").lower()
-                                log(f"   💬 MENSAJE TEXTO DE {from_number}: '{text_body}'")
-                                
-                                # 5. ¡GENERAR Y ENVIAR RESPUESTA AUTOMÁTICA!
-                                response_text = generate_response(text_body, from_number)
-                                
-                                # Enviar respuesta a WhatsApp
-                                send_whatsapp_message(from_number, response_text)
-                                response_sent = True
-                                log(f"   ✅ RESPUESTA ENVIADA: '{response_text}'")
-                    
-                    # 6. Mostrar metadata
-                    metadata = value.get("metadata", {})
-                    if metadata:
-                        log(f"   📱 Metadata:")
-                        log(f"      • Número: {metadata.get('display_phone_number')}")
-                        log(f"      • Phone ID: {metadata.get('phone_number_id')}")
+            if message_text.lower() in ["hola", "hi", "hello"]:
+                response_text = f"¡Hola! 👋\nGracias por tu mensaje: '{message_text}'\n\nSoy tu bot de WhatsApp funcionando en Render.\n\nEscribe 'ayuda' para ver comandos."
+            
+            elif message_text.lower() in ["hora", "time", "fecha"]:
+                now = datetime.now()
+                response_text = f"🕐 Fecha y hora actual:\n{now.strftime('%A, %d de %B de %Y')}\n{now.strftime('%H:%M:%S')}"
+            
+            elif message_text.lower() in ["ayuda", "help", "comandos"]:
+                response_text = "📚 Comandos disponibles:\n• Hola - Saludo\n• Hora - Fecha y hora actual\n• Ayuda - Esta ayuda\n• Cualquier texto - Eco inteligente"
+            
+            else:
+                response_text = f"✅ Mensaje recibido: '{message_text}'\n\nHe procesado tu solicitud correctamente. ¿En qué más puedo ayudarte?\n\n(Escribe 'ayuda' para ver opciones)"
+            
+            log(f"   🤖 Respuesta generada: {response_text}")
+            
+            # ========== ¡ENVIAR LA RESPUESTA A WHATSAPP! ==========
+            log("   🚀 Enviando respuesta a WhatsApp API...")
+            send_whatsapp_reply(from_number, response_text)
             
             log("=" * 60)
-            log("✅ Respondiendo OK a Meta")
+            log("✅ Proceso completado - Respuesta enviada")
             log("=" * 60)
             
-            return jsonify({
-                "status": "ok",
-                "message": "Webhook procesado correctamente",
-                "response_sent": response_sent,
-                "timestamp": os.times().elapsed
-            }), 200
+            return jsonify({"status": "success", "response_sent": True}), 200
             
         except Exception as e:
-            log("=" * 60)
-            log(f"❌ ERROR PROCESANDO WEBHOOK: {e}")
-            log("=" * 60)
+            log(f"❌ Error: {e}")
             import traceback
             traceback.print_exc()
-            
-            return jsonify({
-                "status": "error",
-                "message": str(e),
-                "timestamp": os.times().elapsed
-            }), 500
+            return jsonify({"status": "error"}), 500
     
-    # ========== MÉTODO NO PERMITIDO ==========
-    else:
-        return "Método no permitido", 405
+    return "Método no permitido", 405
 
-def generate_response(user_message, from_number):
-    """Genera una respuesta automática basada en el mensaje recibido"""
-    user_message = user_message.lower().strip()
-    
-    # Respuestas inteligentes
-    if user_message in ["hola", "hi", "hello", "buenas"]:
-        return f"¡Hola! 👋 Soy tu bot de WhatsApp. Me escribiste: '{user_message}'"
-    
-    elif user_message in ["hora", "time", "fecha"]:
-        from datetime import datetime
-        now = datetime.now()
-        return f"🕐 Son las {now.strftime('%H:%M:%S')} del {now.strftime('%d/%m/%Y')}"
-    
-    elif user_message in ["ayuda", "help", "comandos"]:
-        return "ℹ️ Comandos disponibles:\n• hola - Saludo\n• hora - Hora actual\n• ayuda - Esta ayuda\n• Cualquier texto - Eco"
-    
-    elif "gracias" in user_message:
-        return "¡De nada! 😊 ¿En qué más puedo ayudarte?"
-    
-    else:
-        # Respuesta por defecto: eco del mensaje
-        return f"✅ Recibí tu mensaje: '{user_message}'\n\nEscribe 'ayuda' para ver comandos disponibles."
-
-# ========== INICIAR SERVIDOR ==========
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     
     log("=" * 60)
-    log("🚀 INICIANDO WHATSAPP BOT CON RESPUESTAS AUTOMÁTICAS")
+    log("🚀 WHATSAPP BOT CON RESPUESTAS AUTOMÁTICAS")
     log("=" * 60)
-    log(f"   Puerto: {port}")
-    log(f"   Token: {VERIFY_TOKEN}")
-    log(f"   Webhook: /webhook")
-    log(f"   URL: https://meta-chat-npbx.onrender.com")
-    log(f"   Phone Number ID: {PHONE_NUMBER_ID}")
+    log(f"📞 Número Sandbox: +1 555 149 2382")
+    log(f"🔑 Token: {VERIFY_TOKEN}")
+    log(f"🌐 URL: https://meta-chat-npbx.onrender.com")
     log("=" * 60)
-    log("   🤖 Bot listo para recibir y RESPONDER mensajes")
-    log("   Envía un WhatsApp a +1 555 149 2382 para probar")
+    log("✅ Listo para recibir y RESPONDER mensajes")
+    log("   Envía 'Hola' al +1 555 149 2382")
     log("=" * 60)
     
     app.run(host="0.0.0.0", port=port, debug=False)
