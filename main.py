@@ -487,7 +487,52 @@ def debug_code():
     return resultado
 
 
-
+@app.route("/check-code", methods=["GET"])
+def check_code():
+    """Verificar EXACTAMENTE qué código se ejecuta"""
+    
+    # Obtener código de la función send_whatsapp_reply
+    import inspect
+    source = inspect.getsource(send_whatsapp_reply)
+    
+    # Verificaciones CLAVE
+    checks = {
+        "1. Tiene transform_number_for_sandbox": "transform_number_for_sandbox" in source,
+        "2. Usa numero_transformado en 'to'": '"to": numero_transformado' in source,
+        "3. Muestra 'TRANSFORMACIÓN DE NÚMERO' en logs": "TRANSFORMACIÓN DE NÚMERO" in source,
+        "4. Token empieza con 'EAAJYsGl5pHgBQtcI1S7nVzSw'": ACCESS_TOKEN.startswith("EAAJYsGl5pHgBQtcI1S7nVzSw"),
+        "5. Función es larga (>1500 chars)": len(source) > 1500
+    }
+    
+    # Resultado HTML
+    html = "<h1>🔍 CHECK CÓDIGO EN RENDER</h1>"
+    html += f"<p><strong>Hora:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>"
+    
+    html += "<h3>✅ VERIFICACIONES:</h3><ul>"
+    for check_name, check_result in checks.items():
+        color = "green" if check_result else "red"
+        icon = "✅" if check_result else "❌"
+        html += f"<li style='color:{color}'>{icon} {check_name}: {check_result}</li>"
+    html += "</ul>"
+    
+    # Mostrar partes del código
+    html += "<h3>📝 CÓDIGO DE send_whatsapp_reply:</h3>"
+    html += "<h4>Primeros 300 caracteres:</h4>"
+    html += f"<pre>{source[:300]}</pre>"
+    
+    html += "<h4>¿Contiene '54111551511579'?</h4>"
+    html += f"<pre>{'54111551511579' in source}</pre>"
+    
+    html += "<h4>¿Contiene 'numero_transformado'?</h4>"
+    html += f"<pre>{'numero_transformado' in source}</pre>"
+    
+    html += "<h3>🎯 CONCLUSIÓN:</h3>"
+    if all(checks.values()):
+        html += "<p style='color:green; font-weight:bold'>✅ CÓDIGO CORRECTO - Debería funcionar</p>"
+    else:
+        html += "<p style='color:red; font-weight:bold'>❌ CÓDIGO INCORRECTO - Render tiene versión vieja</p>"
+    
+    return html
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
