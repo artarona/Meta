@@ -247,8 +247,6 @@ def send_whatsapp_reply(to_number, text):
             "error": str(e),
             "details": "Error inesperado en send_whatsapp_reply"
         }
-
-
 # ========== RUTAS ==========
 @app.route("/")
 def home():
