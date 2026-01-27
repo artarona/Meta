@@ -480,20 +480,7 @@ def clear_cache():
         "new_size": len(processed_messages),
         "timestamp": datetime.now().isoformat()
     })
-    
-@app.route("/clear-cache", methods=["GET"])
-def clear_cache():
-    """Limpia la cache de mensajes procesados"""
-    global processed_messages
-    old_size = len(processed_messages)
-    processed_messages.clear()
-    
-    return jsonify({
-        "status": "cache_cleared",
-        "old_size": old_size,
-        "new_size": len(processed_messages),
-        "timestamp": datetime.now().isoformat()
-    })
+
 # endpoint para ver cache
     
 @app.route("/cache-info", methods=["GET"])
