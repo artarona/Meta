@@ -113,7 +113,7 @@ def send_whatsapp_reply(to_number, text):
         else:
             # Respuesta genérica para otros mensajes
             param1 = f"Usuario {to_number[-4:]}"
-            param2 = f"MSG{hora_actual.timestamp():.0f}[-3:]"
+            param2 = f"MSG{int(hora_actual.timestamp()) % 1000:03d}"
             param3 = text[:30] + ("..." if len(text) > 30 else "")
         
         # ========== CONSTRUIR PAYLOAD ==========
@@ -247,7 +247,6 @@ def send_whatsapp_reply(to_number, text):
             "error": str(e),
             "details": "Error inesperado en send_whatsapp_reply"
         }
-
 
 
 # ========== RUTAS ==========
