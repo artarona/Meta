@@ -1,5 +1,3 @@
-[file name]: main.py
-[file content begin]
 from flask import Flask, request, jsonify
 import json
 import os
@@ -712,4 +710,3 @@ if __name__ == "__main__":
     log("=" * 60)
     
     app.run(host="0.0.0.0", port=port, debug=False)
-[file content end]
