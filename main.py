@@ -17,89 +17,61 @@ def log(message):
     print(message, flush=True)
 
 def send_whatsapp_reply(to_number, text):
-    """Envía un mensaje de respuesta por WhatsApp usando plantilla disponible"""
+    """Envía un mensaje de respuesta por WhatsApp usando SOLO plantilla"""
     try:
         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-        
         headers = {
             "Authorization": f"Bearer {ACCESS_TOKEN}",
             "Content-Type": "application/json"
         }
         
-        # OPCIÓN 1: Intentar mensaje de texto normal (puede fallar en sandbox)
-        payload_text = {
+        # Usar SOLO plantilla (sabemos que funciona para este número)
+        payload = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
             "to": to_number,
-            "type": "text",
-            "text": {"body": text}
+            "type": "template",
+            "template": {
+                "name": "jaspers_market_order_confirmation_v1",
+                "language": {"code": "en_US"},
+                "components": [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {"type": "text", "text": f"Usuario"},  # Nombre
+                            {"type": "text", "text": "RESPUESTA"},  # Orden #
+                            {"type": "text", "text": f"Bot: {text[:30]}..."}  # Mensaje truncado
+                        ]
+                    }
+                ]
+            }
         }
         
         log("=" * 40)
-        log(f"📤 INTENTANDO MENSAJE DE TEXTO:")
+        log(f"📤 ENVIANDO PLANTILLA DIRECTA:")
         log(f"   Para: {to_number}")
-        log(f"   Mensaje: {text[:50]}...")
+        log(f"   Plantilla: jaspers_market_order_confirmation_v1")
         log("=" * 40)
         
-        response = requests.post(url, json=payload_text, headers=headers)
-        
-        if response.status_code == 200:
-            result = response.json()
-            log(f"   ✅ Estado: {response.status_code}")
-            log(f"   📨 Mensaje ID: {result.get('messages', [{}])[0].get('id', 'Desconocido')}")
-            return result
-        
-        # Si falla con error 131030 (número no autorizado), usar plantilla
+        response = requests.post(url, json=payload, headers=headers)
         result = response.json()
-        error_code = str(result.get('error', {}).get('code', ''))
         
-        if response.status_code == 400 and '131030' in error_code:
-            log(f"   ❌ Error 131030 - Usando plantilla alternativa...")
-            
-            # OPCIÓN 2: Plantilla que sabemos funciona
-            # Esta plantilla existe según tu prueba exitosa
-            payload_template = {
-                "messaging_product": "whatsapp",
-                "recipient_type": "individual",
-                "to": to_number,
-                "type": "template",
-                "template": {
-                    "name": "jaspers_market_order_confirmation_v1",
-                    "language": {"code": "en_US"},
-                    "components": [
-                        {
-                            "type": "body",
-                            "parameters": [
-                                {"type": "text", "text": "Usuario de Bot"},  # Nombre
-                                {"type": "text", "text": "BOT-001"},         # ID
-                                {"type": "text", "text": datetime.now().strftime("%d/%m/%Y")}  # Fecha
-                            ]
-                        }
-                    ]
-                }
-            }
-            
-            log(f"   🔄 Enviando plantilla 'jaspers_market_order_confirmation_v1'...")
-            response2 = requests.post(url, json=payload_template, headers=headers)
-            result2 = response2.json()
-            
-            log(f"   📊 Estado plantilla: {response2.status_code}")
-            if response2.status_code == 200:
-                log(f"   ✅ Plantilla enviada exitosamente")
-            else:
-                log(f"   ❌ Error plantilla: {result2}")
-            
-            return result2
+        log(f"   📊 Estado: {response.status_code}")
+        if response.status_code == 200:
+            log(f"   ✅ Éxito - Message ID: {result.get('messages', [{}])[0].get('id', 'N/A')}")
+            # WhatsApp puede normalizar el número
+            if 'contacts' in result and result['contacts']:
+                log(f"   📱 WhatsApp normalizó a: {result['contacts'][0].get('wa_id', 'N/A')}")
         else:
-            log(f"   ❌ Error diferente: {result}")
-            return result
+            log(f"   ❌ Error: {result}")
+        
+        return result
             
     except Exception as e:
-        log(f"🔥 ERROR CRÍTICO enviando mensaje: {e}")
+        log(f"🔥 ERROR: {e}")
         import traceback
         traceback.print_exc()
         return None
-
 # ========== RUTAS ==========
 @app.route("/")
 def home():
