@@ -67,6 +67,115 @@ def home():
     <p>El bot te responderá automáticamente</p>
     """, 200
 
+
+@app.route("/webhook", methods=["GET", "POST"])
+def webhook():
+    if request.method == "GET":
+        mode = request.args.get("hub.mode")
+        token = request.args.get("hub.verify_token")
+        challenge = request.args.get("hub.challenge")
+        
+        log(f"🔍 Verificación: mode={mode}, token={token}")
+        
+        if mode == "subscribe" and token == VERIFY_TOKEN:
+            log("✅ Webhook verificado por Meta")
+            return challenge, 200
+        return "Error", 403
+    
+    elif request.method == "POST":
+        log("=" * 60)
+        log("📨 ¡NUEVO MENSAJE DE WHATSAPP!")
+        log("=" * 60)
+        
+        try:
+            data = request.get_json()
+            log(f"📊 Datos recibidos: {json.dumps(data, indent=2)}")
+            
+            # VERIFICAR SI HAY MENSAJES
+            if "entry" not in data:
+                log("⚠️  No hay 'entry' en los datos")
+                return jsonify({"status": "no_entry"}), 200
+                
+            entry = data["entry"][0]
+            changes = entry.get("changes", [])
+            
+            if not changes:
+                log("⚠️  No hay 'changes' en entry")
+                return jsonify({"status": "no_changes"}), 200
+                
+            value = changes[0].get("value", {})
+            
+            # VERIFICAR SI ES UN MENSAJE O OTRO TIPO DE WEBHOOK
+            if "messages" not in value:
+                log("ℹ️  Webhook sin 'messages' (puede ser verificación o status)")
+                log(f"   Tipo de webhook: {value.keys()}")
+                return jsonify({"status": "no_messages"}), 200
+            
+            # EXTRAER INFORMACIÓN DEL MENSAJE
+            messages = value["messages"]
+            
+            if not messages:
+                log("⚠️  Lista de mensajes vacía")
+                return jsonify({"status": "empty_messages"}), 200
+                
+            from_number = messages[0]["from"]
+            message_text = messages[0]["text"]["body"]
+            
+            log(f"   👤 De: {from_number}")
+            log(f"   💬 Texto: {message_text}")
+            
+            # ========== ¡AQUÍ GENERAMOS LA RESPUESTA! ==========
+            response_text = ""
+            
+            if message_text.lower() in ["hola", "hi", "hello"]:
+                response_text = f"¡Hola! 👋\nGracias por tu mensaje: '{message_text}'\n\nSoy tu bot de WhatsApp funcionando en Render.\n\nEscribe 'ayuda' para ver comandos."
+            
+            elif message_text.lower() in ["hora", "time", "fecha"]:
+                now = datetime.now()
+                response_text = f"🕐 Fecha y hora actual:\n{now.strftime('%A, %d de %B de %Y')}\n{now.strftime('%H:%M:%S')}"
+            
+            elif message_text.lower() in ["ayuda", "help", "comandos"]:
+                response_text = "📚 Comandos disponibles:\n• Hola - Saludo\n• Hora - Fecha y hora actual\n• Ayuda - Esta ayuda\n• Cualquier texto - Eco inteligente"
+            
+            else:
+                response_text = f"✅ Mensaje recibido: '{message_text}'\n\nHe procesado tu solicitud correctamente. ¿En qué más puedo ayudarte?\n\n(Escribe 'ayuda' para ver opciones)"
+            
+            log(f"   🤖 Respuesta generada: {response_text}")
+            
+            # ========== ¡ENVIAR LA RESPUESTA A WHATSAPP! ==========
+            log("   🚀 Enviando respuesta a WhatsApp API...")
+            send_whatsapp_reply(from_number, response_text)
+            
+            log("=" * 60)
+            log("✅ Proceso completado - Respuesta enviada")
+            log("=" * 60)
+            
+            return jsonify({"status": "success", "response_sent": True}), 200
+            
+        except Exception as e:
+            log(f"❌ Error: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({"status": "error"}), 500
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
     if request.method == "GET":
