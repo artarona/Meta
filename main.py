@@ -17,7 +17,7 @@ def log(message):
     print(message, flush=True)
 
 def send_whatsapp_reply(to_number, text):
-    """Envía un mensaje de respuesta por WhatsApp usando SOLO plantilla (sandbox)"""
+    """Envía un mensaje de respuesta por WhatsApp"""
     try:
         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
         headers = {
@@ -25,31 +25,7 @@ def send_whatsapp_reply(to_number, text):
             "Content-Type": "application/json"
         }
         
-        # EN SANDBOX: Solo plantillas funcionan con números no autorizados
-        # Usamos la plantilla que sabemos funciona: jaspers_market_order_confirmation_v1
-        
-        # Preparar parámetros según el tipo de mensaje
-        if text.lower().startswith("¡hola! 👋"):
-            # Es una respuesta a "Hola"
-            user_param = "Nuevo usuario"
-            order_param = "SALUDO-001"
-            message_param = "Te damos la bienvenida"
-        elif "hora" in text.lower() or "fecha" in text.lower():
-            # Es una respuesta a "hora" o "fecha"
-            user_param = "Consulta"
-            order_param = "HORA-001"
-            message_param = datetime.now().strftime("%d/%m/%Y %H:%M")
-        elif "ayuda" in text.lower():
-            # Es una respuesta a "ayuda"
-            user_param = "Ayuda solicitada"
-            order_param = "HELP-001"
-            message_param = "Comandos disponibles"
-        else:
-            # Respuesta genérica
-            user_param = "Usuario"
-            order_param = f"MSG-{int(datetime.now().timestamp()) % 10000:04d}"
-            message_param = text[:30] + ("..." if len(text) > 30 else "")
-        
+        # USAR SOLO PLANTILLA (sandbox)
         payload = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
@@ -62,9 +38,9 @@ def send_whatsapp_reply(to_number, text):
                     {
                         "type": "body",
                         "parameters": [
-                            {"type": "text", "text": user_param},
-                            {"type": "text", "text": order_param},
-                            {"type": "text", "text": message_param}
+                            {"type": "text", "text": "Usuario"},
+                            {"type": "text", "text": "RESP-BOT"},
+                            {"type": "text", "text": f"{text[:25]}..."}
                         ]
                     }
                 ]
@@ -72,10 +48,8 @@ def send_whatsapp_reply(to_number, text):
         }
         
         log("=" * 40)
-        log(f"📤 ENVIANDO PLANTILLA (SANDBOX):")
+        log(f"📤 ENVIANDO PLANTILLA:")
         log(f"   Para: {to_number}")
-        log(f"   Plantilla: jaspers_market_order_confirmation_v1")
-        log(f"   Parámetros: {user_param}, {order_param}, {message_param}")
         log("=" * 40)
         
         response = requests.post(url, json=payload, headers=headers)
@@ -83,25 +57,15 @@ def send_whatsapp_reply(to_number, text):
         
         log(f"   📊 Estado: {response.status_code}")
         if response.status_code == 200:
-            log(f"   ✅ Éxito - Message ID: {result.get('messages', [{}])[0].get('id', 'N/A')}")
-            if 'contacts' in result and result['contacts']:
-                actual_number = result['contacts'][0].get('wa_id', 'N/A')
-                log(f"   🔄 WhatsApp normalizó a: {actual_number}")
+            log(f"   ✅ Éxito")
         else:
             log(f"   ❌ Error: {result}")
-            if response.status_code == 400 and '131030' in str(result):
-                log("   ⚠️  Error 131030 - Número necesita autorización en Meta")
-                log("      Ve a: Meta Developers → WhatsApp → Configuration")
-                log("      Busca 'Test Phone Numbers' o 'Allowed Numbers'")
         
         return result
             
     except Exception as e:
-        log(f"🔥 ERROR CRÍTICO: {e}")
-        import traceback
-        traceback.print_exc()
+        log(f"🔥 ERROR: {e}")
         return None
-
 # ========== RUTAS ==========
 @app.route("/")
 def home():
