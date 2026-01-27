@@ -4,13 +4,42 @@ import os
 import sys
 import requests
 from datetime import datetime
+import time
 
 app = Flask(__name__)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-ACCESS_TOKEN = "EAAJYsGl5pHgBQjaHEWczri3OJIQbfdf47l4CAfYPZBYGC7ZCrTxZCO1EfeRywuDkCd2DyIFBD0Dd7O6ZBQzBZCLpnurAczUCovDxr5GR0ZBvZCMSesxZB1w1MRaMrOXZCZAG2O7ZAAhgX7FYLZCI9MUunFlfOwQzyshVaux1vf9WtjoyoawNMC1ub0sFiGto4tbaUYslXhkMCjMuIw1WjKKBC35WkHiDv1s2na39ZAIJuddd92ppzviqCUnan2MWIkjieZAWynFSHyxWUpnRgQoXonI3hmsF765XKG7ZC1aOQZDZD"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQtcI1S7nVzSwpspcQIk4tNGMnq7ZB2PONLbYINTQ3pfXatZAwvqXbxDnKklTelRCrbsjvwFYk1hP9uBOIBquz3wKiQHUH9JhFuCPWX1D6sY8JHrZCaa3yYnOXxXSMRE3cvGPvXh37VaussSlQBXyC5JVqDIsJkkMpeyPmEzQwCE5HR1ZBuReg5MZBk1i1LNUaJtei5HnQVd9S6yIIOgVkWnMPZCWMkedmnFUbZCGFCzpjOiavJNHeOnK6VQzajZCbEX9zgPFdyVXbqYynMWCFoMymCcZD"
 PHONE_NUMBER_ID = "1000705633118215"
+
+# ========== CACHE PARA EVITAR DUPLICADOS ==========
+processed_messages = {}  # {message_id: timestamp}
+CACHE_MAX_SIZE = 1000
+CACHE_TTL = 300  # 5 minutos en segundos
+
+def is_message_processed(message_id):
+    """Verifica si un mensaje ya fue procesado"""
+    if message_id in processed_messages:
+        # Verificar si el cache aún es válido (TTL)
+        if time.time() - processed_messages[message_id] < CACHE_TTL:
+            return True
+        else:
+            # Eliminar entrada expirada
+            del processed_messages[message_id]
+    
+    # Limpiar cache si es muy grande
+    if len(processed_messages) > CACHE_MAX_SIZE:
+        # Eliminar las entradas más antiguas
+        oldest_ids = sorted(processed_messages.items(), key=lambda x: x[1])[:CACHE_MAX_SIZE//2]
+        for msg_id, _ in oldest_ids:
+            del processed_messages[msg_id]
+    
+    return False
+
+def mark_message_processed(message_id):
+    """Marca un mensaje como procesado"""
+    processed_messages[message_id] = time.time()
 
 def log(message):
     """Función para logging con flush automático"""
