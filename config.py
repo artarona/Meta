@@ -8,10 +8,11 @@ IMPORTANTE: En producción, usar variables de entorno para tokens sensibles.
 
 import os
 
+
 # ========== WHATSAPP API (Variables de entorno para producción) ==========
 VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN", "mi_token_secreto_123")
-ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN", "TU_ACCESS_TOKEN_AQUI")
-PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID", "TU_PHONE_NUMBER_ID")
+ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN", "EAAJYsGl5pHgBQmSH6L6cHlf2kzhSpxTa2tZBkyDZBGaq7LusFdavtFbx34VjwZAKVn1dNkhCx0XvpvhtLifA28gEuxNAohAWmGSZBykp0P8OExFprfOxHYmNtwZCZCiT33NMYgxp04tyPPPl8evOh6l1l86A2bUiKBbie20NwCSUn5ZCufqdfa0HaZAUwa4Egn4BJCCn4V2261rTOfnKsKNNvR0ZCgFi5mcEISrW9Xvkb2fgyUdCixBBJdPHZALPjyOOTf3T4jyE0JHgnoynB44EJEDWFpp0clGlyhtfQZD")
+PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID", "1000705633118215")
 
 # ========== CACHE ==========
 CACHE_MAX_SIZE = 1000
