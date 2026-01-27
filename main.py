@@ -486,6 +486,29 @@ def debug_code():
     
     return resultado
 
+@app.route("/health", methods=["GET"])
+def health_check():
+    import requests
+    from datetime import datetime
+    
+    try:
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}"
+        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+        response = requests.get(url, headers=headers, timeout=5)
+        
+        status = "healthy" if response.status_code == 200 else "unhealthy"
+        
+        return jsonify({
+            "status": status,
+            "timestamp": datetime.now().isoformat(),
+            "http_code": response.status_code,
+            "service": "whatsapp-bot"
+        })
+    except:
+        return jsonify({"status": "error"}), 500
+
+
+
 
 @app.route("/check-code", methods=["GET"])
 def check_code():
