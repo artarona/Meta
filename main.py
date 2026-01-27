@@ -314,21 +314,12 @@ def token_status():
     except Exception as e:
         return jsonify({"valid": False, "error": str(e)})
 
+
+# evitar deduplicación
+
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
-    if request.method == "GET":
-        mode = request.args.get("hub.mode")
-        token = request.args.get("hub.verify_token")
-        challenge = request.args.get("hub.challenge")
-        
-        log(f"🔍 Verificación: mode={mode}, token={token}")
-        
-        if mode == "subscribe" and token == VERIFY_TOKEN:
-            log("✅ Webhook verificado por Meta")
-            return challenge, 200
-        return "Error", 403
-    
-    elif request.method == "POST":
+    if request.method == "POST":
         log("=" * 60)
         log("📨 ¡NUEVO WEBHOOK RECIBIDO!")
         log("=" * 60)
@@ -378,7 +369,7 @@ def webhook():
             
             log(f"🔍 Tipo de webhook: {webhook_type}")
             
-            # PROCESAR MENSAJES
+            # PROCESAR MENSAJES CON DEDUPLICACIÓN
             if webhook_type != "message":
                 log(f"ℹ️  Webhook sin 'messages' (tipo: {webhook_type})")
                 return jsonify({"status": f"no_messages_{webhook_type}"}), 200
@@ -402,12 +393,23 @@ def webhook():
             message_text = messages[0]["text"]["body"]
             message_id = messages[0].get("id", "unknown")
             
+            # 🔥 ¡DEDUPLICACIÓN CRÍTICA! 🔥
+            if is_message_processed(message_id):
+                log("🔄 Mensaje DUPLICADO - Ya fue procesado")
+                log(f"   ID duplicado: {message_id}")
+                log(f"   Cache size: {len(processed_messages)}")
+                return jsonify({"status": "duplicate", "message_id": message_id}), 200
+            
+            # Marcar como procesado ANTES de continuar
+            mark_message_processed(message_id)
+            
             log("=" * 60)
-            log("📨 ¡MENSAJE PROCESADO!")
+            log("📨 ¡MENSAJE PROCESADO! (NUEVO)")
             log("=" * 60)
             log(f"   👤 De: {from_number}")
             log(f"   💬 Texto: {message_text}")
             log(f"   🆔 ID Mensaje: {message_id}")
+            log(f"   🗂️  Cache: {len(processed_messages)} mensajes procesados")
             
             # ========== GENERAR RESPUESTA ==========
             response_text = ""
@@ -444,7 +446,9 @@ def webhook():
             return jsonify({
                 "status": "success", 
                 "response_sent": send_result.get('status') == 'success',
-                "details": send_result
+                "details": send_result,
+                "message_id": message_id,
+                "cache_size": len(processed_messages)
             }), 200
             
         except KeyError as e:
@@ -459,6 +463,59 @@ def webhook():
             return jsonify({"status": "error", "error": str(e)}), 500
     
     return "Método no permitido", 405
+
+
+# endpoint para limpiar cache
+
+@app.route("/clear-cache", methods=["GET"])
+def clear_cache():
+    """Limpia la cache de mensajes procesados"""
+    global processed_messages
+    old_size = len(processed_messages)
+    processed_messages.clear()
+    
+    return jsonify({
+        "status": "cache_cleared",
+        "old_size": old_size,
+        "new_size": len(processed_messages),
+        "timestamp": datetime.now().isoformat()
+    })
+    
+@app.route("/clear-cache", methods=["GET"])
+def clear_cache():
+    """Limpia la cache de mensajes procesados"""
+    global processed_messages
+    old_size = len(processed_messages)
+    processed_messages.clear()
+    
+    return jsonify({
+        "status": "cache_cleared",
+        "old_size": old_size,
+        "new_size": len(processed_messages),
+        "timestamp": datetime.now().isoformat()
+    })
+# endpoint para ver cache
+    
+@app.route("/cache-info", methods=["GET"])
+def cache_info():
+    """Muestra información de la cache"""
+    cache_size = len(processed_messages)
+    now = time.time()
+    
+    # Calcular estadísticas
+    recent_messages = 0
+    for timestamp in processed_messages.values():
+        if now - timestamp < 60:  # Mensajes en último minuto
+            recent_messages += 1
+    
+    return jsonify({
+        "cache_size": cache_size,
+        "max_size": CACHE_MAX_SIZE,
+        "ttl_seconds": CACHE_TTL,
+        "recent_messages_last_minute": recent_messages,
+        "oldest_timestamp": min(processed_messages.values()) if processed_messages else None,
+        "newest_timestamp": max(processed_messages.values()) if processed_messages else None
+    })
 
 @app.route("/test-send", methods=["GET"])
 def test_send():
