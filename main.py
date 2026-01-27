@@ -17,7 +17,7 @@ def log(message):
     print(message, flush=True)
 
 def send_whatsapp_reply(to_number, text):
-    """Envía un mensaje de respuesta por WhatsApp usando SOLO plantilla"""
+    """Envía un mensaje de respuesta por WhatsApp usando SOLO plantilla (sandbox)"""
     try:
         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
         headers = {
@@ -25,7 +25,31 @@ def send_whatsapp_reply(to_number, text):
             "Content-Type": "application/json"
         }
         
-        # Usar SOLO plantilla (sabemos que funciona para este número)
+        # EN SANDBOX: Solo plantillas funcionan con números no autorizados
+        # Usamos la plantilla que sabemos funciona: jaspers_market_order_confirmation_v1
+        
+        # Preparar parámetros según el tipo de mensaje
+        if text.lower().startswith("¡hola! 👋"):
+            # Es una respuesta a "Hola"
+            user_param = "Nuevo usuario"
+            order_param = "SALUDO-001"
+            message_param = "Te damos la bienvenida"
+        elif "hora" in text.lower() or "fecha" in text.lower():
+            # Es una respuesta a "hora" o "fecha"
+            user_param = "Consulta"
+            order_param = "HORA-001"
+            message_param = datetime.now().strftime("%d/%m/%Y %H:%M")
+        elif "ayuda" in text.lower():
+            # Es una respuesta a "ayuda"
+            user_param = "Ayuda solicitada"
+            order_param = "HELP-001"
+            message_param = "Comandos disponibles"
+        else:
+            # Respuesta genérica
+            user_param = "Usuario"
+            order_param = f"MSG-{int(datetime.now().timestamp()) % 10000:04d}"
+            message_param = text[:30] + ("..." if len(text) > 30 else "")
+        
         payload = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
@@ -38,9 +62,9 @@ def send_whatsapp_reply(to_number, text):
                     {
                         "type": "body",
                         "parameters": [
-                            {"type": "text", "text": f"Usuario"},  # Nombre
-                            {"type": "text", "text": "RESPUESTA"},  # Orden #
-                            {"type": "text", "text": f"Bot: {text[:30]}..."}  # Mensaje truncado
+                            {"type": "text", "text": user_param},
+                            {"type": "text", "text": order_param},
+                            {"type": "text", "text": message_param}
                         ]
                     }
                 ]
@@ -48,9 +72,10 @@ def send_whatsapp_reply(to_number, text):
         }
         
         log("=" * 40)
-        log(f"📤 ENVIANDO PLANTILLA DIRECTA:")
+        log(f"📤 ENVIANDO PLANTILLA (SANDBOX):")
         log(f"   Para: {to_number}")
         log(f"   Plantilla: jaspers_market_order_confirmation_v1")
+        log(f"   Parámetros: {user_param}, {order_param}, {message_param}")
         log("=" * 40)
         
         response = requests.post(url, json=payload, headers=headers)
@@ -59,29 +84,34 @@ def send_whatsapp_reply(to_number, text):
         log(f"   📊 Estado: {response.status_code}")
         if response.status_code == 200:
             log(f"   ✅ Éxito - Message ID: {result.get('messages', [{}])[0].get('id', 'N/A')}")
-            # WhatsApp puede normalizar el número
             if 'contacts' in result and result['contacts']:
-                log(f"   📱 WhatsApp normalizó a: {result['contacts'][0].get('wa_id', 'N/A')}")
+                actual_number = result['contacts'][0].get('wa_id', 'N/A')
+                log(f"   🔄 WhatsApp normalizó a: {actual_number}")
         else:
             log(f"   ❌ Error: {result}")
+            if response.status_code == 400 and '131030' in str(result):
+                log("   ⚠️  Error 131030 - Número necesita autorización en Meta")
+                log("      Ve a: Meta Developers → WhatsApp → Configuration")
+                log("      Busca 'Test Phone Numbers' o 'Allowed Numbers'")
         
         return result
             
     except Exception as e:
-        log(f"🔥 ERROR: {e}")
+        log(f"🔥 ERROR CRÍTICO: {e}")
         import traceback
         traceback.print_exc()
         return None
+
 # ========== RUTAS ==========
 @app.route("/")
 def home():
     return """
-    <h1>🤖 WhatsApp Bot RESPONDIENDO</h1>
-    <p><strong>Estado:</strong> ✅ Bot activo con respuestas automáticas</p>
-    <p><strong>Envía "Hola" al +1 555 149 2382</strong></p>
-    <p>El bot responderá con plantilla (sandbox)</p>
-    <p><strong>Token:</strong> ✅ Funcionando</p>
-    <p><strong>Plantilla disponible:</strong> jaspers_market_order_confirmation_v1</p>
+    <h1>🤖 WhatsApp Bot RESPONDIENDO (SANDBOX)</h1>
+    <p><strong>Estado:</strong> ✅ Bot activo usando plantillas</p>
+    <p><strong>Envía cualquier mensaje al +1 555 149 2382</strong></p>
+    <p>El bot responderá con plantilla de confirmación</p>
+    <p><strong>Modo:</strong> Sandbox (solo plantillas funcionan)</p>
+    <p><strong>Plantilla:</strong> jaspers_market_order_confirmation_v1</p>
     """, 200
 
 @app.route("/webhook", methods=["GET", "POST"])
@@ -106,50 +136,50 @@ def webhook():
         try:
             data = request.get_json()
             
-            # Log básico de estructura
+            # Log básico
             if "object" in data:
                 log(f"   Object: {data['object']}")
             if "entry" in data and data["entry"]:
-                log(f"   Entries recibidas: {len(data['entry'])}")
+                log(f"   Entries: {len(data['entry'])}")
             
-            # VERIFICAR SI HAY MENSAJES
+            # VERIFICAR ESTRUCTURA
             if "entry" not in data or not data["entry"]:
-                log("⚠️  No hay 'entry' en los datos")
+                log("⚠️  No hay 'entry'")
                 return jsonify({"status": "no_entry"}), 200
                 
             entry = data["entry"][0]
             
             if "changes" not in entry or not entry["changes"]:
-                log("⚠️  No hay 'changes' en entry")
+                log("⚠️  No hay 'changes'")
                 return jsonify({"status": "no_changes"}), 200
                 
             value = entry["changes"][0].get("value", {})
             
-            # VERIFICAR SI ES UN MENSAJE
+            # VERIFICAR SI ES MENSAJE
             if "messages" not in value:
-                log("ℹ️  Webhook sin 'messages' (puede ser status)")
+                log("ℹ️  Webhook sin 'messages'")
                 return jsonify({"status": "no_messages"}), 200
             
             messages = value["messages"]
             
             if not messages:
-                log("⚠️  Lista de mensajes vacía")
+                log("⚠️  Mensajes vacíos")
                 return jsonify({"status": "empty_messages"}), 200
                 
-            # Extraer información
+            # EXTRAER INFORMACIÓN
             if "from" not in messages[0]:
-                log("⚠️  Mensaje sin remitente")
+                log("⚠️  Sin remitente")
                 return jsonify({"status": "no_sender"}), 200
                 
             if "text" not in messages[0]:
-                log("⚠️  Mensaje sin texto (puede ser multimedia)")
+                log("⚠️  Mensaje sin texto")
                 return jsonify({"status": "no_text"}), 200
             
             from_number = messages[0]["from"]
             message_text = messages[0]["text"]["body"]
             
             log("=" * 60)
-            log("📨 ¡NUEVO MENSAJE DE WHATSAPP!")
+            log("📨 ¡MENSAJE PROCESADO!")
             log("=" * 60)
             log(f"   👤 De: {from_number}")
             log(f"   💬 Texto: {message_text}")
@@ -158,22 +188,22 @@ def webhook():
             response_text = ""
             
             if message_text.lower() in ["hola", "hi", "hello", "holaaaa"]:
-                response_text = f"¡Hola! 👋\nGracias por tu mensaje: '{message_text}'\n\nSoy tu bot de WhatsApp funcionando en Render.\n\nEscribe 'ayuda' para ver comandos."
+                response_text = f"¡Hola! 👋\nGracias por tu mensaje: '{message_text}'"
             
             elif message_text.lower() in ["hora", "time", "fecha"]:
                 now = datetime.now()
-                response_text = f"🕐 Fecha y hora actual:\n{now.strftime('%A, %d de %B de %Y')}\n{now.strftime('%H:%M:%S')}"
+                response_text = f"🕐 Fecha y hora: {now.strftime('%d/%m/%Y %H:%M:%S')}"
             
             elif message_text.lower() in ["ayuda", "help", "comandos"]:
-                response_text = "📚 Comandos disponibles:\n• Hola - Saludo\n• Hora - Fecha y hora actual\n• Ayuda - Esta ayuda\n• Cualquier texto - Eco inteligente"
+                response_text = "📚 Comandos: Hola, Hora, Ayuda"
             
             else:
-                response_text = f"✅ Mensaje recibido: '{message_text}'\n\nHe procesado tu solicitud correctamente. ¿En qué más puedo ayudarte?\n\n(Escribe 'ayuda' para ver opciones)"
+                response_text = f"✅ Mensaje: '{message_text}'"
             
             log(f"   🤖 Respuesta generada: {response_text}")
             
-            # ========== ENVIAR RESPUESTA ==========
-            log("   🚀 Enviando respuesta a WhatsApp API...")
+            # ========== ENVIAR RESPUESTA (SOLO PLANTILLA) ==========
+            log("   🚀 Enviando plantilla...")
             send_whatsapp_reply(from_number, response_text)
             
             log("=" * 60)
@@ -184,7 +214,7 @@ def webhook():
             
         except KeyError as e:
             log(f"❌ Error de clave: {e}")
-            return jsonify({"status": "key_error", "error": str(e)}), 200
+            return jsonify({"status": "key_error"}), 200
             
         except Exception as e:
             log(f"❌ Error general: {e}")
@@ -198,15 +228,16 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     
     log("=" * 60)
-    log("🚀 WHATSAPP BOT CON RESPUESTAS AUTOMÁTICAS")
+    log("🚀 WHATSAPP BOT - MODO SANDBOX")
     log("=" * 60)
     log(f"📞 Número Sandbox: +1 555 149 2382")
     log(f"🔑 Token: {VERIFY_TOKEN}")
     log(f"🌐 URL: https://meta-chat-npbx.onrender.com")
     log(f"📱 Phone Number ID: {PHONE_NUMBER_ID}")
     log("=" * 60)
-    log("✅ Bot activo - Usando plantilla para respuestas")
-    log("   Envía 'Hola' al +1 555 149 2382")
+    log("✅ Bot activo - Usando SOLO plantillas")
+    log("   Plantilla: jaspers_market_order_confirmation_v1")
+    log("   Envía mensaje al +1 555 149 2382")
     log("=" * 60)
     
     app.run(host="0.0.0.0", port=port, debug=False)
