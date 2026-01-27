@@ -48,6 +48,16 @@ def send_whatsapp_reply(to_number, text):
             log(f"   📨 Mensaje ID: {result.get('messages', [{}])[0].get('id', 'Desconocido')}")
         else:
             log(f"   ❌ Error: {result}")
+            
+            # Manejo específico de errores comunes
+            if response.status_code == 401:
+                log("   ⚠️  TOKEN EXPIRADO - Necesitas generar nuevo token:")
+                log("      https://developers.facebook.com/apps/")
+                log("      WhatsApp → API Setup → Generate new token")
+            elif response.status_code == 400 and '131030' in str(result):
+                log("   ⚠️  NÚMERO NO AUTORIZADO - Agrega el número a lista blanca:")
+                log("      Meta Developers → WhatsApp → Configuration")
+                log("      Busca 'Test Phone Numbers' o 'Allowed Numbers'")
         
         return result
         
@@ -65,8 +75,9 @@ def home():
     <p><strong>Estado:</strong> ✅ Bot activo con respuestas automáticas</p>
     <p><strong>Envía "Hola" al +1 555 149 2382</strong></p>
     <p>El bot te responderá automáticamente</p>
+    <p><strong>Token actualizado:</strong> ✅ Funcionando</p>
+    <p><strong>Última actualización:</strong> 27/01/2026</p>
     """, 200
-
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
@@ -84,32 +95,40 @@ def webhook():
     
     elif request.method == "POST":
         log("=" * 60)
-        log("📨 ¡NUEVO MENSAJE DE WHATSAPP!")
+        log("📨 ¡NUEVO WEBHOOK RECIBIDO!")
         log("=" * 60)
         
         try:
             data = request.get_json()
-            log(f"📊 Datos recibidos: {json.dumps(data, indent=2)}")
+            
+            # Log detallado para diagnóstico
+            log("📊 Datos recibidos (estructura):")
+            log(f"   Tiene 'object': {'object' in data}")
+            log(f"   Tiene 'entry': {'entry' in data}")
+            
+            if "entry" in data and data["entry"]:
+                log(f"   Entries: {len(data['entry'])}")
+                if "changes" in data["entry"][0]:
+                    log(f"   Changes: {len(data['entry'][0]['changes'])}")
             
             # VERIFICAR SI HAY MENSAJES
-            if "entry" not in data:
-                log("⚠️  No hay 'entry' en los datos")
-                return jsonify({"status": "no_entry"}), 200
+            if "entry" not in data or not data["entry"]:
+                log("⚠️  No hay 'entry' en los datos o está vacío")
+                return jsonify({"status": "no_entry", "message": "No entry data"}), 200
                 
             entry = data["entry"][0]
-            changes = entry.get("changes", [])
             
-            if not changes:
+            if "changes" not in entry or not entry["changes"]:
                 log("⚠️  No hay 'changes' en entry")
-                return jsonify({"status": "no_changes"}), 200
+                return jsonify({"status": "no_changes", "message": "No changes data"}), 200
                 
-            value = changes[0].get("value", {})
+            value = entry["changes"][0].get("value", {})
             
             # VERIFICAR SI ES UN MENSAJE O OTRO TIPO DE WEBHOOK
             if "messages" not in value:
                 log("ℹ️  Webhook sin 'messages' (puede ser verificación o status)")
-                log(f"   Tipo de webhook: {value.keys()}")
-                return jsonify({"status": "no_messages"}), 200
+                log(f"   Campos disponibles: {list(value.keys())}")
+                return jsonify({"status": "no_messages", "type": "other_webhook"}), 200
             
             # EXTRAER INFORMACIÓN DEL MENSAJE
             messages = value["messages"]
@@ -118,16 +137,28 @@ def webhook():
                 log("⚠️  Lista de mensajes vacía")
                 return jsonify({"status": "empty_messages"}), 200
                 
+            # Verificar estructura del mensaje
+            if "from" not in messages[0]:
+                log("⚠️  Mensaje sin campo 'from'")
+                return jsonify({"status": "no_sender"}), 200
+                
+            if "text" not in messages[0]:
+                log("⚠️  Mensaje sin campo 'text' (puede ser multimedia)")
+                return jsonify({"status": "no_text", "type": "media_message"}), 200
+            
             from_number = messages[0]["from"]
             message_text = messages[0]["text"]["body"]
             
+            log("=" * 60)
+            log("📨 ¡NUEVO MENSAJE DE WHATSAPP!")
+            log("=" * 60)
             log(f"   👤 De: {from_number}")
             log(f"   💬 Texto: {message_text}")
             
             # ========== ¡AQUÍ GENERAMOS LA RESPUESTA! ==========
             response_text = ""
             
-            if message_text.lower() in ["hola", "hi", "hello"]:
+            if message_text.lower() in ["hola", "hi", "hello", "holaaaa"]:
                 response_text = f"¡Hola! 👋\nGracias por tu mensaje: '{message_text}'\n\nSoy tu bot de WhatsApp funcionando en Render.\n\nEscribe 'ayuda' para ver comandos."
             
             elif message_text.lower() in ["hora", "time", "fecha"]:
@@ -152,93 +183,18 @@ def webhook():
             
             return jsonify({"status": "success", "response_sent": True}), 200
             
-        except Exception as e:
-            log(f"❌ Error: {e}")
-            import traceback
-            traceback.print_exc()
-            return jsonify({"status": "error"}), 500
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-@app.route("/webhook", methods=["GET", "POST"])
-def webhook():
-    if request.method == "GET":
-        mode = request.args.get("hub.mode")
-        token = request.args.get("hub.verify_token")
-        challenge = request.args.get("hub.challenge")
-        
-        log(f"🔍 Verificación: mode={mode}, token={token}")
-        
-        if mode == "subscribe" and token == VERIFY_TOKEN:
-            log("✅ Webhook verificado por Meta")
-            return challenge, 200
-        return "Error", 403
-    
-    elif request.method == "POST":
-        log("=" * 60)
-        log("📨 ¡NUEVO MENSAJE DE WHATSAPP!")
-        log("=" * 60)
-        
-        try:
-            data = request.get_json()
-            
-            # Extraer información del mensaje
-            messages = data["entry"][0]["changes"][0]["value"]["messages"]
-            from_number = messages[0]["from"]
-            message_text = messages[0]["text"]["body"].strip('"')  # Quitar comillas
-            
-            log(f"   👤 De: {from_number}")
-            log(f"   💬 Texto: {message_text}")
-            
-            # ========== ¡AQUÍ GENERAMOS LA RESPUESTA! ==========
-            response_text = ""
-            
-            if message_text.lower() in ["hola", "hi", "hello"]:
-                response_text = f"¡Hola! 👋\nGracias por tu mensaje: '{message_text}'\n\nSoy tu bot de WhatsApp funcionando en Render.\n\nEscribe 'ayuda' para ver comandos."
-            
-            elif message_text.lower() in ["hora", "time", "fecha"]:
-                now = datetime.now()
-                response_text = f"🕐 Fecha y hora actual:\n{now.strftime('%A, %d de %B de %Y')}\n{now.strftime('%H:%M:%S')}"
-            
-            elif message_text.lower() in ["ayuda", "help", "comandos"]:
-                response_text = "📚 Comandos disponibles:\n• Hola - Saludo\n• Hora - Fecha y hora actual\n• Ayuda - Esta ayuda\n• Cualquier texto - Eco inteligente"
-            
-            else:
-                response_text = f"✅ Mensaje recibido: '{message_text}'\n\nHe procesado tu solicitud correctamente. ¿En qué más puedo ayudarte?\n\n(Escribe 'ayuda' para ver opciones)"
-            
-            log(f"   🤖 Respuesta generada: {response_text}")
-            
-            # ========== ¡ENVIAR LA RESPUESTA A WHATSAPP! ==========
-            log("   🚀 Enviando respuesta a WhatsApp API...")
-            send_whatsapp_reply(from_number, response_text)
-            
-            log("=" * 60)
-            log("✅ Proceso completado - Respuesta enviada")
-            log("=" * 60)
-            
-            return jsonify({"status": "success", "response_sent": True}), 200
+        except KeyError as e:
+            log(f"❌ Error de clave faltante: {e}")
+            log("📊 Datos completos recibidos:")
+            log(json.dumps(request.get_json(), indent=2))
+            return jsonify({"status": "key_error", "error": str(e)}), 200
             
         except Exception as e:
-            log(f"❌ Error: {e}")
+            log(f"❌ Error general: {e}")
             import traceback
+            log("🔍 Traceback completo:")
             traceback.print_exc()
-            return jsonify({"status": "error"}), 500
+            return jsonify({"status": "error", "message": str(e)}), 500
     
     return "Método no permitido", 405
 
@@ -251,6 +207,7 @@ if __name__ == "__main__":
     log(f"📞 Número Sandbox: +1 555 149 2382")
     log(f"🔑 Token: {VERIFY_TOKEN}")
     log(f"🌐 URL: https://meta-chat-npbx.onrender.com")
+    log(f"📱 Phone Number ID: {PHONE_NUMBER_ID}")
     log("=" * 60)
     log("✅ Listo para recibir y RESPONDER mensajes")
     log("   Envía 'Hola' al +1 555 149 2382")
