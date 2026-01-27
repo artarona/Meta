@@ -453,6 +453,42 @@ def test_send():
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500
 
+@app.route("/debug-code", methods=["GET"])
+def debug_code():
+    """Endpoint para verificar qué código está ejecutando Render"""
+    import inspect
+    
+    # Obtener código fuente de send_whatsapp_reply
+    source = inspect.getsource(send_whatsapp_reply)
+    
+    verificaciones = {
+        "Tiene transform_number_for_sandbox": "transform_number_for_sandbox" in source,
+        "Usa numero_transformado": '"to": numero_transformado' in source,
+        "Tiene logs de transformación": "TRANSFORMACIÓN DE NÚMERO" in source,
+        "Token empieza correcto": ACCESS_TOKEN.startswith("EAAJYsGl5pHgBQtcI1S7nVzSw"),
+        "Función completa": len(source) > 1000  # La nueva es larga
+    }
+    
+    resultado = "<h1>🔍 DEBUG CÓDIGO EN RENDER</h1>"
+    resultado += "<h3>Verificaciones:</h3><ul>"
+    
+    for check, value in verificaciones.items():
+        color = "green" if value else "red"
+        icon = "✅" if value else "❌"
+        resultado += f"<li style='color:{color}'>{icon} {check}: {value}</li>"
+    
+    resultado += "</ul>"
+    resultado += "<h3>Primeros 500 chars de la función:</h3>"
+    resultado += f"<pre>{source[:500]}...</pre>"
+    
+    resultado += f"<h3>Token (primeros 50):</h3><pre>{ACCESS_TOKEN[:50]}...</pre>"
+    resultado += f"<h3>Longitud función:</h3><pre>{len(source)} caracteres</pre>"
+    
+    return resultado
+
+
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     
