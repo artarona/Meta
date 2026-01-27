@@ -1,3 +1,5 @@
+[file name]: main.py
+[file content begin]
 from flask import Flask, request, jsonify
 import json
 import os
@@ -5,6 +7,7 @@ import sys
 import requests
 from datetime import datetime
 import time
+import hashlib
 
 app = Flask(__name__)
 
@@ -13,37 +16,88 @@ VERIFY_TOKEN = "mi_token_secreto_123"
 ACCESS_TOKEN = "EAAJYsGl5pHgBQk94L32bqm7PJZCRSxFCA9dh1ZB2L9P1tSatj4wg3A5ff9MihLUhdJSFKqEMFzEo26B2xAAXmewZA94Aq0cnRqId0aeoAxUPEQFShtZCzSaZBoWGSTgfNhJZCI1Agh6CqZCKBBTYDxQmFKkYaQhK5HSS9ZBx8LaX2tZCQNm0g5ED4Lrs40hh1kYTRHyzrTRZBtL0sYZCydrSaebXV7JNP6t9rspZAcSO7RUqve0UmcbleG2ZCD5NaJnLU8rI83bY8FpA2zePOAZBaRaseVz5EBt6WZAqOfMVgZDZD"
 PHONE_NUMBER_ID = "1000705633118215"
 
-# ========== CACHE PARA EVITAR DUPLICADOS ==========
-processed_messages = {}  # {message_id: timestamp}
+# ========== CACHE MEJORADO PARA DEDUPLICACIÓN ==========
+processed_messages = {}  # {message_hash: timestamp}
 CACHE_MAX_SIZE = 1000
 CACHE_TTL = 300  # 5 minutos en segundos
-
-def is_message_processed(message_id):
-    """Verifica si un mensaje ya fue procesado"""
-    if message_id in processed_messages:
-        # Verificar si el cache aún es válido (TTL)
-        if time.time() - processed_messages[message_id] < CACHE_TTL:
-            return True
-        else:
-            # Eliminar entrada expirada
-            del processed_messages[message_id]
-    
-    # Limpiar cache si es muy grande
-    if len(processed_messages) > CACHE_MAX_SIZE:
-        # Eliminar las entradas más antiguas
-        oldest_ids = sorted(processed_messages.items(), key=lambda x: x[1])[:CACHE_MAX_SIZE//2]
-        for msg_id, _ in oldest_ids:
-            del processed_messages[msg_id]
-    
-    return False
-
-def mark_message_processed(message_id):
-    """Marca un mensaje como procesado"""
-    processed_messages[message_id] = time.time()
 
 def log(message):
     """Función para logging con flush automático"""
     print(message, flush=True)
+
+def generate_message_hash(webhook_data):
+    """
+    Genera un hash único para cualquier tipo de webhook
+    """
+    try:
+        # Para webhooks de mensaje
+        if "messages" in webhook_data and webhook_data["messages"]:
+            message = webhook_data["messages"][0]
+            message_id = message.get("id", "unknown")
+            timestamp = message.get("timestamp", "0")
+            from_number = message.get("from", "unknown")
+            
+            hash_string = f"msg_{message_id}_{timestamp}_{from_number}"
+            return hashlib.md5(hash_string.encode()).hexdigest()
+        
+        # Para webhooks de estado
+        elif "statuses" in webhook_data and webhook_data["statuses"]:
+            status = webhook_data["statuses"][0]
+            status_id = status.get("id", "unknown")
+            status_type = status.get("status", "unknown")
+            timestamp = status.get("timestamp", "0")
+            
+            hash_string = f"status_{status_id}_{status_type}_{timestamp}"
+            return hashlib.md5(hash_string.encode()).hexdigest()
+        
+        # Para webhooks de error
+        elif "errors" in webhook_data:
+            hash_string = f"error_{time.time()}"
+            return hashlib.md5(hash_string.encode()).hexdigest()
+        
+        else:
+            return hashlib.md5(str(webhook_data).encode()).hexdigest()
+            
+    except Exception as e:
+        return hashlib.md5(str(time.time()).encode()).hexdigest()
+
+def is_duplicate_webhook(webhook_data):
+    """Verifica si un webhook ya fue procesado"""
+    message_hash = generate_message_hash(webhook_data)
+    
+    if message_hash in processed_messages:
+        if time.time() - processed_messages[message_hash] < CACHE_TTL:
+            log(f"   🔄 Webhook DUPLICADO detectado (hash: {message_hash[:8]}...)")
+            return True, message_hash
+        else:
+            del processed_messages[message_hash]
+    
+    # Limpiar cache si es muy grande
+    if len(processed_messages) > CACHE_MAX_SIZE:
+        clean_old_cache()
+    
+    return False, message_hash
+
+def mark_webhook_processed(message_hash):
+    """Marca un webhook como procesado"""
+    processed_messages[message_hash] = time.time()
+
+def clean_old_cache():
+    """Limpia entradas antiguas del cache"""
+    current_time = time.time()
+    old_entries = 0
+    
+    keys_to_delete = []
+    for msg_hash, timestamp in processed_messages.items():
+        if current_time - timestamp > CACHE_TTL:
+            keys_to_delete.append(msg_hash)
+            old_entries += 1
+    
+    for key in keys_to_delete:
+        del processed_messages[key]
+    
+    if old_entries > 0:
+        log(f"   🧹 Cache limpiado: {old_entries} entradas antiguas removidas")
 
 def test_token_validity():
     """Testea si el token es válido al iniciar"""
@@ -67,7 +121,6 @@ def test_token_validity():
             log(f"❌ ERROR CON TOKEN: Status {response.status_code}")
             log(f"   Detalle: {json.dumps(error_data, indent=2)}")
             
-            # Mostrar primeros 50 chars del token para debug
             token_preview = ACCESS_TOKEN[:50] + "..." if len(ACCESS_TOKEN) > 50 else ACCESS_TOKEN
             log(f"   Token usado: {token_preview}")
         
@@ -80,18 +133,10 @@ def test_token_validity():
         traceback.print_exc()
         return False
 
-
-
-
-
 def send_whatsapp_reply(to_number, text):
     """Envía un mensaje de respuesta por WhatsApp usando plantilla"""
     try:
         # ========== TRANSFORMACIÓN DE NÚMERO PARA SANDBOX ==========
-        # Meta Sandbox transforma los números automáticamente
-        # Original: 5491151511579 → Transformado: 54111551511579
-        # Para que la respuesta llegue al número correcto, debemos usar el formato transformado
-        
         def transform_number_for_sandbox(original_number):
             """Transforma número para formato sandbox de Meta"""
             if original_number == "5491151511579":
@@ -146,11 +191,10 @@ def send_whatsapp_reply(to_number, text):
             param3 = text[:30] + ("..." if len(text) > 30 else "")
         
         # ========== CONSTRUIR PAYLOAD ==========
-        # Usar la MISMA estructura que probamos y funciona
         payload = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
-            "to": numero_transformado,  # ¡NÚMERO TRANSFORMADO!
+            "to": numero_transformado,
             "type": "template",
             "template": {
                 "name": "jaspers_market_order_confirmation_v1",
@@ -192,12 +236,10 @@ def send_whatsapp_reply(to_number, text):
         
         # ========== MANEJAR RESPUESTA ==========
         if response.status_code == 200:
-            # ¡ÉXITO!
             message_id = result.get('messages', [{}])[0].get('id', 'N/A')
             log(f"   ✅ MENSAJE ENVIADO EXITOSAMENTE")
             log(f"   🆔 ID del mensaje: {message_id}")
             
-            # Información adicional de WhatsApp
             if 'contacts' in result and result['contacts']:
                 contacto = result['contacts'][0]
                 waid = contacto.get('wa_id', 'N/A')
@@ -216,7 +258,6 @@ def send_whatsapp_reply(to_number, text):
             }
             
         else:
-            # ERROR
             error_data = result.get('error', {})
             error_code = error_data.get('code', 'N/A')
             error_message = error_data.get('message', 'Error desconocido')
@@ -227,7 +268,6 @@ def send_whatsapp_reply(to_number, text):
             log(f"   🔴 Tipo: {error_type}")
             log(f"   🔴 Mensaje: {error_message}")
             
-            # Manejo específico de errores comunes
             if error_code == 131030:
                 log(f"   ⚠️  PROBLEMA: Número no autorizado en sandbox")
                 log(f"   💡 SOLUCIÓN: Agrega {to_number} a 'Números de prueba' en Meta")
@@ -276,7 +316,8 @@ def send_whatsapp_reply(to_number, text):
             "error": str(e),
             "details": "Error inesperado en send_whatsapp_reply"
         }
-# ========== RUTAS ==========
+
+# ========== RUTAS PRINCIPALES ==========
 @app.route("/")
 def home():
     return """
@@ -286,7 +327,9 @@ def home():
     <p>El bot responderá con plantilla de confirmación</p>
     <p><strong>Modo:</strong> Sandbox (solo plantillas funcionan)</p>
     <p><strong>Plantilla:</strong> jaspers_market_order_confirmation_v1</p>
+    <p><strong>Sistema de deduplicación:</strong> ACTIVADO ✅</p>
     <p><strong>Token status:</strong> <span id="tokenStatus">Verificando...</span></p>
+    <p><a href="/cache-info">Ver estado de cache</a> | <a href="/clear-cache">Limpiar cache</a></p>
     <script>
         fetch('/token-status').then(r => r.json()).then(data => {
             document.getElementById('tokenStatus').textContent = 
@@ -294,28 +337,6 @@ def home():
         });
     </script>
     """, 200
-
-@app.route("/token-status")
-def token_status():
-    """Endpoint para verificar estado del token"""
-    try:
-        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}"
-        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
-        response = requests.get(url, headers=headers, timeout=5)
-        
-        if response.status_code == 200:
-            return jsonify({"valid": True, "status": response.status_code})
-        else:
-            return jsonify({
-                "valid": False, 
-                "status": response.status_code,
-                "error": response.json() if response.content else "No response"
-            })
-    except Exception as e:
-        return jsonify({"valid": False, "error": str(e)})
-
-
-# evitar deduplicación
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
@@ -342,7 +363,7 @@ def webhook():
             
             # VERIFICAR ESTRUCTURA
             if "entry" not in data or not data["entry"]:
-                log("ℹ️  Webhook sin 'entry' - podría ser notificación de estado")
+                log("ℹ️  Webhook sin 'entry'")
                 return jsonify({"status": "no_entry", "type": "status_notification"}), 200
                 
             entry = data["entry"][0]
@@ -353,6 +374,28 @@ def webhook():
                 
             value = entry["changes"][0].get("value", {})
             
+            # 🔥 ¡DEDUPLICACIÓN ANTES DE PROCESAR! 🔥
+            webhook_hash_data = {
+                "entry_id": entry.get("id", "unknown"),
+                "value": value
+            }
+            
+            is_duplicate, webhook_hash = is_duplicate_webhook(webhook_hash_data)
+            
+            if is_duplicate:
+                log("🔄 Webhook DUPLICADO - Ignorando procesamiento")
+                log(f"   Hash: {webhook_hash[:16]}...")
+                log(f"   Cache size: {len(processed_messages)}")
+                return jsonify({
+                    "status": "duplicate", 
+                    "hash": webhook_hash,
+                    "cache_size": len(processed_messages)
+                }), 200
+            
+            # Marcar como procesado ANTES de continuar
+            mark_webhook_processed(webhook_hash)
+            log(f"   ✅ Webhook marcado como procesado (hash: {webhook_hash[:16]}...)")
+            
             # DETECTAR TIPO DE WEBHOOK
             webhook_type = "unknown"
             
@@ -360,19 +403,30 @@ def webhook():
                 webhook_type = "message"
             elif "statuses" in value:
                 webhook_type = "status"
-                log(f"📊 Webhook de ESTADO: {value.get('statuses', [{}])[0].get('status', 'unknown')}")
-                return jsonify({"status": "message_status", "type": webhook_type}), 200
+                status_info = value.get('statuses', [{}])[0]
+                log(f"📊 Webhook de ESTADO: {status_info.get('status', 'unknown')}")
+                log(f"   ID: {status_info.get('id', 'N/A')}")
+                log(f"   Recipient: {status_info.get('recipient_id', 'N/A')}")
+                
+                return jsonify({
+                    "status": "message_status", 
+                    "type": webhook_type,
+                    "message_status": status_info.get('status'),
+                    "hash": webhook_hash
+                }), 200
+                
             elif "errors" in value:
                 webhook_type = "error"
-                log(f"❌ Webhook de ERROR: {value.get('errors')}")
+                error_info = value.get('errors', [{}])[0]
+                log(f"❌ Webhook de ERROR: {error_info.get('message', 'unknown')}")
                 return jsonify({"status": "error", "type": webhook_type}), 200
             
             log(f"🔍 Tipo de webhook: {webhook_type}")
             
-            # PROCESAR MENSAJES CON DEDUPLICACIÓN
+            # PROCESAR SOLO MENSAJES
             if webhook_type != "message":
-                log(f"ℹ️  Webhook sin 'messages' (tipo: {webhook_type})")
-                return jsonify({"status": f"no_messages_{webhook_type}"}), 200
+                log(f"ℹ️  Webhook de tipo '{webhook_type}' - ignorando")
+                return jsonify({"status": f"non_message_{webhook_type}"}), 200
             
             messages = value["messages"]
             
@@ -387,21 +441,11 @@ def webhook():
                 
             if "text" not in messages[0]:
                 log("⚠️  Mensaje sin texto")
-                return jsonify({"status": "no_text"})
+                return jsonify({"status": "no_text"}), 200
             
             from_number = messages[0]["from"]
             message_text = messages[0]["text"]["body"]
             message_id = messages[0].get("id", "unknown")
-            
-            # 🔥 ¡DEDUPLICACIÓN CRÍTICA! 🔥
-            if is_message_processed(message_id):
-                log("🔄 Mensaje DUPLICADO - Ya fue procesado")
-                log(f"   ID duplicado: {message_id}")
-                log(f"   Cache size: {len(processed_messages)}")
-                return jsonify({"status": "duplicate", "message_id": message_id}), 200
-            
-            # Marcar como procesado ANTES de continuar
-            mark_message_processed(message_id)
             
             log("=" * 60)
             log("📨 ¡MENSAJE PROCESADO! (NUEVO)")
@@ -441,6 +485,7 @@ def webhook():
                 log(f"   ID: {send_result.get('message_id')}")
             else:
                 log(f"   ❌ Error: {send_result.get('error')}")
+            log(f"   🔑 Webhook Hash: {webhook_hash[:16]}...")
             log("=" * 60)
             
             return jsonify({
@@ -448,12 +493,12 @@ def webhook():
                 "response_sent": send_result.get('status') == 'success',
                 "details": send_result,
                 "message_id": message_id,
+                "webhook_hash": webhook_hash,
                 "cache_size": len(processed_messages)
             }), 200
             
         except KeyError as e:
             log(f"❌ Error de clave en webhook: {e}")
-            log(f"   Data disponible: {list(data.keys()) if 'data' in locals() else 'no data'}")
             return jsonify({"status": "key_error", "missing_key": str(e)}), 200
             
         except Exception as e:
@@ -464,8 +509,24 @@ def webhook():
     
     return "Método no permitido", 405
 
-
-# endpoint para limpiar cache
+@app.route("/token-status")
+def token_status():
+    """Endpoint para verificar estado del token"""
+    try:
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}"
+        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+        response = requests.get(url, headers=headers, timeout=5)
+        
+        if response.status_code == 200:
+            return jsonify({"valid": True, "status": response.status_code})
+        else:
+            return jsonify({
+                "valid": False, 
+                "status": response.status_code,
+                "error": response.json() if response.content else "No response"
+            })
+    except Exception as e:
+        return jsonify({"valid": False, "error": str(e)})
 
 @app.route("/clear-cache", methods=["GET"])
 def clear_cache():
@@ -481,27 +542,33 @@ def clear_cache():
         "timestamp": datetime.now().isoformat()
     })
 
-# endpoint para ver cache
-    
 @app.route("/cache-info", methods=["GET"])
 def cache_info():
     """Muestra información de la cache"""
     cache_size = len(processed_messages)
     now = time.time()
     
-    # Calcular estadísticas
     recent_messages = 0
-    for timestamp in processed_messages.values():
-        if now - timestamp < 60:  # Mensajes en último minuto
-            recent_messages += 1
+    oldest_timestamp = None
+    newest_timestamp = None
+    
+    if processed_messages:
+        timestamps = list(processed_messages.values())
+        oldest_timestamp = min(timestamps)
+        newest_timestamp = max(timestamps)
+        
+        for timestamp in timestamps:
+            if now - timestamp < 60:
+                recent_messages += 1
     
     return jsonify({
         "cache_size": cache_size,
         "max_size": CACHE_MAX_SIZE,
         "ttl_seconds": CACHE_TTL,
         "recent_messages_last_minute": recent_messages,
-        "oldest_timestamp": min(processed_messages.values()) if processed_messages else None,
-        "newest_timestamp": max(processed_messages.values()) if processed_messages else None
+        "oldest_timestamp": oldest_timestamp,
+        "newest_timestamp": newest_timestamp,
+        "current_time": now
     })
 
 @app.route("/test-send", methods=["GET"])
@@ -528,10 +595,9 @@ def test_send():
 
 @app.route("/debug-code", methods=["GET"])
 def debug_code():
-    """Endpoint para verificar qué código está ejecutando Render"""
+    """Endpoint para verificar qué código está ejecutando"""
     import inspect
     
-    # Obtener código fuente de send_whatsapp_reply
     source = inspect.getsource(send_whatsapp_reply)
     
     verificaciones = {
@@ -539,7 +605,7 @@ def debug_code():
         "Usa numero_transformado": '"to": numero_transformado' in source,
         "Tiene logs de transformación": "TRANSFORMACIÓN DE NÚMERO" in source,
         "Token empieza correcto": ACCESS_TOKEN.startswith("EAAJYsGl5pHgBQtcI1S7nVzSw"),
-        "Función completa": len(source) > 1000  # La nueva es larga
+        "Función completa": len(source) > 1000
     }
     
     resultado = "<h1>🔍 DEBUG CÓDIGO EN RENDER</h1>"
@@ -559,39 +625,13 @@ def debug_code():
     
     return resultado
 
-@app.route("/health", methods=["GET"])
-def health_check():
-    import requests
-    from datetime import datetime
-    
-    try:
-        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}"
-        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
-        response = requests.get(url, headers=headers, timeout=5)
-        
-        status = "healthy" if response.status_code == 200 else "unhealthy"
-        
-        return jsonify({
-            "status": status,
-            "timestamp": datetime.now().isoformat(),
-            "http_code": response.status_code,
-            "service": "whatsapp-bot"
-        })
-    except:
-        return jsonify({"status": "error"}), 500
-
-
-
-
 @app.route("/check-code", methods=["GET"])
 def check_code():
     """Verificar EXACTAMENTE qué código se ejecuta"""
     
-    # Obtener código de la función send_whatsapp_reply
     import inspect
     source = inspect.getsource(send_whatsapp_reply)
     
-    # Verificaciones CLAVE
     checks = {
         "1. Tiene transform_number_for_sandbox": "transform_number_for_sandbox" in source,
         "2. Usa numero_transformado en 'to'": '"to": numero_transformado' in source,
@@ -600,7 +640,6 @@ def check_code():
         "5. Función es larga (>1500 chars)": len(source) > 1500
     }
     
-    # Resultado HTML
     html = "<h1>🔍 CHECK CÓDIGO EN RENDER</h1>"
     html += f"<p><strong>Hora:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>"
     
@@ -611,8 +650,6 @@ def check_code():
         html += f"<li style='color:{color}'>{icon} {check_name}: {check_result}</li>"
     html += "</ul>"
     
-    # Mostrar partes del código
-    html += "<h3>📝 CÓDIGO DE send_whatsapp_reply:</h3>"
     html += "<h4>Primeros 300 caracteres:</h4>"
     html += f"<pre>{source[:300]}</pre>"
     
@@ -630,11 +667,29 @@ def check_code():
     
     return html
 
+@app.route("/health", methods=["GET"])
+def health_check():
+    try:
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}"
+        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+        response = requests.get(url, headers=headers, timeout=5)
+        
+        status = "healthy" if response.status_code == 200 else "unhealthy"
+        
+        return jsonify({
+            "status": status,
+            "timestamp": datetime.now().isoformat(),
+            "http_code": response.status_code,
+            "service": "whatsapp-bot"
+        })
+    except:
+        return jsonify({"status": "error"}), 500
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     
     log("=" * 60)
-    log("🚀 WHATSAPP BOT - MODO SANDBOX")
+    log("🚀 WHATSAPP BOT - MODO SANDBOX CON DEDUPLICACIÓN MEJORADA")
     log("=" * 60)
     log(f"📞 Número Sandbox: +1 555 149 2382")
     log(f"🔑 Verify Token: {VERIFY_TOKEN}")
@@ -653,7 +708,8 @@ if __name__ == "__main__":
     
     log("   Usando SOLO plantillas")
     log("   Plantilla: jaspers_market_order_confirmation_v1")
-    log("   Envía mensaje al +1 555 149 2382")
+    log("   Sistema de deduplicación: ACTIVADO")
     log("=" * 60)
     
     app.run(host="0.0.0.0", port=port, debug=False)
+[file content end]
