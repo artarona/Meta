@@ -25,7 +25,24 @@ def send_whatsapp_reply(to_number, text):
             "Content-Type": "application/json"
         }
         
-        # USAR SOLO PLANTILLA (sandbox)
+        # Determinar tipo de mensaje para parámetros
+        if "hola" in text.lower():
+            param1 = "Usuario"
+            param2 = "SALUDO"
+            param3 = "¡Te damos la bienvenida!"
+        elif "hora" in text.lower() or "fecha" in text.lower():
+            param1 = "Consulta"
+            param2 = "HORA"
+            param3 = datetime.now().strftime("%d/%m/%Y %H:%M")
+        elif "ayuda" in text.lower():
+            param1 = "Ayuda"
+            param2 = "HELP"
+            param3 = "Comandos disponibles"
+        else:
+            param1 = f"Usuario {to_number[-4:]}"
+            param2 = f"MSG{int(datetime.now().timestamp()) % 1000:03d}"
+            param3 = text[:25] + ("..." if len(text) > 25 else "")
+        
         payload = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
@@ -38,9 +55,9 @@ def send_whatsapp_reply(to_number, text):
                     {
                         "type": "body",
                         "parameters": [
-                            {"type": "text", "text": "Usuario"},
-                            {"type": "text", "text": "RESP-BOT"},
-                            {"type": "text", "text": f"{text[:25]}..."}
+                            {"type": "text", "text": param1},
+                            {"type": "text", "text": param2},
+                            {"type": "text", "text": param3}
                         ]
                     }
                 ]
@@ -50,6 +67,7 @@ def send_whatsapp_reply(to_number, text):
         log("=" * 40)
         log(f"📤 ENVIANDO PLANTILLA:")
         log(f"   Para: {to_number}")
+        log(f"   Parámetros: {param1}, {param2}, {param3}")
         log("=" * 40)
         
         response = requests.post(url, json=payload, headers=headers)
@@ -57,7 +75,11 @@ def send_whatsapp_reply(to_number, text):
         
         log(f"   📊 Estado: {response.status_code}")
         if response.status_code == 200:
-            log(f"   ✅ Éxito")
+            log(f"   ✅ Éxito - ID: {result.get('messages', [{}])[0].get('id', 'N/A')}")
+            # WhatsApp puede normalizar el número
+            if 'contacts' in result and result['contacts']:
+                actual_waid = result['contacts'][0].get('wa_id', 'N/A')
+                log(f"   🔄 WhatsApp normalizó a: {actual_waid}")
         else:
             log(f"   ❌ Error: {result}")
         
@@ -65,7 +87,11 @@ def send_whatsapp_reply(to_number, text):
             
     except Exception as e:
         log(f"🔥 ERROR: {e}")
+        import traceback
+        traceback.print_exc()
         return None
+
+
 # ========== RUTAS ==========
 @app.route("/")
 def home():
