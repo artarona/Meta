@@ -1,5 +1,3 @@
-[file name]: main.py
-[file content begin]
 from flask import Flask, request, jsonify
 import json
 import os
