@@ -1,3 +1,5 @@
+[file name]: main.py
+[file content begin]
 from flask import Flask, request, jsonify
 import json
 import os
@@ -9,9 +11,14 @@ import hashlib
 
 app = Flask(__name__)
 
+# ========== FORZAR MOSTRAR TODOS LOS LOGS ==========
+# Configurar para que todos los logs se muestren inmediatamente
+sys.stdout.reconfigure(line_buffering=True)
+sys.stderr.reconfigure(line_buffering=True)
+
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-ACCESS_TOKEN = "EAAJYsGl5pHgBQredx9HwWllUVfhAOzTVAUvNSBqPSEpGiY4sREeEmSmDBJYH9CDcEQDdVL2VRximcfceFXVDZAxNkguqBjO8tBzuHKn3ClgU9sUZBnpuO307qr6K5TZCCLCuGjUj2ARv3zSEZBzsvjEGCxUyBLFLIeSalN7WVZBZB6CrfkfzvSxaE2vbzs4vi4PrdjZB45C9dmLTrtQ3n2kNkmGy6jwROpKxAIUWIeeIXN7mvmbWUZCfQ40i9iTp00umKcyNW50UmK2tcbA0doweA6ZByLfVsFiS06wZDZD"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQk94L32bqm7PJZCRSxFCA9dh1ZB2L9P1tSatj4wg3A5ff9MihLUhdJSFKqEMFzEo26B2xAAXmewZA94Aq0cnRqId0aeoAxUPEQFShtZCzSaZBoWGSTgfNhJZCI1Agh6CqZCKBBTYDxQmFKkYaQhK5HSS9ZBx8LaX2tZCQNm0g5ED4Lrs40hh1kYTRHyzrTRZBtL0sYZCydrSaebXV7JNP6t9rspZAcSO7RUqve0UmcbleG2ZCD5NaJnLU8rI83bY8FpA2zePOAZBaRaseVz5EBt6WZAqOfMVgZDZD"
 PHONE_NUMBER_ID = "1000705633118215"
 
 # ========== CACHE MEJORADO PARA DEDUPLICACIÓN ==========
@@ -19,9 +26,22 @@ processed_messages = {}  # {message_hash: timestamp}
 CACHE_MAX_SIZE = 1000
 CACHE_TTL = 300  # 5 minutos en segundos
 
-def log(message):
+def log(message, force_flush=True):
     """Función para logging con flush automático"""
-    print(message, flush=True)
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"{timestamp} {message}", flush=force_flush)
+
+def show_banner():
+    """Muestra el banner inicial del bot"""
+    log("=" * 60)
+    log("🚀 WHATSAPP BOT - MODO SANDBOX CON DEDUPLICACIÓN MEJORADA")
+    log("=" * 60)
+    log(f"📞 Número Sandbox: +1 555 149 2382")
+    log(f"🔑 Verify Token: {VERIFY_TOKEN}")
+    log(f"🔑 Access Token (inicio): {ACCESS_TOKEN[:20]}...")
+    log(f"🌐 URL: https://meta-chat-npbx.onrender.com")
+    log(f"📱 Phone Number ID: {PHONE_NUMBER_ID}")
+    log("=" * 60)
 
 def generate_message_hash(webhook_data):
     """
@@ -684,17 +704,10 @@ def health_check():
         return jsonify({"status": "error"}), 500
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
+    # Mostrar banner inmediatamente
+    show_banner()
     
-    log("=" * 60)
-    log("🚀 WHATSAPP BOT - MODO SANDBOX CON DEDUPLICACIÓN MEJORADA")
-    log("=" * 60)
-    log(f"📞 Número Sandbox: +1 555 149 2382")
-    log(f"🔑 Verify Token: {VERIFY_TOKEN}")
-    log(f"🔑 Access Token (inicio): {ACCESS_TOKEN[:20]}...")
-    log(f"🌐 URL: https://meta-chat-npbx.onrender.com")
-    log(f"📱 Phone Number ID: {PHONE_NUMBER_ID}")
-    log("=" * 60)
+    port = int(os.environ.get("PORT", 10000))
     
     # Testear token al inicio
     token_valid = test_token_validity()
@@ -710,3 +723,4 @@ if __name__ == "__main__":
     log("=" * 60)
     
     app.run(host="0.0.0.0", port=port, debug=False)
+[file content end]
