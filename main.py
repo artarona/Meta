@@ -17,6 +17,7 @@ sys.stderr.reconfigure(line_buffering=True)
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
 ACCESS_TOKEN = "EAAJYsGl5pHgBQjIBKuJzf7hnEXMbn70rLBZCrCCr5DZAt4UeeF2QTOcx46NZCvWpCnXdZCazJKvRrZCG4GePIRztxatqRupOYXuTB6gEAnWnZBTPXcb4Cr76tnOB0punmLS9e0Gk6EvPvG0jIz1P2538pFyOVjjFCjys3lSkYhvpU6ZA6iEQ3QOpaPkbd0gRrBEy38OcCeS3Lugui3ICD3yBZAUUqYtZCxy4uJtkqoXkEJhhrc9Eo8JpWpEZAiadbVJMcAc9gZAZBuO4jNuSR16xyJueGC7PuilM5QWr28YZD"
+# ACCESS_TOKEN = "EAAJYsGl5pHgBQjIBKuJzf7hnEXMbn70rLBZCrCCr5DZAt4UeeF2QTOcx46NZCvWpCnXdZCazJKvRrZCG4GePIRztxatqRupOYXuTB6gEAnWnZBTPXcb4Cr76tnOB0punmLS9e0Gk6EvPvG0jIz1P2538pFyOVjjFCjys3lSkYhvpU6ZA6iEQ3QOpaPkbd0gRrBEy38OcCeS3Lugui3ICD3yBZAUUqYtZCxy4uJtkqoXkEJhhrc9Eo8JpWpEZAiadbVJMcAc9gZAZBuO4jNuSR16xyJueGC7PuilM5QWr28YZD"
 PHONE_NUMBER_ID = "1000705633118215"
 
 # ========== CACHE MEJORADO PARA DEDUPLICACIÓN ==========
@@ -721,4 +722,3 @@ if __name__ == "__main__":
     log("=" * 60)
     
     app.run(host="0.0.0.0", port=port, debug=False)
-[file content end]
