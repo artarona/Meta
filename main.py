@@ -19,6 +19,259 @@ VERIFY_TOKEN = "mi_token_secreto_123"
 ACCESS_TOKEN = "EAAJYsGl5pHgBQo9mdAZBZBhx0iyTnWGXQ64f0s3LEalOp12XrZA6AMcjbSIhKs0K3LYeYA43fIih4OInaW9hEQ6qge7BofOuZB8Ha08r6ppT0pMmNz6HkHJ5xZCUBE9GsRyBWOOA23J4uZCUkCI9ZCeT8POIimg9x1ZChOs8QPTyhsfCTSFVJScsqZBwKQ9g0SJpuPckXJxuhSZBV536qzQpoulkZBXxNEYuKhWiKpsKJIFUPPYTJ8B11wU9LxmdqAeA41WpuccgGRAsJBVNdIi1b7WhZCsyWvfZBesYZCurUZD"
 PHONE_NUMBER_ID = "1000705633118215"
 
+# ========== CONFIGURACIÓN CHATBOT ==========
+class BotConfig:
+    MENSAJES = {
+        "BIENVENIDA": "¡Hola! Soy el asistente inmobiliario de Dante Propiedades. 😊",
+        "INSTRUCCIONES": "Decime qué operación necesitás:\nEscribí el número de tu opción",
+        "ERROR_CARGA": "Error cargando las propiedades. Intentá más tarde.",
+        "INGRESO_VALOR": "Escribí lo que buscás:",
+        "SIN_RESULTADOS": "No se encontraron propiedades que coincidan con tu búsqueda.",
+        "RESULTADOS": "Encontré {count} propiedades para vos:",
+        "TIPO_PROPIEDAD": "🏠 ¿Qué tipo de propiedad te interesa?",
+        "AMBIENTES": "🛏️ ¿Cuántos ambientes necesitás?",
+        "BARRIO": "📍 ¿En qué zona buscás?",
+        "PRECIO": "💰 ¿Qué precio máximo (en USD) estás buscando? (Ingresá 0 para omitir)",
+        "CONTACTO": "📞 Dejanos tus datos (Nombre - Teléfono) para contactarte:"
+    }
+    
+    OPCIONES_PRINCIPALES = {
+        "1": {"texto": "Venta", "icon": "💰", "filtro": "operacion"},
+        "2": {"texto": "Alquiler", "icon": "🔑", "filtro": "operacion"},
+        "3": {"texto": "Búsqueda por zona", "icon": "📍", "filtro": "barrio"},
+        "4": {"texto": "Búsqueda libre", "icon": "🔍", "filtro": "libre"},
+        "5": {"texto": "Ver todas", "icon": "📋", "filtro": "todas"},
+        "6": {"texto": "Información", "icon": "ℹ️", "filtro": "info"}
+    }
+
+class PropertyChatbot:
+    def __init__(self):
+        self.propiedades = []
+        self.valores_filtro = {}
+        self.sessions = {}  # {phone_number: {"state": "", "filters": {}}}
+        self.load_properties()
+
+    def load_properties(self):
+        try:
+            with open('propiedades.json', 'r', encoding='utf-8') as f:
+                self.propiedades = json.load(f)
+            self._generate_filter_values()
+            log(f"✅ {len(self.propiedades)} propiedades cargadas")
+        except Exception as e:
+            log(f"❌ Error cargando propiedades: {e}")
+
+    def _generate_filter_values(self):
+        self.valores_filtro = {
+            "tipo": sorted(list(set(p.get("tipo", "").lower() for p in self.propiedades if p.get("tipo")))),
+            "barrio": sorted(list(set(p.get("barrio", "").lower() for p in self.propiedades if p.get("barrio")))),
+            "operacion": sorted(list(set(p.get("operacion", "").lower() for p in self.propiedades if p.get("operacion")))),
+            "ambientes": sorted(list(set(p.get("ambientes", 0) for p in self.propiedades if p.get("ambientes") is not None)))
+        }
+
+    def get_session(self, phone):
+        if phone not in self.sessions:
+            self.sessions[phone] = {"state": "INICIO", "filters": {}, "last_activity": time.time()}
+        return self.sessions[phone]
+
+    def reset_session(self, phone):
+        self.sessions[phone] = {"state": "INICIO", "filters": {}, "last_activity": time.time()}
+
+    def process_message(self, phone, text):
+        session = self.get_session(phone)
+        state = session["state"]
+        text_norm = text.strip().lower()
+
+        # Comandos globales
+        if text_norm in ["hola", "hi", "inicio", "menu", "menú"]:
+            self.reset_session(phone)
+            return self._show_main_menu()
+
+        # Máquina de estados
+        if state == "INICIO":
+            return self._handle_main_menu_selection(session, text_norm)
+        
+        elif state == "SELECCION_TIPO":
+            return self._handle_type_selection(session, text_norm)
+            
+        elif state == "SELECCION_BARRIO":
+            return self._handle_barrio_selection(session, text_norm)
+            
+        elif state == "SELECCION_AMBIENTES":
+            return self._handle_ambientes_selection(session, text_norm)
+            
+        elif state == "SELECCION_PRECIO":
+            return self._handle_precio_selection(session, text_norm)
+            
+        elif state == "BUSQUEDA_LIBRE":
+            return self._handle_busqueda_libre(session, text_norm)
+
+        # Fallback
+        return self._show_main_menu()
+
+    def _show_main_menu(self):
+        msg = [BotConfig.MENSAJES["BIENVENIDA"], BotConfig.MENSAJES["INSTRUCCIONES"]]
+        for k, v in BotConfig.OPCIONES_PRINCIPALES.items():
+            msg.append(f"{k}. {v['icon']} {v['texto']}")
+        return "\n".join(msg)
+
+    def _handle_main_menu_selection(self, session, choice):
+        opcion = BotConfig.OPCIONES_PRINCIPALES.get(choice)
+        if not opcion:
+            return "❌ Opción inválida. Por favor elegí un número del menú.\n\n" + self._show_main_menu()
+        
+        filtro = opcion["filtro"]
+        
+        if filtro == "operacion":
+            # Guardamos la operación seleccionada inferida (Venta/Alquiler)
+            # Como "1" es Venta y "2" es Alquiler en config.js
+            val_operacion = "venta" if choice == "1" else "alquiler"
+            session["filters"]["operacion"] = val_operacion
+            
+            # Pasamos a preguntar TIPO
+            session["state"] = "SELECCION_TIPO"
+            return self._show_options_menu("TIPO_PROPIEDAD", self.valores_filtro["tipo"])
+            
+        elif filtro == "barrio":
+            session["state"] = "SELECCION_BARRIO"
+            return self._show_options_menu("BARRIO", self.valores_filtro["barrio"])
+            
+        elif filtro == "libre":
+            session["state"] = "BUSQUEDA_LIBRE"
+            return BotConfig.MENSAJES["INGRESO_VALOR"]
+            
+        elif filtro == "todas":
+            return self._search_and_format(session)
+            
+        elif filtro == "info":
+            return f"ℹ️ Info del sistema:\nPropiedades: {len(self.propiedades)}\nBarrios: {len(self.valores_filtro['barrio'])}"
+        
+        return self._show_main_menu()
+
+    def _show_options_menu(self, title_key, options):
+        msg = [BotConfig.MENSAJES[title_key]]
+        for idx, opt in enumerate(options, 1):
+            msg.append(f"{idx}. {opt.title()}")
+        return "\n".join(msg)
+
+    def _handle_type_selection(self, session, choice):
+        options = self.valores_filtro["tipo"]
+        if not choice.isdigit() or not (1 <= int(choice) <= len(options)):
+            return "❌ Selección inválida.\n\n" + self._show_options_menu("TIPO_PROPIEDAD", options)
+        
+        selected = options[int(choice)-1]
+        session["filters"]["tipo"] = selected
+        
+        session["state"] = "SELECCION_BARRIO"
+        return self._show_options_menu("BARRIO", self.valores_filtro["barrio"])
+
+    def _handle_barrio_selection(self, session, choice):
+        options = self.valores_filtro["barrio"]
+        if not choice.isdigit() or not (1 <= int(choice) <= len(options)):
+             return "❌ Selección inválida.\n\n" + self._show_options_menu("BARRIO", options)
+        
+        selected = options[int(choice)-1]
+        session["filters"]["barrio"] = selected
+        
+        session["state"] = "SELECCION_AMBIENTES"
+        return self._show_options_menu("AMBIENTES", [str(a) for a in self.valores_filtro["ambientes"]])
+
+    def _handle_ambientes_selection(self, session, choice):
+        options = self.valores_filtro["ambientes"]
+        if not choice.isdigit() or not (1 <= int(choice) <= len(options)):
+            return "❌ Selección inválida.\n\n" + self._show_options_menu("AMBIENTES", [str(a) for a in options])
+            
+        selected = options[int(choice)-1]
+        session["filters"]["ambientes"] = selected
+        
+        session["state"] = "SELECCION_PRECIO"
+        return BotConfig.MENSAJES["PRECIO"]
+
+    def _handle_precio_selection(self, session, text):
+        if not text.isdigit():
+             return "❌ Por favor ingresá un número válido (ej. 100000)."
+        
+        price = int(text)
+        if price > 0:
+            session["filters"]["precio_max"] = price
+            
+        return self._search_and_format(session)
+
+    def _handle_busqueda_libre(self, session, text):
+        session["filters"]["libre"] = text
+        return self._search_and_format(session)
+
+    def _search_and_format(self, session):
+        filters = session["filters"]
+        results = self.propiedades
+        
+        # Filtrado
+        if "operacion" in filters:
+            results = [p for p in results if p.get("operacion", "").lower() == filters["operacion"]]
+            
+        if "tipo" in filters:
+            results = [p for p in results if p.get("tipo", "").lower() == filters["tipo"]]
+            
+        if "barrio" in filters:
+            results = [p for p in results if p.get("barrio", "").lower() == filters["barrio"]]
+            
+        if "ambientes" in filters:
+            results = [p for p in results if p.get("ambientes") == filters["ambientes"]]
+            
+        if "precio_max" in filters:
+            results = [p for p in results if p.get("precio", 0) <= filters["precio_max"]]
+            
+        if "libre" in filters:
+            term = filters["libre"].lower()
+            results = [p for p in results if 
+                       term in p.get("titulo", "").lower() or 
+                       term in p.get("barrio", "").lower() or 
+                       term in p.get("descripcion", "").lower()]
+
+        # Reset session state after search
+        session["state"] = "INICIO"
+        session["filters"] = {}
+
+        if not results:
+            return BotConfig.MENSAJES["SIN_RESULTADOS"] + "\n\nEnviá 'Hola' para intentar de nuevo."
+            
+        # Formatear resultados (max 3 para WhatsApp)
+        msg = [BotConfig.MENSAJES["RESULTADOS"].format(count=len(results))]
+        
+        for p in results[:3]:
+            precio = f"{p.get('moneda_precio', '$')} {p.get('precio', 0):,}"
+            
+            # Intentar obtener primera foto
+            foto_link = ""
+            if p.get("fotos") and len(p["fotos"]) > 0:
+                # Asumiendo que las fotos son urls relativas, en producción deberían ser absolutas
+                # Para sandbox, solo texto por ahora o link dummy si no es URL real
+                foto_safe = p["fotos"][0]
+                if "http" in foto_safe:
+                    foto_link = f"\n🖼️ {foto_safe}"
+                else:
+                    # Construir url base si es relativa (ajustar segun deploy)
+                    foto_link = f"\n🖼️ https://artarona.github.io/dante-propiedades-chatbot/{foto_safe}"
+            
+            card = f"""
+🏠 *{p.get('titulo', 'Propiedad')}*
+📍 {p.get('barrio', 'Barrio')} | {p.get('tipo', 'Tipo')}
+🛏️ {p.get('ambientes', 0)} amb | 📏 {p.get('metros_cuadrados', 0)} m²
+💰 *{precio}*
+📝 {p.get('descripcion', '')[:100]}...{foto_link}
+"""
+            msg.append(card)
+            
+        if len(results) > 3:
+            msg.append(f"\n➕ Y {len(results)-3} propiedades más...")
+            
+        msg.append("\nEnviá 'Hola' para nueva búsqueda.")
+        return "\n".join(msg)
+
+
+# Instancia global del bot se crea después de definir log()
+
+
+
 # ========== CACHE MEJORADO PARA DEDUPLICACIÓN ==========
 processed_messages = {}  # {message_hash: timestamp}
 CACHE_MAX_SIZE = 1000
@@ -40,6 +293,10 @@ def show_banner():
     log(f"🌐 URL: https://meta-chat-npbx.onrender.com")
     log(f"📱 Phone Number ID: {PHONE_NUMBER_ID}")
     log("=" * 60)
+
+# Instancia global del bot
+bot = PropertyChatbot()
+
 
 def generate_message_hash(webhook_data):
     """
@@ -178,77 +435,40 @@ def send_whatsapp_reply(to_number, text):
         hora_actual = datetime.now()
         
         # Determinar tipo de mensaje para personalizar respuesta
-        texto_minuscula = text.lower().strip()
+        # NOTA: En este nuevo esquema, "text" YA VIENE formateado por PropertyChatbot
+        # Así que param1, param2, param3 se usaran para distribuir el texto largo
         
-        if any(palabra in texto_minuscula for palabra in ["hola", "hi", "hello", "buenas"]):
-            param1 = "Usuario"
-            param2 = "SALUDO_INICIAL"
-            param3 = "¡Hola! 👋 Gracias por escribirnos."
-            
-        elif any(palabra in texto_minuscula for palabra in ["hora", "time", "fecha", "día"]):
-            param1 = "Consulta"
-            param2 = "INFO_TIEMPO"
-            param3 = hora_actual.strftime("%d/%m/%Y %H:%M:%S")
-            
-        elif any(palabra in texto_minuscula for palabra in ["ayuda", "help", "comandos", "opciones"]):
-            param1 = "Asistencia"
-            param2 = "MENU_AYUDA"
-            param3 = "Comandos: Hola, Hora, Ayuda, Estado"
-            
-        elif any(palabra in texto_minuscula for palabra in ["estado", "status", "funciona", "test"]):
-            param1 = "Verificación"
-            param2 = "SISTEMA_OK"
-            param3 = "✅ Bot funcionando correctamente"
-            
+        # Dividir el texto en lineas para intentar distribuirlo en los parametros
+        lines = text.split('\n')
         
-        # Pruebas introducidas    
-
-        elif any(palabra in texto_minuscula for palabra in [
-            "qué día es hoy",
-            "que dia es hoy",
-            "dia de hoy",
-            "día de hoy",
-            "dia actual",
-            "día actual",
-            "hoy que dia",
-            "que fecha es hoy",
-            "que dia es",
-            "qué dia es"
-        ]):
-            # Obtener fecha actual
-            hoy = datetime.now()
-
-            # Día en inglés
-            nombre_dia_en = hoy.strftime("%A")
-
-            # Mapeo a español
-            dias_es = {
-                "Monday": "Lunes",
-                "Tuesday": "Martes",
-                "Wednesday": "Miércoles",
-                "Thursday": "Jueves",
-                "Friday": "Viernes",
-                "Saturday": "Sábado",
-                "Sunday": "Domingo"
-            }
-
-            nombre_dia_es = dias_es.get(nombre_dia_en, nombre_dia_en)
-
-            # Formato final
-            fecha_formateada = hoy.strftime("%d/%m/%Y")
-
-            param1 = "Consulta"
-            param2 = "DIA_HOY"
-            param3 = f"📅 Hoy es {nombre_dia_es} {fecha_formateada}"
-                    
-                
-        # end Pruebas introducidas 
+        # Estrategia: 
+        # param1: Título o primera linea
+        # param2: Segunda linea o subtitulo
+        # param3: El resto del cuerpo (truncado si es necesario)
         
+        if len(lines) >= 1:
+            param1 = lines[0][:60] # Limite de header
         else:
-            # Respuesta genérica para otros mensajes
-            param1 = f"Usuario {to_number[-4:]}"
-            param2 = f"MSG{int(hora_actual.timestamp()) % 1000:03d}"
-            param3 = text[:30] + ("..." if len(text) > 30 else "")
+            param1 = "Dante Propiedades"
+            
+        if len(lines) >= 2:
+            param2 = lines[1][:60]
+        else:
+            param2 = "Asistente Virtual"
+            
+        # El resto va a body
+        if len(lines) > 2:
+            param3 = "\n".join(lines[2:])
+        else:
+            param3 = "..."
+            
+        # Asegurar limites
+        if len(param3) > 1000:
+            param3 = param3[:1000] + "..."
+
+            
+        
+
         
         # ========== CONSTRUIR PAYLOAD ==========
         payload = {
@@ -515,23 +735,16 @@ def webhook():
             log(f"   🆔 ID Mensaje: {message_id}")
             log(f"   🗂️  Cache: {len(processed_messages)} mensajes procesados")
             
-            # ========== GENERAR RESPUESTA ==========
-            response_text = ""
+            # ========== GENERAR RESPUESTA CON EL BOT ==========
+            log(f"   🤖 Procesando mensaje con PropertyChatbot...")
+            response_text = bot.process_message(from_number, message_text)
             
-            if message_text.lower() in ["hola", "hi", "hello", "holaaaa"]:
-                response_text = f"¡Hola! 👋\nGracias por tu mensaje: '{message_text}'"
+            # Cortar si es demasiado largo para WhatsApp (limite ~4096, pero por seguridad 1000)
+            if len(response_text) > 1000:
+                response_text = response_text[:1000] + "..."
             
-            elif message_text.lower() in ["hora", "time", "fecha"]:
-                now = datetime.now()
-                response_text = f"🕐 Fecha y hora: {now.strftime('%d/%m/%Y %H:%M:%S')}"
-            
-            elif message_text.lower() in ["ayuda", "help", "comandos"]:
-                response_text = "📚 Comandos: Hola, Hora, Ayuda"
-            
-            else:
-                response_text = f"✅ Mensaje: '{message_text}'"
-            
-            log(f"   🤖 Respuesta generada: {response_text}")
+            log(f"   🤖 Respuesta generada ({len(response_text)} chars)")
+
             
             # ========== ENVIAR RESPUESTA (SOLO PLANTILLA) ==========
             log("   🚀 Enviando plantilla...")
