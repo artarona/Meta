@@ -246,6 +246,30 @@ def home():
     </html>
     """, 200
 
+function testNumbers() {
+    const resultDiv = document.getElementById('numbersResult');
+    resultDiv.innerHTML = '<div class="status">Probando formatos de número...</div>';
+    
+    fetch('/test-numbers')
+        .then(r => r.json())
+        .then(data => {
+            let html = '<h3>Resultados de prueba de números:</h3>';
+            data.results.forEach(item => {
+                const status = item.result.status === 'success' ? '✅' : '❌';
+                html += `<div class="status ${item.result.status}">
+                    ${status} Número: ${item.number}<br>
+                    Estado: ${item.result.status}<br>
+                    ${item.result.details || ''}
+                </div>`;
+            });
+            resultDiv.innerHTML = html;
+        })
+        .catch(error => {
+            resultDiv.innerHTML = '<div class="status error">❌ Error: ' + error + '</div>';
+        });
+}
+
+
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
     """Webhook para recibir mensajes de WhatsApp"""
