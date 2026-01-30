@@ -430,18 +430,15 @@ def send_whatsapp_reply(to_number, text):
         }
         
         # ========== GENERAR PARÁMETROS DINÁMICOS ==========
-        # Estrategia DEFENSIVA para evitar error (#132018):
-        # Param1: Header corto (ej. "Dante Propiedades")
-        # Param2: Subheader corto (ej. "Asistente Virtual")
-        # Param3: El cuerpo del mensaje completo
+        # Estrategia DE BUGGING para evitar error (#132018):
+        # La plantilla jaspers_market_order_confirmation_v1 del Sandbox suele tener UN SOLO parámetro body.
+        # Vamos a intentar enviar TODO el texto en el primer parámetro.
         
-        param1 = "Dante Propiedades"
-        param2 = "Asistente Inmobiliario"
-        param3 = text
+        param1 = text
             
         # Asegurar limites
-        if len(param3) > 1000:
-            param3 = param3[:1000] + "..."
+        if len(param1) > 1000:
+            param1 = param1[:1000] + "..."
         
         # ========== CONSTRUIR PAYLOAD ==========
         payload = {
@@ -456,9 +453,7 @@ def send_whatsapp_reply(to_number, text):
                     {
                         "type": "body",
                         "parameters": [
-                            {"type": "text", "text": param1},
-                            {"type": "text", "text": param2},
-                            {"type": "text", "text": param3}
+                            {"type": "text", "text": param1}
                         ]
                     }
                 ]
