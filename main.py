@@ -201,26 +201,27 @@ def send_whatsapp_reply(to_number, text):
             param3 = "✅ Bot funcionando correctamente"
             
         
-        
+        # Pruebas introducidas    
 
         elif any(palabra in texto_minuscula for palabra in [
             "qué día es hoy",
             "que dia es hoy",
             "dia de hoy",
-            "fecha",
-            "día actual",
+            "día de hoy",
             "dia actual",
+            "día actual",
             "hoy que dia",
-            "que fecha es"
+            "que fecha es hoy",
+            "que dia es",
+            "qué dia es"
         ]):
             # Obtener fecha actual
-            hoy = datetime.datetime.now()
-            
-            # Formatear día y fecha
-            nombre_dia = hoy.strftime("%A")        # Ej: Friday
-            fecha_formateada = hoy.strftime("%d/%m/%Y")
+            hoy = datetime.now()
 
-            # Convertir día al español
+            # Día en inglés
+            nombre_dia_en = hoy.strftime("%A")
+
+            # Mapeo a español
             dias_es = {
                 "Monday": "Lunes",
                 "Tuesday": "Martes",
@@ -231,15 +232,17 @@ def send_whatsapp_reply(to_number, text):
                 "Sunday": "Domingo"
             }
 
-            nombre_dia_es = dias_es.get(nombre_dia, nombre_dia)
+            nombre_dia_es = dias_es.get(nombre_dia_en, nombre_dia_en)
 
-            # Respuestas del sistema
-            param1 = "Consulta de fecha"
-            param2 = "FECHA_ACTUAL"
+            # Formato final
+            fecha_formateada = hoy.strftime("%d/%m/%Y")
+
+            param1 = "Consulta"
+            param2 = "DIA_HOY"
             param3 = f"📅 Hoy es {nombre_dia_es} {fecha_formateada}"
                     
                 
-        
+        # end Pruebas introducidas 
         
         else:
             # Respuesta genérica para otros mensajes
