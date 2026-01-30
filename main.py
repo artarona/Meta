@@ -1,11 +1,7 @@
 from flask import Flask, request, jsonify
-import json
-import os
-import sys
 import requests
+import os
 from datetime import datetime
-import time
-import hashlib
 
 app = Flask(__name__)
 
@@ -14,17 +10,17 @@ VERIFY_TOKEN = "mi_token_secreto_123"
 ACCESS_TOKEN = "EAAJYsGl5pHgBQqTgjqYpHKvrNNJ5OMWF7oXTS55aexccXSIUJnzfmY7VHxnNe9ZBTyJgp23GcU3EjgjNIgNO3kvGLIMyBNFuQ1neG32ZACeWP2EjBprsxZCEPED3GZBvM8VlQLu7vbPNg4SPFfhkJ31ZAUgOkMijxh2TlRUKYk7kie33eS2K4EXUCcap0x1Hr4bwzBxpPDI9bD8ZBidFpjHsRt0ZCmxI5qC1sYcdy5t3BjwABiBPnmvNolDb3X6EJZCPGmpZASwPhyiWkMyQHMjiZA1hXKZADtsIGL7ZCRNT"
 PHONE_NUMBER_ID = "1000705633118215"
 
-def log(message, force_flush=True):
-    """Función para logging con flush automático"""
+def log(message):
+    """Función para logging"""
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(f"{timestamp} {message}", flush=force_flush)
+    print(f"{timestamp} {message}", flush=True)
 
-# ========== SIMPLE RESPONSE BOT ==========
+# ========== BOT SIMPLE ==========
 def get_bot_response(text):
     """Responde con un mensaje simple"""
     text_lower = text.lower().strip()
     
-    if text_lower in ["hola", "hi", "hello"]:
+    if text_lower in ["hola", "hi", "hello", "hola bot", "inicio", "menu"]:
         return """¡Hola! Soy el asistente inmobiliario de Dante Propiedades. 😊
 
 Decime qué operación necesitás:
@@ -43,8 +39,20 @@ Escribí el número de tu opción
     elif text_lower == "2":
         return "Has seleccionado Alquiler. Próximamente tendrás acceso a nuestras propiedades en alquiler."
     
+    elif text_lower == "3":
+        return "Búsqueda por zona disponible pronto."
+    
+    elif text_lower == "4":
+        return "Búsqueda libre disponible pronto."
+    
+    elif text_lower == "5":
+        return "Ver todas las propiedades disponible pronto."
+    
+    elif text_lower == "6":
+        return "Información del sistema disponible pronto."
+    
     else:
-        return f"Gracias por tu mensaje: '{text}'. Pronto tendremos más funcionalidades disponibles."
+        return f"Gracias por tu mensaje: '{text}'. Envía 'Hola' para comenzar."
 
 # ========== SEND WHATSAPP MESSAGE ==========
 def send_whatsapp_message(to_number, message_text):
@@ -63,7 +71,7 @@ def send_whatsapp_message(to_number, message_text):
         payload = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
-            "to": to_number,  # Usar el número directamente SIN transformar
+            "to": to_number,
             "type": "text",
             "text": {
                 "preview_url": False,
@@ -71,42 +79,34 @@ def send_whatsapp_message(to_number, message_text):
             }
         }
         
-        log(f"📤 Enviando mensaje a {to_number}")
-        log(f"💬 Mensaje: {message_text[:50]}...")
+        log(f"📤 ENVIANDO MENSAJE DIRECTO A: {to_number}")
+        log(f"💬 MENSAJE: {message_text[:100]}...")
         
         # Enviar la solicitud
         response = requests.post(url, json=payload, headers=headers, timeout=30)
-        result = response.json()
         
-        log(f"📊 Status Code: {response.status_code}")
+        log(f"📊 STATUS HTTP: {response.status_code}")
         
         if response.status_code == 200:
+            result = response.json()
             message_id = result.get('messages', [{}])[0].get('id', 'N/A')
-            log(f"✅ Mensaje enviado exitosamente. ID: {message_id}")
+            log(f"✅ ✅ ✅ MENSAJE ENVIADO EXITOSAMENTE")
+            log(f"📱 ID del mensaje: {message_id}")
             return {
                 "status": "success",
-                "message_id": message_id
+                "message_id": message_id,
+                "details": "Mensaje de texto directo enviado"
             }
         else:
-            error_data = result.get('error', {})
-            error_code = error_data.get('code', 'N/A')
-            error_message = error_data.get('message', 'Error desconocido')
+            log(f"❌ ERROR HTTP: {response.status_code}")
+            log(f"❌ RESPUESTA: {response.text[:200]}")
             
-            log(f"❌ Error: {error_code} - {error_message}")
-            
-            # Si falla el mensaje directo, intentamos con la plantilla hello_world
-            if error_code in [131051, 132018]:
-                log("🔄 Intentando con plantilla hello_world...")
-                return send_hello_world_template(to_number)
-            
-            return {
-                "status": "error",
-                "error_code": error_code,
-                "error_message": error_message
-            }
+            # Intentar con plantilla hello_world como fallback
+            log("🔄 Intentando con plantilla hello_world como fallback...")
+            return send_hello_world_template(to_number)
             
     except Exception as e:
-        log(f"🔥 Error inesperado: {str(e)}")
+        log(f"🔥 ERROR INESPERADO: {str(e)}")
         return {
             "status": "error",
             "error": str(e)
@@ -132,23 +132,26 @@ def send_hello_world_template(to_number):
             }
         }
         
+        log("🔄 ENVIANDO PLANTILLA HELLO_WORLD...")
         response = requests.post(url, json=payload, headers=headers, timeout=30)
         
         if response.status_code == 200:
-            log("✅ Plantilla hello_world enviada exitosamente")
+            log("✅ PLANTILLA HELLO_WORLD ENVIADA EXITOSAMENTE")
             return {
                 "status": "success",
-                "template_used": "hello_world"
+                "template_used": "hello_world",
+                "details": "Plantilla hello_world enviada"
             }
         else:
-            log(f"❌ Error con plantilla: {response.status_code}")
+            log(f"❌ ERROR CON PLANTILLA: {response.status_code}")
+            log(f"❌ DETALLES: {response.text[:200]}")
             return {
                 "status": "error",
-                "details": response.json()
+                "details": response.text
             }
             
     except Exception as e:
-        log(f"🔥 Error con plantilla: {str(e)}")
+        log(f"🔥 ERROR CON PLANTILLA: {str(e)}")
         return {
             "status": "error",
             "error": str(e)
@@ -158,115 +161,260 @@ def send_hello_world_template(to_number):
 @app.route("/")
 def home():
     return """
-    <h1>🤖 WhatsApp Bot RESPONDIENDO</h1>
-    <p><strong>Estado:</strong> ✅ Bot activo</p>
-    <p><strong>Envía 'Hola' al +1 555 149 2382</strong></p>
-    <p>El bot responderá con mensajes directos</p>
-    <p><strong>Token:</strong> <span id="tokenStatus">Verificando...</span></p>
-    <script>
-        fetch('/token-status').then(r => r.json()).then(data => {
-            document.getElementById('tokenStatus').textContent = 
-                data.valid ? '✅ Válido' : '❌ Inválido';
-        });
-    </script>
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>🤖 WhatsApp Bot - NUEVA VERSIÓN</title>
+        <style>
+            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+            .status { padding: 10px; border-radius: 5px; margin: 10px 0; }
+            .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+            .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+            .test-btn { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+            .test-btn:hover { background-color: #0056b3; }
+        </style>
+    </head>
+    <body>
+        <h1>🤖 WhatsApp Bot - NUEVA VERSIÓN</h1>
+        
+        <div class="status success">
+            <strong>✅ ESTADO:</strong> Bot activo y funcionando
+        </div>
+        
+        <p><strong>📞 Número Sandbox:</strong> +1 555 149 2382</p>
+        <p><strong>🎯 Modo:</strong> Mensajes directos (sin plantillas complejas)</p>
+        <p><strong>🚀 Instrucciones:</strong> Envía "Hola" al número de WhatsApp para comenzar</p>
+        
+        <h2>🔧 Pruebas</h2>
+        <button class="test-btn" onclick="testSend()">Probar envío manual</button>
+        <div id="testResult" style="margin-top: 10px;"></div>
+        
+        <h2>📊 Estado del sistema</h2>
+        <div id="tokenStatus" class="status">Verificando token...</div>
+        
+        <script>
+            // Verificar token al cargar
+            fetch('/token-status')
+                .then(r => r.json())
+                .then(data => {
+                    const tokenDiv = document.getElementById('tokenStatus');
+                    if (data.valid) {
+                        tokenDiv.className = 'status success';
+                        tokenDiv.innerHTML = '<strong>✅ TOKEN VÁLIDO:</strong> Conectado a Meta API';
+                    } else {
+                        tokenDiv.className = 'status error';
+                        tokenDiv.innerHTML = '<strong>❌ TOKEN INVÁLIDO:</strong> ' + (data.error || 'Error desconocido');
+                    }
+                });
+            
+            // Función para probar envío manual
+            function testSend() {
+                const btn = document.querySelector('.test-btn');
+                const resultDiv = document.getElementById('testResult');
+                
+                btn.disabled = true;
+                btn.textContent = 'Enviando...';
+                resultDiv.innerHTML = '<div class="status">Enviando prueba...</div>';
+                
+                fetch('/test')
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.result.status === 'success') {
+                            resultDiv.innerHTML = '<div class="status success">✅ Prueba enviada exitosamente</div>';
+                        } else {
+                            resultDiv.innerHTML = '<div class="status error">❌ Error en prueba: ' + (data.result.error || 'Error desconocido') + '</div>';
+                        }
+                        btn.disabled = false;
+                        btn.textContent = 'Probar envío manual';
+                    })
+                    .catch(error => {
+                        resultDiv.innerHTML = '<div class="status error">❌ Error de conexión: ' + error + '</div>';
+                        btn.disabled = false;
+                        btn.textContent = 'Probar envío manual';
+                    });
+            }
+        </script>
+    </body>
+    </html>
     """, 200
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
+    """Webhook para recibir mensajes de WhatsApp"""
     if request.method == "GET":
         # Verificación del webhook (Meta requiere esto)
         mode = request.args.get("hub.mode")
         token = request.args.get("hub.verify_token")
         challenge = request.args.get("hub.challenge")
         
+        log("=" * 60)
+        log("🔍 SOLICITUD GET AL WEBHOOK (VERIFICACIÓN)")
+        log(f"   Mode: {mode}")
+        log(f"   Token: {token}")
+        log(f"   Challenge: {challenge}")
+        
         if mode and token:
             if mode == "subscribe" and token == VERIFY_TOKEN:
-                log("✅ Webhook verificado exitosamente")
+                log("✅ ✅ ✅ WEBHOOK VERIFICADO EXITOSAMENTE")
                 return challenge, 200
             else:
-                log("❌ Verificación fallida")
+                log("❌ VERIFICACIÓN FALLIDA - Token incorrecto")
                 return "Verification failed", 403
-        return "Hello from webhook!", 200
+        
+        log("ℹ️  Solicitud GET sin parámetros de verificación")
+        return "Webhook endpoint", 200
     
     elif request.method == "POST":
+        log("=" * 60)
+        log("📨 📨 📨 NUEVO WEBHOOK POST RECIBIDO")
+        log("=" * 60)
+        
         try:
             data = request.get_json()
-            log("📨 Webhook recibido")
             
-            # Verificar si es un mensaje
+            if not data:
+                log("❌ Datos JSON vacíos o inválidos")
+                return jsonify({"status": "no_data"}), 200
+            
+            # Log básico de la estructura
+            log(f"📦 Estructura recibida:")
+            log(f"   Object: {data.get('object', 'N/A')}")
+            
             if "entry" in data and data["entry"]:
-                entry = data["entry"][0]
-                if "changes" in entry and entry["changes"]:
-                    value = entry["changes"][0].get("value", {})
-                    
-                    # Procesar mensajes
-                    if "messages" in value and value["messages"]:
-                        message = value["messages"][0]
-                        
-                        # Verificar que sea mensaje de texto
-                        if message.get("type") == "text" and "text" in message:
-                            from_number = message["from"]
-                            message_text = message["text"]["body"]
-                            
-                            log(f"👤 De: {from_number}")
-                            log(f"💬 Mensaje: {message_text}")
-                            
-                            # Obtener respuesta del bot
-                            response_text = get_bot_response(message_text)
-                            
-                            # Enviar respuesta
-                            result = send_whatsapp_message(from_number, response_text)
-                            
-                            if result["status"] == "success":
-                                return jsonify({"status": "ok"}), 200
-                            else:
-                                return jsonify({"status": "error", "details": result}), 200
+                log(f"   Entries: {len(data['entry'])}")
             
-            return jsonify({"status": "ignored"}), 200
+            # Verificar que sea un webhook de WhatsApp Business
+            if data.get("object") != "whatsapp_business_account":
+                log("❌ No es un webhook de WhatsApp Business")
+                return jsonify({"status": "not_whatsapp"}), 200
+            
+            # Procesar las entradas
+            for entry in data.get("entry", []):
+                for change in entry.get("changes", []):
+                    value = change.get("value", {})
+                    
+                    # Verificar si hay mensajes
+                    if "messages" in value:
+                        messages = value["messages"]
+                        log(f"   📨 Mensajes en webhook: {len(messages)}")
+                        
+                        for message in messages:
+                            # Solo procesar mensajes de texto
+                            if message.get("type") == "text":
+                                from_number = message.get("from")
+                                message_text = message.get("text", {}).get("body", "")
+                                
+                                if from_number and message_text:
+                                    log("=" * 40)
+                                    log(f"👤 USUARIO: {from_number}")
+                                    log(f"💬 TEXTO: {message_text}")
+                                    log("=" * 40)
+                                    
+                                    # Obtener respuesta del bot
+                                    response_text = get_bot_response(message_text)
+                                    log(f"🤖 RESPUESTA GENERADA ({len(response_text)} caracteres)")
+                                    
+                                    # Enviar respuesta
+                                    result = send_whatsapp_message(from_number, response_text)
+                                    
+                                    log("=" * 40)
+                                    log(f"📊 RESULTADO FINAL: {result.get('status')}")
+                                    if result.get('status') == 'success':
+                                        log("✅ ✅ ✅ PROCESAMIENTO COMPLETADO EXITOSAMENTE")
+                                    else:
+                                        log("❌ PROCESAMIENTO CON ERRORES")
+                                    log("=" * 60)
+                                    
+                                    return jsonify({
+                                        "status": "processed",
+                                        "user": from_number,
+                                        "result": result
+                                    }), 200
+            
+            log("ℹ️  Webhook recibido pero sin mensajes de texto para procesar")
+            return jsonify({"status": "no_text_messages"}), 200
             
         except Exception as e:
-            log(f"❌ Error procesando webhook: {str(e)}")
+            log(f"❌ ERROR PROCESANDO WEBHOOK: {str(e)}")
+            import traceback
+            log(f"🔍 TRAZABILIDAD: {traceback.format_exc()[:500]}")
             return jsonify({"status": "error", "error": str(e)}), 500
 
-@app.route("/token-status")
+@app.route("/test", methods=["GET"])
+def test_send():
+    """Endpoint de prueba manual"""
+    log("=" * 60)
+    log("🧪 INICIANDO PRUEBA MANUAL")
+    log("=" * 60)
+    
+    test_number = "5491151511579"
+    test_message = "✅ ¡Hola! Este es un mensaje de prueba desde la NUEVA versión del bot. El bot ahora funciona con mensajes de texto directos. ¡Prueba enviando 'Hola'!"
+    
+    result = send_whatsapp_message(test_number, test_message)
+    
+    log("=" * 60)
+    log(f"🧪 RESULTADO DE PRUEBA: {result.get('status')}")
+    log("=" * 60)
+    
+    return jsonify({
+        "test": "completed",
+        "timestamp": datetime.now().isoformat(),
+        "number": test_number,
+        "message": test_message,
+        "result": result
+    })
+
+@app.route("/token-status", methods=["GET"])
 def token_status():
     """Verifica si el token es válido"""
     try:
+        log("🔍 Verificando token de acceso...")
         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}"
         headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
         response = requests.get(url, headers=headers, timeout=5)
         
-        return jsonify({
-            "valid": response.status_code == 200,
-            "status": response.status_code
-        })
+        if response.status_code == 200:
+            data = response.json()
+            log(f"✅ Token válido - Nombre: {data.get('verified_name', 'N/A')}")
+            return jsonify({
+                "valid": True,
+                "status": response.status_code,
+                "name": data.get('verified_name'),
+                "number": data.get('display_phone_number')
+            })
+        else:
+            log(f"❌ Token inválido - Status: {response.status_code}")
+            return jsonify({
+                "valid": False,
+                "status": response.status_code,
+                "error": response.text[:200] if response.text else "No response"
+            })
     except Exception as e:
+        log(f"🔥 Error verificando token: {str(e)}")
         return jsonify({"valid": False, "error": str(e)})
 
-@app.route("/test", methods=["GET"])
-def test_send():
-    """Endpoint de prueba"""
-    test_number = "5491151511579"
-    test_message = "✅ Este es un mensaje de prueba desde el bot"
-    
-    log("🧪 Probando envío de mensaje...")
-    result = send_whatsapp_message(test_number, test_message)
-    
+@app.route("/health", methods=["GET"])
+def health_check():
+    """Endpoint de salud"""
     return jsonify({
-        "test": "completed",
-        "result": result,
-        "number": test_number
+        "status": "healthy",
+        "service": "whatsapp-bot",
+        "version": "2.0",
+        "timestamp": datetime.now().isoformat(),
+        "mode": "direct_messages"
     })
 
 if __name__ == "__main__":
     # Mostrar información inicial
-    log("=" * 60)
-    log("🚀 WhatsApp Bot Iniciado")
-    log("=" * 60)
-    log(f"📞 Número Sandbox: +1 555 149 2382")
-    log(f"🔑 Verify Token: {VERIFY_TOKEN}")
-    log(f"🌐 URL: https://meta-chat-npbx.onrender.com")
-    log("=" * 60)
+    print("\n" + "=" * 60)
+    print("🚀 🚀 🚀 WHATSAPP BOT - NUEVA VERSIÓN 2.0")
+    print("=" * 60)
+    print(f"📞 Número Sandbox: +1 555 149 2382")
+    print(f"🔑 Verify Token: {VERIFY_TOKEN}")
+    print(f"🌐 URL: https://meta-chat-npbx.onrender.com")
+    print(f"⚡ Modo: Mensajes de texto directos")
+    print(f"📅 Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 60 + "\n")
     
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
