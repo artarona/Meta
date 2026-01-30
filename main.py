@@ -8,9 +8,40 @@ app = Flask(__name__)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-# REEMPLAZA ESTE TOKEN CON EL NUEVO QUE OBTENGAS DE META
-ACCESS_TOKEN = "EAAJYsGl5pHgBQtdbILteFMeZBb18Jn6d5KfCZA6RIbCI2clC44ZAyOO3G3BcH0P4RzociFXt0STGxiWCCeYetDOVV9GrHp9wZCgYFT1DOZBSrdjdt4AyzOZBU3NuccBjUoOUf0BLMdJ5hf45NIlWAE1U6oWZAvSgGhq5Td3K82LtIZC0OtG5RCm0arUDktSBTf5FIgecsiZCpEqnkTjGRGzoL91pRXAT42xNzORo8UbGtO86mueRo2cFB0jtbkHKpVx3lyG1TCh8stLWfNHU24AVC5YZCLvJ13ZCEYltAZDZD"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQv55ZCxNkZCOvZBr6Il7qDJqHEgVQWK1vcADdt3R2X4A9vZBJ2GEXgatoQUDpRGXTnPJkLm9Ja5BZAZCdwrom0D9tsFD70v5J6xUJ3qtGxcOZA3E363JZBC4RCDYfs9wV1xwEVvJmtmZCm4UABo9K5rVrTq5zL1nHYGt5ZCfrYKjGLZBiQtZBOtNMn8trRTZBUz7ZAP4jPfJN92FBL0LeYyWl6XYWxk1lJ3t3z6fHE90oipyVAXV78VKs9ZBeKPZCGt6pFSClbiYA9GvgEPGeSiPCcxvDIoCVwZDZD"
 PHONE_NUMBER_ID = "1000705633118215"
+
+# ========== GESTIÓN DE ESTADO DE USUARIOS ==========
+estados_usuarios = {}
+
+def obtener_estado_usuario(user_id):
+    """Obtiene o crea el estado de un usuario"""
+    if user_id not in estados_usuarios:
+        estados_usuarios[user_id] = {
+            'paso': 'menu_principal',
+            'operacion_seleccionada': None,
+            'propiedades_filtradas': [],
+            'ultimo_indice_preguntado': None,
+            'timestamp': datetime.now().isoformat()
+        }
+    return estados_usuarios[user_id]
+
+def actualizar_estado_usuario(user_id, nuevo_estado):
+    """Actualiza el estado de un usuario"""
+    estados_usuarios[user_id] = nuevo_estado
+    # Limpiar estados antiguos (más de 1 hora)
+    usuarios_a_eliminar = []
+    for uid, estado in estados_usuarios.items():
+        if 'timestamp' in estado:
+            try:
+                timestamp = datetime.fromisoformat(estado['timestamp'])
+                if (datetime.now() - timestamp).seconds > 3600:  # 1 hora
+                    usuarios_a_eliminar.append(uid)
+            except:
+                usuarios_a_eliminar.append(uid)
+    
+    for uid in usuarios_a_eliminar:
+        del estados_usuarios[uid]
 
 # ========== CARGAR PROPIEDADES ==========
 PROPIEDADES_FILE = "propiedades.json"
@@ -48,37 +79,6 @@ def filtrar_propiedades_por_operacion(operacion):
     
     log(f"🔍 Filtradas {len(propiedades_filtradas)} propiedades para operación: {operacion}")
     return propiedades_filtradas
-
-def formatear_propiedad_para_whatsapp(propiedad):
-    """Formatea una propiedad para mostrarla en WhatsApp"""
-    titulo = propiedad.get('titulo', 'Sin título')
-    barrio = propiedad.get('barrio', 'Sin barrio')
-    precio = propiedad.get('precio', 0)
-    moneda = propiedad.get('moneda_precio', 'USD')
-    ambientes = propiedad.get('ambientes', 0)
-    metros = propiedad.get('metros_cuadrados', 0)
-    tipo = propiedad.get('tipo', 'Sin tipo')
-    descripcion = propiedad.get('descripcion', 'Sin descripción')
-    
-    # Formatear precio
-    if moneda == 'USD':
-        precio_str = f"USD ${precio:,.0f}"
-    else:
-        precio_str = f"$ {precio:,.0f} ARS"
-    
-    # Formatear texto
-    texto = f"🏠 *{titulo}*\n"
-    texto += f"📍 {barrio}\n"
-    texto += f"💰 {precio_str}\n"
-    texto += f"🛏️ {ambientes} ambientes | 📐 {metros} m²\n"
-    texto += f"📋 Tipo: {tipo.capitalize()}\n"
-    
-    # Limitar descripción si es muy larga
-    desc_short = descripcion[:150] + "..." if len(descripcion) > 150 else descripcion
-    texto += f"📝 {desc_short}\n"
-    texto += "─" * 30
-    
-    return texto
 
 def generar_listado_propiedades(propiedades):
     """Genera un listado formateado de propiedades para WhatsApp"""
@@ -151,15 +151,15 @@ def formatear_detalle_propiedad(propiedad):
             detalle += f"🏢 *Expensas:* $ {expensas:,.0f} ARS\n"
     
     # Mostrar amenities si tiene
-    if propiedad.get('cochera', 'No') != 'No':
+    if propiedad.get('cochera', 'No').lower() in ['si', 'sí', 'sí', 'x', '1', 'true']:
         detalle += "🚗 *Cochera:* Sí\n"
-    if propiedad.get('balcon', 'No') != 'No':
+    if propiedad.get('balcon', 'No').lower() in ['si', 'sí', 'sí', 'x', '1', 'true']:
         detalle += "🌆 *Balcón:* Sí\n"
-    if propiedad.get('pileta', 'No') == 'Si':
+    if propiedad.get('pileta', 'No').lower() in ['si', 'sí', 'sí', '1', 'true']:
         detalle += "🏊 *Pileta:* Sí\n"
-    if propiedad.get('aire_acondicionado', 'No') == 'Si':
+    if propiedad.get('aire_acondicionado', 'No').lower() in ['si', 'sí', 'sí', '1', 'true']:
         detalle += "❄️ *Aire acondicionado:* Sí\n"
-    if propiedad.get('acepta_mascotas', 'No') == 'Si':
+    if propiedad.get('acepta_mascotas', 'No').lower() in ['si', 'sí', 'sí', '1', 'true']:
         detalle += "🐕 *Acepta mascotas:* Sí\n"
     
     detalle += f"\n📝 *Descripción:*\n{propiedad.get('descripcion', 'Sin descripción')}\n\n"
@@ -169,22 +169,23 @@ def formatear_detalle_propiedad(propiedad):
     return detalle
 
 # ========== BOT CON PROPIEDADES ==========
-def get_bot_response(text, estado_usuario=None):
+def get_bot_response(text, user_id):
     """Responde con un mensaje simple, manteniendo estado de usuario"""
     text_lower = text.lower().strip()
     
-    # Si no hay estado, crear uno nuevo
-    if estado_usuario is None:
-        estado_usuario = {
-            'paso': 'menu_principal',
-            'operacion_seleccionada': None,
-            'propiedades_filtradas': [],
-            'ultimo_indice_preguntado': None
-        }
+    # Obtener estado actual del usuario
+    estado_usuario = obtener_estado_usuario(user_id)
+    log(f"👤 Estado usuario {user_id}: {estado_usuario['paso']}")
     
-    # MENÚ PRINCIPAL
+    # MENÚ PRINCIPAL - Resetear estado
     if text_lower in ["hola", "hi", "hello", "hola bot", "inicio", "menu", "volver", "atras"]:
         estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['operacion_seleccionada'] = None
+        estado_usuario['propiedades_filtradas'] = []
+        estado_usuario['ultimo_indice_preguntado'] = None
+        estado_usuario['timestamp'] = datetime.now().isoformat()
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
         return """¡Hola! Soy el asistente inmobiliario de Dante Propiedades. 🏠
 
 *¿Qué tipo de operación te interesa?*
@@ -197,67 +198,70 @@ Escribí el número de tu opción:
 5️⃣ *📋 Ver todas las propiedades*
 6️⃣ *ℹ️ Información* (próximamente)
 
-Para seleccionar, solo envía el número (ej: "1")""", estado_usuario
+Para seleccionar, solo envía el número (ej: "1")"""
     
     # OPCIÓN 1: VENTA
     elif text_lower == "1":
         estado_usuario['paso'] = 'listado_propiedades'
         estado_usuario['operacion_seleccionada'] = 'venta'
+        estado_usuario['ultimo_indice_preguntado'] = None
+        estado_usuario['timestamp'] = datetime.now().isoformat()
         
         # Cargar propiedades de venta
         propiedades_venta = filtrar_propiedades_por_operacion('venta')
         estado_usuario['propiedades_filtradas'] = propiedades_venta
+        actualizar_estado_usuario(user_id, estado_usuario)
         
         if not propiedades_venta:
-            mensaje = "📭 *No hay propiedades en venta disponibles en este momento.*\n\n"
-            mensaje += "Envía 'Hola' para volver al menú principal."
-            return mensaje, estado_usuario
+            return "📭 *No hay propiedades en venta disponibles en este momento.*\n\nEnvía 'Hola' para volver al menú principal."
         
         mensaje = f"💰 *PROPIEDADES EN VENTA*\n"
         mensaje += f"Encontramos *{len(propiedades_venta)}* propiedades disponibles:\n\n"
         mensaje += generar_listado_propiedades(propiedades_venta)
         
-        return mensaje, estado_usuario
+        return mensaje
     
     # OPCIÓN 2: ALQUILER
     elif text_lower == "2":
         estado_usuario['paso'] = 'listado_propiedades'
         estado_usuario['operacion_seleccionada'] = 'alquiler'
+        estado_usuario['ultimo_indice_preguntado'] = None
+        estado_usuario['timestamp'] = datetime.now().isoformat()
         
         # Cargar propiedades de alquiler
         propiedades_alquiler = filtrar_propiedades_por_operacion('alquiler')
         estado_usuario['propiedades_filtradas'] = propiedades_alquiler
+        actualizar_estado_usuario(user_id, estado_usuario)
         
         if not propiedades_alquiler:
-            mensaje = "📭 *No hay propiedades en alquiler disponibles en este momento.*\n\n"
-            mensaje += "Envía 'Hola' para volver al menú principal."
-            return mensaje, estado_usuario
+            return "📭 *No hay propiedades en alquiler disponibles en este momento.*\n\nEnvía 'Hola' para volver al menú principal."
         
         mensaje = f"🔑 *PROPIEDADES EN ALQUILER*\n"
         mensaje += f"Encontramos *{len(propiedades_alquiler)}* propiedades disponibles:\n\n"
         mensaje += generar_listado_propiedades(propiedades_alquiler)
         
-        return mensaje, estado_usuario
+        return mensaje
     
     # OPCIÓN 5: VER TODAS LAS PROPIEDADES
     elif text_lower == "5":
         estado_usuario['paso'] = 'listado_propiedades'
         estado_usuario['operacion_seleccionada'] = 'todas'
+        estado_usuario['ultimo_indice_preguntado'] = None
+        estado_usuario['timestamp'] = datetime.now().isoformat()
         
         # Cargar todas las propiedades
         todas_propiedades = cargar_propiedades()
         estado_usuario['propiedades_filtradas'] = todas_propiedades
+        actualizar_estado_usuario(user_id, estado_usuario)
         
         if not todas_propiedades:
-            mensaje = "📭 *No hay propiedades disponibles en este momento.*\n\n"
-            mensaje += "Envía 'Hola' para volver al menú principal."
-            return mensaje, estado_usuario
+            return "📭 *No hay propiedades disponibles en este momento.*\n\nEnvía 'Hola' para volver al menú principal."
         
         mensaje = f"📋 *TODAS LAS PROPIEDADES*\n"
         mensaje += f"Tenemos *{len(todas_propiedades)}* propiedades disponibles:\n\n"
         mensaje += generar_listado_propiedades(todas_propiedades)
         
-        return mensaje, estado_usuario
+        return mensaje
     
     # Si está en modo listado y envía un número
     elif estado_usuario['paso'] == 'listado_propiedades' and text_lower.isdigit():
@@ -265,11 +269,19 @@ Para seleccionar, solo envía el número (ej: "1")""", estado_usuario
             indice = int(text_lower)
             propiedades = estado_usuario['propiedades_filtradas']
             
+            if not propiedades:
+                estado_usuario['paso'] = 'menu_principal'
+                estado_usuario['timestamp'] = datetime.now().isoformat()
+                actualizar_estado_usuario(user_id, estado_usuario)
+                return "⚠️ No hay propiedades disponibles. Envía 'Hola' para volver al menú."
+            
             if 1 <= indice <= len(propiedades):
                 propiedad = obtener_detalle_propiedad(propiedades, indice)
                 if propiedad:
                     estado_usuario['paso'] = 'detalle_propiedad'
                     estado_usuario['ultimo_indice_preguntado'] = indice
+                    estado_usuario['timestamp'] = datetime.now().isoformat()
+                    actualizar_estado_usuario(user_id, estado_usuario)
                     
                     # Determinar operación para el título
                     operacion = propiedad.get('operacion', '')
@@ -284,31 +296,72 @@ Para seleccionar, solo envía el número (ej: "1")""", estado_usuario
                     mensaje += "─" * 30 + "\n"
                     mensaje += formatear_detalle_propiedad(propiedad)
                     
-                    return mensaje, estado_usuario
+                    return mensaje
             else:
-                mensaje = f"❌ El número {indice} está fuera de rango. "
-                mensaje += f"Por favor, elige un número entre 1 y {len(propiedades)}."
-                return mensaje, estado_usuario
+                return f"❌ El número {indice} está fuera de rango. Por favor, elige un número entre 1 y {len(propiedades)}."
                 
         except ValueError:
             pass
     
+    # Si está en detalle de propiedad y quiere volver
+    elif estado_usuario['paso'] == 'detalle_propiedad':
+        if text_lower.isdigit():
+            try:
+                indice = int(text_lower)
+                propiedades = estado_usuario['propiedades_filtradas']
+                
+                if 1 <= indice <= len(propiedades):
+                    propiedad = obtener_detalle_propiedad(propiedades, indice)
+                    if propiedad:
+                        estado_usuario['ultimo_indice_preguntado'] = indice
+                        estado_usuario['timestamp'] = datetime.now().isoformat()
+                        actualizar_estado_usuario(user_id, estado_usuario)
+                        
+                        operacion = propiedad.get('operacion', '')
+                        if operacion == 'venta':
+                            titulo_op = "💰 VENTA"
+                        elif operacion == 'alquiler':
+                            titulo_op = "🔑 ALQUILER"
+                        else:
+                            titulo_op = "🏠 PROPIEDAD"
+                        
+                        mensaje = f"{titulo_op}\n"
+                        mensaje += "─" * 30 + "\n"
+                        mensaje += formatear_detalle_propiedad(propiedad)
+                        
+                        return mensaje
+            except ValueError:
+                pass
+    
     # OPCIONES 3, 4, 6 (próximamente)
     elif text_lower == "3":
-        return "📍 *Búsqueda por zona* - Esta funcionalidad estará disponible próximamente.\n\nEnvía 'Hola' para volver al menú.", estado_usuario
+        estado_usuario['timestamp'] = datetime.now().isoformat()
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "📍 *Búsqueda por zona* - Esta funcionalidad estará disponible próximamente.\n\nEnvía 'Hola' para volver al menú."
     
     elif text_lower == "4":
-        return "🔍 *Búsqueda libre* - Esta funcionalidad estará disponible próximamente.\n\nEnvía 'Hola' para volver al menú.", estado_usuario
+        estado_usuario['timestamp'] = datetime.now().isoformat()
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "🔍 *Búsqueda libre* - Esta funcionalidad estará disponible próximamente.\n\nEnvía 'Hola' para volver al menú."
     
     elif text_lower == "6":
-        return "ℹ️ *Información* - Esta funcionalidad estará disponible próximamente.\n\nEnvía 'Hola' para volver al menú.", estado_usuario
+        estado_usuario['timestamp'] = datetime.now().isoformat()
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "ℹ️ *Información* - Esta funcionalidad estará disponible próximamente.\n\nEnvía 'Hola' para volver al menú."
     
     # MENSAJE NO RECONOCIDO
     else:
+        estado_usuario['timestamp'] = datetime.now().isoformat()
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
         if estado_usuario['paso'] == 'menu_principal':
-            return f"Gracias por tu mensaje: '{text}'. Para comenzar, envía 'Hola'.", estado_usuario
+            return f"No entendí tu mensaje. Para comenzar, envía 'Hola'."
+        elif estado_usuario['paso'] == 'listado_propiedades':
+            return f"Por favor, elige un número del listado o envía 'Hola' para volver al menú."
+        elif estado_usuario['paso'] == 'detalle_propiedad':
+            return f"Para ver otra propiedad, elige un número del listado o envía 'Hola' para volver al menú."
         else:
-            return f"No entendí tu mensaje. Para volver al inicio, envía 'Hola'.", estado_usuario
+            return f"No entendí tu mensaje. Para volver al inicio, envía 'Hola'."
 
 # ========== VERIFICACIÓN DE TOKEN ==========
 def check_token_validity():
@@ -448,10 +501,7 @@ def send_whatsapp_message(to_number, message_text):
 @app.route("/")
 def home():
     """Página principal"""
-    # Verificar si hay propiedades disponibles
     propiedades = cargar_propiedades()
-    
-    # Contar por operación
     ventas = len([p for p in propiedades if p.get('operacion') == 'venta'])
     alquileres = len([p for p in propiedades if p.get('operacion') == 'alquiler'])
     
@@ -517,7 +567,6 @@ def home():
         </p>
         
         <script>
-            // Verificar token al cargar
             function checkToken() {{
                 fetch('/token-status')
                     .then(r => r.json())
@@ -536,7 +585,6 @@ def home():
                     }});
             }}
             
-            // Función para probar envío manual
             function testSend() {{
                 const btn = document.querySelector('.test-btn');
                 const resultDiv = document.getElementById('testResult');
@@ -564,7 +612,6 @@ def home():
                     }});
             }}
             
-            // Función para probar flujo de propiedades
             function testMenu() {{
                 const resultDiv = document.getElementById('testResult');
                 resultDiv.innerHTML = '<div class="status">Probando flujo de propiedades...</div>';
@@ -586,7 +633,6 @@ def home():
                     }});
             }}
             
-            // Verificar token al cargar la página
             checkToken();
         </script>
     </body>
@@ -594,13 +640,30 @@ def home():
     """
     return html, 200
 
-
-
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
     """Webhook para recibir mensajes de WhatsApp"""
     if request.method == "GET":
-        # ... (código existente para GET)
+        mode = request.args.get("hub.mode")
+        token = request.args.get("hub.verify_token")
+        challenge = request.args.get("hub.challenge")
+        
+        log("=" * 60)
+        log("🔍 SOLICITUD GET AL WEBHOOK (VERIFICACIÓN)")
+        log(f"   Mode: {mode}")
+        log(f"   Token: {token}")
+        log(f"   Challenge: {challenge}")
+        
+        if mode and token:
+            if mode == "subscribe" and token == VERIFY_TOKEN:
+                log("✅ ✅ ✅ WEBHOOK VERIFICADO EXITOSAMENTE")
+                return challenge, 200
+            else:
+                log("❌ VERIFICACIÓN FALLIDA - Token incorrecto")
+                return "Verification failed", 403
+        
+        log("ℹ️  Solicitud GET sin parámetros de verificación")
+        return "Webhook endpoint", 200
     
     elif request.method == "POST":
         log("=" * 60)
@@ -614,19 +677,16 @@ def webhook():
                 log("❌ Datos JSON vacíos o inválidos")
                 return jsonify({"status": "no_data"}), 200
             
-            # Log básico de la estructura
             log(f"📦 Estructura recibida:")
             log(f"   Object: {data.get('object', 'N/A')}")
             
             if "entry" in data and data["entry"]:
                 log(f"   Entries: {len(data['entry'])}")
             
-            # Verificar que sea un webhook de WhatsApp Business
             if data.get("object") != "whatsapp_business_account":
                 log("❌ No es un webhook de WhatsApp Business")
                 return jsonify({"status": "not_whatsapp"}), 200
             
-            # Procesar las entradas
             for entry in data.get("entry", []):
                 for change in entry.get("changes", []):
                     value = change.get("value", {})
@@ -637,7 +697,6 @@ def webhook():
                         log(f"   📨 Mensajes en webhook: {len(messages)}")
                         
                         for message in messages:
-                            # Solo procesar mensajes de texto
                             if message.get("type") == "text":
                                 from_number = message.get("from")
                                 message_text = message.get("text", {}).get("body", "")
@@ -648,11 +707,9 @@ def webhook():
                                     log(f"💬 TEXTO: {message_text}")
                                     log("=" * 40)
                                     
-                                    # Obtener respuesta del bot usando el estado del usuario
                                     response_text = get_bot_response(message_text, from_number)
                                     log(f"🤖 RESPUESTA GENERADA ({len(response_text)} caracteres)")
                                     
-                                    # Enviar respuesta
                                     result = send_whatsapp_message(from_number, response_text)
                                     
                                     log("=" * 40)
@@ -669,12 +726,11 @@ def webhook():
                                         "result": result
                                     }), 200
                     
-                    # Si hay notificaciones de estado (entregado, leído, etc.)
+                    # Si hay notificaciones de estado
                     elif "statuses" in value:
                         statuses = value["statuses"]
                         for status in statuses:
                             log(f"📊 Estado de mensaje: {status.get('status', 'N/A')} para ID: {status.get('id', 'N/A')}")
-                        # No necesitamos responder a notificaciones de estado
                         return jsonify({"status": "status_update"}), 200
             
             log("ℹ️  Webhook recibido pero sin mensajes de texto para procesar")
@@ -685,9 +741,6 @@ def webhook():
             import traceback
             log(f"🔍 TRAZABILIDAD: {traceback.format_exc()[:500]}")
             return jsonify({"status": "error", "error": str(e)}), 500
-
-
-
 
 @app.route("/test", methods=["GET"])
 def test_send():
@@ -758,7 +811,7 @@ def propiedades_info():
             <h3>📈 Estadísticas</h3>
             <p><strong>Total de propiedades:</strong> {len(propiedades)}</p>
             <p><strong>En venta:</strong> {len([p for p in propiedades if p.get('operacion') == 'venta'])}</p>
-            <p><strong>En alquiler:</strong> {len([p for p in propiedades if p in propiedades if p.get('operacion') == 'alquiler'])}</p>
+            <p><strong>En alquiler:</strong> {len([p for p in propiedades if p.get('operacion') == 'alquiler'])}</p>
         </div>
         """
         
@@ -927,233 +980,11 @@ def health_check():
         "alquiler_count": len([p for p in propiedades if p.get('operacion') == 'alquiler'])
     })
 
-
-# ========== GESTIÓN DE ESTADO DE USUARIOS ==========
-# Diccionario para almacenar estado de usuarios
-estados_usuarios = {}
-
-def obtener_estado_usuario(user_id):
-    """Obtiene o crea el estado de un usuario"""
-    if user_id not in estados_usuarios:
-        estados_usuarios[user_id] = {
-            'paso': 'menu_principal',
-            'operacion_seleccionada': None,
-            'propiedades_filtradas': [],
-            'ultimo_indice_preguntado': None,
-            'timestamp': datetime.now().isoformat()
-        }
-    return estados_usuarios[user_id]
-
-def actualizar_estado_usuario(user_id, nuevo_estado):
-    """Actualiza el estado de un usuario"""
-    estados_usuarios[user_id] = nuevo_estado
-    # Limpiar estados antiguos (más de 1 hora)
-    usuarios_a_eliminar = []
-    for uid, estado in estados_usuarios.items():
-        if 'timestamp' in estado:
-            timestamp = datetime.fromisoformat(estado['timestamp'])
-            if (datetime.now() - timestamp).seconds > 3600:  # 1 hora
-                usuarios_a_eliminar.append(uid)
-    
-    for uid in usuarios_a_eliminar:
-        del estados_usuarios[uid]
-
-# ========== BOT CON PROPIEDADES ==========
-def get_bot_response(text, user_id):
-    """Responde con un mensaje simple, manteniendo estado de usuario"""
-    text_lower = text.lower().strip()
-    
-    # Obtener estado actual del usuario
-    estado_usuario = obtener_estado_usuario(user_id)
-    log(f"👤 Estado usuario {user_id}: {estado_usuario['paso']}")
-    
-    # MENÚ PRINCIPAL - Resetear estado
-    if text_lower in ["hola", "hi", "hello", "hola bot", "inicio", "menu", "volver", "atras"]:
-        estado_usuario['paso'] = 'menu_principal'
-        estado_usuario['operacion_seleccionada'] = None
-        estado_usuario['propiedades_filtradas'] = []
-        estado_usuario['timestamp'] = datetime.now().isoformat()
-        actualizar_estado_usuario(user_id, estado_usuario)
-        
-        return """¡Hola! Soy el asistente inmobiliario de Dante Propiedades. 🏠
-
-*¿Qué tipo de operación te interesa?*
-Escribí el número de tu opción:
-
-1️⃣ *💰 VENTA* - Propiedades en venta
-2️⃣ *🔑 ALQUILER* - Propiedades en alquiler
-3️⃣ *📍 Búsqueda por zona* (próximamente)
-4️⃣ *🔍 Búsqueda libre* (próximamente)
-5️⃣ *📋 Ver todas las propiedades*
-6️⃣ *ℹ️ Información* (próximamente)
-
-Para seleccionar, solo envía el número (ej: "1")"""
-    
-    # OPCIÓN 1: VENTA
-    elif text_lower == "1":
-        estado_usuario['paso'] = 'listado_propiedades'
-        estado_usuario['operacion_seleccionada'] = 'venta'
-        estado_usuario['timestamp'] = datetime.now().isoformat()
-        
-        # Cargar propiedades de venta
-        propiedades_venta = filtrar_propiedades_por_operacion('venta')
-        estado_usuario['propiedades_filtradas'] = propiedades_venta
-        actualizar_estado_usuario(user_id, estado_usuario)
-        
-        if not propiedades_venta:
-            return "📭 *No hay propiedades en venta disponibles en este momento.*\n\nEnvía 'Hola' para volver al menú principal."
-        
-        mensaje = f"💰 *PROPIEDADES EN VENTA*\n"
-        mensaje += f"Encontramos *{len(propiedades_venta)}* propiedades disponibles:\n\n"
-        mensaje += generar_listado_propiedades(propiedades_venta)
-        
-        return mensaje
-    
-    # OPCIÓN 2: ALQUILER
-    elif text_lower == "2":
-        estado_usuario['paso'] = 'listado_propiedades'
-        estado_usuario['operacion_seleccionada'] = 'alquiler'
-        estado_usuario['timestamp'] = datetime.now().isoformat()
-        
-        # Cargar propiedades de alquiler
-        propiedades_alquiler = filtrar_propiedades_por_operacion('alquiler')
-        estado_usuario['propiedades_filtradas'] = propiedades_alquiler
-        actualizar_estado_usuario(user_id, estado_usuario)
-        
-        if not propiedades_alquiler:
-            return "📭 *No hay propiedades en alquiler disponibles en este momento.*\n\nEnvía 'Hola' para volver al menú principal."
-        
-        mensaje = f"🔑 *PROPIEDADES EN ALQUILER*\n"
-        mensaje += f"Encontramos *{len(propiedades_alquiler)}* propiedades disponibles:\n\n"
-        mensaje += generar_listado_propiedades(propiedades_alquiler)
-        
-        return mensaje
-    
-    # OPCIÓN 5: VER TODAS LAS PROPIEDADES
-    elif text_lower == "5":
-        estado_usuario['paso'] = 'listado_propiedades'
-        estado_usuario['operacion_seleccionada'] = 'todas'
-        estado_usuario['timestamp'] = datetime.now().isoformat()
-        
-        # Cargar todas las propiedades
-        todas_propiedades = cargar_propiedades()
-        estado_usuario['propiedades_filtradas'] = todas_propiedades
-        actualizar_estado_usuario(user_id, estado_usuario)
-        
-        if not todas_propiedades:
-            return "📭 *No hay propiedades disponibles en este momento.*\n\nEnvía 'Hola' para volver al menú principal."
-        
-        mensaje = f"📋 *TODAS LAS PROPIEDADES*\n"
-        mensaje += f"Tenemos *{len(todas_propiedades)}* propiedades disponibles:\n\n"
-        mensaje += generar_listado_propiedades(todas_propiedades)
-        
-        return mensaje
-    
-    # Si está en modo listado y envía un número
-    elif estado_usuario['paso'] == 'listado_propiedades' and text_lower.isdigit():
-        try:
-            indice = int(text_lower)
-            propiedades = estado_usuario['propiedades_filtradas']
-            
-            if 1 <= indice <= len(propiedades):
-                propiedad = obtener_detalle_propiedad(propiedades, indice)
-                if propiedad:
-                    estado_usuario['paso'] = 'detalle_propiedad'
-                    estado_usuario['ultimo_indice_preguntado'] = indice
-                    estado_usuario['timestamp'] = datetime.now().isoformat()
-                    actualizar_estado_usuario(user_id, estado_usuario)
-                    
-                    # Determinar operación para el título
-                    operacion = propiedad.get('operacion', '')
-                    if operacion == 'venta':
-                        titulo_op = "💰 VENTA"
-                    elif operacion == 'alquiler':
-                        titulo_op = "🔑 ALQUILER"
-                    else:
-                        titulo_op = "🏠 PROPIEDAD"
-                    
-                    mensaje = f"{titulo_op}\n"
-                    mensaje += "─" * 30 + "\n"
-                    mensaje += formatear_detalle_propiedad(propiedad)
-                    
-                    return mensaje
-            else:
-                return f"❌ El número {indice} está fuera de rango. Por favor, elige un número entre 1 y {len(propiedades)}."
-                
-        except ValueError:
-            pass
-    
-    # Si está en detalle de propiedad y quiere volver
-    elif estado_usuario['paso'] == 'detalle_propiedad' and text_lower.isdigit():
-        # El usuario podría querer ver otra propiedad
-        try:
-            indice = int(text_lower)
-            propiedades = estado_usuario['propiedades_filtradas']
-            
-            if 1 <= indice <= len(propiedades):
-                propiedad = obtener_detalle_propiedad(propiedades, indice)
-                if propiedad:
-                    estado_usuario['ultimo_indice_preguntado'] = indice
-                    estado_usuario['timestamp'] = datetime.now().isoformat()
-                    actualizar_estado_usuario(user_id, estado_usuario)
-                    
-                    operacion = propiedad.get('operacion', '')
-                    if operacion == 'venta':
-                        titulo_op = "💰 VENTA"
-                    elif operacion == 'alquiler':
-                        titulo_op = "🔑 ALQUILER"
-                    else:
-                        titulo_op = "🏠 PROPIEDAD"
-                    
-                    mensaje = f"{titulo_op}\n"
-                    mensaje += "─" * 30 + "\n"
-                    mensaje += formatear_detalle_propiedad(propiedad)
-                    
-                    return mensaje
-        except ValueError:
-            pass
-    
-    # OPCIONES 3, 4, 6 (próximamente)
-    elif text_lower == "3":
-        estado_usuario['timestamp'] = datetime.now().isoformat()
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "📍 *Búsqueda por zona* - Esta funcionalidad estará disponible próximamente.\n\nEnvía 'Hola' para volver al menú."
-    
-    elif text_lower == "4":
-        estado_usuario['timestamp'] = datetime.now().isoformat()
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "🔍 *Búsqueda libre* - Esta funcionalidad estará disponible próximamente.\n\nEnvía 'Hola' para volver al menú."
-    
-    elif text_lower == "6":
-        estado_usuario['timestamp'] = datetime.now().isoformat()
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "ℹ️ *Información* - Esta funcionalidad estará disponible próximamente.\n\nEnvía 'Hola' para volver al menú."
-    
-    # MENSAJE NO RECONOCIDO
-    else:
-        estado_usuario['timestamp'] = datetime.now().isoformat()
-        actualizar_estado_usuario(user_id, estado_usuario)
-        
-        if estado_usuario['paso'] == 'menu_principal':
-            return f"No entendí tu mensaje. Para comenzar, envía 'Hola'."
-        elif estado_usuario['paso'] == 'listado_propiedades':
-            return f"Por favor, elige un número del listado o envía 'Hola' para volver al menú."
-        elif estado_usuario['paso'] == 'detalle_propiedad':
-            return f"Para ver otra propiedad, elige un número o envía 'Hola' para volver al menú."
-        else:
-            return f"No entendí tu mensaje. Para volver al inicio, envía 'Hola'."
-
-
-
-
-
 if __name__ == "__main__":
-    # Mostrar información inicial
     print("\n" + "=" * 60)
     print("🏠 🏠 🏠 WHATSAPP BOT INMOBILIARIO - VERSIÓN 2.1")
     print("=" * 60)
     
-    # Cargar propiedades al inicio
     propiedades = cargar_propiedades()
     print(f"📊 Propiedades cargadas: {len(propiedades)}")
     
@@ -1163,7 +994,6 @@ if __name__ == "__main__":
         print(f"💰 En venta: {ventas} propiedades")
         print(f"🔑 En alquiler: {alquileres} propiedades")
     
-    # Verificar token al iniciar
     token_valid, token_info = check_token_validity()
     if token_valid:
         print(f"✅ TOKEN VÁLIDO")
