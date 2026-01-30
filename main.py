@@ -16,8 +16,13 @@ sys.stderr.reconfigure(line_buffering=True)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-ACCESS_TOKEN = "EAAJYsGl5pHgBQor0wxnThYhZAwNMWHVojLyOcjOZBHwf9SjaXZAjZBCS3vOwPfmB2ssTdegqwvfb6DAdJjZAZBZAUNAr1zFXZADvaZBlg8nn0tGOpZA4XetrZB0X26SjmWDImS7ft9PzPVQgnpSyCYZAwZCfQWPPZAiIfdtUZBmt4RpFZC3FAg8C9Ww9ZBvS3QheUXe9E7qEL4DPUSI9uaR91SkyLG62JOdf50ZCzxpVkJN5OoCoh1ysv97hblL7Yi8Egx3ZCmbYPBMLHveTvTKuSsJSnDZBTUDtWndTA29ZAZC3cBEtwZD"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQo9mdAZBZBhx0iyTnWGXQ64f0s3LEalOp12XrZA6AMcjbSIhKs0K3LYeYA43fIih4OInaW9hEQ6qge7BofOuZB8Ha08r6ppT0pMmNz6HkHJ5xZCUBE9GsRyBWOOA23J4uZCUkCI9ZCeT8POIimg9x1ZChOs8QPTyhsfCTSFVJScsqZBwKQ9g0SJpuPckXJxuhSZBV536qzQpoulkZBXxNEYuKhWiKpsKJIFUPPYTJ8B11wU9LxmdqAeA41WpuccgGRAsJBVNdIi1b7WhZCsyWvfZBesYZCurUZD"
 PHONE_NUMBER_ID = "1000705633118215"
+
+def log(message, force_flush=True):
+    """Función para logging con flush automático"""
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"{timestamp} {message}", flush=force_flush)
 
 # ========== CONFIGURACIÓN CHATBOT ==========
 class BotConfig:
@@ -267,9 +272,8 @@ class PropertyChatbot:
         msg.append("\nEnviá 'Hola' para nueva búsqueda.")
         return "\n".join(msg)
 
-
-# Instancia global del bot se crea después de definir log()
-
+# Instancia global del bot se crea después de definir log() (en main_meta)
+# Pero como lo estamos reconstruyendo aqui, lo pondremos despues de definir log()
 
 
 # ========== CACHE MEJORADO PARA DEDUPLICACIÓN ==========
@@ -277,15 +281,10 @@ processed_messages = {}  # {message_hash: timestamp}
 CACHE_MAX_SIZE = 1000
 CACHE_TTL = 300  # 5 minutos en segundos
 
-def log(message, force_flush=True):
-    """Función para logging con flush automático"""
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(f"{timestamp} {message}", flush=force_flush)
-
 def show_banner():
     """Muestra el banner inicial del bot"""
     log("=" * 60)
-    log("🚀 WHATSAPP BOT - MODO SANDBOX CON DEDUPLICACIÓN MEJORADA")
+    log("🚀 WHATSAPP BOT - PROPIEDADES")
     log("=" * 60)
     log(f"📞 Número Sandbox: +1 555 149 2382")
     log(f"🔑 Verify Token: {VERIFY_TOKEN}")
@@ -294,9 +293,8 @@ def show_banner():
     log(f"📱 Phone Number ID: {PHONE_NUMBER_ID}")
     log("=" * 60)
 
-# Instancia global del bot
+# Instancia global del bot se crea aquí para usar log()
 bot = PropertyChatbot()
-
 
 def generate_message_hash(webhook_data):
     """
@@ -432,43 +430,18 @@ def send_whatsapp_reply(to_number, text):
         }
         
         # ========== GENERAR PARÁMETROS DINÁMICOS ==========
-        hora_actual = datetime.now()
+        # Estrategia DEFENSIVA para evitar error (#132018):
+        # Param1: Header corto (ej. "Dante Propiedades")
+        # Param2: Subheader corto (ej. "Asistente Virtual")
+        # Param3: El cuerpo del mensaje completo
         
-        # Determinar tipo de mensaje para personalizar respuesta
-        # NOTA: En este nuevo esquema, "text" YA VIENE formateado por PropertyChatbot
-        # Así que param1, param2, param3 se usaran para distribuir el texto largo
-        
-        # Dividir el texto en lineas para intentar distribuirlo en los parametros
-        lines = text.split('\n')
-        
-        # Estrategia: 
-        # param1: Título o primera linea
-        # param2: Segunda linea o subtitulo
-        # param3: El resto del cuerpo (truncado si es necesario)
-        
-        if len(lines) >= 1:
-            param1 = lines[0][:60] # Limite de header
-        else:
-            param1 = "Dante Propiedades"
-            
-        if len(lines) >= 2:
-            param2 = lines[1][:60]
-        else:
-            param2 = "Asistente Virtual"
-            
-        # El resto va a body
-        if len(lines) > 2:
-            param3 = "\n".join(lines[2:])
-        else:
-            param3 = "..."
+        param1 = "Dante Propiedades"
+        param2 = "Asistente Inmobiliario"
+        param3 = text
             
         # Asegurar limites
         if len(param3) > 1000:
             param3 = param3[:1000] + "..."
-
-            
-        
-
         
         # ========== CONSTRUIR PAYLOAD ==========
         payload = {
@@ -499,12 +472,12 @@ def send_whatsapp_reply(to_number, text):
         log(f"   🔗 URL: {url}")
         log(f"   📱 Destinatario original: {to_number}")
         log(f"   🔄 Destinatario transformado: {numero_transformado}")
-        log(f"   💬 Mensaje original: '{text}'")
+        log(f"   💬 Mensaje original (truncado): '{text[:50]}...'")
         log(f"   🏷️  Plantilla: jaspers_market_order_confirmation_v1")
         log(f"   📊 Parámetros:")
         log(f"      1. {param1}")
         log(f"      2. {param2}")
-        log(f"      3. {param3}")
+        log(f"      3. {param3[:50]}...")
         log("=" * 50)
         
         # ========== ENVIAR SOLICITUD ==========
@@ -557,9 +530,9 @@ def send_whatsapp_reply(to_number, text):
                 log(f"   💡 SOLUCIÓN: Genera nuevo token en Meta Developers")
                 log(f"   🔑 Token actual (inicio): {ACCESS_TOKEN[:30]}...")
                 
-            elif error_code == 100:
-                log(f"   ⚠️  PROBLEMA: Parámetros inválidos")
-                log(f"   💡 SOLUCIÓN: Verificar formato del payload")
+            elif error_code == 100 or error_code == 132018:
+                log(f"   ⚠️  PROBLEMA: Parámetros inválidos (Template)")
+                log(f"   💡 SOLUCIÓN: Verificar formato del payload/template")
                 
             return {
                 "status": "error",
@@ -744,7 +717,6 @@ def webhook():
                 response_text = response_text[:1000] + "..."
             
             log(f"   🤖 Respuesta generada ({len(response_text)} chars)")
-
             
             # ========== ENVIAR RESPUESTA (SOLO PLANTILLA) ==========
             log("   🚀 Enviando plantilla...")
@@ -865,80 +837,6 @@ def test_send():
         })
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500
-
-@app.route("/debug-code", methods=["GET"])
-def debug_code():
-    """Endpoint para verificar qué código está ejecutando"""
-    import inspect
-    
-    source = inspect.getsource(send_whatsapp_reply)
-    
-    verificaciones = {
-        "Tiene transform_number_for_sandbox": "transform_number_for_sandbox" in source,
-        "Usa numero_transformado": '"to": numero_transformado' in source,
-        "Tiene logs de transformación": "TRANSFORMACIÓN DE NÚMERO" in source,
-        "Token empieza correcto": ACCESS_TOKEN.startswith("EAAJYsGl5pHgBQtcI1S7nVzSw"),
-        "Función completa": len(source) > 1000
-    }
-    
-    resultado = "<h1>🔍 DEBUG CÓDIGO EN RENDER</h1>"
-    resultado += "<h3>Verificaciones:</h3><ul>"
-    
-    for check, value in verificaciones.items():
-        color = "green" if value else "red"
-        icon = "✅" if value else "❌"
-        resultado += f"<li style='color:{color}'>{icon} {check}: {value}</li>"
-    
-    resultado += "</ul>"
-    resultado += "<h3>Primeros 500 chars de la función:</h3>"
-    resultado += f"<pre>{source[:500]}...</pre>"
-    
-    resultado += f"<h3>Token (primeros 50):</h3><pre>{ACCESS_TOKEN[:50]}...</pre>"
-    resultado += f"<h3>Longitud función:</h3><pre>{len(source)} caracteres</pre>"
-    
-    return resultado
-
-@app.route("/check-code", methods=["GET"])
-def check_code():
-    """Verificar EXACTAMENTE qué código se ejecuta"""
-    
-    import inspect
-    source = inspect.getsource(send_whatsapp_reply)
-    
-    checks = {
-        "1. Tiene transform_number_for_sandbox": "transform_number_for_sandbox" in source,
-        "2. Usa numero_transformado en 'to'": '"to": numero_transformado' in source,
-        "3. Muestra 'TRANSFORMACIÓN DE NÚMERO' en logs": "TRANSFORMACIÓN DE NÚMERO" in source,
-        "4. Token empieza con 'EAAJYsGl5pHgBQtcI1S7nVzSw'": ACCESS_TOKEN.startswith("EAAJYsGl5pHgBQtcI1S7nVzSw"),
-        "5. Función es larga (>1500 chars)": len(source) > 1500
-    }
-    
-    html = "<h1>🔍 CHECK CÓDIGO EN RENDER</h1>"
-    html += f"<p><strong>Hora:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>"
-    
-    html += "<h3>✅ VERIFICACIONES:</h3><ul>"
-    for check_name, check_result in checks.items():
-        color = "green" if check_result else "red"
-        icon = "✅" if check_result else "❌"
-        html += f"<li style='color:{color}'>{icon} {check_name}: {check_result}</li>"
-    html += "</ul>"
-    
-    html += "<h4>Primeros 300 caracteres:</h4>"
-    html += f"<pre>{source[:300]}</pre>"
-    
-    html += "<h4>¿Contiene '54111551511579'?</h4>"
-    html += f"<pre>{'54111551511579' in source}</pre>"
-    
-    html += "<h4>¿Contiene 'numero_transformado'?</h4>"
-    html += f"<pre>{'numero_transformado' in source}</pre>"
-    
-    html += "<h3>🎯 CONCLUSIÓN:</h3>"
-    if all(checks.values()):
-        html += "<p style='color:green; font-weight:bold'>✅ CÓDIGO CORRECTO - Debería funcionar</p>"
-    else:
-        html += "<p style='color:red; font-weight:bold'>❌ CÓDIGO INCORRECTO - Render tiene versión vieja</p>"
-    
-    return html
 
 @app.route("/health", methods=["GET"])
 def health_check():
