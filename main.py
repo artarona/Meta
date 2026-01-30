@@ -7,8 +7,118 @@ app = Flask(__name__)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-ACCESS_TOKEN = "EAAJYsGl5pHgBQqTgjqYpHKvrNNJ5OMWF7oXTS55aexccXSIUJnzfmY7VHxnNe9ZBTyJgp23GcU3EjgjNIgNO3kvGLIMyBNFuQ1neG32ZACeWP2EjBprsxZCEPED3GZBvM8VlQLu7vbPNg4SPFfhkJ31ZAUgOkMijxh2TlRUKYk7kie33eS2K4EXUCcap0x1Hr4bwzBxpPDI9bD8ZBidFpjHsRt0ZCmxI5qC1sYcdy5t3BjwABiBPnmvNolDb3X6EJZCPGmpZASwPhyiWkMyQHMjiZA1hXKZADtsIGL7ZCRNT"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQv55ZCxNkZCOvZBr6Il7qDJqHEgVQWK1vcADdt3R2X4A9vZBJ2GEXgatoQUDpRGXTnPJkLm9Ja5BZAZCdwrom0D9tsFD70v5J6xUJ3qtGxcOZA3E363JZBC4RCDYfs9wV1xwEVvJmtmZCm4UABo9K5rVrTq5zL1nHYGt5ZCfrYKjGLZBiQtZBOtNMn8trRTZBUz7ZAP4jPfJN92FBL0LeYyWl6XYWxk1lJ3t3z6fHE90oipyVAXV78VKs9ZBeKPZCGt6pFSClbiYA9GvgEPGeSiPCcxvDIoCVwZDZD"
 PHONE_NUMBER_ID = "1000705633118215"
+
+# ========== ACTUALIZAR LA FUNCIÓN send_whatsapp_message ==========
+def send_whatsapp_message(to_number, message_text):
+    """Envía un mensaje de WhatsApp usando texto directo"""
+    try:
+        # Primero verificar si el token es válido
+        token_valid, token_info = check_token_validity()
+        if not token_valid:
+            log("❌❌❌ TOKEN INVÁLIDO - No se puede enviar mensaje")
+            return {
+                "status": "error",
+                "error_code": "invalid_token",
+                "error_message": "Token de acceso expirado o inválido",
+                "details": "Ve a Meta Developers > WhatsApp > Getting Started para generar nuevo token"
+            }
+        
+        # ========== TRANSFORMAR NÚMERO PARA SANDBOX ==========
+        def transform_number(number):
+            if number == "5491151511579":
+                return "54111551511579"
+            return number
+        
+        transformed_number = transform_number(to_number)
+        
+        # URL de la API de Meta
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+        
+        # Headers con el token de acceso
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        
+        # Payload para mensaje de texto directo
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": transformed_number,
+            "type": "text",
+            "text": {
+                "preview_url": False,
+                "body": message_text
+            }
+        }
+        
+        log(f"📤 ENVIANDO MENSAJE DIRECTO")
+        log(f"   Token válido: ✓")
+        log(f"   Número original: {to_number}")
+        log(f"   Número transformado: {transformed_number}")
+        log(f"💬 MENSAJE: {message_text[:100]}...")
+        
+        # Enviar la solicitud
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        
+        log(f"📊 STATUS HTTP: {response.status_code}")
+        
+        if response.status_code == 200:
+            result = response.json()
+            message_id = result.get('messages', [{}])[0].get('id', 'N/A')
+            log(f"✅ ✅ ✅ MENSAJE ENVIADO EXITOSAMENTE")
+            log(f"📱 ID del mensaje: {message_id}")
+            return {
+                "status": "success",
+                "message_id": message_id,
+                "details": "Mensaje de texto directo enviado",
+                "numero_original": to_number,
+                "numero_usado": transformed_number
+            }
+        else:
+            error_data = response.json() if response.content else {}
+            error_code = error_data.get('error', {}).get('code', 'N/A')
+            error_message = error_data.get('error', {}).get('message', 'Error desconocido')
+            
+            log(f"❌ ERROR EN API: {error_code}")
+            log(f"❌ MENSAJE: {error_message}")
+            
+            # Manejar diferentes tipos de errores
+            if error_code == 10:  # Token expirado
+                log("⚠️  TOKEN EXPIRADO - Debes renovarlo en Meta Developers")
+                return {
+                    "status": "error",
+                    "error_code": error_code,
+                    "error_message": "Token expirado. Renueva el token en Meta Developers.",
+                    "details": "Ve a: https://developers.facebook.com/apps/"
+                }
+            elif error_code == 131030:  # Número no permitido
+                log("⚠️  NÚMERO NO PERMITIDO - Agrega a números de prueba")
+                return {
+                    "status": "error",
+                    "error_code": error_code,
+                    "error_message": "Número no está en la lista de números de prueba",
+                    "details": f"Agrega {to_number} a la lista de números de prueba en Meta"
+                }
+            
+            return {
+                "status": "error",
+                "error_code": error_code,
+                "error_message": error_message,
+                "details": error_data
+            }
+            
+    except Exception as e:
+        log(f"🔥 ERROR INESPERADO: {str(e)}")
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+
+
 
 def log(message):
     """Función para logging"""
