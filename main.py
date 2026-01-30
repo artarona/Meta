@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import requests
 import os
+import json
 from datetime import datetime
 
 app = Flask(__name__)
@@ -8,13 +9,306 @@ app = Flask(__name__)
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
 # REEMPLAZA ESTE TOKEN CON EL NUEVO QUE OBTENGAS DE META
-ACCESS_TOKEN = "EAAJYsGl5pHgBQv55ZCxNkZCOvZBr6Il7qDJqHEgVQWK1vcADdt3R2X4A9vZBJ2GEXgatoQUDpRGXTnPJkLm9Ja5BZAZCdwrom0D9tsFD70v5J6xUJ3qtGxcOZA3E363JZBC4RCDYfs9wV1xwEVvJmtmZCm4UABo9K5rVrTq5zL1nHYGt5ZCfrYKjGLZBiQtZBOtNMn8trRTZBUz7ZAP4jPfJN92FBL0LeYyWl6XYWxk1lJ3t3z6fHE90oipyVAXV78VKs9ZBeKPZCGt6pFSClbiYA9GvgEPGeSiPCcxvDIoCVwZDZD"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQtdbILteFMeZBb18Jn6d5KfCZA6RIbCI2clC44ZAyOO3G3BcH0P4RzociFXt0STGxiWCCeYetDOVV9GrHp9wZCgYFT1DOZBSrdjdt4AyzOZBU3NuccBjUoOUf0BLMdJ5hf45NIlWAE1U6oWZAvSgGhq5Td3K82LtIZC0OtG5RCm0arUDktSBTf5FIgecsiZCpEqnkTjGRGzoL91pRXAT42xNzORo8UbGtO86mueRo2cFB0jtbkHKpVx3lyG1TCh8stLWfNHU24AVC5YZCLvJ13ZCEYltAZDZD"
 PHONE_NUMBER_ID = "1000705633118215"
+
+# ========== CARGAR PROPIEDADES ==========
+PROPIEDADES_FILE = "propiedades.json"
+
+def cargar_propiedades():
+    """Carga las propiedades desde el archivo JSON"""
+    try:
+        with open(PROPIEDADES_FILE, 'r', encoding='utf-8') as f:
+            propiedades = json.load(f)
+        log(f"✅ Cargadas {len(propiedades)} propiedades desde {PROPIEDADES_FILE}")
+        return propiedades
+    except FileNotFoundError:
+        log(f"❌ Archivo {PROPIEDADES_FILE} no encontrado")
+        return []
+    except json.JSONDecodeError as e:
+        log(f"❌ Error al leer JSON: {e}")
+        return []
 
 def log(message):
     """Función para logging"""
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"{timestamp} {message}", flush=True)
+
+# ========== FUNCIONES PARA PROPIEDADES ==========
+def filtrar_propiedades_por_operacion(operacion):
+    """Filtra propiedades por tipo de operación (venta/alquiler)"""
+    propiedades = cargar_propiedades()
+    if not propiedades:
+        return []
+    
+    propiedades_filtradas = []
+    for prop in propiedades:
+        if prop.get('operacion', '').lower() == operacion.lower():
+            propiedades_filtradas.append(prop)
+    
+    log(f"🔍 Filtradas {len(propiedades_filtradas)} propiedades para operación: {operacion}")
+    return propiedades_filtradas
+
+def formatear_propiedad_para_whatsapp(propiedad):
+    """Formatea una propiedad para mostrarla en WhatsApp"""
+    titulo = propiedad.get('titulo', 'Sin título')
+    barrio = propiedad.get('barrio', 'Sin barrio')
+    precio = propiedad.get('precio', 0)
+    moneda = propiedad.get('moneda_precio', 'USD')
+    ambientes = propiedad.get('ambientes', 0)
+    metros = propiedad.get('metros_cuadrados', 0)
+    tipo = propiedad.get('tipo', 'Sin tipo')
+    descripcion = propiedad.get('descripcion', 'Sin descripción')
+    
+    # Formatear precio
+    if moneda == 'USD':
+        precio_str = f"USD ${precio:,.0f}"
+    else:
+        precio_str = f"$ {precio:,.0f} ARS"
+    
+    # Formatear texto
+    texto = f"🏠 *{titulo}*\n"
+    texto += f"📍 {barrio}\n"
+    texto += f"💰 {precio_str}\n"
+    texto += f"🛏️ {ambientes} ambientes | 📐 {metros} m²\n"
+    texto += f"📋 Tipo: {tipo.capitalize()}\n"
+    
+    # Limitar descripción si es muy larga
+    desc_short = descripcion[:150] + "..." if len(descripcion) > 150 else descripcion
+    texto += f"📝 {desc_short}\n"
+    texto += "─" * 30
+    
+    return texto
+
+def generar_listado_propiedades(propiedades):
+    """Genera un listado formateado de propiedades para WhatsApp"""
+    if not propiedades:
+        return "📭 No hay propiedades disponibles en este momento."
+    
+    listado = "📋 *LISTADO DE PROPIEDADES*\n\n"
+    
+    for i, prop in enumerate(propiedades[:10], 1):  # Limitar a 10 propiedades
+        listado += f"*[{i}]* {prop.get('titulo', 'Sin título')}\n"
+        listado += f"   📍 {prop.get('barrio', 'N/A')} | "
+        listado += f"💰 "
+        
+        precio = prop.get('precio', 0)
+        moneda = prop.get('moneda_precio', 'USD')
+        if moneda == 'USD':
+            listado += f"USD ${precio:,.0f}\n"
+        else:
+            listado += f"$ {precio:,.0f} ARS\n"
+        
+        listado += f"   🛏️ {prop.get('ambientes', 0)} amb. | "
+        listado += f"📐 {prop.get('metros_cuadrados', 0)} m²\n"
+        
+        # Mostrar estado si es venta
+        if prop.get('operacion') == 'venta':
+            estado = prop.get('estado', 'N/A')
+            listado += f"   🏗️ Estado: {estado.capitalize()}\n"
+        
+        listado += "─" * 20 + "\n"
+    
+    if len(propiedades) > 10:
+        listado += f"\n📊 ...y {len(propiedades) - 10} propiedades más.\n"
+    
+    listado += "\nPara ver detalles de una propiedad, responde con el número entre corchetes [1], [2], etc."
+    
+    return listado
+
+def obtener_detalle_propiedad(propiedades, indice):
+    """Obtiene el detalle completo de una propiedad por índice"""
+    if indice < 1 or indice > len(propiedades):
+        return None
+    
+    return propiedades[indice - 1]
+
+def formatear_detalle_propiedad(propiedad):
+    """Formatea el detalle completo de una propiedad"""
+    detalle = f"🏠 *{propiedad.get('titulo', 'Sin título')}*\n\n"
+    
+    detalle += f"📍 *Ubicación:* {propiedad.get('direccion', 'Sin dirección')}, {propiedad.get('barrio', '')}\n"
+    
+    precio = propiedad.get('precio', 0)
+    moneda = propiedad.get('moneda_precio', 'USD')
+    if moneda == 'USD':
+        detalle += f"💰 *Precio:* USD ${precio:,.0f}\n"
+    else:
+        detalle += f"💰 *Precio:* $ {precio:,.0f} ARS\n"
+    
+    detalle += f"🛏️ *Ambientes:* {propiedad.get('ambientes', 0)}\n"
+    detalle += f"📐 *Metros cuadrados:* {propiedad.get('metros_cuadrados', 0)} m²\n"
+    detalle += f"📋 *Tipo:* {propiedad.get('tipo', '').capitalize()}\n"
+    detalle += f"🏗️ *Estado:* {propiedad.get('estado', 'N/A').capitalize()}\n"
+    
+    # Mostrar expensas si tiene
+    expensas = propiedad.get('expensas', 0)
+    if expensas > 0:
+        moneda_exp = propiedad.get('moneda_expensas', 'ARS')
+        if moneda_exp == 'USD':
+            detalle += f"🏢 *Expensas:* USD ${expensas:,.0f}\n"
+        else:
+            detalle += f"🏢 *Expensas:* $ {expensas:,.0f} ARS\n"
+    
+    # Mostrar amenities si tiene
+    if propiedad.get('cochera', 'No') != 'No':
+        detalle += "🚗 *Cochera:* Sí\n"
+    if propiedad.get('balcon', 'No') != 'No':
+        detalle += "🌆 *Balcón:* Sí\n"
+    if propiedad.get('pileta', 'No') == 'Si':
+        detalle += "🏊 *Pileta:* Sí\n"
+    if propiedad.get('aire_acondicionado', 'No') == 'Si':
+        detalle += "❄️ *Aire acondicionado:* Sí\n"
+    if propiedad.get('acepta_mascotas', 'No') == 'Si':
+        detalle += "🐕 *Acepta mascotas:* Sí\n"
+    
+    detalle += f"\n📝 *Descripción:*\n{propiedad.get('descripcion', 'Sin descripción')}\n\n"
+    detalle += "────────────────────\n"
+    detalle += "Para volver al menú principal, envía 'Hola'"
+    
+    return detalle
+
+# ========== BOT CON PROPIEDADES ==========
+def get_bot_response(text, estado_usuario=None):
+    """Responde con un mensaje simple, manteniendo estado de usuario"""
+    text_lower = text.lower().strip()
+    
+    # Si no hay estado, crear uno nuevo
+    if estado_usuario is None:
+        estado_usuario = {
+            'paso': 'menu_principal',
+            'operacion_seleccionada': None,
+            'propiedades_filtradas': [],
+            'ultimo_indice_preguntado': None
+        }
+    
+    # MENÚ PRINCIPAL
+    if text_lower in ["hola", "hi", "hello", "hola bot", "inicio", "menu", "volver", "atras"]:
+        estado_usuario['paso'] = 'menu_principal'
+        return """¡Hola! Soy el asistente inmobiliario de Dante Propiedades. 🏠
+
+*¿Qué tipo de operación te interesa?*
+Escribí el número de tu opción:
+
+1️⃣ *💰 VENTA* - Propiedades en venta
+2️⃣ *🔑 ALQUILER* - Propiedades en alquiler
+3️⃣ *📍 Búsqueda por zona* (próximamente)
+4️⃣ *🔍 Búsqueda libre* (próximamente)
+5️⃣ *📋 Ver todas las propiedades*
+6️⃣ *ℹ️ Información* (próximamente)
+
+Para seleccionar, solo envía el número (ej: "1")""", estado_usuario
+    
+    # OPCIÓN 1: VENTA
+    elif text_lower == "1":
+        estado_usuario['paso'] = 'listado_propiedades'
+        estado_usuario['operacion_seleccionada'] = 'venta'
+        
+        # Cargar propiedades de venta
+        propiedades_venta = filtrar_propiedades_por_operacion('venta')
+        estado_usuario['propiedades_filtradas'] = propiedades_venta
+        
+        if not propiedades_venta:
+            mensaje = "📭 *No hay propiedades en venta disponibles en este momento.*\n\n"
+            mensaje += "Envía 'Hola' para volver al menú principal."
+            return mensaje, estado_usuario
+        
+        mensaje = f"💰 *PROPIEDADES EN VENTA*\n"
+        mensaje += f"Encontramos *{len(propiedades_venta)}* propiedades disponibles:\n\n"
+        mensaje += generar_listado_propiedades(propiedades_venta)
+        
+        return mensaje, estado_usuario
+    
+    # OPCIÓN 2: ALQUILER
+    elif text_lower == "2":
+        estado_usuario['paso'] = 'listado_propiedades'
+        estado_usuario['operacion_seleccionada'] = 'alquiler'
+        
+        # Cargar propiedades de alquiler
+        propiedades_alquiler = filtrar_propiedades_por_operacion('alquiler')
+        estado_usuario['propiedades_filtradas'] = propiedades_alquiler
+        
+        if not propiedades_alquiler:
+            mensaje = "📭 *No hay propiedades en alquiler disponibles en este momento.*\n\n"
+            mensaje += "Envía 'Hola' para volver al menú principal."
+            return mensaje, estado_usuario
+        
+        mensaje = f"🔑 *PROPIEDADES EN ALQUILER*\n"
+        mensaje += f"Encontramos *{len(propiedades_alquiler)}* propiedades disponibles:\n\n"
+        mensaje += generar_listado_propiedades(propiedades_alquiler)
+        
+        return mensaje, estado_usuario
+    
+    # OPCIÓN 5: VER TODAS LAS PROPIEDADES
+    elif text_lower == "5":
+        estado_usuario['paso'] = 'listado_propiedades'
+        estado_usuario['operacion_seleccionada'] = 'todas'
+        
+        # Cargar todas las propiedades
+        todas_propiedades = cargar_propiedades()
+        estado_usuario['propiedades_filtradas'] = todas_propiedades
+        
+        if not todas_propiedades:
+            mensaje = "📭 *No hay propiedades disponibles en este momento.*\n\n"
+            mensaje += "Envía 'Hola' para volver al menú principal."
+            return mensaje, estado_usuario
+        
+        mensaje = f"📋 *TODAS LAS PROPIEDADES*\n"
+        mensaje += f"Tenemos *{len(todas_propiedades)}* propiedades disponibles:\n\n"
+        mensaje += generar_listado_propiedades(todas_propiedades)
+        
+        return mensaje, estado_usuario
+    
+    # Si está en modo listado y envía un número
+    elif estado_usuario['paso'] == 'listado_propiedades' and text_lower.isdigit():
+        try:
+            indice = int(text_lower)
+            propiedades = estado_usuario['propiedades_filtradas']
+            
+            if 1 <= indice <= len(propiedades):
+                propiedad = obtener_detalle_propiedad(propiedades, indice)
+                if propiedad:
+                    estado_usuario['paso'] = 'detalle_propiedad'
+                    estado_usuario['ultimo_indice_preguntado'] = indice
+                    
+                    # Determinar operación para el título
+                    operacion = propiedad.get('operacion', '')
+                    if operacion == 'venta':
+                        titulo_op = "💰 VENTA"
+                    elif operacion == 'alquiler':
+                        titulo_op = "🔑 ALQUILER"
+                    else:
+                        titulo_op = "🏠 PROPIEDAD"
+                    
+                    mensaje = f"{titulo_op}\n"
+                    mensaje += "─" * 30 + "\n"
+                    mensaje += formatear_detalle_propiedad(propiedad)
+                    
+                    return mensaje, estado_usuario
+            else:
+                mensaje = f"❌ El número {indice} está fuera de rango. "
+                mensaje += f"Por favor, elige un número entre 1 y {len(propiedades)}."
+                return mensaje, estado_usuario
+                
+        except ValueError:
+            pass
+    
+    # OPCIONES 3, 4, 6 (próximamente)
+    elif text_lower == "3":
+        return "📍 *Búsqueda por zona* - Esta funcionalidad estará disponible próximamente.\n\nEnvía 'Hola' para volver al menú.", estado_usuario
+    
+    elif text_lower == "4":
+        return "🔍 *Búsqueda libre* - Esta funcionalidad estará disponible próximamente.\n\nEnvía 'Hola' para volver al menú.", estado_usuario
+    
+    elif text_lower == "6":
+        return "ℹ️ *Información* - Esta funcionalidad estará disponible próximamente.\n\nEnvía 'Hola' para volver al menú.", estado_usuario
+    
+    # MENSAJE NO RECONOCIDO
+    else:
+        if estado_usuario['paso'] == 'menu_principal':
+            return f"Gracias por tu mensaje: '{text}'. Para comenzar, envía 'Hola'.", estado_usuario
+        else:
+            return f"No entendí tu mensaje. Para volver al inicio, envía 'Hola'.", estado_usuario
 
 # ========== VERIFICACIÓN DE TOKEN ==========
 def check_token_validity():
@@ -42,45 +336,6 @@ def check_token_validity():
     except Exception as e:
         log(f"🔥 ERROR VERIFICANDO TOKEN: {e}")
         return False, {"error": str(e)}
-
-# ========== BOT SIMPLE ==========
-def get_bot_response(text):
-    """Responde con un mensaje simple"""
-    text_lower = text.lower().strip()
-    
-    if text_lower in ["hola", "hi", "hello", "hola bot", "inicio", "menu"]:
-        return """¡Hola! Soy el asistente inmobiliario de Dante Propiedades. 😊
-
-Decime qué operación necesitás:
-Escribí el número de tu opción
-
-1. 💰 Venta
-2. 🔑 Alquiler
-3. 📍 Búsqueda por zona
-4. 🔍 Búsqueda libre
-5. 📋 Ver todas
-6. ℹ️ Información"""
-    
-    elif text_lower == "1":
-        return "Has seleccionado Venta. Próximamente tendrás acceso a nuestras propiedades en venta."
-    
-    elif text_lower == "2":
-        return "Has seleccionado Alquiler. Próximamente tendrás acceso a nuestras propiedades en alquiler."
-    
-    elif text_lower == "3":
-        return "Búsqueda por zona disponible pronto."
-    
-    elif text_lower == "4":
-        return "Búsqueda libre disponible pronto."
-    
-    elif text_lower == "5":
-        return "Ver todas las propiedades disponible pronto."
-    
-    elif text_lower == "6":
-        return "Información del sistema disponible pronto."
-    
-    else:
-        return f"Gracias por tu mensaje: '{text}'. Envía 'Hola' para comenzar."
 
 # ========== SEND WHATSAPP MESSAGE ==========
 def send_whatsapp_message(to_number, message_text):
@@ -192,66 +447,97 @@ def send_whatsapp_message(to_number, message_text):
 # ========== RUTAS PRINCIPALES ==========
 @app.route("/")
 def home():
-    return """
+    """Página principal"""
+    # Verificar si hay propiedades disponibles
+    propiedades = cargar_propiedades()
+    
+    # Contar por operación
+    ventas = len([p for p in propiedades if p.get('operacion') == 'venta'])
+    alquileres = len([p for p in propiedades if p.get('operacion') == 'alquiler'])
+    
+    html = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>🤖 WhatsApp Bot - NUEVA VERSIÓN</title>
+        <title>🏠 WhatsApp Bot - Dante Propiedades</title>
         <style>
-            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-            .status { padding: 10px; border-radius: 5px; margin: 10px 0; }
-            .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-            .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-            .test-btn { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
-            .test-btn:hover { background-color: #0056b3; }
-            .info-box { background-color: #e7f3ff; padding: 15px; border-radius: 5px; margin: 15px 0; }
+            body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
+            .status {{ padding: 10px; border-radius: 5px; margin: 10px 0; }}
+            .success {{ background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }}
+            .error {{ background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }}
+            .test-btn {{ background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }}
+            .test-btn:hover {{ background-color: #0056b3; }}
+            .info-box {{ background-color: #e7f3ff; padding: 15px; border-radius: 5px; margin: 15px 0; }}
+            .prop-stats {{ display: flex; justify-content: space-around; margin: 20px 0; }}
+            .stat-box {{ background-color: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; flex: 1; margin: 0 10px; }}
         </style>
     </head>
     <body>
-        <h1>🤖 WhatsApp Bot - NUEVA VERSIÓN</h1>
+        <h1>🏠 WhatsApp Bot - Dante Propiedades</h1>
         
         <div class="info-box">
-            <h3>📋 Información del Bot</h3>
+            <h3>🤖 Información del Bot Inmobiliario</h3>
             <p><strong>📞 Número Sandbox:</strong> +1 555 149 2382</p>
-            <p><strong>🎯 Modo:</strong> Mensajes de texto directos</p>
-            <p><strong>🚀 Instrucciones:</strong> Envía "Hola" al número de WhatsApp</p>
+            <p><strong>📊 Propiedades cargadas:</strong> {len(propiedades)} propiedades disponibles</p>
+            <p><strong>🚀 Instrucciones:</strong> Envía "Hola" al número de WhatsApp para comenzar</p>
         </div>
         
-        <h2>🔧 Pruebas</h2>
+        <div class="prop-stats">
+            <div class="stat-box">
+                <h3>💰 VENTA</h3>
+                <p style="font-size: 24px; font-weight: bold; color: #28a745;">{ventas}</p>
+                <p>propiedades</p>
+            </div>
+            <div class="stat-box">
+                <h3>🔑 ALQUILER</h3>
+                <p style="font-size: 24px; font-weight: bold; color: #17a2b8;">{alquileres}</p>
+                <p>propiedades</p>
+            </div>
+            <div class="stat-box">
+                <h3>📋 TOTAL</h3>
+                <p style="font-size: 24px; font-weight: bold; color: #6f42c1;">{len(propiedades)}</p>
+                <p>propiedades</p>
+            </div>
+        </div>
+        
+        <h2>🔧 Pruebas del Sistema</h2>
         <button class="test-btn" onclick="testSend()">Probar envío manual</button>
-        <button class="test-btn" onclick="testNumbers()">Probar diferentes formatos de número</button>
+        <button class="test-btn" onclick="testMenu()">Probar flujo de propiedades</button>
         <div id="testResult" style="margin-top: 10px;"></div>
-        <div id="numbersResult" style="margin-top: 10px;"></div>
         
         <h2>🔑 Estado del Token</h2>
         <div id="tokenStatus" class="status">Verificando token...</div>
         <p><a href="/token-help" target="_blank">📖 Instrucciones para renovar token</a></p>
         
-        <h2>📊 Sistema</h2>
-        <p><a href="/health">Ver estado del sistema</a> | <a href="/webhook" target="_blank">Verificar webhook</a></p>
+        <h2>📊 Sistema y Propiedades</h2>
+        <p>
+            <a href="/health">Ver estado del sistema</a> | 
+            <a href="/webhook" target="_blank">Verificar webhook</a> | 
+            <a href="/propiedades-info">Ver propiedades cargadas</a>
+        </p>
         
         <script>
             // Verificar token al cargar
-            function checkToken() {
+            function checkToken() {{
                 fetch('/token-status')
                     .then(r => r.json())
-                    .then(data => {
+                    .then(data => {{
                         const tokenDiv = document.getElementById('tokenStatus');
-                        if (data.valid) {
+                        if (data.valid) {{
                             tokenDiv.className = 'status success';
                             tokenDiv.innerHTML = '<strong>✅ TOKEN VÁLIDO:</strong> Conectado a Meta API<br>' +
                                                  '<strong>Nombre:</strong> ' + (data.name || 'N/A') + '<br>' +
                                                  '<strong>Número:</strong> ' + (data.number || 'N/A');
-                        } else {
+                        }} else {{
                             tokenDiv.className = 'status error';
                             tokenDiv.innerHTML = '<strong>❌ TOKEN INVÁLIDO:</strong> ' + (data.error || 'Error desconocido') +
                                                  '<br><strong>⚠️ El bot NO puede enviar mensajes</strong>';
-                        }
-                    });
-            }
+                        }}
+                    }});
+            }}
             
             // Función para probar envío manual
-            function testSend() {
+            function testSend() {{
                 const btn = document.querySelector('.test-btn');
                 const resultDiv = document.getElementById('testResult');
                 
@@ -261,55 +547,52 @@ def home():
                 
                 fetch('/test')
                     .then(r => r.json())
-                    .then(data => {
-                        if (data.result.status === 'success') {
+                    .then(data => {{
+                        if (data.result.status === 'success') {{
                             resultDiv.innerHTML = '<div class="status success">✅ Prueba enviada exitosamente</div>';
-                        } else {
+                        }} else {{
                             resultDiv.innerHTML = '<div class="status error">❌ Error en prueba: ' + (data.result.error_message || data.result.error || 'Error desconocido') + '</div>';
-                        }
+                        }}
                         btn.disabled = false;
                         btn.textContent = 'Probar envío manual';
-                        // Actualizar estado del token después de prueba
                         checkToken();
-                    })
-                    .catch(error => {
+                    }})
+                    .catch(error => {{
                         resultDiv.innerHTML = '<div class="status error">❌ Error de conexión: ' + error + '</div>';
                         btn.disabled = false;
                         btn.textContent = 'Probar envío manual';
-                    });
-            }
+                    }});
+            }}
             
-            // Función para probar diferentes formatos de número
-            function testNumbers() {
-                const resultDiv = document.getElementById('numbersResult');
-                resultDiv.innerHTML = '<div class="status">Probando formatos de número...</div>';
+            // Función para probar flujo de propiedades
+            function testMenu() {{
+                const resultDiv = document.getElementById('testResult');
+                resultDiv.innerHTML = '<div class="status">Probando flujo de propiedades...</div>';
                 
-                fetch('/test-numbers')
+                fetch('/test-propiedades')
                     .then(r => r.json())
-                    .then(data => {
-                        let html = '<h3>Resultados de prueba de números:</h3>';
-                        data.results.forEach(item => {
-                            const status = item.result.status === 'success' ? '✅' : '❌';
-                            const statusClass = item.result.status === 'success' ? 'success' : 'error';
-                            html += `<div class="status ${statusClass}">
-                                ${status} <strong>Número:</strong> ${item.number}<br>
-                                <strong>Estado:</strong> ${item.result.status}<br>
-                                ${item.result.error_message || item.result.details || ''}
-                            </div>`;
-                        });
+                    .then(data => {{
+                        let html = '<h3>✅ Prueba de propiedades completada:</h3>';
+                        html += '<div class="status success">';
+                        html += '<strong>Propiedades cargadas:</strong> ' + data.total_propiedades + '<br>';
+                        html += '<strong>En venta:</strong> ' + data.venta_count + '<br>';
+                        html += '<strong>En alquiler:</strong> ' + data.alquiler_count + '<br>';
+                        html += '<strong>Archivo:</strong> ' + data.archivo;
+                        html += '</div>';
                         resultDiv.innerHTML = html;
-                    })
-                    .catch(error => {
+                    }})
+                    .catch(error => {{
                         resultDiv.innerHTML = '<div class="status error">❌ Error: ' + error + '</div>';
-                    });
-            }
+                    }});
+            }}
             
             // Verificar token al cargar la página
             checkToken();
         </script>
     </body>
     </html>
-    """, 200
+    """
+    return html, 200
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
@@ -383,8 +666,13 @@ def webhook():
                                     log(f"💬 TEXTO: {message_text}")
                                     log("=" * 40)
                                     
+                                    # NOTA: En un sistema real, deberías almacenar el estado del usuario
+                                    # en una base de datos o caché. Aquí usamos estado temporal.
+                                    # Por simplicidad, reiniciamos el estado en cada mensaje.
+                                    estado_usuario = None
+                                    
                                     # Obtener respuesta del bot
-                                    response_text = get_bot_response(message_text)
+                                    response_text, nuevo_estado = get_bot_response(message_text, estado_usuario)
                                     log(f"🤖 RESPUESTA GENERADA ({len(response_text)} caracteres)")
                                     
                                     # Enviar respuesta
@@ -421,7 +709,7 @@ def test_send():
     log("=" * 60)
     
     test_number = "5491151511579"
-    test_message = "✅ ¡Hola! Este es un mensaje de prueba desde la NUEVA versión del bot. El bot ahora funciona con mensajes de texto directos. ¡Prueba enviando 'Hola'!"
+    test_message = "✅ ¡Hola! Este es un mensaje de prueba desde el bot inmobiliario. El sistema de propiedades está funcionando correctamente. ¡Prueba enviando 'Hola' para ver el menú de propiedades!"
     
     result = send_whatsapp_message(test_number, test_message)
     
@@ -437,31 +725,86 @@ def test_send():
         "result": result
     })
 
-@app.route("/test-numbers", methods=["GET"])
-def test_numbers():
-    """Prueba diferentes formatos de números"""
-    test_numbers_list = [
-        "5491151511579",      # Original
-        "54111551511579",     # Transformado
-        "+5491151511579",     # Con +
-        "+54111551511579",    # Transformado con +
-    ]
+@app.route("/test-propiedades", methods=["GET"])
+def test_propiedades():
+    """Prueba la carga de propiedades"""
+    propiedades = cargar_propiedades()
     
-    test_message = "🔧 Prueba de formato de número"
-    
-    results = []
-    for number in test_numbers_list:
-        log(f"🧪 Probando número: {number}")
-        result = send_whatsapp_message(number, test_message)
-        results.append({
-            "number": number,
-            "result": result
-        })
+    venta_count = len([p for p in propiedades if p.get('operacion') == 'venta'])
+    alquiler_count = len([p for p in propiedades if p.get('operacion') == 'alquiler'])
     
     return jsonify({
-        "test": "numbers_test",
-        "results": results
+        "test": "propiedades_loaded",
+        "total_propiedades": len(propiedades),
+        "venta_count": venta_count,
+        "alquiler_count": alquiler_count,
+        "archivo": PROPIEDADES_FILE,
+        "timestamp": datetime.now().isoformat()
     })
+
+@app.route("/propiedades-info", methods=["GET"])
+def propiedades_info():
+    """Muestra información sobre las propiedades cargadas"""
+    propiedades = cargar_propiedades()
+    
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>📊 Propiedades Cargadas</title>
+        <style>
+            body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+            .prop-card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; }
+            .venta { border-left: 5px solid #28a745; }
+            .alquiler { border-left: 5px solid #17a2b8; }
+            .stats { background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; }
+        </style>
+    </head>
+    <body>
+        <h1>📊 Propiedades Cargadas en el Sistema</h1>
+    """
+    
+    if propiedades:
+        html += f"""
+        <div class="stats">
+            <h3>📈 Estadísticas</h3>
+            <p><strong>Total de propiedades:</strong> {len(propiedades)}</p>
+            <p><strong>En venta:</strong> {len([p for p in propiedades if p.get('operacion') == 'venta'])}</p>
+            <p><strong>En alquiler:</strong> {len([p for p in propiedades if p in propiedades if p.get('operacion') == 'alquiler'])}</p>
+        </div>
+        """
+        
+        for prop in propiedades:
+            operacion = prop.get('operacion', '')
+            clase = 'venta' if operacion == 'venta' else 'alquiler'
+            precio = prop.get('precio', 0)
+            moneda = prop.get('moneda_precio', 'USD')
+            precio_str = f"USD ${precio:,.0f}" if moneda == 'USD' else f"$ {precio:,.0f} ARS"
+            
+            html += f"""
+            <div class="prop-card {clase}">
+                <h3>{prop.get('titulo', 'Sin título')}</h3>
+                <p><strong>ID:</strong> {prop.get('id_temporal', 'N/A')} | 
+                   <strong>Operación:</strong> {operacion.upper()} | 
+                   <strong>Barrio:</strong> {prop.get('barrio', 'N/A')}</p>
+                <p><strong>Precio:</strong> {precio_str} | 
+                   <strong>Ambientes:</strong> {prop.get('ambientes', 0)} | 
+                   <strong>Metros:</strong> {prop.get('metros_cuadrados', 0)} m²</p>
+                <p><strong>Tipo:</strong> {prop.get('tipo', 'N/A').capitalize()} | 
+                   <strong>Estado:</strong> {prop.get('estado', 'N/A')}</p>
+                <p><strong>Descripción:</strong> {prop.get('descripcion', 'Sin descripción')[:200]}...</p>
+            </div>
+            """
+    else:
+        html += "<div class='stats'><p>❌ No se pudieron cargar las propiedades</p></div>"
+    
+    html += """
+        <p><a href="/">← Volver al inicio</a></p>
+    </body>
+    </html>
+    """
+    
+    return html
 
 @app.route("/token-status", methods=["GET"])
 def token_status():
@@ -565,13 +908,11 @@ def token_help():
                         tokenDiv.innerHTML = '<div style="background-color: #d4edda; padding: 10px; border-radius: 5px;">' +
                                             '<strong>✅ TOKEN VÁLIDO</strong><br>' +
                                             'Nombre: ' + (data.name || 'N/A') + '<br>' +
-                                            'Número: ' + (data.number || 'N/A') +
-                                            '</div>';
+                                            'Número: ' + (data.number || 'N/A') + '</div>';
                     } else {
                         tokenDiv.innerHTML = '<div style="background-color: #f8d7da; padding: 10px; border-radius: 5px;">' +
                                             '<strong>❌ TOKEN INVÁLIDO</strong><br>' +
-                                            'Error: ' + (data.error || 'Desconocido') +
-                                            '</div>';
+                                            'Error: ' + (data.error || 'Desconocido') + '</div>';
                     }
                 });
         </script>
@@ -585,21 +926,34 @@ def token_help():
 def health_check():
     """Endpoint de salud"""
     token_valid, _ = check_token_validity()
+    propiedades = cargar_propiedades()
     
     return jsonify({
         "status": "healthy" if token_valid else "unhealthy_token",
-        "service": "whatsapp-bot",
-        "version": "2.0",
+        "service": "whatsapp-bot-inmobiliario",
+        "version": "2.1",
         "timestamp": datetime.now().isoformat(),
         "token_valid": token_valid,
-        "mode": "direct_messages"
+        "propiedades_cargadas": len(propiedades),
+        "venta_count": len([p for p in propiedades if p.get('operacion') == 'venta']),
+        "alquiler_count": len([p for p in propiedades if p.get('operacion') == 'alquiler'])
     })
 
 if __name__ == "__main__":
     # Mostrar información inicial
     print("\n" + "=" * 60)
-    print("🚀 🚀 🚀 WHATSAPP BOT - NUEVA VERSIÓN 2.0")
+    print("🏠 🏠 🏠 WHATSAPP BOT INMOBILIARIO - VERSIÓN 2.1")
     print("=" * 60)
+    
+    # Cargar propiedades al inicio
+    propiedades = cargar_propiedades()
+    print(f"📊 Propiedades cargadas: {len(propiedades)}")
+    
+    if propiedades:
+        ventas = len([p for p in propiedades if p.get('operacion') == 'venta'])
+        alquileres = len([p for p in propiedades if p.get('operacion') == 'alquiler'])
+        print(f"💰 En venta: {ventas} propiedades")
+        print(f"🔑 En alquiler: {alquileres} propiedades")
     
     # Verificar token al iniciar
     token_valid, token_info = check_token_validity()
@@ -611,10 +965,9 @@ if __name__ == "__main__":
         print(f"❌❌❌ TOKEN INVÁLIDO O EXPIRADO ❌❌❌")
         print(f"   ⚠️  El bot NO PODRÁ ENVIAR MENSAJES")
         print(f"   ℹ️  Visita: https://meta-chat-npbx.onrender.com/token-help")
-        print(f"   ℹ️  Error: {token_info.get('error', {}).get('message', 'Error desconocido')}")
     
     print(f"🌐 URL: https://meta-chat-npbx.onrender.com")
-    print(f"⚡ Modo: Mensajes de texto directos")
+    print(f"📁 Propiedades: {PROPIEDADES_FILE}")
     print(f"📅 Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60 + "\n")
     
