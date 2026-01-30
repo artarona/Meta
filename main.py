@@ -471,8 +471,6 @@ def send_whatsapp_reply(to_number, text):
         log(f"   🏷️  Plantilla: jaspers_market_order_confirmation_v1")
         log(f"   📊 Parámetros:")
         log(f"      1. {param1}")
-        log(f"      2. {param2}")
-        log(f"      3. {param3[:50]}...")
         log("=" * 50)
         
         # ========== ENVIAR SOLICITUD ==========
