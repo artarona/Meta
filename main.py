@@ -55,9 +55,21 @@ Escribí el número de tu opción
         return f"Gracias por tu mensaje: '{text}'. Envía 'Hola' para comenzar."
 
 # ========== SEND WHATSAPP MESSAGE ==========
+
+
 def send_whatsapp_message(to_number, message_text):
     """Envía un mensaje de WhatsApp usando texto directo"""
     try:
+        # ========== TRANSFORMAR NÚMERO PARA SANDBOX ==========
+        # Meta Sandbox requiere un formato específico para números de prueba
+        def transform_number(number):
+            # Si es el número argentino, usar el formato que Meta espera
+            if number == "5491151511579":
+                return "54111551511579"  # Formato que Meta usa en sandbox
+            return number
+        
+        transformed_number = transform_number(to_number)
+        
         # URL de la API de Meta
         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
         
@@ -71,7 +83,7 @@ def send_whatsapp_message(to_number, message_text):
         payload = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
-            "to": to_number,
+            "to": transformed_number,  # Usar el número transformado
             "type": "text",
             "text": {
                 "preview_url": False,
@@ -79,7 +91,9 @@ def send_whatsapp_message(to_number, message_text):
             }
         }
         
-        log(f"📤 ENVIANDO MENSAJE DIRECTO A: {to_number}")
+        log(f"📤 ENVIANDO MENSAJE DIRECTO")
+        log(f"   Número original: {to_number}")
+        log(f"   Número transformado: {transformed_number}")
         log(f"💬 MENSAJE: {message_text[:100]}...")
         
         # Enviar la solicitud
@@ -95,15 +109,18 @@ def send_whatsapp_message(to_number, message_text):
             return {
                 "status": "success",
                 "message_id": message_id,
-                "details": "Mensaje de texto directo enviado"
+                "details": "Mensaje de texto directo enviado",
+                "numero_original": to_number,
+                "numero_usado": transformed_number
             }
         else:
             log(f"❌ ERROR HTTP: {response.status_code}")
-            log(f"❌ RESPUESTA: {response.text[:200]}")
+            error_text = response.text[:300] if response.text else "Sin respuesta"
+            log(f"❌ RESPUESTA: {error_text}")
             
             # Intentar con plantilla hello_world como fallback
             log("🔄 Intentando con plantilla hello_world como fallback...")
-            return send_hello_world_template(to_number)
+            return send_hello_world_template(transformed_number)
             
     except Exception as e:
         log(f"🔥 ERROR INESPERADO: {str(e)}")
@@ -112,52 +129,40 @@ def send_whatsapp_message(to_number, message_text):
             "error": str(e)
         }
 
-def send_hello_world_template(to_number):
-    """Envía la plantilla hello_world como fallback"""
-    try:
-        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-        headers = {
-            "Authorization": f"Bearer {ACCESS_TOKEN}",
-            "Content-Type": "application/json"
-        }
-        
-        payload = {
-            "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": to_number,
-            "type": "template",
-            "template": {
-                "name": "hello_world",
-                "language": {"code": "en_US"}
-            }
-        }
-        
-        log("🔄 ENVIANDO PLANTILLA HELLO_WORLD...")
-        response = requests.post(url, json=payload, headers=headers, timeout=30)
-        
-        if response.status_code == 200:
-            log("✅ PLANTILLA HELLO_WORLD ENVIADA EXITOSAMENTE")
-            return {
-                "status": "success",
-                "template_used": "hello_world",
-                "details": "Plantilla hello_world enviada"
-            }
-        else:
-            log(f"❌ ERROR CON PLANTILLA: {response.status_code}")
-            log(f"❌ DETALLES: {response.text[:200]}")
-            return {
-                "status": "error",
-                "details": response.text
-            }
-            
-    except Exception as e:
-        log(f"🔥 ERROR CON PLANTILLA: {str(e)}")
-        return {
-            "status": "error",
-            "error": str(e)
-        }
+
+
 
 # ========== RUTAS PRINCIPALES ==========
+
+@app.route("/test-numbers", methods=["GET"])
+def test_numbers():
+    """Prueba diferentes formatos de números"""
+    test_numbers_list = [
+        "5491151511579",      # Original
+        "54111551511579",     # Transformado
+        "+5491151511579",     # Con +
+        "+54111551511579",    # Transformado con +
+    ]
+    
+    test_message = "🔧 Prueba de formato de número"
+    
+    results = []
+    for number in test_numbers_list:
+        log(f"🧪 Probando número: {number}")
+        result = send_whatsapp_message(number, test_message)
+        results.append({
+            "number": number,
+            "result": result
+        })
+    
+    return jsonify({
+        "test": "numbers_test",
+        "results": results
+    })
+
+
+
+
 @app.route("/")
 def home():
     return """
@@ -188,6 +193,9 @@ def home():
         <h2>🔧 Pruebas</h2>
         <button class="test-btn" onclick="testSend()">Probar envío manual</button>
         <div id="testResult" style="margin-top: 10px;"></div>
+        
+        <button class="test-btn" onclick="testNumbers()">Probar diferentes formatos de número</button>
+        <div id="numbersResult" style="margin-top: 10px;"></div>
         
         <h2>📊 Estado del sistema</h2>
         <div id="tokenStatus" class="status">Verificando token...</div>
@@ -339,6 +347,67 @@ def webhook():
             import traceback
             log(f"🔍 TRAZABILIDAD: {traceback.format_exc()[:500]}")
             return jsonify({"status": "error", "error": str(e)}), 500
+
+
+def send_hello_world_template(to_number):
+    """Envía la plantilla hello_world como fallback"""
+    try:
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        
+        # Transformar número también para plantilla
+        def transform_number(number):
+            if number == "5491151511579":
+                return "54111551511579"
+            return number
+        
+        transformed_number = transform_number(to_number)
+        
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": transformed_number,
+            "type": "template",
+            "template": {
+                "name": "hello_world",
+                "language": {"code": "en_US"}
+            }
+        }
+        
+        log("🔄 ENVIANDO PLANTILLA HELLO_WORLD...")
+        log(f"   Número transformado: {transformed_number}")
+        
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        
+        if response.status_code == 200:
+            log("✅ PLANTILLA HELLO_WORLD ENVIADA EXITOSAMENTE")
+            return {
+                "status": "success",
+                "template_used": "hello_world",
+                "details": "Plantilla hello_world enviada",
+                "numero_usado": transformed_number
+            }
+        else:
+            log(f"❌ ERROR CON PLANTILLA: {response.status_code}")
+            error_text = response.text[:300] if response.text else "Sin respuesta"
+            log(f"❌ DETALLES: {error_text}")
+            return {
+                "status": "error",
+                "details": response.text,
+                "numero_usado": transformed_number
+            }
+            
+    except Exception as e:
+        log(f"🔥 ERROR CON PLANTILLA: {str(e)}")
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+
 
 @app.route("/test", methods=["GET"])
 def test_send():
