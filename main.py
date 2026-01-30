@@ -405,7 +405,7 @@ def test_token_validity():
         return False
 
 def send_whatsapp_reply(to_number, text):
-    """Envía un mensaje de respuesta por WhatsApp usando plantilla"""
+    """Envía un mensaje de respuesta por WhatsApp usando MENSAJE DE TEXTO DIRECTO"""
     try:
         # ========== TRANSFORMACIÓN DE NÚMERO PARA SANDBOX ==========
         def transform_number_for_sandbox(original_number):
@@ -429,48 +429,28 @@ def send_whatsapp_reply(to_number, text):
             "Content-Type": "application/json"
         }
         
-        # ========== GENERAR PARÁMETROS DINÁMICOS ==========
-        # Estrategia DE BUGGING para evitar error (#132018):
-        # La plantilla jaspers_market_order_confirmation_v1 del Sandbox suele tener UN SOLO parámetro body.
-        # Vamos a intentar enviar TODO el texto en el primer parámetro.
-        
-        param1 = text
-            
-        # Asegurar limites
-        if len(param1) > 1000:
-            param1 = param1[:1000] + "..."
-        
-        # ========== CONSTRUIR PAYLOAD ==========
+        # ========== ENVIAR COMO MENSAJE DE TEXTO DIRECTO ==========
+        # Esto funciona en sandbox cuando el usuario inició la conversación
         payload = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
             "to": numero_transformado,
-            "type": "template",
-            "template": {
-                "name": "jaspers_market_order_confirmation_v1",
-                "language": {"code": "en_US"},
-                "components": [
-                    {
-                        "type": "body",
-                        "parameters": [
-                            {"type": "text", "text": param1}
-                        ]
-                    }
-                ]
+            "type": "text",
+            "text": {
+                "preview_url": False,
+                "body": text
             }
         }
         
         # ========== LOGS DETALLADOS ==========
         log("=" * 50)
-        log("📤 ENVIANDO RESPUESTA WHATSAPP")
+        log("📤 ENVIANDO RESPUESTA WHATSAPP (TEXTO DIRECTO)")
         log("=" * 50)
         log(f"   🔗 URL: {url}")
         log(f"   📱 Destinatario original: {to_number}")
         log(f"   🔄 Destinatario transformado: {numero_transformado}")
-        log(f"   💬 Mensaje original (truncado): '{text[:50]}...'")
-        log(f"   🏷️  Plantilla: jaspers_market_order_confirmation_v1")
-        log(f"   📊 Parámetros:")
-        log(f"      1. {param1}")
+        log(f"   💬 Mensaje (truncado): '{text[:50]}...'")
+        log(f"   📏 Longitud: {len(text)} caracteres")
         log("=" * 50)
         
         # ========== ENVIAR SOLICITUD ==========
@@ -514,18 +494,10 @@ def send_whatsapp_reply(to_number, text):
             log(f"   🔴 Tipo: {error_type}")
             log(f"   🔴 Mensaje: {error_message}")
             
-            if error_code == 131030:
-                log(f"   ⚠️  PROBLEMA: Número no autorizado en sandbox")
-                log(f"   💡 SOLUCIÓN: Agrega {to_number} a 'Números de prueba' en Meta")
-                
-            elif error_code == 190 or "expired" in error_message.lower():
-                log(f"   ⚠️  PROBLEMA: Token expirado")
-                log(f"   💡 SOLUCIÓN: Genera nuevo token en Meta Developers")
-                log(f"   🔑 Token actual (inicio): {ACCESS_TOKEN[:30]}...")
-                
-            elif error_code == 100 or error_code == 132018:
-                log(f"   ⚠️  PROBLEMA: Parámetros inválidos (Template)")
-                log(f"   💡 SOLUCIÓN: Verificar formato del payload/template")
+            # Si el mensaje directo falla, intentar con plantilla simple
+            if error_code == 131051 or "template" in error_message.lower():
+                log(f"   🔄 Intentando con plantilla simple...")
+                return send_with_simple_template(to_number, text)
                 
             return {
                 "status": "error",
@@ -543,14 +515,6 @@ def send_whatsapp_reply(to_number, text):
             "details": "La solicitud tardó demasiado en responder"
         }
         
-    except requests.exceptions.ConnectionError:
-        log("   🔌 ERROR: Problema de conexión")
-        return {
-            "status": "error", 
-            "error": "ConnectionError",
-            "details": "No se pudo conectar con los servidores de Meta"
-        }
-        
     except Exception as e:
         log(f"   🔥 ERROR INESPERADO: {str(e)}")
         import traceback
@@ -563,17 +527,67 @@ def send_whatsapp_reply(to_number, text):
             "details": "Error inesperado en send_whatsapp_reply"
         }
 
+
+def send_with_simple_template(to_number, text):
+    """Método alternativo usando plantilla simple si el texto directo falla"""
+    try:
+        # ========== TRANSFORMACIÓN DE NÚMERO PARA SANDBOX ==========
+        def transform_number_for_sandbox(original_number):
+            """Transforma número para formato sandbox de Meta"""
+            if original_number == "5491151511579":
+                return "54111551511579"  # Formato transformado que usa Meta
+            return original_number
+        
+        numero_transformado = transform_number_for_sandbox(to_number)
+        
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        
+        # Usar plantilla hello_world que viene con el sandbox
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": numero_transformado,
+            "type": "template",
+            "template": {
+                "name": "hello_world",
+                "language": {"code": "en_US"}
+            }
+        }
+        
+        log("   🏷️  Enviando plantilla hello_world...")
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        
+        if response.status_code == 200:
+            return {
+                "status": "success",
+                "message_id": response.json().get('messages', [{}])[0].get('id', 'N/A'),
+                "template_used": "hello_world"
+            }
+        else:
+            return {
+                "status": "error",
+                "details": response.json()
+            }
+            
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
 # ========== RUTAS PRINCIPALES ==========
 @app.route("/")
 def home():
     return """
     <h1>🤖 WhatsApp Bot RESPONDIENDO (SANDBOX)</h1>
-    <p><strong>Estado:</strong> ✅ Bot activo usando plantillas</p>
+    <p><strong>Estado:</strong> ✅ Bot activo usando MENSAJES DIRECTOS</p>
     <p><strong>Envía cualquier mensaje al +1 555 149 2382</strong></p>
-    <p>El bot responderá con plantilla de confirmación</p>
-    <p><strong>Modo:</strong> Sandbox (solo plantillas funcionan)</p>
-    <p><strong>Plantilla:</strong> jaspers_market_order_confirmation_v1</p>
-    <p><strong>Sistema de deduplicación:</strong> ACTIVADO ✅</p>
+    <p>El bot responderá con mensajes de texto directos</p>
+    <p><strong>Modo:</strong> Sandbox (mensajes directos cuando el usuario inicia)</p>
     <p><strong>Token status:</strong> <span id="tokenStatus">Verificando...</span></p>
     <p><a href="/cache-info">Ver estado de cache</a> | <a href="/clear-cache">Limpiar cache</a></p>
     <script>
@@ -711,8 +725,8 @@ def webhook():
             
             log(f"   🤖 Respuesta generada ({len(response_text)} chars)")
             
-            # ========== ENVIAR RESPUESTA (SOLO PLANTILLA) ==========
-            log("   🚀 Enviando plantilla...")
+            # ========== ENVIAR RESPUESTA (MENSAJE DIRECTO) ==========
+            log("   🚀 Enviando mensaje directo...")
             send_result = send_whatsapp_reply(from_number, response_text)
             
             log("=" * 60)
@@ -742,130 +756,4 @@ def webhook():
         except Exception as e:
             log(f"❌ Error general en webhook: {e}")
             import traceback
-            traceback.print_exc()
-            return jsonify({"status": "error", "error": str(e)}), 500
-    
-    return "Método no permitido", 405
-
-@app.route("/token-status")
-def token_status():
-    """Endpoint para verificar estado del token"""
-    try:
-        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}"
-        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
-        response = requests.get(url, headers=headers, timeout=5)
-        
-        if response.status_code == 200:
-            return jsonify({"valid": True, "status": response.status_code})
-        else:
-            return jsonify({
-                "valid": False, 
-                "status": response.status_code,
-                "error": response.json() if response.content else "No response"
-            })
-    except Exception as e:
-        return jsonify({"valid": False, "error": str(e)})
-
-@app.route("/clear-cache", methods=["GET"])
-def clear_cache():
-    """Limpia la cache de mensajes procesados"""
-    global processed_messages
-    old_size = len(processed_messages)
-    processed_messages.clear()
-    
-    return jsonify({
-        "status": "cache_cleared",
-        "old_size": old_size,
-        "new_size": len(processed_messages),
-        "timestamp": datetime.now().isoformat()
-    })
-
-@app.route("/cache-info", methods=["GET"])
-def cache_info():
-    """Muestra información de la cache"""
-    cache_size = len(processed_messages)
-    now = time.time()
-    
-    recent_messages = 0
-    oldest_timestamp = None
-    newest_timestamp = None
-    
-    if processed_messages:
-        timestamps = list(processed_messages.values())
-        oldest_timestamp = min(timestamps)
-        newest_timestamp = max(timestamps)
-        
-        for timestamp in timestamps:
-            if now - timestamp < 60:
-                recent_messages += 1
-    
-    return jsonify({
-        "cache_size": cache_size,
-        "max_size": CACHE_MAX_SIZE,
-        "ttl_seconds": CACHE_TTL,
-        "recent_messages_last_minute": recent_messages,
-        "oldest_timestamp": oldest_timestamp,
-        "newest_timestamp": newest_timestamp,
-        "current_time": now
-    })
-
-@app.route("/test-send", methods=["GET"])
-def test_send():
-    """Endpoint para probar envío manual"""
-    try:
-        test_number = "5491151511579"
-        test_message = "Mensaje de prueba desde /test-send"
-        
-        log("=" * 60)
-        log("🧪 PRUEBA MANUAL DESDE /test-send")
-        log("=" * 60)
-        
-        result = send_whatsapp_reply(test_number, test_message)
-        
-        return jsonify({
-            "status": "test_completed",
-            "result": result,
-            "test_number": test_number,
-            "test_message": test_message
-        })
-    except Exception as e:
-        return jsonify({"status": "error", "error": str(e)}), 500
-
-@app.route("/health", methods=["GET"])
-def health_check():
-    try:
-        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}"
-        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
-        response = requests.get(url, headers=headers, timeout=5)
-        
-        status = "healthy" if response.status_code == 200 else "unhealthy"
-        
-        return jsonify({
-            "status": status,
-            "timestamp": datetime.now().isoformat(),
-            "http_code": response.status_code,
-            "service": "whatsapp-bot"
-        })
-    except:
-        return jsonify({"status": "error"}), 500
-
-if __name__ == "__main__":
-    # Mostrar banner inmediatamente
-    show_banner()
-    
-    port = int(os.environ.get("PORT", 10000))
-    
-    # Testear token al inicio
-    token_valid = test_token_validity()
-    
-    if token_valid:
-        log("✅ Bot ACTIVO - Token válido")
-    else:
-        log("⚠️  Bot INICIADO pero token podría tener problemas")
-    
-    log("   Usando SOLO plantillas")
-    log("   Plantilla: jaspers_market_order_confirmation_v1")
-    log("   Sistema de deduplicación: ACTIVADO")
-    log("=" * 60)
-    
-    app.run(host="0.0.0.0", port=port, debug=False)
+            traceback.print_ex
