@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-ACCESS_TOKEN = "EAAJYsGl5pHgBQqgVAHM0PbQBmzv3DZBgY9aSpsZBbnPAp9MEq0ISmgniFTeT15ZAXbALN00HcvftL5DBmj3mvvvDCW4ZCfQuQhzyw9Hy5spZCRdfMyZAiv7SBBFEpWfeKBH2ewDW20an16JxZCviRT1YqCZAaAKWvfS7QruKZAfb0uFxkjYvChe6Lxb908cMWu1lx8xhj8ZBPshQF3DdeW2AXFuwgY7JSAulAkZAOtPnESQVeAvZBxSvWy24NmxNvx5eiNzmN7UQ5EYGonSSZCuCefjncIJ7TBOMDkrbpbZAT1"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQke5hTv3o2JhN6J8J1p56ddoZB1Ah5w84i6fmtPeG5jedUdJjfe1BORNAZCvVfVt5EJMIDkX1ZBnfuBPbPKx8JBX4TalBe3SLgZC8zGNLWmJnhNVuE2QEUhNTmJJDDXLGbGblFQGaxO8ctICVcQcpZCGUf8NFsfhsQavyWlVCtUnq9NwZBMNzf124wMvcDrivd1XOnCB0RtYgzFlDE5wwrZBR8CxHpySIuVl2OM4ao4OBGM3aHgOpZCZCjNrms6GJCXKxugJuod8cjTGsBhuebLy27AZDZD"
 PHONE_NUMBER_ID = "1000705633118215"
 
 # ========== URL DEL LOGO ==========
@@ -237,7 +237,7 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
         estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        return "👋 ¡Gracias por contactarnos! Si necesitas algo más, solo escribe 'Hola' nuevamente. | 🔑🏠 DANTE PROPIEDADES."
+        return "👋 ¡Gracias por contactarnos! Si necesitas algo más, solo escribe 'Hola' nuevamente. | 🏠🗝️ DANTE PROPIEDADES"
     
     # IMPORTANTE: Verificar primero si está en modo listado y el usuario envía un número
     # Esto debe estar ANTES de verificar "1" para venta
@@ -410,7 +410,7 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
                         if "onrender.com" in base_url and not base_url.startswith("https"):
                             base_url = base_url.replace("http://", "https://")
 
-                        send_whatsapp_message(user_id, f"🔑🏠 *DANTE PROPIEDADES*\nRecuperando {len(fotos_a_enviar)} fotos...")
+                        send_whatsapp_message(user_id, f"🏠🗝️ *DANTE PROPIEDADES*\nRecuperando {len(fotos_a_enviar)} fotos...")
                         
                         for foto_path in fotos_a_enviar:
                             # foto_path viene como "imgs/UF000-1.jpeg" del JSON
@@ -717,7 +717,7 @@ def send_welcome_flow(user_id):
         log(f"⚠️  No se pudo enviar logo a {user_id}")
     
     # 2. Mensaje de bienvenida CON EMOJIS 🔑🏠
-    welcome_message = """🔑🏠 *DANTE PROPIEDADES*
+    welcome_message = """🏠🗝️ *DANTE PROPIEDADES*
 
 ¡Hola! Soy el asistente inmobiliario de Dante Propiedades.
 
