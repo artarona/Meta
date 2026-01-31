@@ -410,7 +410,7 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
                         if "onrender.com" in base_url and not base_url.startswith("https"):
                             base_url = base_url.replace("http://", "https://")
 
-                        send_whatsapp_message(user_id, f"📸 *Enviando {len(fotos_a_enviar)} fotos...*")
+                        send_whatsapp_message(user_id, f"🔑🏠 *DANTE PROPIEDADES*\nRecuperando {len(fotos_a_enviar)} fotos...")
                         
                         for foto_path in fotos_a_enviar:
                             # foto_path viene como "imgs/UF000-1.jpeg" del JSON
@@ -428,10 +428,30 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
                             # Nota: caption vacío o con algo breve
                             send_whatsapp_image(user_id, img_url)
                             
-                        return "✅ Fotos enviadas. Envía 'Hola' para volver al menú."
+                        # Cambiar estado para permitir navegación 0/1
+                        estado_usuario['paso'] = 'vista_fotos'
+                        actualizar_estado_usuario(user_id, estado_usuario)
+                        
+                        return "✅ Fotos enviadas.\n\n0️⃣ *❌ SALIR*\n1️⃣ Volver al menú"
             except Exception as e:
                 log(f"Error enviando fotos: {e}")
                 return "❌ Hubo un error al intentar enviar las fotos."
+
+    elif estado_usuario['paso'] == 'vista_fotos':
+        if text_lower == "1":
+            # Volver al menú principal
+            estado_usuario['paso'] = 'menu_principal'
+            estado_usuario['operacion_seleccionada'] = None
+            estado_usuario['propiedades_filtradas'] = []
+            estado_usuario['ultimo_indice_preguntado'] = None
+            estado_usuario['timestamp'] = datetime.now().isoformat()
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "WELCOME_FLOW_TRIGGER"
+        elif text_lower == "0":
+            # Capturado por bloque universal
+            pass
+        
+        return "⚠️ Opción no válida.\n\n0️⃣ *❌ SALIR*\n1️⃣ Volver al menú"
     elif text_lower == "3":
         estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
