@@ -397,8 +397,8 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
                         if not fotos:
                             return "⚠️ Esta propiedad no tiene fotos disponibles."
                         
-                        # Limitar a 5 fotos para no saturar
-                        fotos_a_enviar = fotos[:5]
+                        # Enviar todas las fotos como pidió el usuario
+                        fotos_a_enviar = fotos
                         
                         # Obtener URL base para las imágenes
                         # Si estamos en local o prod, esto varía, pero idealmente usamos request.host_url
