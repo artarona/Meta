@@ -614,6 +614,7 @@ def send_welcome_flow(user_id):
     """Envía el flujo completo de bienvenida: logo (imagen) + mensaje con emoji"""
     # 1. Enviar logo como imagen separada
     # image_sent = send_whatsapp_image(user_id, LOGO_URL, "Dante Propiedades")
+    image_sent = False
     
     if image_sent:
         log(f"✅ Logo enviado a {user_id}")
