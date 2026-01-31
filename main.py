@@ -233,7 +233,7 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
         estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        return "👋 ¡Gracias por contactarnos! Si necesitas algo más, solo escribe 'Hola' nuevamente."
+        return "👋 ¡Gracias por contactarnos! Si necesitas algo más, solo escribe 'Hola' nuevamente. 🔑🏠 *DANTE PROPIEDADES*"
     
     # IMPORTANTE: Verificar primero si está en modo listado y el usuario envía un número
     # Esto debe estar ANTES de verificar "1" para venta
