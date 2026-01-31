@@ -10,6 +10,7 @@
     "tipo": "casa",
     "descripcion": "Ubicada en una zona tranquila y residencial, ofrece la combinación perfecta de vida urbana y refugio personal.",
     "direccion": "Espinillo al 1400",
+    "direccion_completa": "Espinillo 1400, CABA, Argentina",
     "antiguedad": 40,
     "estado": "Bueno",
     "orientacion": "Este",
@@ -20,11 +21,9 @@
     "pileta": "Si",
     "acepta_mascotas": "Si",
     "aire_acondicionado": "Si",
-    "info_multimedia": "Set de 10 fotos de alta calidad, Fotos de exteriores, Recorrido visual completo",
-    "documentos": [
-    ],
-     "videos": [
-    ],
+    "info_multimedia": "Set de 10 fotos de alta calidad, Fotos de exteriores",
+    "documentos": [],
+    "videos": [],
     "fotos": [
       "imgs/UF000-1.jpeg",
       "imgs/UF000-2.jpeg",
@@ -48,6 +47,7 @@
       "imgs/UF000-20.jpeg",
       "imgs/UF000-21.jpeg"
     ],
+    "imagenes_360": [],
     "moneda_precio": "USD",
     "moneda_expensas": "ARS",
     "fecha_procesamiento": "2025-11-09T08:33:51.258324"
@@ -61,8 +61,9 @@
     "metros_cuadrados": 306,
     "operacion": "venta",
     "tipo": "terreno",
-    "descripcion": "Amplia casa familiar con múltiples ambientes, patio parrillero y cochera",
+    "descripcion": "Amplia casa familiar con múltiples ambientes, patio parrillero y cochera. Excelente estado de conservación en zona residencial.",
     "direccion": "Avda. La Plata 1300",
+    "direccion_completa": "Avda. La Plata 1300, CABA, Argentina",
     "antiguedad": 15,
     "estado": "bueno",
     "orientacion": "norte",
@@ -80,8 +81,7 @@
       "imgs/MANZANA.pdf",
       "imgs/DATOS PARCELA.pdf"
     ],
-     "videos": [
-    ],
+    "videos": [],
     "fotos": [
       "imgs/UF001-1.jpg",
       "imgs/UF001-2.jpg",
@@ -91,6 +91,7 @@
       "imgs/UF001-6.jpg",
       "imgs/UF001-7.jpg"
     ],
+    "imagenes_360": [],
     "moneda_precio": "USD",
     "moneda_expensas": "ARS",
     "fecha_procesamiento": "2025-11-09T08:33:51.258324"
@@ -105,12 +106,13 @@
     "operacion": "alquiler",
     "tipo": "departamento",
     "descripcion": "Excelente ubicacio Obelisco",
-    "direccion": "Avda. Corruentes 848",
+    "direccion": "Avda. Corrientes 848",
+    "direccion_completa": "Avda. Corrientes 848, CABA, Argentina",
     "antiguedad": 60,
     "estado": "bueno",
     "orientacion": "norte",
     "piso": "9",
-    "expensas": 95000,
+    "expensas": 74000,
     "moneda_precio": "ARS",
     "moneda_expensas": "ARS",
     "amenities": "seguridad 24hs",
@@ -120,20 +122,18 @@
     "acepta_mascotas": "Sí",
     "aire_acondicionado": "Sí",
     "info_multimedia": "Fotos profesionales disponibles",
-    "documentos": [
-    ],
-     "videos": [
-    ],
+    "documentos": [],
+    "videos": [],
     "fotos": [
       "imgs/UF023-1.jpg",
       "imgs/UF023-2.jpg",
       "imgs/UF023-3.jpg",
       "imgs/UF023-4.jpg",
       "imgs/UF023-5.jpg",
-      "imgs/UF023-6.jpg"
+      "imgs/UF023-6.jpg",
+      "imgs/UF023-7.jpg"
     ],
-    "moneda_precio": "ARS",
-    "moneda_expensas": "ARS",
+    "imagenes_360": [],
     "fecha_procesamiento": "2025-11-08T15:22:30.123456"
   },
   {
@@ -146,7 +146,8 @@
     "operacion": "alquiler",
     "tipo": "oficina",
     "descripcion": "Oficina superluminosa en Microcentro, cerca de todo",
-    "direccion": "",
+    "direccion": "Avda. Corrientes 524, CABA, Argentina",
+    "direccion_completa": "Avda. Corrientes 524, CABA, Argentina",
     "antiguedad": 60,
     "estado": "excelente",
     "orientacion": "norte",
@@ -159,11 +160,9 @@
     "pileta": "No",
     "acepta_mascotas": "Sí",
     "aire_acondicionado": "Sí",
-    "info_multimedia": "Fotos panorámicas disponibles, Video recorrido",
-    "documentos": [
-    ],
-     "videos": [
-    ],
+    "info_multimedia": "Fotos panorámicas disponibles",
+    "documentos": [],
+    "videos": [],
     "fotos": [
       "imgs/OFI-1.jpg",
       "imgs/OFI-2.jpg",
@@ -179,26 +178,26 @@
       "imgs/OFI-12.jpg",
       "imgs/OFI-13.jpg"
     ],
-    "moneda_precio": "ARS",
-    "moneda_expensas": "ARS",
+       "imagenes_360": [],
     "fecha_procesamiento": "2025-11-07T10:45:20.789123"
   },
   {
     "id_temporal": "UF004",
     "titulo": "Barrio Privado, Km- 50 Pilar, 2.000 m2 de terreno propios",
     "barrio": "Pilar",
-    "precio": 1100,
+    "precio": 1500000,
     "ambientes": 8,
     "metros_cuadrados": 200,
     "operacion": "alquiler",
     "tipo": "ph",
     "descripcion": "Casa sobre terreno de 2000 m2. con pileta, Km- 50 Pilar",
     "direccion": "",
+    "direccion_completa": "Cubut 610, Pilar, Buenos Aires, Argentina",
     "antiguedad": 20,
     "estado": "bueno",
     "orientacion": "norte",
     "expensas": 400000,
-    "moneda_precio": "USD",
+    "moneda_precio": "ARS",
     "moneda_expensas": "ARS",
     "amenities": "Pileta enorme terreno",
     "cochera": "Si",
@@ -207,14 +206,8 @@
     "acepta_mascotas": "Sí",
     "aire_acondicionado": "Si",
     "info_multimedia": "Fotos de la propiedad y terraza",
-    "documentos": [
-    ],
-
-    "videos": [
-      "imgs/UF003-VIDEO.mp4",
-      "imgs/UF003-VIDEO1.mp4"  
-    ],
-
+    "documentos": [],
+    "videos": [],
     "fotos": [
       "imgs/UF004-1.jpg",
       "imgs/UF004-2.jpg",
@@ -236,8 +229,12 @@
       "imgs/UF004-18.jpg",
       "imgs/UF004-19.jpg"
     ],
-    "moneda_precio": "USD",
-    "moneda_expensas": "ARS",
+    "imagenes_360": [
+      "imgs/360/UF004-13.png",
+      "imgs/360/UF004-14.jpg",
+      "imgs/360/UF004-15.jpg",
+      "imgs/360/UF004-14.jpg"
+    ],
     "fecha_procesamiento": "2025-11-06T14:30:15.456789"
   }
 ]
