@@ -117,7 +117,8 @@ def generar_listado_propiedades(propiedades):
     if len(propiedades) > 10:
         listado += f"\n📊 ...y {len(propiedades) - 10} propiedades más.\n"
     
-    listado += "\nPara ver detalles de una propiedad, responde con el número entre corchetes [1], [2], etc."
+    listado += "\nPara ver detalles de una propiedad, responde con el número entre corchetes [1], [2], etc.\n"
+    listado += "O envía *0* para ❌ SALIR"
     
     return listado
 
@@ -169,7 +170,7 @@ def formatear_detalle_propiedad(propiedad):
     
     detalle += f"\n📝 *Descripción:*\n{propiedad.get('descripcion', 'Sin descripción')}\n\n"
     detalle += "────────────────────\n"
-    detalle += "Para volver al menú principal, envía 'Hola'"
+    detalle += "Para volver al menú, envía 'Hola' | Para salir envía '0' ❌"
     
     return detalle
 
@@ -219,8 +220,20 @@ Escribí el número de tu opción:
 4️⃣ *🔍 Búsqueda libre* (próximamente)
 5️⃣ *📋 Ver todas las propiedades*
 6️⃣ *ℹ️ Información* (próximamente)
+0️⃣ *❌ SALIR*
 
-Para seleccionar, solo envía el número (ej: "1")"""
+Para seleccionar, solo envía el número (ej: "1" o "0")"""
+    
+    # OPCIÓN 0: SALIR (Universal)
+    if text_lower in ["0", "salir", "exit", "chau", "adios", "basta", "fin"]:
+        # Resetear todo
+        estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['operacion_seleccionada'] = None
+        estado_usuario['propiedades_filtradas'] = []
+        estado_usuario['timestamp'] = datetime.now().isoformat()
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        return "👋 ¡Gracias por contactarnos! Si necesitas algo más, solo escribe 'Hola' nuevamente."
     
     # IMPORTANTE: Verificar primero si está en modo listado y el usuario envía un número
     # Esto debe estar ANTES de verificar "1" para venta
