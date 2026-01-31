@@ -634,8 +634,9 @@ Escribí el número de tu opción:
 4️⃣ *🔍 Búsqueda libre* (próximamente)
 5️⃣ *📋 Ver todas las propiedades*
 6️⃣ *ℹ️ Información* (próximamente)
+0️⃣ *❌ SALIR*
 
-Para seleccionar, solo envía el número (ej: "1")"""
+Para seleccionar, solo envía el número (ej: "1" o "0")"""
     
     return send_whatsapp_message(user_id, welcome_message)
 
