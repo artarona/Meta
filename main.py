@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-ACCESS_TOKEN = "EAAJYsGl5pHgBQmMrZCpN1uiDJ2KzZBkug9t3WrXQIvUzQSGhgZBLQoJkAykO1STvWkkaMjwffvIF8ZCU48MtcwLh8246cN7rbmjvzz5VXJIQ1CGsR9hhOBZCPW979OZAEoMMeTKDbi1UEjRAh1IciWdXBWSyLQZCszfgiGDZBnbMe0vJywjQ7a72j8J0XgDNkUomVEIXCGbLIWINzlBEOnwze6K5KDBtKB8WdRLphtcCy3Ye1HtrgEKulvuD6AIvcGNh90RItrQCJKbvsGXvZBZBJImOUMHaLzrSs7DU8ZD"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQq3qMRYy48qgZB9TL6O91pdEvLScYFHmS502AMI0t1ZBNstS8Ckv7ZCsoiZAeWzLEtDFyKrTyBnH6YY7ZC7ZCCzec1qFEF8gXOfZAcfcmkPlZBdNL5hDQtEIj9LhZBiI4frbZC1KXhqoouBizeNDOjY4lDo7sGlXLEmcqUOi11ILrJRfLQZARxWsyb1PIuxuXbeXiTOdKZBE7spuwGZBYUNmxrcy9hm1mYffOePXqwgmhtSLz3NfNQtgGkkLJiUGp2finXSI0kNIzacoZA2F6HLCHZCM6xaBF0ZD"
 PHONE_NUMBER_ID = "1000705633118215"
 
 # ========== URL DEL LOGO ==========
@@ -222,6 +222,7 @@ Escribí el número de tu opción:
 4️⃣ *🔍 Búsqueda libre* (próximamente)
 5️⃣ *📋 Ver todas las propiedades*
 6️⃣ *ℹ️ Información* (próximamente)
+7️⃣ *🌐 Ir a nuestra Web*
 0️⃣ *❌ SALIR*
 
 Para seleccionar, solo envía el número (ej: "1" o "0")"""
@@ -397,6 +398,11 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
         estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
         return "ℹ️ *Información* - Esta funcionalidad estará disponible próximamente.\n\nEnvía 'Hola' para volver al menú."
+
+    elif text_lower == "7":
+        estado_usuario['timestamp'] = datetime.now().isoformat()
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'Hola' para volver al menú."
     
     
     
@@ -637,6 +643,7 @@ Escribí el número de tu opción:
 4️⃣ *🔍 Búsqueda libre* (próximamente)
 5️⃣ *📋 Ver todas las propiedades*
 6️⃣ *ℹ️ Información* (próximamente)
+7️⃣ *🌐 Ir a nuestra Web*
 0️⃣ *❌ SALIR*
 
 Para seleccionar, solo envía el número (ej: "1" o "0")"""
