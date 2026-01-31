@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 import requests
 import os
 import json
@@ -172,6 +172,7 @@ def formatear_detalle_propiedad(propiedad):
     
     detalle += f"\n📝 *Descripción:*\n{propiedad.get('descripcion', 'Sin descripción')}\n\n"
     detalle += "────────────────────\n"
+    detalle += "📷 *FOTOS PROPIEDAS* (Escribe 'F' o 'Fotos')\n"
     detalle += "Para volver al menú, envía 'Hola' | Para salir envía '0' ❌"
     
     return detalle
@@ -382,8 +383,55 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
                         return mensaje
             except ValueError:
                 pass
-    
-    # OPCIONES 3, 4, 6 (próximamente)
+        
+        # Opción para ver fotos
+        elif text_lower in ["f", "foto", "fotos"] and estado_usuario.get('ultimo_indice_preguntado'):
+            try:
+                indice = estado_usuario['ultimo_indice_preguntado']
+                propiedades = estado_usuario['propiedades_filtradas']
+                
+                if 1 <= indice <= len(propiedades):
+                    propiedad = obtener_detalle_propiedad(propiedades, indice)
+                    if propiedad:
+                        fotos = propiedad.get('fotos', [])
+                        if not fotos:
+                            return "⚠️ Esta propiedad no tiene fotos disponibles."
+                        
+                        # Limitar a 5 fotos para no saturar
+                        fotos_a_enviar = fotos[:5]
+                        
+                        # Obtener URL base para las imágenes
+                        # Si estamos en local o prod, esto varía, pero idealmente usamos request.host_url
+                        # NOTA: En WhatsApp API necesitamos URLs públicas (https). 
+                        # Si estás en localhost con ngrok, funcionará. Si es local puro, fallará en enviarse a WA real.
+                        base_url = request.host_url.rstrip('/') 
+                        
+                        # Eliminar 'http://' y reemplazar con 'https://' si es necesario (Render suele manejar esto, pero por si acaso)
+                        if "onrender.com" in base_url and not base_url.startswith("https"):
+                            base_url = base_url.replace("http://", "https://")
+
+                        send_whatsapp_message(user_id, f"📸 *Enviando {len(fotos_a_enviar)} fotos...*")
+                        
+                        for foto_path in fotos_a_enviar:
+                            # foto_path viene como "imgs/UF000-1.jpeg" del JSON
+                            # La ruta completa sería: https://dominio.com/imgs/UF000-1.jpeg
+                            # Nuestra ruta estática abajo es /imgs/<path>
+                            
+                            # Asegurar que el path no empiece con /
+                            clean_path = foto_path.lstrip('/')
+                            # Si el path en json ya incluye 'imgs/', perfecto.
+                            
+                            img_url = f"{base_url}/{clean_path}"
+                            
+                            log(f"📤 Preparando imagen: {img_url}")
+                            # Usamos send_whatsapp_image (función existente)
+                            # Nota: caption vacío o con algo breve
+                            send_whatsapp_image(user_id, img_url)
+                            
+                        return "✅ Fotos enviadas. Envía 'Hola' para volver al menú."
+            except Exception as e:
+                log(f"Error enviando fotos: {e}")
+                return "❌ Hubo un error al intentar enviar las fotos."
     elif text_lower == "3":
         estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
@@ -815,6 +863,12 @@ def home():
     return html, 200
 
 
+
+# ========== RUTA PARA IMÁGENES LOCALES ==========
+@app.route('/imgs/<path:filename>')
+def serve_image(filename):
+    """Sirve imágenes desde la carpeta imgs"""
+    return send_from_directory('imgs', filename)
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
