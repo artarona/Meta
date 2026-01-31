@@ -400,9 +400,28 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
         return "ℹ️ *Información* - Esta funcionalidad estará disponible próximamente.\n\nEnvía 'Hola' para volver al menú."
 
     elif text_lower == "7":
+        estado_usuario['paso'] = 'vista_web'
         estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'Hola' para volver al menú."
+        return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\n0️⃣ *❌ SALIR*\n1️⃣ Volver al menú"
+
+    elif estado_usuario['paso'] == 'vista_web':
+        if text_lower == "1":
+            # Volver al menú principal
+            estado_usuario['paso'] = 'menu_principal'
+            estado_usuario['operacion_seleccionada'] = None
+            estado_usuario['propiedades_filtradas'] = []
+            estado_usuario['ultimo_indice_preguntado'] = None
+            estado_usuario['timestamp'] = datetime.now().isoformat()
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "WELCOME_FLOW_TRIGGER"
+        elif text_lower == "0":
+            # El manejo de "0" se hace en el bloque universal de arriba, pero por claridad si llegara aquí:
+            # (El bloque universal "0" captura antes, así que esto es fallback o específico si se quita el universal)
+            pass 
+        
+        # Si escribe otra cosa
+        return "⚠️ Opción no válida.\n\n0️⃣ *❌ SALIR*\n1️⃣ Volver al menú"
     
     
     
