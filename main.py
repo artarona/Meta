@@ -12,8 +12,9 @@ ACCESS_TOKEN = "EAAJYsGl5pHgBQiK9tfpSuuHX3cLtavxZClpZB6pYkWwZABVkZBif4xM51ZCiZAL
 PHONE_NUMBER_ID = "1000705633118215"
 
 # ========== URL DEL LOGO ==========
-LOGO_URL = "https://meta-chat-npbx.onrender.com/llave.png"
-
+#LOGO_URL = "https://meta-chat-npbx.onrender.com/llave.png"
+# ========== URL DEL LOGO ==========
+LOGO_URL = "https://i.ibb.co/XZkNL0GJ/llave.png"
 
 # ========== GESTIÓN DE ESTADO DE USUARIOS ==========
 estados_usuarios = {}
