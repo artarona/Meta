@@ -72,6 +72,14 @@ def log(message):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"{timestamp} {message}", flush=True)
 
+def numero_a_emoji(n):
+    """Convierte un número a su emoji correspondiente (1-10)"""
+    emojis = {
+        0: "0️⃣", 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣",
+        5: "5️⃣", 6: "6️⃣", 7: "7️⃣", 8: "8️⃣", 9: "9️⃣", 10: "🔟"
+    }
+    return emojis.get(n, str(n))
+
 # ========== FUNCIONES PARA PROPIEDADES ==========
 def filtrar_propiedades_por_operacion(operacion):
     """Filtra propiedades por tipo de operación (venta/alquiler)"""
@@ -95,7 +103,7 @@ def generar_listado_propiedades(propiedades):
     listado = "📋 *LISTADO DE PROPIEDADES*\n\n"
     
     for i, prop in enumerate(propiedades[:10], 1):  # Limitar a 10 propiedades
-        listado += f"*[{i}]* {prop.get('titulo', 'Sin título')}\n"
+        listado += f"{numero_a_emoji(i)} {prop.get('titulo', 'Sin título')}\n"
         listado += f"   📍 {prop.get('barrio', 'N/A')} | "
         listado += f"💰 "
         
@@ -119,8 +127,8 @@ def generar_listado_propiedades(propiedades):
     if len(propiedades) > 10:
         listado += f"\n📊 ...y {len(propiedades) - 10} propiedades más.\n"
     
-    listado += "\nPara ver detalles de una propiedad, responde con el número entre corchetes [1], [2], etc.\n"
-    listado += "O envía *0* para ❌ SALIR"
+    listado += f"\nPara ver detalles, responde con el número (ej: 1️⃣)\n"
+    listado += f"{numero_a_emoji(0)} *❌ SALIR*"
     
     return listado
 
@@ -237,7 +245,7 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
         estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        return "👋 ¡Gracias por contactarnos! Si necesitas algo más, solo escribe 'Hola' nuevamente. | 🏠🗝️ DANTE PROPIEDADES"
+        return f"👋 ¡Gracias por contactarnos! Si necesitas algo más, solo escribe 'Hola' nuevamente. | 🏠🗝️ DANTE PROPIEDADES"
     
     # IMPORTANTE: Verificar primero si está en modo listado y el usuario envía un número
     # Esto debe estar ANTES de verificar "1" para venta
@@ -432,7 +440,7 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
                         estado_usuario['paso'] = 'vista_fotos'
                         actualizar_estado_usuario(user_id, estado_usuario)
                         
-                        return "✅ Fotos enviadas.\n\n0️⃣ *❌ SALIR*\n1️⃣ Volver al menú"
+                        return f"✅ Fotos enviadas.\n\n{numero_a_emoji(0)} *❌ SALIR*\n{numero_a_emoji(1)} Volver al menú"
             except Exception as e:
                 log(f"Error enviando fotos: {e}")
                 return "❌ Hubo un error al intentar enviar las fotos."
@@ -471,7 +479,7 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
         estado_usuario['paso'] = 'vista_web'
         estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\n0️⃣ *❌ SALIR*\n1️⃣ Volver al menú"
+        return f"🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\n{numero_a_emoji(0)} *❌ SALIR*\n{numero_a_emoji(1)} Volver al menú"
 
     elif estado_usuario['paso'] == 'vista_web':
         if text_lower == "1":
@@ -489,7 +497,7 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
             pass 
         
         # Si escribe otra cosa
-        return "⚠️ Opción no válida.\n\n0️⃣ *❌ SALIR*\n1️⃣ Volver al menú"
+        return f"⚠️ Opción no válida.\n\n{numero_a_emoji(0)} *❌ SALIR*\n{numero_a_emoji(1)} Volver al menú"
     
     
     
