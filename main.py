@@ -8,8 +8,12 @@ app = Flask(__name__)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-ACCESS_TOKEN = "EAAJYsGl5pHgBQqXcknJMJa3ZAStrYNot4TMFVO0CnZCIKvDprLZCzZAZCxG1u22HPsfS9F4BskG5vrZCvhH3GQWkpzyEWE5Cj90vohR3oYkZBZA3PdGQJEImZB4NugPLl0K2kZBZBDi3VHImjoSzlUSmnmYKcpZCKnjELN8tC5AuyBj91rAh6EnjFvI3bUTak5SrvYIyc2zqgMx2WLz6Aym5Ruc8flpv62LlVUi2rQ1fA3mtLmlUTUnpMH68eELaqnkBL7cwdqxAMXCKvOoMTZCffaZAMz9VM3SplkR1V5ClKs"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQiK9tfpSuuHX3cLtavxZClpZB6pYkWwZABVkZBif4xM51ZCiZALjEsCGyM5mIh6Y2pjlqGQZCyDBPoxAyVFrw5V2amvauWLVPOUFGoZCX68kDZAMOhhOCAVv22NLWbnuobc77T9vdF9IWG27xJtOUCveUZBq6dJLM06OAEDO1bPMB5BzxJ5BZA04hXLQn4L738QpIC8tY83Cl30pqVYULabxL8gRc1ZCeHTJlAnSmXwsZBeVPauh6Le8KDixEZBfoIFyZAZCylWyyRi7KvI2f6S3ww0Wm2zwTwZDZD"
 PHONE_NUMBER_ID = "1000705633118215"
+
+# ========== URL DEL LOGO ==========
+LOGO_URL = "https://meta-chat-npbx.onrender.com/llave.png"
+
 
 # ========== GESTIÓN DE ESTADO DE USUARIOS ==========
 estados_usuarios = {}
@@ -170,7 +174,7 @@ def formatear_detalle_propiedad(propiedad):
 
 
 
-# ========== BOT CON PROPIEDADES ==========
+
 # ========== BOT CON PROPIEDADES ==========
 def get_bot_response(text, user_id):
     """Responde con un mensaje simple, manteniendo estado de usuario"""
@@ -178,7 +182,21 @@ def get_bot_response(text, user_id):
     
     # Obtener estado actual del usuario
     estado_usuario = obtener_estado_usuario(user_id)
-    log(f"👤 Estado usuario {user_id}: {estado_usuario['paso']} - Operación: {estado_usuario['operacion_seleccionada']}")
+    # log(f"👤 Estado usuario {user_id}: {estado_usuario['paso']} - Operación: {estado_usuario['operacion_seleccionada']}")
+    log(f"👤 Estado usuario {user_id}: {estado_usuario['paso']}")
+    
+    # MENÚ PRINCIPAL - Resetear estado SOLO cuando se envía explícitamente "Hola"
+    if text_lower in ["hola", "hi", "hello", "hola bot", "inicio", "menu", "volver", "atras"]:
+        estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['operacion_seleccionada'] = None
+        estado_usuario['propiedades_filtradas'] = []
+        estado_usuario['ultimo_indice_preguntado'] = None
+        estado_usuario['timestamp'] = datetime.now().isoformat()
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        # RETORNAR SEÑAL ESPECIAL PARA BIENVENIDA
+        return "WELCOME_FLOW_TRIGGER"
+    
     
     # MENÚ PRINCIPAL - Resetear estado SOLO cuando se envía explícitamente "Hola"
     if text_lower in ["hola", "hi", "hello", "hola bot", "inicio", "menu", "volver", "atras"]:
@@ -518,6 +536,87 @@ def send_whatsapp_message(to_number, message_text):
             "error": str(e)
         }
 
+
+def send_whatsapp_image(to_number, image_url, caption=""):
+    """Envía una imagen por WhatsApp"""
+    try:
+        # Verificar token primero
+        token_valid, _ = check_token_validity()
+        if not token_valid:
+            log("❌ Token inválido - No se puede enviar imagen")
+            return False
+        
+        # Transformar número si es necesario
+        def transform_number(number):
+            if number == "5491151511579":
+                return "54111551511579"
+            return number
+        
+        transformed_number = transform_number(to_number)
+        
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": transformed_number,
+            "type": "image",
+            "image": {
+                "link": image_url,
+                "caption": caption[:1024]
+            }
+        }
+        
+        log(f"🖼️ ENVIANDO IMAGEN: {image_url}")
+        
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        
+        if response.status_code == 200:
+            log(f"✅ Imagen enviada exitosamente")
+            return True
+        else:
+            error_data = response.json() if response.content else {}
+            log(f"❌ Error enviando imagen: {error_data}")
+            return False
+            
+    except Exception as e:
+        log(f"🔥 ERROR enviando imagen: {str(e)}")
+        return False
+
+def send_welcome_flow(user_id):
+    """Envía el flujo completo de bienvenida: logo + mensaje"""
+    # Enviar logo primero
+    image_sent = send_whatsapp_image(user_id, LOGO_URL, "Dante Propiedades")
+    
+    if image_sent:
+        log(f"✅ Logo enviado a {user_id}")
+    else:
+        log(f"⚠️  No se pudo enviar logo a {user_id}, continuando con mensaje...")
+    
+    # Mensaje de bienvenida MODIFICADO (sin emoji de casa)
+    welcome_message = """¡Hola! Soy el asistente inmobiliario de Dante Propiedades.
+
+*¿Qué tipo de operación te interesa?*
+Escribí el número de tu opción:
+
+1️⃣ *💰 VENTA* - Propiedades en venta
+2️⃣ *🔑 ALQUILER* - Propiedades en alquiler
+3️⃣ *📍 Búsqueda por zona* (próximamente)
+4️⃣ *🔍 Búsqueda libre* (próximamente)
+5️⃣ *📋 Ver todas las propiedades*
+6️⃣ *ℹ️ Información* (próximamente)
+
+Para seleccionar, solo envía el número (ej: "1")"""
+    
+    result = send_whatsapp_message(user_id, welcome_message)
+    return result
+
+
+
 # ========== RUTAS PRINCIPALES ==========
 @app.route("/")
 def home():
@@ -661,10 +760,13 @@ def home():
     """
     return html, 200
 
+
+
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
     """Webhook para recibir mensajes de WhatsApp"""
     if request.method == "GET":
+        # Verificación del webhook (Meta requiere esto)
         mode = request.args.get("hub.mode")
         token = request.args.get("hub.verify_token")
         challenge = request.args.get("hub.challenge")
@@ -698,16 +800,19 @@ def webhook():
                 log("❌ Datos JSON vacíos o inválidos")
                 return jsonify({"status": "no_data"}), 200
             
+            # Log básico de la estructura
             log(f"📦 Estructura recibida:")
             log(f"   Object: {data.get('object', 'N/A')}")
             
             if "entry" in data and data["entry"]:
                 log(f"   Entries: {len(data['entry'])}")
             
+            # Verificar que sea un webhook de WhatsApp Business
             if data.get("object") != "whatsapp_business_account":
                 log("❌ No es un webhook de WhatsApp Business")
                 return jsonify({"status": "not_whatsapp"}), 200
             
+            # Procesar las entradas
             for entry in data.get("entry", []):
                 for change in entry.get("changes", []):
                     value = change.get("value", {})
@@ -718,6 +823,7 @@ def webhook():
                         log(f"   📨 Mensajes en webhook: {len(messages)}")
                         
                         for message in messages:
+                            # Solo procesar mensajes de texto
                             if message.get("type") == "text":
                                 from_number = message.get("from")
                                 message_text = message.get("text", {}).get("body", "")
@@ -728,10 +834,32 @@ def webhook():
                                     log(f"💬 TEXTO: {message_text}")
                                     log("=" * 40)
                                     
+                                    # Obtener respuesta del bot usando el estado del usuario
                                     response_text = get_bot_response(message_text, from_number)
-                                    log(f"🤖 RESPUESTA GENERADA ({len(response_text)} caracteres)")
                                     
-                                    result = send_whatsapp_message(from_number, response_text)
+                                    # ✅ MODIFICACIÓN: Manejo especial para bienvenida con logo
+                                    
+                                    
+                                    # ✅ MODIFICACIÓN: Manejo especial para bienvenida con logo
+                                    if response_text == "WELCOME_FLOW_TRIGGER":
+                                        log("🎯 DETECTADA SOLICITUD DE BIENVENIDA")
+                                        log("🔄 ENVIANDO FLUJO COMPLETO (logo + mensaje)")
+                                        
+                                        # Enviar flujo de bienvenida con logo
+                                        result = send_welcome_flow(from_number)
+                                        
+                                        log("=" * 40)
+                                        if result.get('status') == 'success':
+                                            log("✅ ✅ ✅ BIENVENIDA ENVIADA EXITOSAMENTE")
+                                            log("   📸 Logo + mensaje enviados")
+                                        else:
+                                            log("❌ ERROR EN BIENVENIDA")
+                                    else:
+                                        # Respuesta normal del bot (sin logo)
+                                        log(f"🤖 RESPUESTA GENERADA ({len(response_text)} caracteres)")
+                                        
+                                        # Enviar respuesta normal
+                                        result = send_whatsapp_message(from_number, response_text)
                                     
                                     log("=" * 40)
                                     log(f"📊 RESULTADO FINAL: {result.get('status')}")
@@ -747,11 +875,12 @@ def webhook():
                                         "result": result
                                     }), 200
                     
-                    # Si hay notificaciones de estado
+                    # Si hay notificaciones de estado (entregado, leído, etc.)
                     elif "statuses" in value:
                         statuses = value["statuses"]
                         for status in statuses:
                             log(f"📊 Estado de mensaje: {status.get('status', 'N/A')} para ID: {status.get('id', 'N/A')}")
+                        # No necesitamos responder a notificaciones de estado
                         return jsonify({"status": "status_update"}), 200
             
             log("ℹ️  Webhook recibido pero sin mensajes de texto para procesar")
@@ -762,6 +891,9 @@ def webhook():
             import traceback
             log(f"🔍 TRAZABILIDAD: {traceback.format_exc()[:500]}")
             return jsonify({"status": "error", "error": str(e)}), 500
+
+
+
 
 @app.route("/test", methods=["GET"])
 def test_send():
