@@ -3,6 +3,7 @@ import requests
 import os
 import json
 from datetime import datetime
+from collections import deque
 
 app = Flask(__name__)
 
@@ -18,6 +19,7 @@ PHONE_NUMBER_ID = "1000705633118215"
 
 # ========== GESTIÓN DE ESTADO DE USUARIOS ==========
 estados_usuarios = {}
+processed_message_ids = deque(maxlen=100)
 
 def obtener_estado_usuario(user_id):
     """Obtiene o crea el estado de un usuario"""
@@ -851,6 +853,16 @@ def webhook():
                         for message in messages:
                             # Solo procesar mensajes de texto
                             if message.get("type") == "text":
+                                message_id = message.get("id")
+                                
+                                # 🛑 DEDUPLICACIÓN: Verificar si el mensaje ya fue procesado
+                                if message_id in processed_message_ids:
+                                    log(f"🛑 MENSAJE DUPLICADO IGNORADO (ID: {message_id})")
+                                    continue
+                                    
+                                # Agregar ID a la lista de procesados
+                                processed_message_ids.append(message_id)
+                                
                                 from_number = message.get("from")
                                 message_text = message.get("text", {}).get("body", "")
                                 
@@ -1189,5 +1201,4 @@ if __name__ == "__main__":
     print("=" * 60 + "\n")
     
     port = int(os.environ.get("PORT", 10000))
-
     app.run(host="0.0.0.0", port=port, debug=False)
