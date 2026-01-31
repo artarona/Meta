@@ -14,7 +14,7 @@ PHONE_NUMBER_ID = "1000705633118215"
 # ========== URL DEL LOGO ==========
 #LOGO_URL = "https://meta-chat-npbx.onrender.com/llave.png"
 # ========== URL DEL LOGO ==========
-LOGO_URL = "https://images.weserv.nl/?url=i.ibb.co/XZkNL0GJ/llave.png&w=200&output=png"
+# LOGO_URL = "https://images.weserv.nl/?url=i.ibb.co/XZkNL0GJ/llave.png&w=200&output=png"
 
 # ========== GESTIÓN DE ESTADO DE USUARIOS ==========
 estados_usuarios = {}
@@ -613,7 +613,7 @@ def send_whatsapp_image(to_number, image_url, caption=""):
 def send_welcome_flow(user_id):
     """Envía el flujo completo de bienvenida: logo (imagen) + mensaje con emoji"""
     # 1. Enviar logo como imagen separada
-    image_sent = send_whatsapp_image(user_id, LOGO_URL, "Dante Propiedades")
+    # image_sent = send_whatsapp_image(user_id, LOGO_URL, "Dante Propiedades")
     
     if image_sent:
         log(f"✅ Logo enviado a {user_id}")
