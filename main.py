@@ -8,7 +8,7 @@ app = Flask(__name__)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-ACCESS_TOKEN = "EAAJYsGl5pHgBQiK9tfpSuuHX3cLtavxZClpZB6pYkWwZABVkZBif4xM51ZCiZALjEsCGyM5mIh6Y2pjlqGQZCyDBPoxAyVFrw5V2amvauWLVPOUFGoZCX68kDZAMOhhOCAVv22NLWbnuobc77T9vdF9IWG27xJtOUCveUZBq6dJLM06OAEDO1bPMB5BzxJ5BZA04hXLQn4L738QpIC8tY83Cl30pqVYULabxL8gRc1ZCeHTJlAnSmXwsZBeVPauh6Le8KDixEZBfoIFyZAZCylWyyRi7KvI2f6S3ww0Wm2zwTwZDZD"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQpyNdKbbL4qKCesZCc4fAa04nKTulxSndZBWz3PpKtAFCfV0lddTJwsyP8px7Bzb8Ri8rzfMOJAVlx6DXJbKnuUotenx7gZAeSTDu3Bt0NuZCzx6VLa2N7XQ0q6TrcvHswsWGZBC8SiOdTHgDRGVYYJoiOWDqqU3vxL5xrwCVK3KOfa7cKyvxJypYClYRd6Q0ZAG4pFVhDN0EzxYUxWcmtfjwrUg230FewLQnmaZA3ZChVFM3KN4OVA5YKvuFXPNmfAAmZCjidxP9RtBMxOJfrDpVUwZDZD"
 PHONE_NUMBER_ID = "1000705633118215"
 
 # ========== URL DEL LOGO ==========
@@ -391,7 +391,16 @@ Para seleccionar, solo envía el número (ej: "1")"""
         actualizar_estado_usuario(user_id, estado_usuario)
         
         if estado_usuario['paso'] == 'menu_principal':
-            return f"No entendí tu mensaje. Para comenzar, envía 'Hola'."
+            # Resetear estado y mostrar bienvenida para cualquier mensaje en el menú principal
+            # Esto permite "activar" el bot con cualquier texto
+            estado_usuario['paso'] = 'menu_principal'
+            estado_usuario['operacion_seleccionada'] = None
+            estado_usuario['propiedades_filtradas'] = []
+            estado_usuario['ultimo_indice_preguntado'] = None
+            estado_usuario['timestamp'] = datetime.now().isoformat()
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            return "WELCOME_FLOW_TRIGGER"
         elif estado_usuario['paso'] == 'listado_propiedades':
             return f"Por favor, elige un número del listado o envía 'Hola' para volver al menú."
         elif estado_usuario['paso'] == 'detalle_propiedad':
