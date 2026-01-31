@@ -589,17 +589,19 @@ def send_whatsapp_image(to_number, image_url, caption=""):
         return False
 
 def send_welcome_flow(user_id):
-    """Envía el flujo completo de bienvenida: logo + mensaje"""
-    # Enviar logo primero
+    """Envía el flujo completo de bienvenida: logo (imagen) + mensaje con emoji"""
+    # 1. Enviar logo como imagen separada
     image_sent = send_whatsapp_image(user_id, LOGO_URL, "Dante Propiedades")
     
     if image_sent:
         log(f"✅ Logo enviado a {user_id}")
     else:
-        log(f"⚠️  No se pudo enviar logo a {user_id}, continuando con mensaje...")
+        log(f"⚠️  No se pudo enviar logo a {user_id}")
     
-    # Mensaje de bienvenida MODIFICADO (sin emoji de casa)
-    welcome_message = """¡Hola! Soy el asistente inmobiliario de Dante Propiedades.
+    # 2. Mensaje de bienvenida CON EMOJIS 🔑🏠
+    welcome_message = """🔑🏠 *DANTE PROPIEDADES*
+
+¡Hola! Soy el asistente inmobiliario de Dante Propiedades.
 
 *¿Qué tipo de operación te interesa?*
 Escribí el número de tu opción:
@@ -613,8 +615,7 @@ Escribí el número de tu opción:
 
 Para seleccionar, solo envía el número (ej: "1")"""
     
-    result = send_whatsapp_message(user_id, welcome_message)
-    return result
+    return send_whatsapp_message(user_id, welcome_message)
 
 
 
