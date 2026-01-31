@@ -14,7 +14,7 @@ PHONE_NUMBER_ID = "1000705633118215"
 # ========== URL DEL LOGO ==========
 #LOGO_URL = "https://meta-chat-npbx.onrender.com/llave.png"
 # ========== URL DEL LOGO ==========
-LOGO_URL = "https://i.ibb.co/XZkNL0GJ/llave.png"
+LOGO_URL = "https://images.weserv.nl/?url=i.ibb.co/XZkNL0GJ/llave.png&w=200&output=png"
 
 # ========== GESTIÓN DE ESTADO DE USUARIOS ==========
 estados_usuarios = {}
