@@ -9,8 +9,10 @@ app = Flask(__name__)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-ACCESS_TOKEN = "EAAJYsGl5pHgBQhoLwSkrqqVTwMfJwMTMatQXtuFJPP0bATa5YIVGKBcIRGZBdnLSXgx1qdZBPqn2fQ7quIZAJ194NXaMOljqBQ0LM7aiBMKgf59wR6r0utUKqr7V2ewrbgsQa4KHWIXdEEaTsR9duf5OP71WGV5bJ59t41q6Jt3ZCZCDumzFtQP0z7ah8ZB3I0cunw70WTHyS6KIG1hjiS0ZCPSyM4HrxvZC2F7cN0YIb9hlPTdjyYwXmzWmz6hPAXHyIEx0s5xhrs714h4ZCAfZAIWHshp7B8QIxHQwZDZD"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQpoVmnzQc6tuIfPIFf3edL188Owi7xaaf5SsdjHy28Lvjbt7HlVQZAcjf8pyalJSeqm0ZBLNQZClsj3Ql2P0dj3RK7NP0xqGLQrnV9MtHYmo7NTmE7cIclXqm5zEAdDLZChUZC5jtKgZCQIRZCZBRHYakTywoQZB6eZCLp9aTSclWArPP8iiGHtfGEWGnpvZAoZCmfZCN6vHhV6BkgN8G41uV3qfBOwQQPF6u2uHxQgF2SeyKNPZA7r4gSSKRpt6WLlcgsS3pZBV1c8SeRpXZBwlEExQBwp7cwZDZD"
 PHONE_NUMBER_ID = "1000705633118215"
+ADMIN_NUMBER = "5491151511579"  # Número donde llegarán las alertas de leads
+LEADS_FILE = "leads.json"
 
 # ========== URL DEL LOGO ==========
 #LOGO_URL = "https://meta-chat-npbx.onrender.com/llave.png"
@@ -49,6 +51,36 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
     
     for uid in usuarios_a_eliminar:
         del estados_usuarios[uid]
+
+# ========== GESTIÓN DE LEADS (CLIENTES INTERESADOS) ==========
+def registrar_lead(user_id, propiedad_id, accion, detalle=""):
+    """Registra una interacción de lead en el archivo leads.json"""
+    try:
+        leads = []
+        if os.path.exists(LEADS_FILE):
+            with open(LEADS_FILE, 'r', encoding='utf-8') as f:
+                leads = json.load(f)
+        
+        nuevo_lead = {
+            'timestamp': datetime.now().isoformat(),
+            'user_id': user_id,
+            'propiedad_id': propiedad_id,
+            'accion': accion,
+            'detalle': detalle
+        }
+        leads.append(nuevo_lead)
+        
+        with open(LEADS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(leads, f, indent=4, ensure_ascii=False)
+            
+        log(f"📈 Lead registrado: {user_id} - {accion}")
+    except Exception as e:
+        log(f"🔥 Error registrando lead: {e}")
+
+def notificar_agente(mensaje):
+    """Envía una notificación al número de Dante (ADMIN_NUMBER)"""
+    log(f"📢 NOTIFICANDO AL AGENTE: {mensaje[:50]}...")
+    return send_whatsapp_message(ADMIN_NUMBER, f"🔔 *ALERTA DANTE-INSIGHTS*\n{mensaje}")
 
 # ========== CARGAR PROPIEDADES ==========
 PROPIEDADES_FILE = "propiedades.json"
@@ -180,7 +212,7 @@ def formatear_detalle_propiedad(propiedad):
     
     detalle += f"\n📝 *Descripción:*\n{propiedad.get('descripcion', 'Sin descripción')}\n\n"
     detalle += "────────────────────\n"
-    detalle += "📷 *FOTOS PROPIEDAS* (Escribe 'F' o 'Fotos')\n"
+    detalle += "📷 *FOTOS* (Escribe 'F') | 8️⃣ *ME INTERESA*\n"
     detalle += "Para volver al menú, envía 'Hola' | Para salir envía '0' ❌"
     
     return detalle
@@ -281,6 +313,9 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
                     mensaje += "─" * 30 + "\n"
                     mensaje += formatear_detalle_propiedad(propiedad)
                     
+                    # Registrar que el usuario está viendo una propiedad
+                    registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_detalle", f"Título: {propiedad.get('titulo')}")
+                    
                     return mensaje
             else:
                 return f"❌ El número {indice} está fuera de rango. Por favor, elige un número entre 1 y {len(propiedades)}."
@@ -356,6 +391,9 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
                     mensaje += "─" * 30 + "\n"
                     mensaje += formatear_detalle_propiedad(propiedad)
                     
+                    # Registrar interés
+                    registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_detalle", f"Título: {propiedad.get('titulo')}")
+                    
                     return mensaje
             else:
                 return f"❌ El número {indice} está fuera de rango. Elige entre 1 y {len(propiedades)}."
@@ -387,6 +425,8 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
                         mensaje = f"{titulo_op}\n"
                         mensaje += "─" * 30 + "\n"
                         mensaje += formatear_detalle_propiedad(propiedad)
+                        
+                        registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_detalle", f"Título: {propiedad.get('titulo')}")
                         
                         return mensaje
             except ValueError:
@@ -436,6 +476,10 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
                             # Nota: caption vacío o con algo breve
                             send_whatsapp_image(user_id, img_url)
                             
+                        # Notificar al agente si ve fotos (alta intención)
+                        notificar_agente(f"👤 El cliente {user_id} está viendo fotos de: {propiedad.get('titulo')}")
+                        registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_fotos")
+                        
                         # Cambiar estado para permitir navegación 0/1
                         estado_usuario['paso'] = 'vista_fotos'
                         actualizar_estado_usuario(user_id, estado_usuario)
@@ -444,6 +488,35 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
             except Exception as e:
                 log(f"Error enviando fotos: {e}")
                 return "❌ Hubo un error al intentar enviar las fotos."
+        
+        # OPCIÓN 8: ME INTERESA
+        elif text_lower == "8" and estado_usuario.get('ultimo_indice_preguntado'):
+            indice = estado_usuario['ultimo_indice_preguntado']
+            propiedad = obtener_detalle_propiedad(estado_usuario['propiedades_filtradas'], indice)
+            
+            estado_usuario['paso'] = 'esperando_nombre_lead'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "click_me_interesa")
+            
+            return "🙌 ¡Excelente elección! Para que un asesor pueda contactarte, por favor decime tu *Nombre y Apellido*:"
+
+    elif estado_usuario['paso'] == 'esperando_nombre_lead':
+        nombre_cliente = text.strip()
+        indice = estado_usuario['ultimo_indice_preguntado']
+        propiedad = obtener_detalle_propiedad(estado_usuario['propiedades_filtradas'], indice)
+        
+        # Guardar lead completo
+        detalle_prop = f"{propiedad.get('titulo')} ({propiedad.get('id_temporal')})"
+        registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "lead_completo", f"Nombre: {nombre_cliente}")
+        
+        # Notificar al agente
+        notificar_agente(f"🔥 *NUEVO INTERESADO*\n👤 Cliente: {nombre_cliente}\n📞 Tel: {user_id}\n🏠 Propiedad: {detalle_prop}")
+        
+        estado_usuario['paso'] = 'menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        return f"¡Gracias {nombre_cliente}! 👍 Ya recibimos tu consulta por la propiedad *{propiedad.get('titulo')}*. Un asesor se comunicará con vos a la brevedad.\n\nEscribí 'Hola' para volver al menú principal."
 
     elif estado_usuario['paso'] == 'vista_fotos':
         if text_lower == "1":
