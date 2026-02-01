@@ -636,13 +636,21 @@ def send_whatsapp_message(to_number, message_text):
             log(f"❌ MENSAJE: {error_message}")
             
             # Manejar diferentes tipos de errores
-            if error_code == 10:  # Token expirado
+            if error_code == 190:  # Token expirado
                 log("⚠️  TOKEN EXPIRADO - Debes renovarlo en Meta Developers")
                 return {
                     "status": "error",
                     "error_code": error_code,
                     "error_message": "Token expirado. Renueva el token en Meta Developers.",
                     "details": "Ve a: https://developers.facebook.com/apps/"
+                }
+            elif error_code == 10:  # Permisos insuficientes
+                log("❌ ERROR DE PERMISOS - El token no tiene 'whatsapp_business_messaging'")
+                return {
+                    "status": "error",
+                    "error_code": error_code,
+                    "error_message": "El token no tiene permisos suficientes (whatsapp_business_messaging).",
+                    "details": "Asegúrate de marcar los permisos al generar el token."
                 }
             elif error_code == 131030:  # Número no permitido
                 log("⚠️  NÚMERO NO PERMITIDO - Agrega a números de prueba")
