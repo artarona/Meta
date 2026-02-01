@@ -366,72 +366,20 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
         
         return mensaje
     
-    # Si está en detalle de propiedad y envía un número (para ver otra propiedad)
-    elif estado_usuario['paso'] == 'detalle_propiedad' and text_lower.isdigit():
-        try:
-            indice = int(text_lower)
-            propiedades = estado_usuario['propiedades_filtradas']
-            
-            if 1 <= indice <= len(propiedades):
-                propiedad = obtener_detalle_propiedad(propiedades, indice)
-                if propiedad:
-                    estado_usuario['ultimo_indice_preguntado'] = indice
-                    estado_usuario['timestamp'] = datetime.now().isoformat()
-                    actualizar_estado_usuario(user_id, estado_usuario)
-                    
-                    operacion = propiedad.get('operacion', '')
-                    if operacion == 'venta':
-                        titulo_op = "💰 VENTA"
-                    elif operacion == 'alquiler':
-                        titulo_op = "🔑 ALQUILER"
-                    else:
-                        titulo_op = "🏠 PROPIEDAD"
-                    
-                    mensaje = f"{titulo_op}\n"
-                    mensaje += "─" * 30 + "\n"
-                    mensaje += formatear_detalle_propiedad(propiedad)
-                    
-                    # Registrar interés
-                    registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_detalle", f"Título: {propiedad.get('titulo')}")
-                    
-                    return mensaje
-            else:
-                return f"❌ El número {indice} está fuera de rango. Elige entre 1 y {len(propiedades)}."
-        except ValueError:
-            pass
-    
-    # Si está en detalle de propiedad y quiere volver
+    # Si está en detalle de propiedad: Procesar opciones específicas primero (como 8=Interés o F=Fotos)
     elif estado_usuario['paso'] == 'detalle_propiedad':
-        if text_lower.isdigit():
-            try:
-                indice = int(text_lower)
-                propiedades = estado_usuario['propiedades_filtradas']
-                
-                if 1 <= indice <= len(propiedades):
-                    propiedad = obtener_detalle_propiedad(propiedades, indice)
-                    if propiedad:
-                        estado_usuario['ultimo_indice_preguntado'] = indice
-                        estado_usuario['timestamp'] = datetime.now().isoformat()
-                        actualizar_estado_usuario(user_id, estado_usuario)
-                        
-                        operacion = propiedad.get('operacion', '')
-                        if operacion == 'venta':
-                            titulo_op = "💰 VENTA"
-                        elif operacion == 'alquiler':
-                            titulo_op = "🔑 ALQUILER"
-                        else:
-                            titulo_op = "🏠 PROPIEDAD"
-                        
-                        mensaje = f"{titulo_op}\n"
-                        mensaje += "─" * 30 + "\n"
-                        mensaje += formatear_detalle_propiedad(propiedad)
-                        
-                        registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_detalle", f"Título: {propiedad.get('titulo')}")
-                        
-                        return mensaje
-            except ValueError:
-                pass
-        
+        # OPCIÓN 8: ME INTERESA (Debe ir antes que el chequeo de índice genérico)
+        if text_lower == "8" and estado_usuario.get('ultimo_indice_preguntado'):
+            indice = estado_usuario['ultimo_indice_preguntado']
+            propiedad = obtener_detalle_propiedad(estado_usuario['propiedades_filtradas'], indice)
+            
+            estado_usuario['paso'] = 'esperando_nombre_lead'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "click_me_interesa")
+            
+            return "🙌 ¡Excelente elección! Para que un asesor pueda contactarte, por favor decime tu *Nombre y Apellido*:"
+
         # Opción para ver fotos
         elif text_lower in ["f", "foto", "fotos"] and estado_usuario.get('ultimo_indice_preguntado'):
             try:
@@ -448,32 +396,16 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
                         # Enviar todas las fotos como pidió el usuario
                         fotos_a_enviar = fotos
                         
-                        # Obtener URL base para las imágenes
-                        # Si estamos en local o prod, esto varía, pero idealmente usamos request.host_url
-                        # NOTA: En WhatsApp API necesitamos URLs públicas (https). 
-                        # Si estás en localhost con ngrok, funcionará. Si es local puro, fallará en enviarse a WA real.
                         base_url = request.host_url.rstrip('/') 
-                        
-                        # Eliminar 'http://' y reemplazar con 'https://' si es necesario (Render suele manejar esto, pero por si acaso)
                         if "onrender.com" in base_url and not base_url.startswith("https"):
                             base_url = base_url.replace("http://", "https://")
 
                         send_whatsapp_message(user_id, f"🏠🗝️ *DANTE PROPIEDADES*\nRecuperando {len(fotos_a_enviar)} fotos...")
                         
                         for foto_path in fotos_a_enviar:
-                            # foto_path viene como "imgs/UF000-1.jpeg" del JSON
-                            # La ruta completa sería: https://dominio.com/imgs/UF000-1.jpeg
-                            # Nuestra ruta estática abajo es /imgs/<path>
-                            
-                            # Asegurar que el path no empiece con /
                             clean_path = foto_path.lstrip('/')
-                            # Si el path en json ya incluye 'imgs/', perfecto.
-                            
                             img_url = f"{base_url}/{clean_path}"
-                            
                             log(f"📤 Preparando imagen: {img_url}")
-                            # Usamos send_whatsapp_image (función existente)
-                            # Nota: caption vacío o con algo breve
                             send_whatsapp_image(user_id, img_url)
                             
                         # Notificar al agente si ve fotos (alta intención)
@@ -488,18 +420,35 @@ Para seleccionar, solo envía el número (ej: "1" o "0")"""
             except Exception as e:
                 log(f"Error enviando fotos: {e}")
                 return "❌ Hubo un error al intentar enviar las fotos."
+
+        # Si envía un número (para ver OTRA propiedad del listado)
+        elif text_lower.isdigit():
+            try:
+                indice = int(text_lower)
+                propiedades = estado_usuario['propiedades_filtradas']
+                
+                if 1 <= indice <= len(propiedades):
+                    propiedad = obtener_detalle_propiedad(propiedades, indice)
+                    if propiedad:
+                        estado_usuario['ultimo_indice_preguntado'] = indice
+                        estado_usuario['timestamp'] = datetime.now().isoformat()
+                        actualizar_estado_usuario(user_id, estado_usuario)
+                        
+                        operacion = propiedad.get('operacion', '')
+                        titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
+                        
+                        mensaje = f"{titulo_op}\n"
+                        mensaje += "─" * 30 + "\n"
+                        mensaje += formatear_detalle_propiedad(propiedad)
+                        
+                        registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_detalle", f"Título: {propiedad.get('titulo')}")
+                        
+                        return mensaje
+                else:
+                    return f"❌ El número {indice} está fuera de rango. Elige entre 1 y {len(propiedades)} o escribe 'Hola' para volver."
+            except ValueError:
+                pass
         
-        # OPCIÓN 8: ME INTERESA
-        elif text_lower == "8" and estado_usuario.get('ultimo_indice_preguntado'):
-            indice = estado_usuario['ultimo_indice_preguntado']
-            propiedad = obtener_detalle_propiedad(estado_usuario['propiedades_filtradas'], indice)
-            
-            estado_usuario['paso'] = 'esperando_nombre_lead'
-            actualizar_estado_usuario(user_id, estado_usuario)
-            
-            registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "click_me_interesa")
-            
-            return "🙌 ¡Excelente elección! Para que un asesor pueda contactarte, por favor decime tu *Nombre y Apellido*:"
 
     elif estado_usuario['paso'] == 'esperando_nombre_lead':
         nombre_cliente = text.strip()
