@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-ACCESS_TOKEN = "EAAJYsGl5pHgBQke5hTv3o2JhN6J8J1p56ddoZB1Ah5w84i6fmtPeG5jedUdJjfe1BORNAZCvVfVt5EJMIDkX1ZBnfuBPbPKx8JBX4TalBe3SLgZC8zGNLWmJnhNVuE2QEUhNTmJJDDXLGbGblFQGaxO8ctICVcQcpZCGUf8NFsfhsQavyWlVCtUnq9NwZBMNzf124wMvcDrivd1XOnCB0RtYgzFlDE5wwrZBR8CxHpySIuVl2OM4ao4OBGM3aHgOpZCZCjNrms6GJCXKxugJuod8cjTGsBhuebLy27AZDZD"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQpZC9j2U44GtsOU9y7dJQwNMLc8mHwDFbUsHaXiKZB9ZA5YXX565CXOoaECsH7cEfhgfnF72b8LUp89VyZBNdV7nOY80MlFyYTZABy3ZB81e5Yyp9sfUtgZCsoDeBensUTJoXWjDAgFv0YZAExZAU52qmezDsQUWnnfOfTNjGMfIW9QtfIHjMKHk5p5OlnZARjtCCvIC36tRGOY9Bw3ovWZA1QB9eXC0IMrZAlyklk5GX0YDkPnK3h9jbRN1hF2FwsdKrp6GXUNBJpv25jGjZCCvaP1JmvAZDZD"
 PHONE_NUMBER_ID = "1000705633118215"
 
 # ========== URL DEL LOGO ==========
@@ -572,9 +572,12 @@ def send_whatsapp_message(to_number, message_text):
         
         # ========== TRANSFORMAR NÚMERO PARA SANDBOX ==========
         def transform_number(number):
-            if number == "5491151511579":
-                return "54111551511579"
-            return number
+            authorized_numbers = {
+                "5491151511579": "54111551511579",
+                "5491159222341": "54111559222341",
+                "5491154984802": "54111554984802"
+            }
+            return authorized_numbers.get(number, number)
         
         transformed_number = transform_number(to_number)
         
@@ -674,9 +677,12 @@ def send_whatsapp_image(to_number, image_url, caption=""):
         
         # Transformar número si es necesario
         def transform_number(number):
-            if number == "5491151511579":
-                return "54111551511579"
-            return number
+            authorized_numbers = {
+                "5491151511579": "54111551511579",
+                "5491159222341": "54111559222341",
+                "5491154984802": "54111554984802"
+            }
+            return authorized_numbers.get(number, number)
         
         transformed_number = transform_number(to_number)
         
