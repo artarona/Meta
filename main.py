@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, send_file
 import requests
 import os
 import json
@@ -13,6 +13,7 @@ ACCESS_TOKEN = "EAAJYsGl5pHgBQpoVmnzQc6tuIfPIFf3edL188Owi7xaaf5SsdjHy28Lvjbt7HlV
 PHONE_NUMBER_ID = "1000705633118215"
 ADMIN_NUMBER = "5491151511579"  # Número donde llegarán las alertas de leads
 LEADS_FILE = "leads.json"
+ADMIN_ACCESS_KEY = "dante2026"  # Llave para acceder al panel admin
 
 # ========== URL DEL LOGO ==========
 #LOGO_URL = "https://meta-chat-npbx.onrender.com/llave.png"
@@ -928,6 +929,33 @@ def home():
     """
     return html, 200
 
+
+
+# ========== RUTAS DEL PANEL ADMINISTRATIVO ==========
+@app.route("/admin")
+def admin_panel():
+    """Sirve el panel de administración si la llave es correcta"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return "⚠️ Acceso No Autorizado. Por favor usa el enlace seguro.", 403
+    return send_file("admin.html")
+
+@app.route("/api/leads")
+def api_leads():
+    """Retorna los leads en formato JSON si la llave es correcta"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    leads = []
+    if os.path.exists(LEADS_FILE):
+        try:
+            with open(LEADS_FILE, 'r', encoding='utf-8') as f:
+                leads = json.load(f)
+        except Exception as e:
+            log(f"Error leyendo leads para API: {e}")
+            
+    return jsonify({"leads": leads})
 
 
 # ========== RUTA PARA IMÁGENES LOCALES ==========

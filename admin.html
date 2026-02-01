@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dante Admin Panel | Dashboard de Leads</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --border: #e2e8f0;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            line-height: 1.6;
+        }
+
+        .navbar {
+            background: #1e293b;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        .navbar h1 { font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+        }
+
+        .stat-card h3 { font-size: 0.875rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .stat-card .value { font-size: 2rem; font-weight: 700; margin-top: 0.5rem; color: var(--primary); }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
+        .btn-outline:hover { background: #f1f5f9; }
+
+        .leads-table-container {
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            background: #f8fafc;
+            padding: 1rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.875rem;
+        }
+
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background-color: #f8fafc; }
+
+        .badge {
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-hot { background: #fee2e2; color: #991b1b; }
+        .badge-view { background: #dcfce7; color: #166534; }
+        .badge-neutral { background: #f1f5f9; color: #475569; }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .navbar { padding: 1rem; }
+            .container { margin: 1rem auto; }
+            .stats-grid { grid-template-columns: 1fr; }
+            th:nth-child(3), td:nth-child(3) { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <h1>🏠 Dante Admin Panel</h1>
+        <div style="display: flex; gap: 1rem;">
+            <button class="btn btn-outline" onclick="window.location.reload()">🔄 Recargar</button>
+            <button class="btn btn-primary" onclick="exportToCSV()">📤 Exportar CSV</button>
+        </div>
+    </nav>
+
+    <div class="container" id="mainContent">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Leads</h3>
+                <div class="value" id="totalLeads">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Hot Leads 🔥</h3>
+                <div class="value" id="hotLeads">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Hoy</h3>
+                <div class="value" id="todayLeads">0</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <h2 style="font-size: 1.5rem;">Listado Reciente</h2>
+            <div style="display: flex; gap: 0.5rem;">
+                <input type="text" id="searchInput" placeholder="Buscar por teléfono o ID..." 
+                       style="padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border); width: 250px;">
+            </div>
+        </div>
+
+        <div class="leads-table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha/Hora</th>
+                        <th>Cliente (WhatsApp)</th>
+                        <th>Acción</th>
+                        <th>Propiedad</th>
+                        <th>Detalle</th>
+                    </tr>
+                </thead>
+                <tbody id="leadsBody">
+                    <!-- Data will be injected here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="loading" class="loading-overlay">
+        <div style="text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: 600; margin-top: 1rem;">Cargando Leads...</div>
+        </div>
+    </div>
+
+    <script>
+        let allLeads = [];
+
+        async function fetchLeads() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const key = urlParams.get('key');
+            
+            if (!key) {
+                document.body.innerHTML = '<div style="height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column;">' +
+                    '<h1 style="color:var(--danger)">⚠️ Acceso Denegado</h1>' +
+                    '<p>Por favor, utiliza el enlace seguro enviado a tu WhatsApp.</p></div>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/leads?key=${key}`);
+                if (!response.ok) throw new Error('Unauthorized');
+                
+                const data = await response.json();
+                allLeads = data.leads.reverse(); // Newest first
+                updateDashboard();
+            } catch (error) {
+                console.error('Error:', error);
+                alert('No se pudo cargar la información. Verifica la llave de acceso.');
+            }
+        }
+
+        function updateDashboard() {
+            const body = document.getElementById('leadsBody');
+            const totalEl = document.getElementById('totalLeads');
+            const hotEl = document.getElementById('hotLeads');
+            const todayEl = document.getElementById('todayLeads');
+            
+            body.innerHTML = '';
+            let hotCount = 0;
+            let todayCount = 0;
+            const now = new Date().toDateString();
+
+            allLeads.forEach(lead => {
+                const tr = document.createElement('tr');
+                const date = new Date(lead.timestamp);
+                
+                if (date.toDateString() === now) todayCount++;
+                
+                let badgeClass = 'badge-neutral';
+                if (lead.accion === 'lead_completo' || lead.accion === 'click_me_interesa') {
+                    badgeClass = 'badge-hot';
+                    hotCount++;
+                } else if (lead.accion === 'ver_fotos') {
+                    badgeClass = 'badge-view';
+                }
+
+                const actionLabel = lead.accion.replace(/_/g, ' ').toUpperCase();
+
+                tr.innerHTML = `
+                    <td>${date.toLocaleString()}</td>
+                    <td style="font-weight:600">+${lead.user_id}</td>
+                    <td><span class="badge ${badgeClass}">${actionLabel}</span></td>
+                    <td><code>${lead.propiedad_id || 'N/A'}</code></td>
+                    <td style="color:var(--text-muted)">${lead.detalle || ''}</td>
+                `;
+                body.appendChild(tr);
+            });
+
+            totalEl.innerText = allLeads.length;
+            hotEl.innerText = hotCount;
+            todayEl.innerText = todayCount;
+        }
+
+        function exportToCSV() {
+            if (allLeads.length === 0) return alert('No hay datos para exportar');
+            
+            let csv = 'Fecha,Telefono,Accion,Propiedad,Detalle\n';
+            allLeads.forEach(lead => {
+                csv += `${lead.timestamp},${lead.user_id},${lead.accion},${lead.propiedad_id},"${lead.detalle || ''}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `leads_dante_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        // Search filter
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('#leadsBody tr');
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(term) ? '' : 'none';
+            });
+        });
+
+        fetchLeads();
+        // Auto refresh every 30 seconds
+        setInterval(fetchLeads, 30000);
+    </script>
+</body>
+</html>
