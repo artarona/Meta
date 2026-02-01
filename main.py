@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-ACCESS_TOKEN = "EAAJYsGl5pHgBQjaDc446X0Be4x0j0WySAhZAFVvkQXkLeZCgkOOlp6Riqi81D7MGsJPzVin3cqRN8cGnuzsqOZBZB3ZBE66OV6YXdj7OBxDQxkVNzLbeuEv4XRcZAmQH0NHUYZBpHuwubxKHZBaAsICrybJSGdEdwnYsDgzMRTTUFpGbPVNBJ1tZCUNIZCHsdCIpB6awCnKhuZC0dCzNyazgxYkgHhu8ufZCTSlmZBiCLTKWI9XFuNeTgba59bEm0ybyHkefUZA9CfagrTkcZBY82wyXLzR5j3OP9k1NrJqMqMZD"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQhkZAzUi0lyAxeKjMFAZAxLqNAtptjnKb3phWGK8qeWAgR8NWwFvvBq5ZCFSp3p4G1Xa8nIQuPeslIW1YplSDQJHgXybJwv9nB0v5K4WK9mMZCMFNBTqa51H49y5aAvQzgXdLyV6Hb6kMZArwkMlHLyH7IOclCx2fNO1L5YvQ4cVx6XmNpEkaCiBsrMp52IXVYiim6yPg9govMw3xzLzBOBOX7TvKgsnSr93auS93nZA9LLOVmtNlKANm7nN7KVNsShnnl0O5ZBgBmyeCIn2WWqpAZDZD"
 PHONE_NUMBER_ID = "1000705633118215"
 
 # ========== URL DEL LOGO ==========
@@ -570,16 +570,14 @@ def send_whatsapp_message(to_number, message_text):
                 "details": "Ve a Meta Developers > WhatsApp > Getting Started para generar nuevo token"
             }
         
-        # ========== TRANSFORMAR NÚMERO PARA SANDBOX (AR) ==========
+        # ========== TRANSFORMAR NÚMERO PARA SANDBOX ==========
         def transform_number(number):
-            # Formato ARG Sandbox: 54911XXXXXXXX -> 541115XXXXXXXX
-            if number.startswith("549") and len(number) == 13:
-                # Quitamos el '9' y agregamos '15' después del código de área
-                country = number[:2]    # 54
-                area = number[3:5]       # 11 (o el área que sea)
-                rest = number[5:]       # El resto del número
-                return f"{country}{area}15{rest}"
-            return number
+            authorized_numbers = {
+                "5491151511579": "54111551511579",
+                "5491159222341": "54111559222341",
+                "5491154984802": "54111554984802"
+            }
+            return authorized_numbers.get(number, number)
         
         transformed_number = transform_number(to_number)
         
@@ -636,21 +634,13 @@ def send_whatsapp_message(to_number, message_text):
             log(f"❌ MENSAJE: {error_message}")
             
             # Manejar diferentes tipos de errores
-            if error_code == 190:  # Token expirado
+            if error_code == 10:  # Token expirado
                 log("⚠️  TOKEN EXPIRADO - Debes renovarlo en Meta Developers")
                 return {
                     "status": "error",
                     "error_code": error_code,
                     "error_message": "Token expirado. Renueva el token en Meta Developers.",
                     "details": "Ve a: https://developers.facebook.com/apps/"
-                }
-            elif error_code == 10:  # Permisos insuficientes
-                log("❌ ERROR DE PERMISOS - El token no tiene 'whatsapp_business_messaging'")
-                return {
-                    "status": "error",
-                    "error_code": error_code,
-                    "error_message": "El token no tiene permisos suficientes (whatsapp_business_messaging).",
-                    "details": "Asegúrate de marcar los permisos al generar el token."
                 }
             elif error_code == 131030:  # Número no permitido
                 log("⚠️  NÚMERO NO PERMITIDO - Agrega a números de prueba")
@@ -685,14 +675,14 @@ def send_whatsapp_image(to_number, image_url, caption=""):
             log("❌ Token inválido - No se puede enviar imagen")
             return False
         
-        # Transformar número si es necesario (Sandbox ARG)
+        # Transformar número si es necesario
         def transform_number(number):
-            if number.startswith("549") and len(number) == 13:
-                country = number[:2]
-                area = number[3:5]
-                rest = number[5:]
-                return f"{country}{area}15{rest}"
-            return number
+            authorized_numbers = {
+                "5491151511579": "54111551511579",
+                "5491159222341": "54111559222341",
+                "5491154984802": "54111554984802"
+            }
+            return authorized_numbers.get(number, number)
         
         transformed_number = transform_number(to_number)
         
