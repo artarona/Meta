@@ -957,6 +957,20 @@ def api_leads():
             
     return jsonify({"leads": leads})
 
+@app.route("/api/leads-file")
+def api_leads_file():
+    """Retorna el archivo Leads.xlsx si la llave es correcta"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    filename = "Leads.xlsx"
+    if os.path.exists(filename):
+        return send_file(filename, as_attachment=True)
+    else:
+        log(f"⚠️ Archivo {filename} no encontrado para descarga admin")
+        return jsonify({"error": "File not found"}), 404
+
 
 # ========== RUTA PARA IMÁGENES LOCALES ==========
 @app.route('/imgs/<path:filename>')
