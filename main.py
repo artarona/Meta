@@ -4,6 +4,7 @@ import os
 import json
 from datetime import datetime
 from collections import deque
+import threading
 
 app = Flask(__name__)
 
@@ -299,23 +300,13 @@ def get_bot_response(text, user_id):
             if not (indice and 1 <= indice <= len(propiedades)): return "WELCOME_FLOW_TRIGGER"
             
             propiedad = obtener_detalle_propiedad(propiedades, indice)
-            fotos = propiedad.get('fotos', [])
-            if not fotos: return "⚠️ Esta propiedad no tiene fotos disponibles."
             
-            base_url = request.host_url.rstrip('/')
-            if "onrender.com" in base_url and not base_url.startswith("https"):
-                base_url = base_url.replace("http://", "https://")
-
-            send_whatsapp_message(user_id, f"🏠🗝️ *DANTE PROPIEDADES*\nRecuperando {len(fotos)} fotos...")
-            for foto_path in fotos:
-                send_whatsapp_image(user_id, f"{base_url}/{foto_path.lstrip('/')}")
-            
-            notificar_agente(f"👤 El cliente {user_id} está viendo fotos de: {propiedad.get('titulo')}")
-            registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_fotos")
-            
+            # Cambiar estado y avisar al webhook que dispare el hilo de fotos
             estado_usuario['paso'] = 'vista_fotos'
             actualizar_estado_usuario(user_id, estado_usuario)
-            return f"✅ Fotos enviadas.\n\n0️⃣ *❌ SALIR*\n1️⃣ Volver al menú"
+            
+            # Formato especial: PHOTOS_TRIGGER|ID_PROPIEDAD
+            return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
 
         # Otras opciones (números para otras propiedades)
         elif text_lower.isdigit():
@@ -353,7 +344,7 @@ def get_bot_response(text, user_id):
             
             estado_usuario['paso'] = 'menu_principal'
             actualizar_estado_usuario(user_id, estado_usuario)
-            return f"¡Gracias {nombre_cliente}! 👍 Ya recibimos tu consulta. Un asesor se comunicará con vos a la brevedad.\n\nEscribí 'Hola' para volver al menú principal."
+            return f"¡Gracias {nombre_cliente}! 👍 Ya recibimos tu consulta. Un asesor se comunicará con vos a la brevedad.\n\nPara volver al menú, envía 'Hola' | Para salir envía '0' ❌"
         else:
             estado_usuario['paso'] = 'menu_principal'
             actualizar_estado_usuario(user_id, estado_usuario)
@@ -555,6 +546,38 @@ def send_whatsapp_message(to_number, message_text):
             "error": str(e)
         }
 
+
+def send_photos_async(user_id, propiedad_id, base_url):
+    """Tarea ejecutada en hilo secundario para enviar fotos sin bloquear el webhook"""
+    try:
+        # Recuperar datos de la propiedad
+        propiedades = cargar_propiedades()
+        propiedad = next((p for p in propiedades if p.get('id_temporal') == propiedad_id), None)
+        
+        if not propiedad:
+            log(f"❌ No se encontró propiedad {propiedad_id} para envío de fotos")
+            return
+
+        fotos = propiedad.get('fotos', [])
+        if not fotos:
+            return
+
+        # Enviar mensaje de aviso inicial
+        send_whatsapp_message(user_id, f"🏠🗝️ *DANTE PROPIEDADES*\nRecuperando {len(fotos)} fotos...")
+
+        # Enviar cada foto
+        for foto_path in fotos:
+            img_url = f"{base_url}/{foto_path.lstrip('/')}"
+            log(f"📤 HILO-SECUNDARIO: Enviando {img_url}")
+            send_whatsapp_image(user_id, img_url)
+            
+        # Notificaciones finales
+        notificar_agente(f"👤 El cliente {user_id} está viendo fotos de: {propiedad.get('titulo')}")
+        registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_fotos")
+        
+        log(f"✅ HILO-SECUNDARIO: Envío de fotos completado para {user_id}")
+    except Exception as e:
+        log(f"🔥 Error en hilo de fotos: {e}")
 
 def send_whatsapp_image(to_number, image_url, caption=""):
     """Envía una imagen por WhatsApp"""
@@ -943,7 +966,24 @@ def webhook():
                                             log("❌ ERROR EN BIENVENIDA")
                                     else:
                                         # Respuesta normal del bot (sin logo)
-                                        if response_text:
+                                        if response_text == "WELCOME_FLOW_TRIGGER":
+                                            # Esto es redundante por el block de arriba pero por si acaso
+                                            result = send_welcome_flow(from_number)
+                                        elif response_text.startswith("PHOTOS_TRIGGER|"):
+                                            # Disparar hilo de fotos en segundo plano
+                                            prop_id = response_text.split("|")[1]
+                                            base_url = request.host_url.rstrip('/')
+                                            if "onrender.com" in base_url and not base_url.startswith("https"):
+                                                base_url = base_url.replace("http://", "https://")
+                                            
+                                            log(f"🚀 Iniciando hilo de fotos para propiedad {prop_id}")
+                                            thread = threading.Thread(target=send_photos_async, args=(from_number, prop_id, base_url))
+                                            thread.start()
+                                            
+                                            # Enviar confirmación inmediata de que se están enviando las fotos
+                                            confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\n0️⃣ *❌ SALIR*\n1️⃣ Volver al menú"
+                                            result = send_whatsapp_message(from_number, confirmacion)
+                                        elif response_text:
                                             log(f"🤖 RESPUESTA GENERADA ({len(response_text)} caracteres)")
                                             result = send_whatsapp_message(from_number, response_text)
                                         else:
