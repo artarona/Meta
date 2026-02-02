@@ -285,7 +285,10 @@ def get_bot_response(text, user_id):
         # Opción 8: Me interesa
         if text_lower == "8":
             indice = estado_usuario.get('ultimo_indice_preguntado')
-            if not indice: return "WELCOME_FLOW_TRIGGER"
+            if not indice:
+                estado_usuario['paso'] = 'menu_principal'
+                actualizar_estado_usuario(user_id, estado_usuario)
+                return "WELCOME_FLOW_TRIGGER"
             
             propiedad = obtener_detalle_propiedad(estado_usuario['propiedades_filtradas'], indice)
             estado_usuario['paso'] = 'esperando_nombre_lead'
@@ -297,7 +300,10 @@ def get_bot_response(text, user_id):
         elif text_lower in ["f", "foto", "fotos"]:
             indice = estado_usuario.get('ultimo_indice_preguntado')
             propiedades = estado_usuario.get('propiedades_filtradas', [])
-            if not (indice and 1 <= indice <= len(propiedades)): return "WELCOME_FLOW_TRIGGER"
+            if not (indice and 1 <= indice <= len(propiedades)):
+                estado_usuario['paso'] = 'menu_principal'
+                actualizar_estado_usuario(user_id, estado_usuario)
+                return "WELCOME_FLOW_TRIGGER"
             
             propiedad = obtener_detalle_propiedad(propiedades, indice)
             
@@ -328,6 +334,8 @@ def get_bot_response(text, user_id):
     # ESTADO: vista_fotos / vista_web / vista_comun
     elif estado_usuario['paso'] in ['vista_fotos', 'vista_web']:
         if text_lower == "1":
+            estado_usuario['paso'] = 'menu_principal'
+            actualizar_estado_usuario(user_id, estado_usuario)
             return "WELCOME_FLOW_TRIGGER"
         return "⚠️ Opción no válida.\n\n0️⃣ *❌ SALIR*\n1️⃣ Volver al menú"
 
@@ -350,8 +358,7 @@ def get_bot_response(text, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             return "Lo siento, hubo un error procesando tu interés. Por favor, volvé a buscar la propiedad."
 
-    # ESTADO: menu_principal o cualquier otro (Opciones 1..7)
-    # Este bloque maneja el menú principal Y accesos directos desde detalle
+    # 3. OPCIONES GLOBALES (1..7) - Se procesan si no se capturaron arriba
     if text_lower == "1":
         estado_usuario['paso'] = 'listado_propiedades'
         estado_usuario['operacion_seleccionada'] = 'venta'
@@ -393,6 +400,9 @@ def get_bot_response(text, user_id):
     if estado_usuario['paso'] == 'menu_principal':
         return "WELCOME_FLOW_TRIGGER"
     else:
+        # Si el usuario mandó cualquier cosa y no estábamos en menú, lo llevamos al menú por seguridad
+        estado_usuario['paso'] = 'menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
         return "No entendí tu mensaje. Enviá 'Hola' para volver al inicio."
 
 
