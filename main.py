@@ -39,17 +39,15 @@ def obtener_estado_usuario(user_id):
 
 def actualizar_estado_usuario(user_id, nuevo_estado):
     """Actualiza el estado de un usuario"""
+    nuevo_estado['timestamp'] = datetime.now().isoformat()
     estados_usuarios[user_id] = nuevo_estado
+    
     # Limpiar estados antiguos (más de 1 hora)
-    usuarios_a_eliminar = []
-    for uid, estado in estados_usuarios.items():
-        if 'timestamp' in estado:
-            try:
-                timestamp = datetime.fromisoformat(estado['timestamp'])
-                if (datetime.now() - timestamp).seconds > 3600:  # 1 hora
-                    usuarios_a_eliminar.append(uid)
-            except:
-                usuarios_a_eliminar.append(uid)
+    ahora = datetime.now()
+    usuarios_a_eliminar = [
+        uid for uid, estado in estados_usuarios.items()
+        if 'timestamp' in estado and (ahora - datetime.fromisoformat(estado['timestamp'])).total_seconds() > 3600
+    ]
     
     for uid in usuarios_a_eliminar:
         del estados_usuarios[uid]
@@ -249,7 +247,35 @@ def get_bot_response(text, user_id):
         actualizar_estado_usuario(user_id, estado_usuario)
         return f"👋 ¡Gracias por contactarnos! Si necesitas algo más, solo escribe 'Hola' nuevamente. | 🏠🗝️ DANTE PROPIEDADES"
 
-    # 2. LÓGICA POR ESTADO (Máquina de Estados)
+    # 2. ACCIONES ESPECIALES (8 - Me interesa / F - Fotos)
+    # Estas acciones funcionan si el usuario tiene un contexto de propiedad (ultimo_indice_preguntado)
+    if text_lower == "8" or text_lower in ["f", "foto", "fotos"]:
+        indice = estado_usuario.get('ultimo_indice_preguntado')
+        propiedades = estado_usuario.get('propiedades_filtradas', [])
+        
+        if indice and 1 <= indice <= len(propiedades):
+            propiedad = obtener_detalle_propiedad(propiedades, indice)
+            
+            if text_lower == "8":
+                log(f"🎯 ACCIÓN GLOBAL: Me interesa (Prop ID: {propiedad.get('id_temporal')})")
+                estado_usuario['paso'] = 'esperando_nombre_lead'
+                actualizar_estado_usuario(user_id, estado_usuario)
+                registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "click_me_interesa")
+                return "🙌 ¡Excelente elección! Para que un asesor pueda contactarte, por favor decime tu *Nombre y Apellido*:"
+            
+            else: # Fotos
+                log(f"🎯 ACCIÓN GLOBAL: Fotos (Prop ID: {propiedad.get('id_temporal')})")
+                estado_usuario['paso'] = 'vista_fotos'
+                actualizar_estado_usuario(user_id, estado_usuario)
+                return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
+        
+        # Si mandó 8/F pero no hay contexto, lo llevamos al menú principal pero no fallamos
+        elif text_lower == "8":
+            return "⚠️ Por favor, primero selecciona una propiedad del listado para indicar tu interés."
+        elif text_lower in ["f", "foto", "fotos"]:
+            return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
+
+    # 3. LÓGICA POR ESTADO (Máquina de Estados)
     
     # ESTADO: listado_propiedades
     if estado_usuario['paso'] == 'listado_propiedades':
@@ -282,40 +308,10 @@ def get_bot_response(text, user_id):
 
     # ESTADO: detalle_propiedad
     elif estado_usuario['paso'] == 'detalle_propiedad':
-        # Opción 8: Me interesa
-        if text_lower == "8":
-            indice = estado_usuario.get('ultimo_indice_preguntado')
-            if not indice:
-                estado_usuario['paso'] = 'menu_principal'
-                actualizar_estado_usuario(user_id, estado_usuario)
-                return "WELCOME_FLOW_TRIGGER"
-            
-            propiedad = obtener_detalle_propiedad(estado_usuario['propiedades_filtradas'], indice)
-            estado_usuario['paso'] = 'esperando_nombre_lead'
-            actualizar_estado_usuario(user_id, estado_usuario)
-            registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "click_me_interesa")
-            return "🙌 ¡Excelente elección! Para que un asesor pueda contactarte, por favor decime tu *Nombre y Apellido*:"
-
-        # Opción F: Fotos
-        elif text_lower in ["f", "foto", "fotos"]:
-            indice = estado_usuario.get('ultimo_indice_preguntado')
-            propiedades = estado_usuario.get('propiedades_filtradas', [])
-            if not (indice and 1 <= indice <= len(propiedades)):
-                estado_usuario['paso'] = 'menu_principal'
-                actualizar_estado_usuario(user_id, estado_usuario)
-                return "WELCOME_FLOW_TRIGGER"
-            
-            propiedad = obtener_detalle_propiedad(propiedades, indice)
-            
-            # Cambiar estado y avisar al webhook que dispare el hilo de fotos
-            estado_usuario['paso'] = 'vista_fotos'
-            actualizar_estado_usuario(user_id, estado_usuario)
-            
-            # Formato especial: PHOTOS_TRIGGER|ID_PROPIEDAD
-            return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
-
-        # Otras opciones (números para otras propiedades)
-        elif text_lower.isdigit():
+        # (Las opciones 8 y F ya se manejaron arriba de forma global)
+        
+        # Otras opciones (números para otras propiedades del mismo listado)
+        if text_lower.isdigit():
             indice = int(text_lower)
             propiedades = estado_usuario.get('propiedades_filtradas', [])
             if 1 <= indice <= len(propiedades):
@@ -358,7 +354,7 @@ def get_bot_response(text, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             return "Lo siento, hubo un error procesando tu interés. Por favor, volvé a buscar la propiedad."
 
-    # 3. OPCIONES GLOBALES (1..7) - Se procesan si no se capturaron arriba
+    # 4. OPCIONES GLOBALES (1..7) - Se procesan si no se capturaron arriba
     if text_lower == "1":
         estado_usuario['paso'] = 'listado_propiedades'
         estado_usuario['operacion_seleccionada'] = 'venta'
