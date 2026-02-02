@@ -228,10 +228,9 @@ def get_bot_response(text, user_id):
     
     # Obtener estado actual del usuario
     estado_usuario = obtener_estado_usuario(user_id)
-    # log(f"👤 Estado usuario {user_id}: {estado_usuario['paso']} - Operación: {estado_usuario['operacion_seleccionada']}")
     log(f"👤 Estado usuario {user_id}: {estado_usuario['paso']}")
     
-    # MENÚ PRINCIPAL - Resetear estado SOLO cuando se envía explícitamente "Hola"
+    # 1. COMANDOS UNIVERSALES (Hola / Salir)
     if text_lower in ["hola", "hi", "hello", "hola bot", "inicio", "menu", "volver", "atras"]:
         estado_usuario['paso'] = 'menu_principal'
         estado_usuario['operacion_seleccionada'] = None
@@ -239,313 +238,171 @@ def get_bot_response(text, user_id):
         estado_usuario['ultimo_indice_preguntado'] = None
         estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
-        
-        # RETORNAR SEÑAL ESPECIAL PARA BIENVENIDA
         return "WELCOME_FLOW_TRIGGER"
     
-    
-    # MENÚ PRINCIPAL - Resetear estado SOLO cuando se envía explícitamente "Hola"
-    if text_lower in ["hola", "hi", "hello", "hola bot", "inicio", "menu", "volver", "atras"]:
-        estado_usuario['paso'] = 'menu_principal'
-        estado_usuario['operacion_seleccionada'] = None
-        estado_usuario['propiedades_filtradas'] = []
-        estado_usuario['ultimo_indice_preguntado'] = None
-        estado_usuario['timestamp'] = datetime.now().isoformat()
-        actualizar_estado_usuario(user_id, estado_usuario)
-        
-        return """¡Hola! Soy el asistente inmobiliario de Dante Propiedades. 🏠
-
-*¿Qué tipo de operación te interesa?*
-Escribí el número de tu opción:
-
-1️⃣ *💰 VENTA* - Propiedades en venta
-2️⃣ *🔑 ALQUILER* - Propiedades en alquiler
-3️⃣ *📍 Búsqueda por zona* (próximamente)
-4️⃣ *🔍 Búsqueda libre* (próximamente)
-5️⃣ *📋 Ver todas las propiedades*
-6️⃣ *ℹ️ Información* (próximamente)
-7️⃣ *🌐 Ir a nuestra Web*
-0️⃣ *❌ SALIR*
-
-Para seleccionar, solo envía el número (ej: "1" o "0")"""
-    
-    # OPCIÓN 0: SALIR (Universal)
     if text_lower in ["0", "salir", "exit", "chau", "adios", "basta", "fin"]:
-        # Resetear todo
         estado_usuario['paso'] = 'menu_principal'
         estado_usuario['operacion_seleccionada'] = None
         estado_usuario['propiedades_filtradas'] = []
         estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
-        
         return f"👋 ¡Gracias por contactarnos! Si necesitas algo más, solo escribe 'Hola' nuevamente. | 🏠🗝️ DANTE PROPIEDADES"
+
+    # 2. LÓGICA POR ESTADO (Máquina de Estados)
     
-    # IMPORTANTE: Verificar primero si está en modo listado y el usuario envía un número
-    # Esto debe estar ANTES de verificar "1" para venta
-    if estado_usuario['paso'] == 'listado_propiedades' and text_lower.isdigit():
-        try:
+    # ESTADO: listado_propiedades
+    if estado_usuario['paso'] == 'listado_propiedades':
+        if text_lower.isdigit():
             indice = int(text_lower)
-            propiedades = estado_usuario['propiedades_filtradas']
+            propiedades = estado_usuario.get('propiedades_filtradas', [])
             
             if not propiedades:
                 estado_usuario['paso'] = 'menu_principal'
-                estado_usuario['timestamp'] = datetime.now().isoformat()
                 actualizar_estado_usuario(user_id, estado_usuario)
-                return "⚠️ No hay propiedades disponibles. Envía 'Hola' para volver al menú."
+                return "⚠️ No hay propiedades para mostrar. Envía 'Hola' para volver al menú."
             
             if 1 <= indice <= len(propiedades):
                 propiedad = obtener_detalle_propiedad(propiedades, indice)
-                if propiedad:
-                    estado_usuario['paso'] = 'detalle_propiedad'
-                    estado_usuario['ultimo_indice_preguntado'] = indice
-                    estado_usuario['timestamp'] = datetime.now().isoformat()
-                    actualizar_estado_usuario(user_id, estado_usuario)
-                    
-                    # Determinar operación para el título
-                    operacion = propiedad.get('operacion', '')
-                    if operacion == 'venta':
-                        titulo_op = "💰 VENTA"
-                    elif operacion == 'alquiler':
-                        titulo_op = "🔑 ALQUILER"
-                    else:
-                        titulo_op = "🏠 PROPIEDAD"
-                    
-                    mensaje = f"{titulo_op}\n"
-                    mensaje += "─" * 30 + "\n"
-                    mensaje += formatear_detalle_propiedad(propiedad)
-                    
-                    # Registrar que el usuario está viendo una propiedad
-                    registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_detalle", f"Título: {propiedad.get('titulo')}")
-                    
-                    return mensaje
-            else:
-                return f"❌ El número {indice} está fuera de rango. Por favor, elige un número entre 1 y {len(propiedades)}."
+                estado_usuario['paso'] = 'detalle_propiedad'
+                estado_usuario['ultimo_indice_preguntado'] = indice
+                actualizar_estado_usuario(user_id, estado_usuario)
                 
-        except ValueError:
-            pass
-    
-    # SOLO si está en menú principal o detalle_propiedad, procesar opciones normales
-    # OPCIÓN 1: VENTA
-    elif text_lower == "1" and estado_usuario['paso'] in ['menu_principal', 'detalle_propiedad']:
-        estado_usuario['paso'] = 'listado_propiedades'
-        estado_usuario['operacion_seleccionada'] = 'venta'
-        estado_usuario['ultimo_indice_preguntado'] = None
-        estado_usuario['timestamp'] = datetime.now().isoformat()
-        
-        # Cargar propiedades de venta
-        propiedades_venta = filtrar_propiedades_por_operacion('venta')
-        estado_usuario['propiedades_filtradas'] = propiedades_venta
-        actualizar_estado_usuario(user_id, estado_usuario)
-        
-        if not propiedades_venta:
-            return "📭 *No hay propiedades en venta disponibles en este momento.*\n\nEnvía 'Hola' para volver al menú principal."
-        
-        mensaje = f"💰 *PROPIEDADES EN VENTA*\n"
-        mensaje += f"Encontramos *{len(propiedades_venta)}* propiedades disponibles:\n\n"
-        mensaje += generar_listado_propiedades(propiedades_venta)
-        
-        return mensaje
-    
-    # OPCIÓN 2: ALQUILER
-    elif text_lower == "2" and estado_usuario['paso'] in ['menu_principal', 'detalle_propiedad']:
-        estado_usuario['paso'] = 'listado_propiedades'
-        estado_usuario['operacion_seleccionada'] = 'alquiler'
-        estado_usuario['ultimo_indice_preguntado'] = None
-        estado_usuario['timestamp'] = datetime.now().isoformat()
-        
-        # Cargar propiedades de alquiler
-        propiedades_alquiler = filtrar_propiedades_por_operacion('alquiler')
-        estado_usuario['propiedades_filtradas'] = propiedades_alquiler
-        actualizar_estado_usuario(user_id, estado_usuario)
-        
-        if not propiedades_alquiler:
-            return "📭 *No hay propiedades en alquiler disponibles en este momento.*\n\nEnvía 'Hola' para volver al menú principal."
-        
-        mensaje = f"🔑 *PROPIEDADES EN ALQUILER*\n"
-        mensaje += f"Encontramos *{len(propiedades_alquiler)}* propiedades disponibles:\n\n"
-        mensaje += generar_listado_propiedades(propiedades_alquiler)
-        
-        return mensaje
-    
-    # Si está en detalle de propiedad: Procesar opciones específicas primero (como 8=Interés o F=Fotos)
+                # Registrar interés
+                registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_detalle", f"Título: {propiedad.get('titulo')}")
+                
+                operacion = propiedad.get('operacion', '')
+                titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
+                mensaje = f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
+                return mensaje
+            else:
+                return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}). Elige uno o envía 'Hola'."
+        else:
+            return "Por favor, elegí un número del listado o enviá 'Hola' para volver."
+
+    # ESTADO: detalle_propiedad
     elif estado_usuario['paso'] == 'detalle_propiedad':
-        # OPCIÓN 8: ME INTERESA (Debe ir antes que el chequeo de índice genérico)
-        if text_lower == "8" and estado_usuario.get('ultimo_indice_preguntado'):
-            indice = estado_usuario['ultimo_indice_preguntado']
-            propiedad = obtener_detalle_propiedad(estado_usuario['propiedades_filtradas'], indice)
+        # Opción 8: Me interesa
+        if text_lower == "8":
+            indice = estado_usuario.get('ultimo_indice_preguntado')
+            if not indice: return "WELCOME_FLOW_TRIGGER"
             
+            propiedad = obtener_detalle_propiedad(estado_usuario['propiedades_filtradas'], indice)
             estado_usuario['paso'] = 'esperando_nombre_lead'
             actualizar_estado_usuario(user_id, estado_usuario)
-            
             registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "click_me_interesa")
-            
             return "🙌 ¡Excelente elección! Para que un asesor pueda contactarte, por favor decime tu *Nombre y Apellido*:"
 
-        # Opción para ver fotos
-        elif text_lower in ["f", "foto", "fotos"] and estado_usuario.get('ultimo_indice_preguntado'):
-            try:
-                indice = estado_usuario['ultimo_indice_preguntado']
-                propiedades = estado_usuario['propiedades_filtradas']
-                
-                if 1 <= indice <= len(propiedades):
-                    propiedad = obtener_detalle_propiedad(propiedades, indice)
-                    if propiedad:
-                        fotos = propiedad.get('fotos', [])
-                        if not fotos:
-                            return "⚠️ Esta propiedad no tiene fotos disponibles."
-                        
-                        # Enviar todas las fotos como pidió el usuario
-                        fotos_a_enviar = fotos
-                        
-                        base_url = request.host_url.rstrip('/') 
-                        if "onrender.com" in base_url and not base_url.startswith("https"):
-                            base_url = base_url.replace("http://", "https://")
+        # Opción F: Fotos
+        elif text_lower in ["f", "foto", "fotos"]:
+            indice = estado_usuario.get('ultimo_indice_preguntado')
+            propiedades = estado_usuario.get('propiedades_filtradas', [])
+            if not (indice and 1 <= indice <= len(propiedades)): return "WELCOME_FLOW_TRIGGER"
+            
+            propiedad = obtener_detalle_propiedad(propiedades, indice)
+            fotos = propiedad.get('fotos', [])
+            if not fotos: return "⚠️ Esta propiedad no tiene fotos disponibles."
+            
+            base_url = request.host_url.rstrip('/')
+            if "onrender.com" in base_url and not base_url.startswith("https"):
+                base_url = base_url.replace("http://", "https://")
 
-                        send_whatsapp_message(user_id, f"🏠🗝️ *DANTE PROPIEDADES*\nRecuperando {len(fotos_a_enviar)} fotos...")
-                        
-                        for foto_path in fotos_a_enviar:
-                            clean_path = foto_path.lstrip('/')
-                            img_url = f"{base_url}/{clean_path}"
-                            log(f"📤 Preparando imagen: {img_url}")
-                            send_whatsapp_image(user_id, img_url)
-                            
-                        # Notificar al agente si ve fotos (alta intención)
-                        notificar_agente(f"👤 El cliente {user_id} está viendo fotos de: {propiedad.get('titulo')}")
-                        registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_fotos")
-                        
-                        # Cambiar estado para permitir navegación 0/1
-                        estado_usuario['paso'] = 'vista_fotos'
-                        actualizar_estado_usuario(user_id, estado_usuario)
-                        
-                        return f"✅ Fotos enviadas.\n\n{numero_a_emoji(0)} *❌ SALIR*\n{numero_a_emoji(1)} Volver al menú"
-            except Exception as e:
-                log(f"Error enviando fotos: {e}")
-                return "❌ Hubo un error al intentar enviar las fotos."
+            send_whatsapp_message(user_id, f"🏠🗝️ *DANTE PROPIEDADES*\nRecuperando {len(fotos)} fotos...")
+            for foto_path in fotos:
+                send_whatsapp_image(user_id, f"{base_url}/{foto_path.lstrip('/')}")
+            
+            notificar_agente(f"👤 El cliente {user_id} está viendo fotos de: {propiedad.get('titulo')}")
+            registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_fotos")
+            
+            estado_usuario['paso'] = 'vista_fotos'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return f"✅ Fotos enviadas.\n\n0️⃣ *❌ SALIR*\n1️⃣ Volver al menú"
 
-        # Si envía un número (para ver OTRA propiedad del listado)
+        # Otras opciones (números para otras propiedades)
         elif text_lower.isdigit():
-            try:
-                indice = int(text_lower)
-                propiedades = estado_usuario['propiedades_filtradas']
+            indice = int(text_lower)
+            propiedades = estado_usuario.get('propiedades_filtradas', [])
+            if 1 <= indice <= len(propiedades):
+                propiedad = obtener_detalle_propiedad(propiedades, indice)
+                estado_usuario['ultimo_indice_preguntado'] = indice
+                actualizar_estado_usuario(user_id, estado_usuario)
                 
-                if 1 <= indice <= len(propiedades):
-                    propiedad = obtener_detalle_propiedad(propiedades, indice)
-                    if propiedad:
-                        estado_usuario['ultimo_indice_preguntado'] = indice
-                        estado_usuario['timestamp'] = datetime.now().isoformat()
-                        actualizar_estado_usuario(user_id, estado_usuario)
-                        
-                        operacion = propiedad.get('operacion', '')
-                        titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
-                        
-                        mensaje = f"{titulo_op}\n"
-                        mensaje += "─" * 30 + "\n"
-                        mensaje += formatear_detalle_propiedad(propiedad)
-                        
-                        registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_detalle", f"Título: {propiedad.get('titulo')}")
-                        
-                        return mensaje
-                else:
-                    return f"❌ El número {indice} está fuera de rango. Elige entre 1 y {len(propiedades)} o escribe 'Hola' para volver."
-            except ValueError:
-                pass
-        
+                registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_detalle", f"Título: {propiedad.get('titulo')}")
+                
+                operacion = propiedad.get('operacion', '')
+                titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
+                return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
+            else:
+                return f"❌ El número {indice} está fuera de rango. Elige entre 1 y {len(propiedades)} o escribe 'Hola'."
 
+    # ESTADO: vista_fotos / vista_web / vista_comun
+    elif estado_usuario['paso'] in ['vista_fotos', 'vista_web']:
+        if text_lower == "1":
+            return "WELCOME_FLOW_TRIGGER"
+        return "⚠️ Opción no válida.\n\n0️⃣ *❌ SALIR*\n1️⃣ Volver al menú"
+
+    # ESTADO: esperando_nombre_lead
     elif estado_usuario['paso'] == 'esperando_nombre_lead':
         nombre_cliente = text.strip()
-        indice = estado_usuario['ultimo_indice_preguntado']
-        propiedad = obtener_detalle_propiedad(estado_usuario['propiedades_filtradas'], indice)
+        indice = estado_usuario.get('ultimo_indice_preguntado')
+        propiedades = estado_usuario.get('propiedades_filtradas', [])
         
-        # Guardar lead completo
-        detalle_prop = f"{propiedad.get('titulo')} ({propiedad.get('id_temporal')})"
-        registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "lead_completo", f"Nombre: {nombre_cliente}")
-        
-        # Notificar al agente
-        notificar_agente(f"🔥 *NUEVO INTERESADO*\n👤 Cliente: {nombre_cliente}\n📞 Tel: {user_id}\n🏠 Propiedad: {detalle_prop}")
-        
-        estado_usuario['paso'] = 'menu_principal'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        
-        return f"¡Gracias {nombre_cliente}! 👍 Ya recibimos tu consulta por la propiedad *{propiedad.get('titulo')}*. Un asesor se comunicará con vos a la brevedad.\n\nEscribí 'Hola' para volver al menú principal."
-
-    elif estado_usuario['paso'] == 'vista_fotos':
-        if text_lower == "1":
-            # Volver al menú principal
+        if indice and 1 <= indice <= len(propiedades):
+            propiedad = obtener_detalle_propiedad(propiedades, indice)
+            registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "lead_completo", f"Nombre: {nombre_cliente}")
+            notificar_agente(f"🔥 *NUEVO INTERESADO*\n👤 Cliente: {nombre_cliente}\n📞 Tel: {user_id}\n🏠 Propiedad: {propiedad.get('titulo')} ({propiedad.get('id_temporal')})")
+            
             estado_usuario['paso'] = 'menu_principal'
-            estado_usuario['operacion_seleccionada'] = None
-            estado_usuario['propiedades_filtradas'] = []
-            estado_usuario['ultimo_indice_preguntado'] = None
-            estado_usuario['timestamp'] = datetime.now().isoformat()
             actualizar_estado_usuario(user_id, estado_usuario)
-            return "WELCOME_FLOW_TRIGGER"
-        elif text_lower == "0":
-            # Capturado por bloque universal
-            pass
-        
-        return "⚠️ Opción no válida.\n\n0️⃣ *❌ SALIR*\n1️⃣ Volver al menú"
-    elif text_lower == "3":
-        estado_usuario['timestamp'] = datetime.now().isoformat()
+            return f"¡Gracias {nombre_cliente}! 👍 Ya recibimos tu consulta. Un asesor se comunicará con vos a la brevedad.\n\nEscribí 'Hola' para volver al menú principal."
+        else:
+            estado_usuario['paso'] = 'menu_principal'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "Lo siento, hubo un error procesando tu interés. Por favor, volvé a buscar la propiedad."
+
+    # ESTADO: menu_principal o cualquier otro (Opciones 1..7)
+    # Este bloque maneja el menú principal Y accesos directos desde detalle
+    if text_lower == "1":
+        estado_usuario['paso'] = 'listado_propiedades'
+        estado_usuario['operacion_seleccionada'] = 'venta'
+        propiedades = filtrar_propiedades_por_operacion('venta')
+        estado_usuario['propiedades_filtradas'] = propiedades
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "📍 *Búsqueda por zona* - Esta funcionalidad estará disponible próximamente.\n\nEnvía 'Hola' para volver al menú."
+        if not propiedades: return "📭 No hay propiedades en venta por ahora.\n\nEnviá 'Hola' para volver."
+        return f"💰 *PROPIEDADES EN VENTA*\nEncontramos *{len(propiedades)}* disponibles:\n\n" + generar_listado_propiedades(propiedades)
+
+    elif text_lower == "2":
+        estado_usuario['paso'] = 'listado_propiedades'
+        estado_usuario['operacion_seleccionada'] = 'alquiler'
+        propiedades = filtrar_propiedades_por_operacion('alquiler')
+        estado_usuario['propiedades_filtradas'] = propiedades
+        actualizar_estado_usuario(user_id, estado_usuario)
+        if not propiedades: return "📭 No hay propiedades en alquiler por ahora.\n\nEnviá 'Hola' para volver."
+        return f"🔑 *PROPIEDADES EN ALQUILER*\nEncontramos *{len(propiedades)}* disponibles:\n\n" + generar_listado_propiedades(propiedades)
+
+    elif text_lower == "3":
+        return "📍 *Búsqueda por zona* - Próximamente disponible.\n\nEnviá 'Hola' para volver."
     
     elif text_lower == "4":
-        estado_usuario['timestamp'] = datetime.now().isoformat()
+        return "🔍 *Búsqueda libre* - Próximamente disponible.\n\nEnviá 'Hola' para volver."
+
+    elif text_lower == "5":
+        estado_usuario['paso'] = 'listado_propiedades'
+        estado_usuario['operacion_seleccionada'] = 'todas'
+        propiedades = cargar_propiedades()
+        estado_usuario['propiedades_filtradas'] = propiedades
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "🔍 *Búsqueda libre* - Esta funcionalidad estará disponible próximamente.\n\nEnvía 'Hola' para volver al menú."
-    
-    elif text_lower == "6":
-        estado_usuario['timestamp'] = datetime.now().isoformat()
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "ℹ️ *Información* - Esta funcionalidad estará disponible próximamente.\n\nEnvía 'Hola' para volver al menú."
+        return "📋 *TODAS LAS PROPIEDADES*\n\n" + generar_listado_propiedades(propiedades)
 
     elif text_lower == "7":
         estado_usuario['paso'] = 'vista_web'
-        estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
-        return f"🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\n{numero_a_emoji(0)} *❌ SALIR*\n{numero_a_emoji(1)} Volver al menú"
+        return f"🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\n0️⃣ *❌ SALIR*\n1️⃣ Volver al menú"
 
-    elif estado_usuario['paso'] == 'vista_web':
-        if text_lower == "1":
-            # Volver al menú principal
-            estado_usuario['paso'] = 'menu_principal'
-            estado_usuario['operacion_seleccionada'] = None
-            estado_usuario['propiedades_filtradas'] = []
-            estado_usuario['ultimo_indice_preguntado'] = None
-            estado_usuario['timestamp'] = datetime.now().isoformat()
-            actualizar_estado_usuario(user_id, estado_usuario)
-            return "WELCOME_FLOW_TRIGGER"
-        elif text_lower == "0":
-            # El manejo de "0" se hace en el bloque universal de arriba, pero por claridad si llegara aquí:
-            # (El bloque universal "0" captura antes, así que esto es fallback o específico si se quita el universal)
-            pass 
-        
-        # Si escribe otra cosa
-        return f"⚠️ Opción no válida.\n\n{numero_a_emoji(0)} *❌ SALIR*\n{numero_a_emoji(1)} Volver al menú"
-    
-    
-    
-    # MENSAJE NO RECONOCIDO
+    # FALLBACK FINAL
+    if estado_usuario['paso'] == 'menu_principal':
+        return "WELCOME_FLOW_TRIGGER"
     else:
-        estado_usuario['timestamp'] = datetime.now().isoformat()
-        actualizar_estado_usuario(user_id, estado_usuario)
-        
-        if estado_usuario['paso'] == 'menu_principal':
-            # Resetear estado y mostrar bienvenida para cualquier mensaje en el menú principal
-            # Esto permite "activar" el bot con cualquier texto
-            estado_usuario['paso'] = 'menu_principal'
-            estado_usuario['operacion_seleccionada'] = None
-            estado_usuario['propiedades_filtradas'] = []
-            estado_usuario['ultimo_indice_preguntado'] = None
-            estado_usuario['timestamp'] = datetime.now().isoformat()
-            actualizar_estado_usuario(user_id, estado_usuario)
-            
-            return "WELCOME_FLOW_TRIGGER"
-        elif estado_usuario['paso'] == 'listado_propiedades':
-            return f"Por favor, elige un número del listado o envía 'Hola' para volver al menú."
-        elif estado_usuario['paso'] == 'detalle_propiedad':
-            return f"Para ver otra propiedad, elige un número del listado o envía 'Hola' para volver al menú."
-        else:
-            return f"No entendí tu mensaje. Para volver al inicio, envía 'Hola'."
+        return "No entendí tu mensaje. Enviá 'Hola' para volver al inicio."
 
 
 
@@ -1086,10 +943,12 @@ def webhook():
                                             log("❌ ERROR EN BIENVENIDA")
                                     else:
                                         # Respuesta normal del bot (sin logo)
-                                        log(f"🤖 RESPUESTA GENERADA ({len(response_text)} caracteres)")
-                                        
-                                        # Enviar respuesta normal
-                                        result = send_whatsapp_message(from_number, response_text)
+                                        if response_text:
+                                            log(f"🤖 RESPUESTA GENERADA ({len(response_text)} caracteres)")
+                                            result = send_whatsapp_message(from_number, response_text)
+                                        else:
+                                            log("⚠️ Respuesta vacía generada - No se envía mensaje")
+                                            result = {"status": "skipped", "reason": "empty_response"}
                                     
                                     log("=" * 40)
                                     log(f"📊 RESULTADO FINAL: {result.get('status')}")

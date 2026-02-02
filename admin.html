@@ -300,12 +300,67 @@
                 if (!response.ok) throw new Error('Unauthorized');
 
                 const data = await response.json();
-                allLeads = data.leads.reverse(); // Newest first
-                updateDashboard();
+                mergeLeads(data.leads);
             } catch (error) {
                 console.error('Error:', error);
                 alert('No se pudo cargar la información. Verifica la llave de acceso.');
             }
+        }
+
+        async function autoLoadExcel() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const key = urlParams.get('key');
+            if (!key) return;
+
+            try {
+                const response = await fetch(`/api/leads-file?key=${key}`);
+                if (!response.ok) return; // Si no hay archivo aún, fallar silenciosamente
+
+                const blob = await response.blob();
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const importedRaw = XLSX.utils.sheet_to_json(worksheet);
+                    processExcelData(importedRaw);
+                };
+                reader.readAsArrayBuffer(blob);
+            } catch (error) {
+                console.error('Error auto-loading Excel:', error);
+            }
+        }
+
+        function mergeLeads(newLeads) {
+            const combined = [...allLeads, ...newLeads];
+            const uniqueLeads = [];
+            const seen = new Set();
+
+            // Deduplicación por timestamp y user_id
+            combined.forEach(lead => {
+                const key = `${lead.timestamp}-${lead.user_id}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueLeads.push(lead);
+                }
+            });
+
+            allLeads = uniqueLeads;
+            updateDashboard();
+        }
+
+        function processExcelData(importedData) {
+            const oldLeads = importedData.map(row => {
+                return {
+                    timestamp: row["Fecha/Hora"] || row["timestamp"] || new Date().toISOString(),
+                    user_id: String(row["Teléfono"] || row["user_id"] || "").replace(/^\+/, ""),
+                    accion: (row["Acción"] || row["accion"] || "IMPORTADO").toLowerCase().replace(/ /g, '_'),
+                    propiedad_id: row["Propiedad"] || row["propiedad_id"] || "N/A",
+                    detalle: row["Detalles"] || row["detalle"] || ""
+                };
+            });
+            mergeLeads(oldLeads);
         }
 
         function updateDashboard() {
@@ -365,32 +420,8 @@
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
                 const importedData = XLSX.utils.sheet_to_json(worksheet);
-
-                const oldLeads = importedData.map(row => {
-                    return {
-                        timestamp: row["Fecha/Hora"] || row["timestamp"] || new Date().toISOString(),
-                        user_id: String(row["Teléfono"] || row["user_id"] || "").replace(/^\+/, ""),
-                        accion: (row["Acción"] || row["accion"] || "IMPORTADO").toLowerCase().replace(/ /g, '_'),
-                        propiedad_id: row["Propiedad"] || row["propiedad_id"] || "N/A",
-                        detalle: row["Detalles"] || row["detalle"] || ""
-                    };
-                });
-
-                const combined = [...allLeads, ...oldLeads];
-                const uniqueLeads = [];
-                const seen = new Set();
-
-                combined.forEach(lead => {
-                    const key = `${lead.timestamp}-${lead.user_id}`;
-                    if (!seen.has(key)) {
-                        seen.add(key);
-                        uniqueLeads.push(lead);
-                    }
-                });
-
-                allLeads = uniqueLeads;
-                updateDashboard();
-                alert(`✅ Se han importado y combinado ${oldLeads.length} registros con éxito.`);
+                processExcelData(importedData);
+                alert(`✅ Se han importado y combinado ${importedData.length} registros con éxito.`);
             };
             reader.readAsArrayBuffer(file);
         });
@@ -427,6 +458,7 @@
         });
 
         fetchLeads();
+        autoLoadExcel();
         // Auto refresh every 30 seconds
         setInterval(fetchLeads, 30000);
     </script>
