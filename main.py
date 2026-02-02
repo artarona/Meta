@@ -213,7 +213,7 @@ def formatear_detalle_propiedad(propiedad):
     detalle += f"\n📝 *Descripción:*\n{propiedad.get('descripcion', 'Sin descripción')}\n\n"
     detalle += "────────────────────\n"
     detalle += "📷 *FOTOS* (Escribe 'F') | 8️⃣ *ME INTERESA*\n"
-    detalle += "Para volver al menú, envía 'Hola' | Para salir envía '0' ❌"
+    detalle += "Para volver al menú, envía '1' | Para salir envía '0' ❌"
     
     return detalle
 
@@ -246,6 +246,15 @@ def get_bot_response(text, user_id):
         estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
         return f"👋 ¡Gracias por contactarnos! Si necesitas algo más, solo escribe 'Hola' nuevamente. | 🏠🗝️ DANTE PROPIEDADES"
+
+    # 2. BOTONES DE NAVEGACIÓN RÁPIDA (Solo en ciertos estados)
+    if text_lower == "1" and estado_usuario['paso'] in ['detalle_propiedad', 'vista_fotos', 'vista_web', 'esperando_nombre_lead']:
+        estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['operacion_seleccionada'] = None
+        estado_usuario['propiedades_filtradas'] = []
+        estado_usuario['ultimo_indice_preguntado'] = None
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "WELCOME_FLOW_TRIGGER"
 
     # 2. ACCIONES ESPECIALES (8 - Me interesa / F - Fotos)
     # Estas acciones funcionan si el usuario tiene un contexto de propiedad (ultimo_indice_preguntado)
@@ -348,7 +357,7 @@ def get_bot_response(text, user_id):
             
             estado_usuario['paso'] = 'menu_principal'
             actualizar_estado_usuario(user_id, estado_usuario)
-            return f"¡Gracias {nombre_cliente}! 👍 Ya recibimos tu consulta. Un asesor se comunicará con vos a la brevedad.\n\nPara volver al menú, envía 'Hola' | Para salir envía '0' ❌"
+            return f"¡Gracias {nombre_cliente}! 👍 Ya recibimos tu consulta. Un asesor se comunicará con vos a la brevedad.\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
         else:
             estado_usuario['paso'] = 'menu_principal'
             actualizar_estado_usuario(user_id, estado_usuario)
@@ -582,7 +591,7 @@ def send_photos_async(user_id, propiedad_id, base_url):
         registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_fotos")
         
         # Enviar mensaje de cierre con instrucciones al usuario
-        final_msg = "✅ *¡Fotos enviadas!*\n\nPara volver al menú, envía 'Hola' | Para salir envía '0' ❌"
+        final_msg = "✅ *¡Fotos enviadas!*\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
         send_whatsapp_message(user_id, final_msg)
         
         log(f"✅ HILO-SECUNDARIO: Envío de fotos completado para {user_id}")

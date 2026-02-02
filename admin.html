@@ -223,13 +223,18 @@
 
 <body>
     <nav class="navbar">
-        <h1>🏠 Dante Admin Panel</h1>
+        <h1 style="display: flex; align-items: center; gap: 0.8rem;">
+            <img src="/imgs/llave.png" alt="Logo" style="height: 40px; width: auto; object-fit: contain;">
+            Dante Admin Panel
+        </h1>
         <div style="display: flex; gap: 1rem;">
             <button class="btn btn-outline" onclick="window.location.reload()">🔄 Recargar</button>
             <input type="file" id="importInput" style="display:none" accept=".xlsx, .xls">
             <button class="btn btn-outline" onclick="document.getElementById('importInput').click()">📂 Cargar Base
                 Anterior</button>
             <button class="btn btn-primary" onclick="exportToExcel()">📊 Exportar a Excel</button>
+            <button class="btn btn-outline" style="background-color: var(--danger); color: white; border: none;"
+                onclick="logout()">🚪 Salir</button>
         </div>
     </nav>
 
@@ -456,6 +461,12 @@
                 row.style.display = text.includes(term) ? '' : 'none';
             });
         });
+
+        function logout() {
+            if (confirm('¿Estás seguro de que deseas salir del panel?')) {
+                window.location.href = '/';
+            }
+        }
 
         fetchLeads();
         autoLoadExcel();
