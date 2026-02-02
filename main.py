@@ -11,7 +11,7 @@ app = Flask(__name__)
 VERIFY_TOKEN = "mi_token_secreto_123"
 ACCESS_TOKEN = "EAAJYsGl5pHgBQmPSIbR9hIDjSiZCGvTt5j9ZCm9dt18PvkWpl1PG3wXKWZCSanVUS5xlSEAZCbpZCnTm32ZBT8OEVR7GwZA0MywqY9WLWPW8fgdLCFWadfeuMQo2hM6mhHno1Fm7TegAx8PUZCqZASCqJztj2lt5ixpnZCwnnALnFxHZAOFArA1ZAr61KZB5tH8DCvzWAgNd7gL4dAFZBYZA5w6kTQQbKKLbNjdXmEwtvTCJJt0DiZAZBYD68iQDRRAj4E4atBPvvbFj7Pf6IPOU3SlBykHZAsnbBjkQcWndGk3QZDZD"
 PHONE_NUMBER_ID = "1000705633118215"
-ADMIN_NUMBER = "5491125368595"  # Número donde llegarán las alertas de leads
+ADMIN_NUMBER = "5491151511579"  # Número donde llegarán las alertas de leads
 LEADS_FILE = "leads.json"
 ADMIN_ACCESS_KEY = "dante2026"  # Llave para acceder al panel admin
 
