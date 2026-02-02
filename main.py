@@ -585,6 +585,10 @@ def send_photos_async(user_id, propiedad_id, base_url):
         notificar_agente(f"👤 El cliente {user_id} está viendo fotos de: {propiedad.get('titulo')}")
         registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_fotos")
         
+        # Enviar mensaje de cierre con instrucciones al usuario
+        final_msg = "✅ *¡Fotos enviadas!*\n\nPara volver al menú, envía 'Hola' | Para salir envía '0' ❌"
+        send_whatsapp_message(user_id, final_msg)
+        
         log(f"✅ HILO-SECUNDARIO: Envío de fotos completado para {user_id}")
     except Exception as e:
         log(f"🔥 Error en hilo de fotos: {e}")
