@@ -226,6 +226,9 @@
         <h1>🏠 Dante Admin Panel</h1>
         <div style="display: flex; gap: 1rem;">
             <button class="btn btn-outline" onclick="window.location.reload()">🔄 Recargar</button>
+            <input type="file" id="importInput" style="display:none" accept=".xlsx, .xls">
+            <button class="btn btn-outline" onclick="document.getElementById('importInput').click()">📂 Cargar Base
+                Anterior</button>
             <button class="btn btn-primary" onclick="exportToExcel()">📊 Exportar a Excel</button>
         </div>
     </nav>
@@ -311,6 +314,9 @@
             const hotEl = document.getElementById('hotLeads');
             const todayEl = document.getElementById('todayLeads');
 
+            // Ordenar por fecha descendente
+            allLeads.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
             body.innerHTML = '';
             let hotCount = 0;
             let todayCount = 0;
@@ -330,7 +336,7 @@
                     badgeClass = 'badge-view';
                 }
 
-                const actionLabel = lead.accion.replace(/_/g, ' ').toUpperCase();
+                const actionLabel = (lead.accion || "").replace(/_/g, ' ').toUpperCase();
 
                 tr.innerHTML = `
                     <td>${date.toLocaleString()}</td>
@@ -347,34 +353,66 @@
             todayEl.innerText = todayCount;
         }
 
+        // --- LÓGICA DE IMPORTACIÓN Y COMBINACIÓN ---
+        document.getElementById('importInput').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const importedData = XLSX.utils.sheet_to_json(worksheet);
+
+                const oldLeads = importedData.map(row => {
+                    return {
+                        timestamp: row["Fecha/Hora"] || row["timestamp"] || new Date().toISOString(),
+                        user_id: String(row["Teléfono"] || row["user_id"] || "").replace(/^\+/, ""),
+                        accion: (row["Acción"] || row["accion"] || "IMPORTADO").toLowerCase().replace(/ /g, '_'),
+                        propiedad_id: row["Propiedad"] || row["propiedad_id"] || "N/A",
+                        detalle: row["Detalles"] || row["detalle"] || ""
+                    };
+                });
+
+                const combined = [...allLeads, ...oldLeads];
+                const uniqueLeads = [];
+                const seen = new Set();
+
+                combined.forEach(lead => {
+                    const key = `${lead.timestamp}-${lead.user_id}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        uniqueLeads.push(lead);
+                    }
+                });
+
+                allLeads = uniqueLeads;
+                updateDashboard();
+                alert(`✅ Se han importado y combinado ${oldLeads.length} registros con éxito.`);
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
         function exportToExcel() {
             if (allLeads.length === 0) return alert('No hay datos para exportar');
 
-            // Preparar datos para SheetJS
             const data = allLeads.map(lead => ({
                 "Fecha/Hora": new Date(lead.timestamp).toLocaleString(),
                 "Teléfono": `+${lead.user_id}`,
-                "Acción": lead.accion.replace(/_/g, ' ').toUpperCase(),
+                "Acción": (lead.accion || "").replace(/_/g, ' ').toUpperCase(),
                 "Propiedad": lead.propiedad_id || 'N/A',
                 "Detalles": lead.detalle || ''
             }));
 
-            // Crear libro y hoja
             const worksheet = XLSX.utils.json_to_sheet(data);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
 
-            // Ajustar anchos de columna automáticamente
-            const wscols = [
-                { wch: 20 }, // Fecha
-                { wch: 15 }, // Tel
-                { wch: 20 }, // Accion
-                { wch: 12 }, // Propiedad
-                { wch: 40 }  // Detalles
-            ];
+            const wscols = [{ wch: 20 }, { wch: 15 }, { wch: 20 }, { wch: 12 }, { wch: 40 }];
             worksheet['!cols'] = wscols;
 
-            // Descargar
             XLSX.writeFile(workbook, `Leads_Dante_Acumulado_${new Date().toISOString().split('T')[0]}.xlsx`);
         }
 
