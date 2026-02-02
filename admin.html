@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dante Admin Panel | Dashboard de Leads</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <style>
         :root {
             --primary: #2563eb;
@@ -19,7 +21,11 @@
             --border: #e2e8f0;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
             font-family: 'Inter', sans-serif;
@@ -38,7 +44,13 @@
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
         }
 
-        .navbar h1 { font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+        .navbar h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
 
         .container {
             max-width: 1200px;
@@ -61,8 +73,19 @@
             box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
         }
 
-        .stat-card h3 { font-size: 0.875rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-        .stat-card .value { font-size: 2rem; font-weight: 700; margin-top: 0.5rem; color: var(--primary); }
+        .stat-card h3 {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-top: 0.5rem;
+            color: var(--primary);
+        }
 
         .controls {
             display: flex;
@@ -85,10 +108,24 @@
             gap: 0.5rem;
         }
 
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-primary:hover { background: var(--primary-dark); }
-        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
-        .btn-outline:hover { background: #f1f5f9; }
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+        }
+
+        .btn-outline:hover {
+            background: #f1f5f9;
+        }
 
         .leads-table-container {
             background: var(--card-bg);
@@ -119,8 +156,13 @@
             font-size: 0.875rem;
         }
 
-        tr:last-child td { border-bottom: none; }
-        tr:hover { background-color: #f8fafc; }
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background-color: #f8fafc;
+        }
 
         .badge {
             padding: 0.25rem 0.6rem;
@@ -129,14 +171,28 @@
             font-weight: 600;
         }
 
-        .badge-hot { background: #fee2e2; color: #991b1b; }
-        .badge-view { background: #dcfce7; color: #166534; }
-        .badge-neutral { background: #f1f5f9; color: #475569; }
+        .badge-hot {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-view {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-neutral {
+            background: #f1f5f9;
+            color: #475569;
+        }
 
         .loading-overlay {
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(255,255,255,0.8);
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -145,19 +201,32 @@
         }
 
         @media (max-width: 768px) {
-            .navbar { padding: 1rem; }
-            .container { margin: 1rem auto; }
-            .stats-grid { grid-template-columns: 1fr; }
-            th:nth-child(3), td:nth-child(3) { display: none; }
+            .navbar {
+                padding: 1rem;
+            }
+
+            .container {
+                margin: 1rem auto;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            th:nth-child(3),
+            td:nth-child(3) {
+                display: none;
+            }
         }
     </style>
 </head>
+
 <body>
     <nav class="navbar">
         <h1>🏠 Dante Admin Panel</h1>
         <div style="display: flex; gap: 1rem;">
             <button class="btn btn-outline" onclick="window.location.reload()">🔄 Recargar</button>
-            <button class="btn btn-primary" onclick="exportToCSV()">📤 Exportar CSV</button>
+            <button class="btn btn-primary" onclick="exportToExcel()">📊 Exportar a Excel</button>
         </div>
     </nav>
 
@@ -180,8 +249,8 @@
         <div class="controls">
             <h2 style="font-size: 1.5rem;">Listado Reciente</h2>
             <div style="display: flex; gap: 0.5rem;">
-                <input type="text" id="searchInput" placeholder="Buscar por teléfono o ID..." 
-                       style="padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border); width: 250px;">
+                <input type="text" id="searchInput" placeholder="Buscar por teléfono o ID..."
+                    style="padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border); width: 250px;">
             </div>
         </div>
 
@@ -215,7 +284,7 @@
         async function fetchLeads() {
             const urlParams = new URLSearchParams(window.location.search);
             const key = urlParams.get('key');
-            
+
             if (!key) {
                 document.body.innerHTML = '<div style="height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column;">' +
                     '<h1 style="color:var(--danger)">⚠️ Acceso Denegado</h1>' +
@@ -226,7 +295,7 @@
             try {
                 const response = await fetch(`/api/leads?key=${key}`);
                 if (!response.ok) throw new Error('Unauthorized');
-                
+
                 const data = await response.json();
                 allLeads = data.leads.reverse(); // Newest first
                 updateDashboard();
@@ -241,7 +310,7 @@
             const totalEl = document.getElementById('totalLeads');
             const hotEl = document.getElementById('hotLeads');
             const todayEl = document.getElementById('todayLeads');
-            
+
             body.innerHTML = '';
             let hotCount = 0;
             let todayCount = 0;
@@ -250,9 +319,9 @@
             allLeads.forEach(lead => {
                 const tr = document.createElement('tr');
                 const date = new Date(lead.timestamp);
-                
+
                 if (date.toDateString() === now) todayCount++;
-                
+
                 let badgeClass = 'badge-neutral';
                 if (lead.accion === 'lead_completo' || lead.accion === 'click_me_interesa') {
                     badgeClass = 'badge-hot';
@@ -278,23 +347,35 @@
             todayEl.innerText = todayCount;
         }
 
-        function exportToCSV() {
+        function exportToExcel() {
             if (allLeads.length === 0) return alert('No hay datos para exportar');
-            
-            let csv = 'Fecha,Telefono,Accion,Propiedad,Detalle\n';
-            allLeads.forEach(lead => {
-                csv += `${lead.timestamp},${lead.user_id},${lead.accion},${lead.propiedad_id},"${lead.detalle || ''}"\n`;
-            });
 
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.setAttribute('hidden', '');
-            a.setAttribute('href', url);
-            a.setAttribute('download', `leads_dante_${new Date().toISOString().split('T')[0]}.csv`);
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            // Preparar datos para SheetJS
+            const data = allLeads.map(lead => ({
+                "Fecha/Hora": new Date(lead.timestamp).toLocaleString(),
+                "Teléfono": `+${lead.user_id}`,
+                "Acción": lead.accion.replace(/_/g, ' ').toUpperCase(),
+                "Propiedad": lead.propiedad_id || 'N/A',
+                "Detalles": lead.detalle || ''
+            }));
+
+            // Crear libro y hoja
+            const worksheet = XLSX.utils.json_to_sheet(data);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
+
+            // Ajustar anchos de columna automáticamente
+            const wscols = [
+                { wch: 20 }, // Fecha
+                { wch: 15 }, // Tel
+                { wch: 20 }, // Accion
+                { wch: 12 }, // Propiedad
+                { wch: 40 }  // Detalles
+            ];
+            worksheet['!cols'] = wscols;
+
+            // Descargar
+            XLSX.writeFile(workbook, `Leads_Dante_Acumulado_${new Date().toISOString().split('T')[0]}.xlsx`);
         }
 
         // Search filter
@@ -312,4 +393,5 @@
         setInterval(fetchLeads, 30000);
     </script>
 </body>
+
 </html>
