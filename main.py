@@ -10,7 +10,7 @@ app = Flask(__name__)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-ACCESS_TOKEN = "EAAJYsGl5pHgBQjtJ16I9Jvo04H1EPLSWHLpdQtj1ZBEKMS2GQpwypkZBbylnvZCzzCMWKAonZCkZCsTfZA0Lh0XUZA17Wwo0hwhIvPwC3G0WQVBAwFe9yQ49OMcPsS6pyNPNpx18vFgdG6Aeg70AM5APETfPYDsvBQGetRgZBE5ERIYsF006ywR7ZArpubL70IWXr9bpCHQTcFHZBKOHTo8ZC0pkFHr4DLLMelZBbg3BAXZB6LNF9ZBaJr9dhErwfE0UTMRYj6INeF1EkWKAZAALFJ2XKJhHi2cttZAL1797swZDZD"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQh1wwrjC6Y1njFxyV1GHt3ciNpl19TnZAWayAeIDFrC1zrjzTX6CYjmHYyP8qwMPTKMWEPVNxwTdcyb3ifXCgk0UGJ0EV67xVZC9M2zegC6ZBowZAFHqyL2ld6JYpQtCfGwKF2sIUCtWsN2A0uZBOsZCLt57e9KDAjZBJ9NlghUMZC1O0CIPBbeBEZCIH0CTR2AvKhty6LWQZCEZCJ5ca5ZAPbFVgKkjTLOi9mmNyKoWZCjb7y1OOl2zes4kouP9RVBdNCNScPZCBwXmwu9QINOFtB3JxIRQZDZD"
 PHONE_NUMBER_ID = "1000705633118215"
 ADMIN_NUMBER = "5491151511579"  # Número donde llegarán las alertas de leads
 LEADS_FILE = "leads.json"
@@ -1733,6 +1733,123 @@ def health_check():
         "venta_count": len([p for p in propiedades if p.get('operacion') == 'venta']),
         "alquiler_count": len([p for p in propiedades if p.get('operacion') == 'alquiler'])
     })
+
+# ========== RUTAS API PARA PANEL DE CITAS ==========
+@app.route("/api/citas", methods=["GET"])
+def api_citas():
+    """Retorna todas las citas en formato JSON"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    citas = cargar_citas()
+    return jsonify(citas)
+
+@app.route("/api/citas/<cita_id>/estado", methods=["PUT"])
+def actualizar_estado_cita(cita_id):
+    """Actualiza el estado de una cita"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    nuevo_estado = request.args.get('estado')
+    if nuevo_estado not in ['pendiente', 'confirmada', 'cancelada']:
+        return jsonify({"error": "Estado inválido"}), 400
+    
+    try:
+        citas = cargar_citas()
+        cita_encontrada = False
+        
+        for cita in citas:
+            if cita['id'] == cita_id:
+                cita['estado'] = nuevo_estado
+                cita['ultima_actualizacion'] = datetime.now().isoformat()
+                cita_encontrada = True
+                break
+        
+        if not cita_encontrada:
+            return jsonify({"error": "Cita no encontrada"}), 404
+        
+        if guardar_citas(citas):
+            log(f"✅ Estado actualizado: {cita_id} -> {nuevo_estado}")
+            return jsonify({"status": "success", "message": "Estado actualizado"})
+        else:
+            return jsonify({"error": "Error guardando cambios"}), 500
+            
+    except Exception as e:
+        log(f"❌ Error actualizando estado de cita: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/citas/recordatorio/<cita_id>", methods=["POST"])
+def enviar_recordatorio_cita(cita_id):
+    """Envía un recordatorio de cita por WhatsApp"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        citas = cargar_citas()
+        cita = next((c for c in citas if c['id'] == cita_id), None)
+        
+        if not cita:
+            return jsonify({"error": "Cita no encontrada"}), 404
+        
+        # Formatear fecha para el mensaje
+        fecha_obj = datetime.strptime(cita['fecha'], "%Y-%m-%d")
+        fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
+        
+        mensaje = f"🔔 *RECORDATORIO DE CITA - DANTE PROPIEDADES*\n\n"
+        mensaje += f"👤 *Cliente:* {cita['nombre']}\n"
+        mensaje += f"📅 *Fecha:* {fecha_formateada}\n"
+        mensaje += f"⏰ *Hora:* {cita['hora']}\n"
+        mensaje += f"🏠 *Propiedad:* {cita['propiedad_id']}\n\n"
+        mensaje += f"📍 *Instrucciones:*\n"
+        mensaje += f"• Llega 10 minutos antes\n"
+        mensaje += f"• Trae tu documento de identidad\n"
+        mensaje += f"• Contacto: +{ADMIN_NUMBER}\n\n"
+        mensaje += f"¡Te esperamos! 🏠🗝️"
+        
+        # Enviar mensaje al cliente
+        result = send_whatsapp_message(cita['telefono'], mensaje)
+        
+        if result.get('status') == 'success':
+            log(f"✅ Recordatorio enviado a {cita['telefono']}")
+            return jsonify({"status": "success", "message": "Recordatorio enviado"})
+        else:
+            return jsonify({"error": "Error enviando mensaje", "details": result}), 500
+            
+    except Exception as e:
+        log(f"❌ Error enviando recordatorio: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# Agregar también la función para ver el panel de citas
+@app.route("/admin/citas")
+def admin_citas_panel():
+    """Sirve el panel de administración de citas"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return "⚠️ Acceso No Autorizado. Por favor usa el enlace seguro.", 403
+    return send_file("admin_citas.html")
+
+# También modificar la función cargar_citas para mejor manejo de errores
+def cargar_citas():
+    """Carga las citas existentes desde el archivo JSON"""
+    try:
+        if os.path.exists(CITAS_FILE):
+            with open(CITAS_FILE, 'r', encoding='utf-8') as f:
+                citas = json.load(f)
+                # Asegurar que cada cita tenga todos los campos necesarios
+                for cita in citas:
+                    if 'telefono' not in cita and 'user_id' in cita:
+                        cita['telefono'] = cita['user_id']
+                    if 'notas' not in cita:
+                        cita['notas'] = 'Sin notas'
+                return citas
+        return []
+    except Exception as e:
+        log(f"❌ Error cargando citas: {e}")
+        return []
+
 
 if __name__ == "__main__":
     print("\n" + "=" * 60)
