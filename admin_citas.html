@@ -364,7 +364,7 @@
                             `<button class="btn btn-success btn-sm" onclick="cambiarEstado('${cita.id}', 'confirmada')">✅ Confirmar</button>` : ''}
                         
                         ${cita.estado === 'confirmada' ? 
-                            `<button class="btn btn-sm" onclick="enviarRecordatorio('${cita.id}')">🔔 Recordatorio</button>` : ''}
+                            `<button class="btn btn-sm" onclick="enviarRecordatorio('${cita.id}')">🔔 Recordatorio</button>
                         
                         <button class="btn btn-danger btn-sm" onclick="cambiarEstado('${cita.id}', 'cancelada')">❌ Cancelar</button>
                         <button class="btn btn-sm" onclick="llamarCliente('${cita.telefono}')">📞 Llamar</button>
@@ -414,6 +414,30 @@
             mostrarCitas(filtradas);
         }
         
+        async function enviarRecordatorio(idCita) {
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const key = urlParams.get('key');
+        
+        const response = await fetch(`/api/citas/recordatorio/${idCita}?key=${key}`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            alert('✅ Recordatorio enviado');
+        } else {
+            const error = await response.json();
+            alert('❌ Error: ' + (error.error || 'Error enviando recordatorio'));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error de conexión');
+    }
+}
+        
+        
+        
+        
         function actualizarEstadisticas(citas) {
             const hoy = new Date().toISOString().split('T')[0];
             
@@ -452,7 +476,7 @@
         }
         
         function llamarCliente(telefono) {
-            window.open(`tel:+${telefono}`);
+            window.open(`tel:+${telefono.replace(/\D/g, '')}`);
         }
         
         function exportarCitas() {
