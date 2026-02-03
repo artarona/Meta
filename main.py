@@ -47,6 +47,11 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
     nuevo_estado['timestamp'] = datetime.now().isoformat()
     estados_usuarios[user_id] = nuevo_estado
     
+    log(f"💾 Guardando estado para {user_id}:")
+    log(f"   Paso: {nuevo_estado.get('paso', 'N/A')}")
+    log(f"   Nombre cliente: {nuevo_estado.get('nombre_cliente', 'N/A')}")
+    log(f"   Fecha cita: {nuevo_estado.get('fecha_cita', 'N/A')}")
+    
     # Limpiar estados antiguos (más de 1 hora)
     ahora = datetime.now()
     usuarios_a_eliminar = [
@@ -55,6 +60,7 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
     ]
     
     for uid in usuarios_a_eliminar:
+        log(f"🗑️  Eliminando estado antiguo para {uid}")
         del estados_usuarios[uid]
 
 # ========== GESTIÓN DE LEADS (CLIENTES INTERESADOS) ==========
@@ -223,14 +229,16 @@ def formatear_detalle_propiedad(propiedad):
     return detalle
 
 # ========== BOT CON PROPIEDADES ==========
-# ========== BOT CON PROPIEDADES ==========
 def get_bot_response(text, user_id):
     """Responde con un mensaje simple, manteniendo estado de usuario"""
     text_lower = text.lower().strip()
     
     # Obtener estado actual del usuario
     estado_usuario = obtener_estado_usuario(user_id)
-    log(f"👤 Estado usuario {user_id}: {estado_usuario['paso']}")
+    log(f"👤 Estado usuario {user_id}: {estado_usuario['paso']} - Texto recibido: '{text}'")
+    
+    # DEPURACIÓN: Mostrar todo el estado
+    log(f"🔍 DEPURACIÓN Estado completo: {json.dumps(estado_usuario, indent=2)}")
     
     # 1. COMANDOS UNIVERSALES (Hola / Salir)
     if text_lower in ["hola", "hi", "hello", "hola bot", "inicio", "menu", "volver", "atras"]:
@@ -410,13 +418,15 @@ def get_bot_response(text, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             return "❌ Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad enviando 'Hola'."
 
-    # NUEVO ESTADO: ofrecer_cita
+    # ESTADO: ofrecer_cita
     elif estado_usuario['paso'] == 'ofrecer_cita':
         text_lower = text.lower().strip()
+        log(f"📅 Estado ofrecer_cita - Opción seleccionada: '{text_lower}'")
         
         # Opción 1: Sí, agendar cita
-        if text_lower in ["1", "si", "sí", "si quiero", "agendar", "cita", "visita"]:
+        if text_lower in ["1", "si", "sí", "si quiero", "agendar", "cita", "visita", "sí agendar"]:
             estado_usuario['paso'] = 'solicitar_fecha_cita'
+            estado_usuario['ultima_accion'] = 'selecciono_agendar_cita'
             actualizar_estado_usuario(user_id, estado_usuario)
             
             # Mostrar ejemplo de fecha
@@ -496,8 +506,9 @@ def get_bot_response(text, user_id):
                 f"3️⃣ *Ya la vi, quiero ofertar* 💰\n" \
                 f"0️⃣ *Salir* ❌"
 
-    # NUEVO ESTADO: solicitar_fecha_cita
+    # ESTADO: solicitar_fecha_cita
     elif estado_usuario['paso'] == 'solicitar_fecha_cita':
+        log(f"📅 Estado solicitar_fecha_cita - Fecha recibida: '{text}'")
         text_lower = text.lower().strip()
         
         # Comando especial: ver fechas disponibles
@@ -535,7 +546,7 @@ def get_bot_response(text, user_id):
                 return "❌ *Plazo excedido*\nSolo podemos agendar hasta 30 días en el futuro.\n\n" \
                     "Por favor, elige una fecha más cercana."
             
-            # Verificar si es fin de semana (opcional, puedes comentar estas líneas si aceptas fines de semana)
+            # Verificar si es fin de semana (opcional)
             if fecha_ingresada.weekday() >= 5:  # 5 = sábado, 6 = domingo
                 return "⚠️ *Fin de semana*\nLa disponibilidad de fines de semana es limitada.\n\n" \
                     "¿Confirmas que quieres agendar para fin de semana?\n\n" \
@@ -544,6 +555,7 @@ def get_bot_response(text, user_id):
             # Guardar fecha en estado
             fecha_str = fecha_ingresada.strftime("%Y-%m-%d")
             estado_usuario['fecha_cita'] = fecha_str
+            estado_usuario['ultima_accion'] = 'ingreso_fecha_cita'
             
             # Obtener horarios disponibles
             horarios_disponibles = obtener_horarios_disponibles(fecha_str)
@@ -601,7 +613,7 @@ def get_bot_response(text, user_id):
                 "*Ejemplo:* 2024-12-25\n\n" \
                 "También puedes escribir 'Ver fechas' para ver disponibilidad."
 
-    # NUEVO ESTADO: seleccionar_hora_cita
+    # ESTADO: seleccionar_hora_cita
     elif estado_usuario['paso'] == 'seleccionar_hora_cita':
         text_lower = text.lower().strip()
         
@@ -786,7 +798,6 @@ def get_bot_response(text, user_id):
     return "❌ *Opción no reconocida*\n\n" \
            "Por favor, selecciona una opción del menú o envía 'Hola' para ver las opciones disponibles."
 
-    
 
 # ========== VERIFICACIÓN DE TOKEN ==========
 def check_token_validity():
