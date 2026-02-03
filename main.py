@@ -2027,6 +2027,54 @@ def ver_citas_contenido():
     except Exception as e:
         return jsonify({"error": str(e)})
 
+@app.route("/debug/citas", methods=["GET"])
+def debug_citas():
+    """Ruta de depuración para ver todas las citas en detalle"""
+    try:
+        citas = cargar_citas()
+        
+        # Formatear fechas para mejor visualización
+        citas_formateadas = []
+        for cita in citas:
+            cita_copy = cita.copy()
+            # Intentar formatear fecha
+            try:
+                fecha_obj = datetime.strptime(cita['fecha'], "%Y-%m-%d")
+                cita_copy['fecha_formateada'] = fecha_obj.strftime("%d/%m/%Y")
+            except:
+                cita_copy['fecha_formateada'] = cita['fecha']
+            
+            citas_formateadas.append(cita_copy)
+        
+        return jsonify({
+            "status": "success",
+            "total_citas": len(citas),
+            "archivo": CITAS_FILE,
+            "existe_archivo": os.path.exists(CITAS_FILE),
+            "tamano_bytes": os.path.getsize(CITAS_FILE) if os.path.exists(CITAS_FILE) else 0,
+            "detalles": {
+                "pendientes": len([c for c in citas if c.get('estado') == 'pendiente']),
+                "confirmadas": len([c for c in citas if c.get('estado') == 'confirmada']),
+                "canceladas": len([c for c in citas if c.get('estado') == 'cancelada']),
+                "hoy": len([c for c in citas if c.get('fecha') == datetime.now().strftime("%Y-%m-%d")])
+            },
+            "citas": citas_formateadas
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error": str(e)
+        }), 500
+
+@app.route("/test-api-citas", methods=["GET"])
+def test_api_citas():
+    """Prueba la API que usa el panel admin"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    citas = cargar_citas()
+    return jsonify(citas)
 
 @app.route("/estado-sistema", methods=["GET"])
 def estado_sistema():
