@@ -1421,12 +1421,48 @@ def webhook():
 def cargar_citas():
     """Carga las citas existentes desde el archivo JSON"""
     try:
-        if os.path.exists(CITAS_FILE):
-            with open(CITAS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        return []
+        log(f"📄 Cargando citas desde {CITAS_FILE}...")
+        
+        # Verificar si el archivo existe
+        if not os.path.exists(CITAS_FILE):
+            log(f"⚠️  Archivo {CITAS_FILE} no encontrado, creando vacío...")
+            inicializar_archivo_citas()
+            return []
+        
+        # Leer el archivo
+        with open(CITAS_FILE, 'r', encoding='utf-8') as f:
+            contenido = f.read().strip()
+            
+            if not contenido:  # Archivo vacío
+                log(f"📄 Archivo {CITAS_FILE} está vacío")
+                return []
+            
+            citas = json.loads(contenido)
+            
+            # Asegurar que cada cita tenga todos los campos necesarios
+            for cita in citas:
+                if 'telefono' not in cita and 'user_id' in cita:
+                    cita['telefono'] = cita['user_id']
+                if 'notas' not in cita:
+                    cita['notas'] = 'Sin notas'
+                if 'estado' not in cita:
+                    cita['estado'] = 'pendiente'
+            
+            log(f"✅ Cargadas {len(citas)} citas desde {CITAS_FILE}")
+            return citas
+            
+    except json.JSONDecodeError as e:
+        log(f"❌ ERROR de JSON en {CITAS_FILE}: {e}")
+        # Intentar reparar el archivo
+        try:
+            with open(CITAS_FILE, 'w', encoding='utf-8') as f:
+                json.dump([], f, indent=4)
+            log("⚠️  Archivo de citas recreado por error de JSON")
+            return []
+        except:
+            return []
     except Exception as e:
-        log(f"❌ Error cargando citas: {e}")
+        log(f"❌ ERROR cargando citas: {e}")
         return []
 
 def guardar_citas(citas):
@@ -1782,6 +1818,78 @@ def api_citas():
     citas = cargar_citas()
     return jsonify(citas)
 
+
+@app.route("/forzar-cita-test", methods=["GET"])
+def forzar_cita_test():
+    """Crea una cita de prueba FORZADA"""
+    try:
+        # Primero, asegurar que el archivo existe
+        inicializar_archivo_citas()
+        
+        # Crear cita de prueba
+        cita_prueba = {
+            'id': 'cita_0001',
+            'user_id': '5491151511579',
+            'nombre': 'MARTIN HERNANDEZ (TEST)',
+            'telefono': '5491151511579',
+            'fecha': '2026-02-12',
+            'hora': '17:00',
+            'propiedad_id': 'Oficina en Microcentro Superluminoso...',
+            'estado': 'pendiente',
+            'notas': 'CITA DE PRUEBA - Propiedad: Oficina en Microcentro...',
+            'creacion': datetime.now().isoformat(),
+            'ultima_actualizacion': datetime.now().isoformat()
+        }
+        
+        # Cargar citas existentes
+        citas = cargar_citas()
+        
+        # Agregar cita de prueba
+        citas.append(cita_prueba)
+        
+        # Guardar
+        if guardar_citas(citas):
+            return jsonify({
+                "status": "success",
+                "message": "Cita de prueba creada",
+                "cita": cita_prueba,
+                "total_citas": len(citas),
+                "archivo": CITAS_FILE,
+                "existe": os.path.exists(CITAS_FILE)
+            })
+        else:
+            return jsonify({
+                "status": "error",
+                "message": "Error guardando cita"
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+@app.route("/estado-sistema", methods=["GET"])
+def estado_sistema():
+    """Muestra el estado del sistema de citas"""
+    citas = cargar_citas()
+    
+    return jsonify({
+        "sistema_citas": {
+            "archivo": CITAS_FILE,
+            "existe": os.path.exists(CITAS_FILE),
+            "tamano": os.path.getsize(CITAS_FILE) if os.path.exists(CITAS_FILE) else 0,
+            "total_citas": len(citas),
+            "pendientes": len([c for c in citas if c.get('estado') == 'pendiente']),
+            "confirmadas": len([c for c in citas if c.get('estado') == 'confirmada']),
+            "canceladas": len([c for c in citas if c.get('estado') == 'cancelada']),
+            "ruta_absoluta": os.path.abspath(CITAS_FILE) if os.path.exists(CITAS_FILE) else "N/A"
+        }
+    })
+
+
+
 @app.route("/api/citas/<cita_id>/estado", methods=["PUT"])
 def actualizar_estado_cita(cita_id):
     """Actualiza el estado de una cita"""
@@ -1887,6 +1995,52 @@ def cargar_citas():
         log(f"❌ Error cargando citas: {e}")
         return []
 
+def guardar_citas(citas):
+    """Guarda las citas en el archivo JSON, creando el archivo si no existe"""
+    try:
+        log(f"💾 Intentando guardar {len(citas)} citas en {CITAS_FILE}")
+        
+        # Crear directorio si no existe
+        directory = os.path.dirname(CITAS_FILE)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+            log(f"📁 Directorio creado: {directory}")
+        
+        # Guardar citas
+        with open(CITAS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(citas, f, indent=4, ensure_ascii=False)
+        
+        log(f"✅ Citas guardadas exitosamente en {CITAS_FILE}")
+        
+        # Verificar que el archivo se creó
+        if os.path.exists(CITAS_FILE):
+            log(f"📄 Archivo verificado: {CITAS_FILE} ({os.path.getsize(CITAS_FILE)} bytes)")
+        else:
+            log("❌ ERROR: Archivo no se creó después de guardar")
+        
+        return True
+    except Exception as e:
+        log(f"🔥 ERROR guardando citas: {str(e)}")
+        import traceback
+        log(f"🔍 TRAZA: {traceback.format_exc()[:500]}")
+        return False
+
+def inicializar_archivo_citas():
+    """Inicializa el archivo de citas si no existe"""
+    try:
+        if not os.path.exists(CITAS_FILE):
+            log(f"📄 Inicializando archivo {CITAS_FILE}...")
+            with open(CITAS_FILE, 'w', encoding='utf-8') as f:
+                json.dump([], f, indent=4, ensure_ascii=False)
+            log(f"✅ Archivo {CITAS_FILE} creado exitosamente")
+            return True
+        else:
+            log(f"📄 Archivo {CITAS_FILE} ya existe")
+            return True
+    except Exception as e:
+        log(f"🔥 ERROR inicializando archivo de citas: {e}")
+        return False
+
 
 
 @app.route("/ver-citas-raw", methods=["GET"])
@@ -1903,12 +2057,23 @@ def ver_citas_raw():
         return f"❌ Error: {str(e)}"
 
 if __name__ == "__main__":
+    
+
     print("\n" + "=" * 60)
     print("🏠 🏠 🏠 WHATSAPP BOT INMOBILIARIO - VERSIÓN 2.1")
     print("=" * 60)
     
+    # Inicializar archivos necesarios
+    print("📄 Inicializando archivos del sistema...")
+    inicializar_archivo_citas()
+    
     propiedades = cargar_propiedades()
     print(f"📊 Propiedades cargadas: {len(propiedades)}")
+    
+    # Mostrar estado de citas
+    citas = cargar_citas()
+    print(f"📅 Citas cargadas: {len(citas)}")
+    
     
     if propiedades:
         ventas = len([p for p in propiedades if p.get('operacion') == 'venta'])
