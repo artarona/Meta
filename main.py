@@ -2,11 +2,10 @@ from flask import Flask, request, jsonify, send_from_directory, send_file
 import requests
 import os
 import json
-from datetime import datetime, timedelta  # AÑADIDO timedelta
+from datetime import datetime, timedelta
 from collections import deque
 import threading
-import re  # Agrega esto con los otros imports
-
+import re  # Para expresiones regulares
 
 
 app = Flask(__name__)
@@ -292,9 +291,17 @@ def get_bot_response(text, user_id):
     
     # ESTADO: menu_principal - Si recibe un horario, es un error
     if estado_usuario['paso'] == 'menu_principal':
-        # Verificar si es un formato de horario (HH:MM)
-        if re.match(r'^\d{1,2}:\d{2}$', text):
-            return "❌ *Error de contexto*\n\nParece que intentaste seleccionar un horario, pero primero debes:\n\n1. Seleccionar una propiedad (envía '1' para venta o '2' para alquiler)\n2. Hacer clic en 'Me interesa' (8)\n3. Seguir el proceso de agendamiento de cita\n\nEnvía 'Hola' para comenzar."
+        # Verificar si es un formato de horario (HH:MM o H:MM)
+        try:
+            if re.match(r'^\d{1,2}:\d{2}$', text):
+                return "❌ *Error de contexto*\n\nParece que intentaste seleccionar un horario, pero primero debes:\n\n1. Seleccionar una propiedad (envía '1' para venta o '2' para alquiler)\n2. Hacer clic en 'Me interesa' (8)\n3. Seguir el proceso de agendamiento de cita\n\nEnvía 'Hola' para comenzar."
+        except NameError:
+            # Si por alguna razón re no está disponible, usar una verificación simple
+            if ':' in text and len(text.split(':')) == 2:
+                parts = text.split(':')
+                if parts[0].isdigit() and parts[1].isdigit():
+                    return "❌ *Error de contexto*\n\nParece que intentaste seleccionar un horario, pero primero debes:\n\n1. Seleccionar una propiedad (envía '1' para venta o '2' para alquiler)\n2. Hacer clic en 'Me interesa' (8)\n3. Seguir el proceso de agendamiento de cita\n\nEnvía 'Hola' para comenzar."
+    
     
     # ESTADO: listado_propiedades
     if estado_usuario['paso'] == 'listado_propiedades':
