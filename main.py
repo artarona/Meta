@@ -245,7 +245,7 @@ def get_bot_response(text, user_id):
         estado_usuario['propiedades_filtradas'] = []
         estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
-        return f"👋 ¡Gracias por contactarnos! Si necesitas algo más, solo escribe 'Hola' nuevamente. | 🏠🗝️ DANTE PROPIEDADES"
+        return f"👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌"
 
     # 2. BOTONES DE NAVEGACIÓN RÁPIDA (Solo en ciertos estados)
     if text_lower == "1" and estado_usuario['paso'] in ['detalle_propiedad', 'vista_fotos', 'vista_web', 'esperando_nombre_lead']:
@@ -342,7 +342,7 @@ def get_bot_response(text, user_id):
             estado_usuario['paso'] = 'menu_principal'
             actualizar_estado_usuario(user_id, estado_usuario)
             return "WELCOME_FLOW_TRIGGER"
-        return "⚠️ Opción no válida.\n\n0️⃣ *❌ SALIR*\n1️⃣ Volver al menú"
+        return "⚠️ Opción no válida.\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
 
     # ESTADO: esperando_nombre_lead
     elif estado_usuario['paso'] == 'esperando_nombre_lead':
@@ -399,7 +399,7 @@ def get_bot_response(text, user_id):
     elif text_lower == "7":
         estado_usuario['paso'] = 'vista_web'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return f"🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\n0️⃣ *❌ SALIR*\n1️⃣ Volver al menú"
+        return f"🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
 
     # FALLBACK FINAL
     if estado_usuario['paso'] == 'menu_principal':
@@ -1000,7 +1000,7 @@ def webhook():
                                             thread.start()
                                             
                                             # Enviar confirmación inmediata de que se están enviando las fotos
-                                            confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\n0️⃣ *❌ SALIR*\n1️⃣ Volver al menú"
+confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
                                             result = send_whatsapp_message(from_number, confirmacion)
                                         elif response_text:
                                             log(f"🤖 RESPUESTA GENERADA ({len(response_text)} caracteres)")
