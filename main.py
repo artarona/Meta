@@ -1888,6 +1888,20 @@ def cargar_citas():
         return []
 
 
+
+@app.route("/ver-citas-raw", methods=["GET"])
+def ver_citas_raw():
+    """Muestra el contenido RAW del archivo citas.json"""
+    try:
+        if os.path.exists(CITAS_FILE):
+            with open(CITAS_FILE, 'r', encoding='utf-8') as f:
+                contenido = f.read()
+            return f"<pre>{contenido}</pre>"
+        else:
+            return f"❌ Archivo {CITAS_FILE} no existe"
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+
 if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("🏠 🏠 🏠 WHATSAPP BOT INMOBILIARIO - VERSIÓN 2.1")
