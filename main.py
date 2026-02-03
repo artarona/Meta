@@ -1914,20 +1914,7 @@ def admin_panel_mejorado():
             contenido = f.read()
         return contenido
     except FileNotFoundError:
-        # Si el archivo no existe, mostrar una versión básica
-        return """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Panel Dante - Archivo no encontrado</title>
-        </head>
-        <body>
-            <h1>❌ admin.html no encontrado</h1>
-            <p>Por favor sube el archivo admin.html a Render.</p>
-            <p>Puedes crearlo con el contenido del archivo que te proporcioné.</p>
-        </body>
-        </html>
-        """, 404
+        return "❌ Archivo admin.html no encontrado. Por favor súbelo a Render.", 404
 
 @app.route("/api/panel/citas")
 def api_panel_citas():
@@ -1959,7 +1946,8 @@ def api_panel_leads():
     except Exception as e:
         log(f"❌ Error en API leads: {e}")
         return jsonify({"error": str(e)}), 500
-
+    
+    
 @app.route("/api/panel/estadisticas")
 def api_panel_estadisticas():
     """API para estadísticas del panel"""
