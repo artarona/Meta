@@ -1900,6 +1900,7 @@ def test_send():
 
 
 # ========== RUTAS PARA EL PANEL ADMIN MEJORADO ==========
+# ========== RUTAS PARA EL PANEL ADMIN MEJORADO ==========
 @app.route("/admin/panel")
 def admin_panel_mejorado():
     """Sirve el panel de administración mejorado"""
@@ -1913,7 +1914,20 @@ def admin_panel_mejorado():
             contenido = f.read()
         return contenido
     except FileNotFoundError:
-        return "❌ Archivo admin.html no encontrado", 404
+        # Si el archivo no existe, mostrar una versión básica
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Panel Dante - Archivo no encontrado</title>
+        </head>
+        <body>
+            <h1>❌ admin.html no encontrado</h1>
+            <p>Por favor sube el archivo admin.html a Render.</p>
+            <p>Puedes crearlo con el contenido del archivo que te proporcioné.</p>
+        </body>
+        </html>
+        """, 404
 
 @app.route("/api/panel/citas")
 def api_panel_citas():
@@ -1937,34 +1951,11 @@ def api_panel_leads():
         return jsonify({"error": "Unauthorized"}), 403
     
     try:
-        # Cargar leads desde Excel
         leads = []
-        if os.path.exists(LEADS_EXCEL_FILE):
-            try:
-                df = pd.read_excel(LEADS_EXCEL_FILE, sheet_name=LEADS_SHEET_NAME)
-                if not df.empty:
-                    for _, row in df.iterrows():
-                        lead = {
-                            'id': str(row.get('ID', '')),
-                            'nombre': str(row.get('Nombre', '')),
-                            'telefono': str(row.get('Teléfono', '')),
-                            'email': str(row.get('Email', '')),
-                            'propiedad_id': str(row.get('Propiedad ID', '')),
-                            'propiedad_titulo': str(row.get('Título Propiedad', '')),
-                            'accion': str(row.get('Acción', '')),
-                            'detalles': str(row.get('Detalles', '')),
-                            'tipo_lead': str(row.get('Tipo Lead', '')),
-                            'interes': str(row.get('Interés', '')),
-                            'prioridad': str(row.get('Prioridad', '')),
-                            'fecha_creacion': str(row.get('Fecha', '')),
-                            'fuente': 'whatsapp',
-                            'estado': 'nuevo' if str(row.get('Seguimiento', '')).strip() == '' else 'contactado'
-                        }
-                        leads.append(lead)
-            except Exception as e:
-                log(f"❌ Error leyendo leads Excel: {e}")
-        
-        return jsonify(leads)
+        if os.path.exists(LEADS_FILE):
+            with open(LEADS_FILE, 'r', encoding='utf-8') as f:
+                leads = json.load(f)
+        return jsonify({"leads": leads})
     except Exception as e:
         log(f"❌ Error en API leads: {e}")
         return jsonify({"error": str(e)}), 500
@@ -1978,17 +1969,21 @@ def api_panel_estadisticas():
     
     try:
         citas = cargar_citas()
-        leads = cargar_leads_simple()  # Necesitarás crear esta función
+        leads = []
+        if os.path.exists(LEADS_FILE):
+            with open(LEADS_FILE, 'r', encoding='utf-8') as f:
+                leads = json.load(f)
         
         hoy = datetime.now().strftime("%Y-%m-%d")
+        leads_hoy = [l for l in leads if l.get('timestamp', '').startswith(hoy)]
         
         estadisticas = {
             'totalCitas': len(citas),
             'citasPendientes': len([c for c in citas if c.get('estado') == 'pendiente']),
             'citasHoy': len([c for c in citas if c.get('fecha') == hoy]),
             'totalLeads': len(leads),
-            'leadsHoy': len([l for l in leads if l.get('fecha_creacion', '').startswith(hoy)]),
-            'leadsNuevos': len([l for l in leads if l.get('estado') == 'nuevo']),
+            'leadsHoy': len(leads_hoy),
+            'leadsNuevos': len([l for l in leads if l.get('accion') == 'lead_completo']),
             'conversionRate': len(citas) / len(leads) * 100 if len(leads) > 0 else 0
         }
         
@@ -2005,7 +2000,7 @@ def api_panel_actualizar_estado(cita_id):
         return jsonify({"error": "Unauthorized"}), 403
     
     try:
-        nuevo_estado = request.json.get('estado')
+        nuevo_estado = request.args.get('estado')
         if nuevo_estado not in ['pendiente', 'confirmada', 'completada', 'cancelada']:
             return jsonify({"error": "Estado inválido"}), 400
         
@@ -2059,7 +2054,7 @@ def api_panel_nueva_cita():
             'fecha': datos['fecha'],
             'hora': datos['hora'],
             'propiedad_id': datos.get('propiedad', ''),
-            'propiedad_titulo': datos.get('propiedad_titulo', ''),
+            'propiedad_titulo': datos.get('propiedad', ''),
             'estado': 'pendiente',
             'notas': datos.get('notas', ''),
             'creacion': datetime.now().isoformat(),
@@ -2069,8 +2064,12 @@ def api_panel_nueva_cita():
         citas.append(nueva_cita)
         
         if guardar_citas(citas):
-            # También registrar en Excel
-            guardar_cita_excel(nueva_cita)
+            # También guardar en Excel si existe la función
+            try:
+                guardar_cita_excel(nueva_cita)
+            except:
+                pass
+                
             return jsonify({"status": "success", "cita": nueva_cita})
         else:
             return jsonify({"error": "Error guardando cita"}), 500
@@ -2078,6 +2077,38 @@ def api_panel_nueva_cita():
     except Exception as e:
         log(f"❌ Error creando cita: {e}")
         return jsonify({"error": str(e)}), 500
+
+@app.route("/send-message", methods=["POST"])
+def send_message_from_panel():
+    """Enviar mensaje desde el panel admin"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        data = request.json
+        to_number = data.get('to')
+        message = data.get('message')
+        
+        if not to_number or not message:
+            return jsonify({"error": "Faltan datos"}), 400
+        
+        result = send_whatsapp_message(to_number, message)
+        
+        if result.get('status') == 'success':
+            return jsonify({"status": "success", "message": "Mensaje enviado"})
+        else:
+            return jsonify({"error": result.get('error_message', 'Error desconocido')}), 500
+            
+    except Exception as e:
+        log(f"❌ Error enviando mensaje desde panel: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# También agrega esta ruta adicional para compatibilidad con las rutas existentes
+@app.route("/api/citas/<cita_id>/estado", methods=["PUT"])
+def actualizar_estado_cita_compatibilidad(cita_id):
+    """Compatibilidad con ruta existente"""
+    return api_panel_actualizar_estado(cita_id)
 
 @app.route("/api/panel/exportar")
 def api_panel_exportar():
