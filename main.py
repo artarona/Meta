@@ -16,6 +16,14 @@ ADMIN_NUMBER = "5491151511579"  # Número donde llegarán las alertas de leads
 LEADS_FILE = "leads.json"
 ADMIN_ACCESS_KEY = "dante2026"  # Llave para acceder al panel admin
 
+# ========== CONFIGURACIÓN ==========
+# ... (variables existentes) ...
+CITAS_FILE = "citas.json"  # Nuevo archivo para almacenar citas
+CITAS_DISPONIBLES = [  # Horarios disponibles para citas
+    "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+    "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
+    "17:00", "17:30", "18:00", "18:30"
+]
 # ========== URL DEL LOGO ==========
 #LOGO_URL = "https://meta-chat-npbx.onrender.com/llave.png"
 # ========== URL DEL LOGO ==========
@@ -345,24 +353,254 @@ def get_bot_response(text, user_id):
         return "⚠️ Opción no válida.\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
 
     # ESTADO: esperando_nombre_lead
+    # ESTADO: esperando_nombre_lead (ACTUALIZADO CON SISTEMA DE CITAS)
     elif estado_usuario['paso'] == 'esperando_nombre_lead':
         nombre_cliente = text.strip()
+        
+        # Validar que el nombre tenga al menos 2 caracteres
+        if len(nombre_cliente) < 2:
+            return "❌ Por favor, ingresa tu nombre completo (mínimo 2 caracteres)."
+        
+        # Guardar el nombre en el estado del usuario
+        estado_usuario['nombre_cliente'] = nombre_cliente
+        
+        # Obtener datos de la propiedad
         indice = estado_usuario.get('ultimo_indice_preguntado')
         propiedades = estado_usuario.get('propiedades_filtradas', [])
         
         if indice and 1 <= indice <= len(propiedades):
             propiedad = obtener_detalle_propiedad(propiedades, indice)
-            registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "lead_completo", f"Nombre: {nombre_cliente}")
-            notificar_agente(f"🔥 *NUEVO INTERESADO*\n👤 Cliente: {nombre_cliente}\n📞 Tel: {user_id}\n🏠 Propiedad: {propiedad.get('titulo')} ({propiedad.get('id_temporal')})")
+            propiedad_id = propiedad.get('id_temporal', 'N/A')
+            propiedad_titulo = propiedad.get('titulo', 'Propiedad sin título')
+            
+            # Registrar lead completo
+            registrar_lead(user_id, propiedad_id, "lead_completo", f"Nombre: {nombre_cliente}")
+            
+            # Notificar al agente (versión breve)
+            notificar_agente(f"🔥 *NUEVO INTERESADO*\n👤 Cliente: {nombre_cliente}\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad_titulo}")
+            
+            # Cambiar estado para ofrecer cita
+            estado_usuario['paso'] = 'ofrecer_cita'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            # Mensaje mejorado con emojis
+            return f"✅ *¡Perfecto {nombre_cliente}!*\n\n" \
+                f"Hemos registrado tu interés en:\n" \
+                f"🏠 *{propiedad_titulo}*\n\n" \
+                f"📅 *¿Te gustaría agendar una cita para visitar la propiedad?*\n\n" \
+                f"1️⃣ *SÍ, AGENDAR CITA* 📅 (Recomendado)\n" \
+                f"2️⃣ *No por ahora, solo información* 📋\n" \
+                f"3️⃣ *Ya la vi, quiero ofertar* 💰\n" \
+                f"0️⃣ *Salir* ❌"
+        
+        else:
+            # Error: no se encontró la propiedad
+            estado_usuario['paso'] = 'menu_principal'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "❌ Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad enviando 'Hola'."
+
+    # NUEVO ESTADO: ofrecer_cita
+    elif estado_usuario['paso'] == 'ofrecer_cita':
+        text_lower = text.lower().strip()
+        
+        # Opción 1: Sí, agendar cita
+        if text_lower in ["1", "si", "sí", "si quiero", "agendar", "cita", "visita"]:
+            estado_usuario['paso'] = 'solicitar_fecha_cita'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            # Mostrar ejemplo de fecha
+            hoy = datetime.now()
+            mañana = hoy + timedelta(days=1)
+            ejemplo_fecha = mañana.strftime("%Y-%m-%d")
+            
+            mensaje = f"📅 *EXCELENTE {estado_usuario.get('nombre_cliente', 'Cliente')}!*\n\n"
+            mensaje += f"Vamos a agendar tu visita.\n\n"
+            mensaje += f"📋 *Formato de fecha:* **AAAA-MM-DD**\n"
+            mensaje += f"📅 *Ejemplo para mañana:* **{ejemplo_fecha}**\n\n"
+            mensaje += f"📍 *Recomendaciones:*\n"
+            mensaje += f"• Agendar con 24-48hs de anticipación\n"
+            mensaje += f"• Evitar fines de semana (disponibilidad limitada)\n"
+            mensaje += f"• Horarios de 9:00 a 18:30\n\n"
+            mensaje += f"📅 *Envía la fecha que prefieras:*"
+            
+            return mensaje
+        
+        # Opción 2: Solo información
+        elif text_lower in ["2", "no", "solo info", "informacion", "información"]:
+            nombre_cliente = estado_usuario.get('nombre_cliente', 'Cliente')
+            
+            # Notificar al admin que es lead sin cita
+            notificar_agente(f"📋 *LEAD SIN CITA - SOLO INFO*\n👤 {nombre_cliente}\n📞 +{user_id}\n📝 Solo solicitó información")
+            
+            # Resetear estado
+            estado_usuario['paso'] = 'menu_principal'
+            estado_usuario['nombre_cliente'] = None
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            return f"✅ *Entendido {nombre_cliente}!*\n\n" \
+                f"Un asesor se contactará contigo para brindarte toda la información.\n\n" \
+                f"📱 *¿Necesitas algo más?*\n" \
+                f"• Ver otras propiedades → Envía '1'\n" \
+                f"• Ver detalles de esta propiedad → Envía 'F'\n" \
+                f"• Salir → Envía '0'"
+        
+        # Opción 3: Ya la vi, quiere ofertar
+        elif text_lower in ["3", "ofertar", "oferta", "comprar", "alquilar ya"]:
+            nombre_cliente = estado_usuario.get('nombre_cliente', 'Cliente')
+            
+            # Notificar al admin como lead CALIENTE
+            notificar_agente(f"🔥🔥 *LEAD CALIENTE - QUIERE OFERTAR!* 🔥🔥\n👤 {nombre_cliente}\n📞 +{user_id}\n💸 LISTO PARA OPERAR")
+            
+            # Registrar como lead caliente
+            indice = estado_usuario.get('ultimo_indice_preguntado')
+            propiedades = estado_usuario.get('propiedades_filtradas', [])
+            if indice and 1 <= indice <= len(propiedades):
+                propiedad = obtener_detalle_propiedad(propiedades, indice)
+                registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "lead_caliente_oferta", f"Nombre: {nombre_cliente} - QUIERE OFERTAR")
             
             estado_usuario['paso'] = 'menu_principal'
+            estado_usuario['nombre_cliente'] = None
             actualizar_estado_usuario(user_id, estado_usuario)
-            return f"¡Gracias {nombre_cliente}! 👍 Ya recibimos tu consulta. Un asesor se comunicará con vos a la brevedad.\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
-        else:
+            
+            return f"🎯 *¡EXCELENTE {nombre_cliente}!*\n\n" \
+                f"🔥 *PRIORIDAD MÁXIMA*\n" \
+                f"Un asesor te contactará en los próximos **15 minutos** para gestionar tu oferta.\n\n" \
+                f"📞 *Teléfono de contacto:* +{user_id}\n\n" \
+                f"⏰ *Horario de contacto:* Inmediato\n\n" \
+                f"¡Gracias por tu interés! 🏠💸"
+        
+        # Opción 0: Salir
+        elif text_lower in ["0", "salir", "chau", "adiós"]:
             estado_usuario['paso'] = 'menu_principal'
+            estado_usuario['nombre_cliente'] = None
             actualizar_estado_usuario(user_id, estado_usuario)
-            return "Lo siento, hubo un error procesando tu interés. Por favor, volvé a buscar la propiedad."
+            
+            return f"👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌"
+        
+        # Respuesta no reconocida
+        else:
+            return "❌ Opción no válida. Por favor selecciona:\n\n" \
+                f"1️⃣ *SÍ, AGENDAR CITA* 📅\n" \
+                f"2️⃣ *No por ahora, solo información* 📋\n" \
+                f"3️⃣ *Ya la vi, quiero ofertar* 💰\n" \
+                f"0️⃣ *Salir* ❌"
 
+    # NUEVO ESTADO: solicitar_fecha_cita
+    elif estado_usuario['paso'] == 'solicitar_fecha_cita':
+        text_lower = text.lower().strip()
+        
+        # Comando especial: ver fechas disponibles
+        if text_lower in ["ver fechas", "disponibles", "fechas"]:
+            mensaje = "📅 *PRÓXIMAS FECHAS DISPONIBLES:*\n\n"
+            
+            hoy = datetime.now()
+            for i in range(1, 8):  # Próximos 7 días
+                fecha = hoy + timedelta(days=i)
+                fecha_str = fecha.strftime("%Y-%m-%d")
+                dia_semana = fecha.strftime("%A")
+                dia_emoji = "🌞" if fecha.weekday() < 5 else "🎉"  # Emoji diferente para fin de semana
+                
+                # Obtener disponibilidad
+                horarios_disponibles = obtener_horarios_disponibles(fecha_str)
+                if horarios_disponibles:
+                    mensaje += f"{dia_emoji} *{fecha_str}* ({dia_semana.capitalize()}) ✅\n"
+                else:
+                    mensaje += f"{dia_emoji} {fecha_str} ({dia_semana.capitalize()}) ❌ AGOTADO\n"
+            
+            mensaje += "\n📌 *Envía la fecha en formato AAAA-MM-DD*"
+            return mensaje
+        
+        # Validar formato de fecha
+        try:
+            fecha_ingresada = datetime.strptime(text, "%Y-%m-%d")
+            hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            # Validaciones
+            if fecha_ingresada < hoy:
+                return "❌ *Fecha pasada*\nNo se pueden agendar citas en fechas pasadas.\n\n" \
+                    "Envía una fecha futura (AAAA-MM-DD) o 'Ver fechas'"
+            
+            if (fecha_ingresada - hoy).days > 30:
+                return "❌ *Plazo excedido*\nSolo podemos agendar hasta 30 días en el futuro.\n\n" \
+                    "Por favor, elige una fecha más cercana."
+            
+            # Verificar si es fin de semana (opcional, puedes comentar estas líneas si aceptas fines de semana)
+            if fecha_ingresada.weekday() >= 5:  # 5 = sábado, 6 = domingo
+                return "⚠️ *Fin de semana*\nLa disponibilidad de fines de semana es limitada.\n\n" \
+                    "¿Confirmas que quieres agendar para fin de semana?\n\n" \
+                    "✅ *Sí, confirmar* | ❌ *Elegir otra fecha*"
+            
+            # Guardar fecha en estado
+            fecha_str = fecha_ingresada.strftime("%Y-%m-%d")
+            estado_usuario['fecha_cita'] = fecha_str
+            
+            # Obtener horarios disponibles
+            horarios_disponibles = obtener_horarios_disponibles(fecha_str)
+            
+            if not horarios_disponibles:
+                estado_usuario['paso'] = 'ofrecer_cita'  # Volver atrás
+                actualizar_estado_usuario(user_id, estado_usuario)
+                
+                return f"❌ *SIN DISPONIBILIDAD*\n\n" \
+                    f"No hay horarios disponibles para el *{fecha_str}*.\n\n" \
+                    f"📅 Por favor, elige otra fecha o:\n" \
+                    f"1️⃣ Intentar otra fecha\n" \
+                    f"2️⃣ Solo información\n" \
+                    f"0️⃣ Salir"
+            
+            # Pasar al siguiente estado
+            estado_usuario['paso'] = 'seleccionar_hora_cita'
+            estado_usuario['horarios_disponibles'] = horarios_disponibles
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            # Formatear mensaje con horarios
+            mensaje = f"📅 *Fecha confirmada:* **{fecha_str}**\n\n"
+            mensaje += "⏰ *HORARIOS DISPONIBLES:*\n\n"
+            
+            # Agrupar horarios
+            manana = [h for h in horarios_disponibles if int(h.split(':')[0]) < 12]
+            tarde = [h for h in horarios_disponibles if 12 <= int(h.split(':')[0]) < 17]
+            tarde_noche = [h for h in horarios_disponibles if int(h.split(':')[0]) >= 17]
+            
+            if manana:
+                mensaje += "🌅 *MAÑANA:*\n"
+                for hora in manana:
+                    mensaje += f"• **{hora}** hs\n"
+                mensaje += "\n"
+            
+            if tarde:
+                mensaje += "🌞 *TARDE:*\n"
+                for hora in tarde:
+                    mensaje += f"• **{hora}** hs\n"
+                mensaje += "\n"
+            
+            if tarde_noche:
+                mensaje += "🌇 *TARDE-NOCHE:*\n"
+                for hora in tarde_noche:
+                    mensaje += f"• **{hora}** hs\n"
+            
+            mensaje += "\n⏳ *Envía el horario que prefieras* (ej: '09:30' o '14:00')"
+            mensaje += "\n↩️ Para volver atrás, envía 'Atrás'"
+            
+            return mensaje
+            
+        except ValueError:
+            return "❌ *Formato incorrecto*\n\n" \
+                "Por favor, usa el formato **AAAA-MM-DD**\n" \
+                "*Ejemplo:* 2024-12-25\n\n" \
+                "También puedes escribir 'Ver fechas' para ver disponibilidad."
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     # 4. OPCIONES GLOBALES (1..7) - Se procesan si no se capturaron arriba
     if text_lower == "1":
         estado_usuario['paso'] = 'listado_propiedades'
@@ -1041,7 +1279,121 @@ confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nPar
             return jsonify({"status": "error", "error": str(e)}), 500
 
 
+# ========== GESTIÓN DE CITAS ==========
+def cargar_citas():
+    """Carga las citas existentes desde el archivo JSON"""
+    try:
+        if os.path.exists(CITAS_FILE):
+            with open(CITAS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return []
+    except Exception as e:
+        log(f"❌ Error cargando citas: {e}")
+        return []
 
+def guardar_citas(citas):
+    """Guarda las citas en el archivo JSON"""
+    try:
+        with open(CITAS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(citas, f, indent=4, ensure_ascii=False)
+        return True
+    except Exception as e:
+        log(f"❌ Error guardando citas: {e}")
+        return False
+
+def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, notas=""):
+    """Crea una nueva cita"""
+    try:
+        citas = cargar_citas()
+        
+        nueva_cita = {
+            'id': f"cita_{len(citas)+1:04d}",
+            'user_id': user_id,
+            'nombre': nombre,
+            'telefono': telefono,
+            'fecha': fecha,
+            'hora': hora,
+            'propiedad_id': propiedad_id,
+            'estado': 'pendiente',  # pendiente | confirmada | cancelada | completada
+            'notas': notas,
+            'creacion': datetime.now().isoformat(),
+            'ultima_actualizacion': datetime.now().isoformat()
+        }
+        
+        citas.append(nueva_cita)
+        
+        if guardar_citas(citas):
+            log(f"✅ Cita creada: {nueva_cita['id']} para {nombre}")
+            # Notificar al admin
+            notificar_cita_admin(nueva_cita)
+            return nueva_cita
+        return None
+    except Exception as e:
+        log(f"❌ Error creando cita: {e}")
+        return None
+
+def notificar_cita_admin(cita):
+    """Envía notificación de nueva cita al admin"""
+    try:
+        mensaje = f"📅 *NUEVA CITA AGENDADA*\n\n"
+        mensaje += f"👤 *Cliente:* {cita['nombre']}\n"
+        mensaje += f"📞 *Teléfono:* +{cita['telefono']}\n"
+        mensaje += f"📅 *Fecha:* {cita['fecha']}\n"
+        mensaje += f"⏰ *Hora:* {cita['hora']}\n"
+        mensaje += f"🏠 *Propiedad ID:* {cita['propiedad_id']}\n"
+        mensaje += f"🆔 *ID Cita:* {cita['id']}\n"
+        mensaje += f"📝 *Notas:* {cita.get('notas', 'Sin notas')}\n\n"
+        mensaje += f"📍 *Estado:* {cita['estado'].upper()}"
+        
+        return send_whatsapp_message(ADMIN_NUMBER, mensaje)
+    except Exception as e:
+        log(f"❌ Error notificando cita al admin: {e}")
+        return False
+
+def obtener_horarios_disponibles(fecha_str):
+    """Obtiene horarios disponibles para una fecha específica"""
+    try:
+        # Convertir fecha string a objeto datetime
+        fecha_deseada = datetime.strptime(fecha_str, "%Y-%m-%d")
+        
+        # Cargar citas existentes
+        citas = cargar_citas()
+        
+        # Obtener horarios ocupados para esa fecha
+        horarios_ocupados = []
+        for cita in citas:
+            if cita['fecha'] == fecha_str and cita['estado'] in ['pendiente', 'confirmada']:
+                horarios_ocupados.append(cita['hora'])
+        
+        # Filtrar horarios disponibles
+        horarios_disponibles = [hora for hora in CITAS_DISPONIBLES if hora not in horarios_ocupados]
+        
+        log(f"📅 Horarios disponibles para {fecha_str}: {len(horarios_disponibles)}/{len(CITAS_DISPONIBLES)}")
+        return horarios_disponibles
+    except Exception as e:
+        log(f"❌ Error obteniendo horarios disponibles: {e}")
+        return CITAS_DISPONIBLES  # Devuelve todos si hay error
+
+def formatear_horarios_disponibles(horarios):
+    """Formatea los horarios disponibles para mostrar en WhatsApp"""
+    if not horarios:
+        return "❌ *No hay horarios disponibles para esta fecha.*\nPor favor, elige otra fecha."
+    
+    mensaje = "⏰ *HORARIOS DISPONIBLES:*\n\n"
+    
+    # Agrupar horarios en grupos de 4 para mejor visualización
+    grupos = [horarios[i:i+4] for i in range(0, len(horarios), 4)]
+    
+    for i, grupo in enumerate(grupos):
+        for hora in grupo:
+            emoji_hora = "🌅" if int(hora.split(':')[0]) < 12 else "🌞" if int(hora.split(':')[0]) < 17 else "🌇"
+            mensaje += f"{emoji_hora} *{hora}*  "
+        mensaje += "\n"
+    
+    mensaje += "\nPara seleccionar un horario, envía la hora (ej: '09:30' o '14:00')"
+    mensaje += "\nPara volver atrás, envía 'Atrás'"
+    
+    return mensaje
 
 @app.route("/test", methods=["GET"])
 def test_send():

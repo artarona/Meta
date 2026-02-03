@@ -1,0 +1,503 @@
+<!-- Guardar como: admin_citas.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Citas - Dante Propiedades</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text-main);
+        }
+        
+        .navbar {
+            background: #1e293b;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .filters {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        select, input {
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            align-self: flex-end;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .citas-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .cita-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            position: relative;
+        }
+        
+        .cita-card.pendiente {
+            border-left: 4px solid var(--warning);
+        }
+        
+        .cita-card.confirmada {
+            border-left: 4px solid var(--success);
+        }
+        
+        .cita-card.cancelada {
+            border-left: 4px solid var(--danger);
+            opacity: 0.7;
+        }
+        
+        .cita-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 1rem;
+        }
+        
+        .cita-id {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            background: #f1f5f9;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+        
+        .cita-estado {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .estado-pendiente {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .estado-confirmada {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .estado-cancelada {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .cita-cliente {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .cita-detalle {
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .cita-propiedad {
+            background: #e0f2fe;
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        
+        .cita-acciones {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .btn-sm {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.875rem;
+        }
+        
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .stat-card {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 12px;
+            flex: 1;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+        
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <h1>📅 Panel de Citas - Dante Propiedades</h1>
+        <div>
+            <button class="btn btn-primary" onclick="exportarCitas()">📊 Exportar Excel</button>
+            <button class="btn" onclick="window.location.href='/admin?key=dante2026'" style="margin-left: 1rem;">👥 Ver Leads</button>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalCitas">0</div>
+                <div class="stat-label">Total Citas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="citasPendientes">0</div>
+                <div class="stat-label">Pendientes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="citasConfirmadas">0</div>
+                <div class="stat-label">Confirmadas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="citasHoy">0</div>
+                <div class="stat-label">Hoy</div>
+            </div>
+        </div>
+        
+        <div class="filters">
+            <div class="filter-group">
+                <label>Estado</label>
+                <select id="filterEstado" onchange="filtrarCitas()">
+                    <option value="todas">Todas las citas</option>
+                    <option value="pendiente">Pendientes</option>
+                    <option value="confirmada">Confirmadas</option>
+                    <option value="cancelada">Canceladas</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Fecha desde</label>
+                <input type="date" id="filterDesde" onchange="filtrarCitas()">
+            </div>
+            
+            <div class="filter-group">
+                <label>Fecha hasta</label>
+                <input type="date" id="filterHasta" onchange="filtrarCitas()">
+            </div>
+            
+            <div class="filter-group">
+                <label>Buscar</label>
+                <input type="text" id="filterBuscar" placeholder="Nombre, teléfono o ID..." oninput="filtrarCitas()">
+            </div>
+            
+            <button class="btn btn-primary" onclick="cargarCitas()">🔄 Actualizar</button>
+        </div>
+        
+        <div id="citasContainer" class="citas-grid">
+            <!-- Las citas se cargarán aquí -->
+        </div>
+    </div>
+    
+    <script>
+        let todasLasCitas = [];
+        
+        async function cargarCitas() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const key = urlParams.get('key');
+                
+                if (!key) {
+                    alert('Acceso no autorizado');
+                    return;
+                }
+                
+                const response = await fetch(`/api/citas?key=${key}`);
+                if (!response.ok) throw new Error('Error al cargar citas');
+                
+                todasLasCitas = await response.json();
+                mostrarCitas(todasLasCitas);
+                actualizarEstadisticas(todasLasCitas);
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('citasContainer').innerHTML = 
+                    '<div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--danger);">❌ Error cargando citas</div>';
+            }
+        }
+        
+        function mostrarCitas(citas) {
+            const container = document.getElementById('citasContainer');
+            
+            if (citas.length === 0) {
+                container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-muted);">📭 No hay citas para mostrar</div>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            citas.forEach(cita => {
+                const card = document.createElement('div');
+                card.className = `cita-card ${cita.estado}`;
+                
+                const fecha = new Date(cita.fecha).toLocaleDateString('es-ES', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                }).replace(/^\w/, c => c.toUpperCase());
+                
+                card.innerHTML = `
+                    <div class="cita-header">
+                        <span class="cita-id">${cita.id}</span>
+                        <span class="cita-estado estado-${cita.estado}">${cita.estado.toUpperCase()}</span>
+                    </div>
+                    
+                    <div class="cita-cliente">${cita.nombre}</div>
+                    
+                    <div class="cita-detalle">
+                        📞 <strong>Teléfono:</strong> +${cita.telefono}
+                    </div>
+                    
+                    <div class="cita-detalle">
+                        📅 <strong>Fecha:</strong> ${fecha}
+                    </div>
+                    
+                    <div class="cita-detalle">
+                        ⏰ <strong>Hora:</strong> ${cita.hora}
+                    </div>
+                    
+                    <div class="cita-propiedad">
+                        🏠 <strong>Propiedad:</strong> ${cita.propiedad_id}<br>
+                        📝 <strong>Notas:</strong> ${cita.notas || 'Sin notas'}
+                    </div>
+                    
+                    <div class="cita-detalle">
+                        🕐 <strong>Creación:</strong> ${new Date(cita.creacion).toLocaleString()}
+                    </div>
+                    
+                    ${cita.estado !== 'cancelada' ? `
+                    <div class="cita-acciones">
+                        ${cita.estado === 'pendiente' ? 
+                            `<button class="btn btn-success btn-sm" onclick="cambiarEstado('${cita.id}', 'confirmada')">✅ Confirmar</button>` : ''}
+                        
+                        ${cita.estado === 'confirmada' ? 
+                            `<button class="btn btn-sm" onclick="enviarRecordatorio('${cita.id}')">🔔 Recordatorio</button>` : ''}
+                        
+                        <button class="btn btn-danger btn-sm" onclick="cambiarEstado('${cita.id}', 'cancelada')">❌ Cancelar</button>
+                        <button class="btn btn-sm" onclick="llamarCliente('${cita.telefono}')">📞 Llamar</button>
+                    </div>
+                    ` : ''}
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+        
+        function filtrarCitas() {
+            const estado = document.getElementById('filterEstado').value;
+            const desde = document.getElementById('filterDesde').value;
+            const hasta = document.getElementById('filterHasta').value;
+            const buscar = document.getElementById('filterBuscar').value.toLowerCase();
+            
+            let filtradas = todasLasCitas;
+            
+            // Filtrar por estado
+            if (estado !== 'todas') {
+                filtradas = filtradas.filter(cita => cita.estado === estado);
+            }
+            
+            // Filtrar por fecha
+            if (desde) {
+                const fechaDesde = new Date(desde);
+                filtradas = filtradas.filter(cita => new Date(cita.fecha) >= fechaDesde);
+            }
+            
+            if (hasta) {
+                const fechaHasta = new Date(hasta);
+                fechaHasta.setHours(23, 59, 59);
+                filtradas = filtradas.filter(cita => new Date(cita.fecha) <= fechaHasta);
+            }
+            
+            // Filtrar por búsqueda
+            if (buscar) {
+                filtradas = filtradas.filter(cita => 
+                    cita.nombre.toLowerCase().includes(buscar) ||
+                    cita.telefono.includes(buscar) ||
+                    cita.id.toLowerCase().includes(buscar) ||
+                    cita.propiedad_id.toLowerCase().includes(buscar)
+                );
+            }
+            
+            mostrarCitas(filtradas);
+        }
+        
+        function actualizarEstadisticas(citas) {
+            const hoy = new Date().toISOString().split('T')[0];
+            
+            const total = citas.length;
+            const pendientes = citas.filter(c => c.estado === 'pendiente').length;
+            const confirmadas = citas.filter(c => c.estado === 'confirmada').length;
+            const hoyCount = citas.filter(c => c.fecha === hoy && c.estado !== 'cancelada').length;
+            
+            document.getElementById('totalCitas').textContent = total;
+            document.getElementById('citasPendientes').textContent = pendientes;
+            document.getElementById('citasConfirmadas').textContent = confirmadas;
+            document.getElementById('citasHoy').textContent = hoyCount;
+        }
+        
+        async function cambiarEstado(idCita, nuevoEstado) {
+            if (!confirm(`¿Cambiar estado a ${nuevoEstado}?`)) return;
+            
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const key = urlParams.get('key');
+                
+                const response = await fetch(`/api/citas/${idCita}/estado?key=${key}&estado=${nuevoEstado}`, {
+                    method: 'PUT'
+                });
+                
+                if (response.ok) {
+                    alert('✅ Estado actualizado');
+                    cargarCitas();
+                } else {
+                    alert('❌ Error al actualizar');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('❌ Error de conexión');
+            }
+        }
+        
+        function llamarCliente(telefono) {
+            window.open(`tel:+${telefono}`);
+        }
+        
+        function exportarCitas() {
+            if (todasLasCitas.length === 0) {
+                alert('No hay citas para exportar');
+                return;
+            }
+            
+            // Crear CSV
+            const headers = ['ID', 'Estado', 'Nombre', 'Teléfono', 'Fecha', 'Hora', 'Propiedad', 'Notas', 'Creación'];
+            const rows = todasLasCitas.map(cita => [
+                cita.id,
+                cita.estado,
+                cita.nombre,
+                `+${cita.telefono}`,
+                cita.fecha,
+                cita.hora,
+                cita.propiedad_id,
+                cita.notas || '',
+                new Date(cita.creacion).toLocaleString()
+            ]);
+            
+            let csvContent = headers.join(',') + '\n';
+            rows.forEach(row => {
+                csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+            });
+            
+            // Descargar archivo
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', `citas_dante_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // Cargar citas al iniciar
+        document.addEventListener('DOMContentLoaded', cargarCitas);
+        // Auto-refresh cada 60 segundos
+        setInterval(cargarCitas, 60000);
+    </script>
+</body>
+</html>
