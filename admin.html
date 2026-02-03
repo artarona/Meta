@@ -740,9 +740,9 @@
                     <input type="text" class="search-box" placeholder="🔍 Buscar leads..." oninput="filtrarLeads(this.value)">
                     <select class="select-filter" onchange="filtrarLeadsPorFuente(this.value)">
                         <option value="">Todas las fuentes</option>
-                        <option value="web">Web</option>
-                        <option value="telefono">Teléfono</option>
                         <option value="whatsapp">WhatsApp</option>
+                        <option value="telefono">Teléfono</option>
+                        <option value="web">Web</option>
                         <option value="referido">Referido</option>
                     </select>
                 </div>
@@ -762,7 +762,7 @@
                     <select class="form-control" id="export-type">
                         <option value="citas">Citas Agendadas</option>
                         <option value="leads">Todos los Leads</option>
-                        <option value="todo">Todo (Citas + Leads)</option>
+                        <option value="excel">Leads.xlsx (Completo)</option>
                     </select>
                 </div>
                 
@@ -771,21 +771,6 @@
                     <div style="display: flex; gap: 1rem;">
                         <input type="date" class="form-control" id="export-fecha-desde">
                         <input type="date" class="form-control" id="export-fecha-hasta">
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Formato:</label>
-                    <div style="display: flex; gap: 1rem;">
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="radio" name="export-format" value="excel" checked> Excel (.xlsx)
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="radio" name="export-format" value="csv"> CSV
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="radio" name="export-format" value="pdf"> PDF
-                        </label>
                     </div>
                 </div>
                 
@@ -894,6 +879,19 @@
         </div>
     </div>
     
+    <!-- Modal Recordatorio -->
+    <div class="modal" id="modal-recordatorio">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin: 0;">🔔 Enviar Recordatorio</h3>
+                <button class="modal-close" onclick="cerrarModal('modal-recordatorio')">×</button>
+            </div>
+            <div id="recordatorio-content">
+                <!-- Contenido dinámico -->
+            </div>
+        </div>
+    </div>
+    
     <!-- Toast Container -->
     <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;"></div>
     
@@ -902,6 +900,10 @@
         let todasLasCitas = [];
         let todosLosLeads = [];
         let refreshInterval = null;
+        let adminKey = '';
+        let currentCitaId = '';
+        
+        // Configuración por defecto
         let configuracion = {
             autoRefresh: 60,
             notificaciones: {
@@ -910,203 +912,54 @@
                 recordatorios: true
             }
         };
-        let currentUser = null;
-        let pagination = {
-            citas: { page: 1, limit: 10, total: 0 },
-            leads: { page: 1, limit: 12, total: 0 }
-        };
         
-        // Clase para manejar autenticación y tokens
-        class AuthManager {
-            static getToken() {
-                return localStorage.getItem('dante_auth_token');
+        // Obtener clave de la URL
+        function obtenerClaveURL() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('key');
+        }
+        
+        // Validar acceso
+        function validarAcceso() {
+            adminKey = obtenerClaveURL();
+            if (!adminKey) {
+                alert('⚠️ Acceso no autorizado. Se requiere clave de acceso.');
+                window.location.href = '/';
+                return false;
             }
+            return true;
+        }
+        
+        // Helper para fetch con clave
+        async function fetchConClave(url, options = {}) {
+            const urlConClave = url.includes('?') ? `${url}&key=${adminKey}` : `${url}?key=${adminKey}`;
             
-            static setToken(token) {
-                localStorage.setItem('dante_auth_token', token);
-            }
-            
-            static removeToken() {
-                localStorage.removeItem('dante_auth_token');
-            }
-            
-            static async validateToken() {
-                const token = this.getToken();
-                if (!token) return false;
-                
-                try {
-                    const response = await fetch('/api/validate-token', {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    return response.ok;
-                } catch {
-                    return false;
+            try {
+                const response = await fetch(urlConClave, options);
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
                 }
-            }
-            
-            static async refreshToken() {
-                const token = this.getToken();
-                if (!token) return null;
-                
-                try {
-                    const response = await fetch('/api/refresh-token', {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        this.setToken(data.token);
-                        return data.token;
-                    }
-                } catch {
-                    return null;
-                }
+                return await response.json();
+            } catch (error) {
+                console.error('Fetch error:', error);
+                mostrarToast(`❌ Error: ${error.message}`, 'error');
+                throw error;
             }
         }
         
-        // Clase para manejo de errores
-        class ErrorHandler {
-            static async handleError(error, context = '') {
-                console.error(`Error en ${context}:`, error);
-                
-                // Mostrar toast de error
-                mostrarToast('❌ Error: ' + (error.message || 'Ocurrió un error'), 'error');
-                
-                // Si es error de autenticación, redirigir a login
-                if (error.status === 401) {
-                    setTimeout(() => {
-                        window.location.href = '/login?expired=true';
-                    }, 2000);
-                }
-                
-                // Registrar error en servicio de monitoreo (si existe)
-                if (window.errorReportingService) {
-                    window.errorReportingService.captureException(error);
-                }
-            }
-        }
-        
-        // Clase para manejo de caché
-        class CacheManager {
-            static set(key, data, ttl = 300) { // 5 minutos por defecto
-                const item = {
-                    data: data,
-                    expiry: Date.now() + (ttl * 1000)
-                };
-                localStorage.setItem(`cache_${key}`, JSON.stringify(item));
-            }
-            
-            static get(key) {
-                const itemStr = localStorage.getItem(`cache_${key}`);
-                if (!itemStr) return null;
-                
-                const item = JSON.parse(itemStr);
-                if (Date.now() > item.expiry) {
-                    localStorage.removeItem(`cache_${key}`);
-                    return null;
-                }
-                
-                return item.data;
-            }
-            
-            static clear(pattern = 'cache_') {
-                Object.keys(localStorage).forEach(key => {
-                    if (key.startsWith(pattern)) {
-                        localStorage.removeItem(key);
-                    }
-                });
-            }
-        }
-        
-        // API Client mejorado
-        class APIClient {
-            constructor(baseURL = '/api') {
-                this.baseURL = baseURL;
-            }
-            
-            async request(endpoint, options = {}) {
-                const token = AuthManager.getToken();
-                const headers = {
-                    'Content-Type': 'application/json',
-                    ...options.headers
-                };
-                
-                if (token) {
-                    headers['Authorization'] = `Bearer ${token}`;
-                }
-                
-                const url = `${this.baseURL}${endpoint}`;
-                
-                try {
-                    const response = await fetch(url, {
-                        ...options,
-                        headers
-                    });
-                    
-                    // Si token expiró, intentar refrescar
-                    if (response.status === 401) {
-                        const newToken = await AuthManager.refreshToken();
-                        if (newToken) {
-                            headers['Authorization'] = `Bearer ${newToken}`;
-                            return await fetch(url, { ...options, headers });
-                        } else {
-                            throw new Error('Sesión expirada');
-                        }
-                    }
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-                    
-                    return response;
-                } catch (error) {
-                    await ErrorHandler.handleError(error, `API Request: ${endpoint}`);
-                    throw error;
-                }
-            }
-            
-            async get(endpoint) {
-                const response = await this.request(endpoint);
-                return response.json();
-            }
-            
-            async post(endpoint, data) {
-                const response = await this.request(endpoint, {
-                    method: 'POST',
-                    body: JSON.stringify(data)
-                });
-                return response.json();
-            }
-            
-            async put(endpoint, data) {
-                const response = await this.request(endpoint, {
-                    method: 'PUT',
-                    body: JSON.stringify(data)
-                });
-                return response.json();
-            }
-            
-            async delete(endpoint) {
-                const response = await this.request(endpoint, {
-                    method: 'DELETE'
-                });
-                return response.json();
-            }
-        }
-        
-        // Inicializar API Client
-        const api = new APIClient();
-        
-        // Funciones de utilidad
+        // Formatear fechas
         function formatearFecha(fechaISO) {
-            const fecha = new Date(fechaISO);
-            return fecha.toLocaleDateString('es-ES', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            }).replace(/^\w/, c => c.toUpperCase());
+            try {
+                const fecha = new Date(fechaISO);
+                return fecha.toLocaleDateString('es-ES', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                }).replace(/^\w/, c => c.toUpperCase());
+            } catch {
+                return fechaISO;
+            }
         }
         
         function formatearHora(hora) {
@@ -1116,27 +969,7 @@
             });
         }
         
-        function mostrarLoading(containerId, mensaje = 'Cargando...') {
-            const container = document.getElementById(containerId);
-            container.innerHTML = `
-                <div class="loading">
-                    <div class="loading-spinner"></div>
-                    <p>${mensaje}</p>
-                </div>
-            `;
-        }
-        
-        function mostrarEmptyState(containerId, mensaje = 'No hay datos disponibles', icon = '📭') {
-            const container = document.getElementById(containerId);
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div>${icon}</div>
-                    <h3 style="margin-bottom: 0.5rem;">${mensaje}</h3>
-                    <p style="color: var(--text-muted); font-size: 0.95rem;">Intenta cambiar los filtros o crear nuevos registros</p>
-                </div>
-            `;
-        }
-        
+        // Mostrar mensajes toast
         function mostrarToast(mensaje, tipo = 'success', duracion = 5000) {
             const container = document.getElementById('toast-container');
             const toastId = 'toast-' + Date.now();
@@ -1153,149 +986,209 @@
             
             container.appendChild(toast);
             
-            // Auto-remover
             setTimeout(() => {
                 const elem = document.getElementById(toastId);
                 if (elem) elem.remove();
             }, duracion);
         }
         
-        // Funciones principales mejoradas
+        // Cargar datos iniciales
         async function cargarDatos() {
-            try {
-                // Verificar autenticación
-                const isValid = await AuthManager.validateToken();
-                if (!isValid) {
-                    window.location.href = '/login';
-                    return;
-                }
-                
-                // Cargar usuario
-                await cargarUsuario();
-                
-                // Intentar obtener datos de caché primero
-                const cacheKey = 'dashboard_data';
-                const cachedData = CacheManager.get(cacheKey);
-                
-                if (cachedData) {
-                    procesarDatosCache(cachedData);
-                }
-                
-                // Siempre cargar datos frescos en segundo plano
-                Promise.all([
-                    cargarCitas(),
-                    cargarLeads(),
-                    cargarEstadisticas()
-                ]).then(([citas, leads, stats]) => {
-                    const freshData = { citas, leads, stats };
-                    CacheManager.set(cacheKey, freshData, 60); // Cache por 1 minuto
-                    mostrarToast('Datos actualizados', 'success');
-                });
-                
-            } catch (error) {
-                await ErrorHandler.handleError(error, 'cargarDatos');
-                mostrarEmptyState('citas-container', 'Error al cargar datos', '❌');
-                mostrarEmptyState('leads-container', 'Error al cargar datos', '❌');
-            }
-        }
-        
-        function procesarDatosCache(data) {
-            if (data.citas) {
-                todasLasCitas = data.citas;
-                mostrarCitas(todasLasCitas.slice(0, pagination.citas.limit));
-                actualizarPaginacion('citas', todasLasCitas.length);
-            }
-            
-            if (data.leads) {
-                todosLosLeads = data.leads;
-                mostrarLeads(todosLosLeads.slice(0, pagination.leads.limit));
-                actualizarPaginacion('leads', todosLosLeads.length);
-            }
-            
-            if (data.stats) {
-                actualizarEstadisticasUI(data.stats);
-            }
-        }
-        
-        async function cargarUsuario() {
-            try {
-                const response = await api.get('/usuario');
-                currentUser = response;
-                
-                const userInfo = document.getElementById('user-info');
-                userInfo.innerHTML = `
-                    <span>👤 ${currentUser.nombre}</span>
-                    <span style="opacity: 0.7;">${currentUser.rol}</span>
-                `;
-            } catch (error) {
-                console.warn('No se pudo cargar información del usuario');
-            }
-        }
-        
-        async function cargarCitas() {
-            mostrarLoading('citas-container', 'Cargando citas...');
+            if (!validarAcceso()) return;
             
             try {
-                const data = await api.get('/citas');
-                todasLasCitas = data;
+                mostrarLoading('citas-container', 'Cargando citas...');
+                mostrarLoading('leads-container', 'Cargando leads...');
                 
-                if (todasLasCitas.length === 0) {
-                    mostrarEmptyState('citas-container', 'No hay citas agendadas', '📭');
-                } else {
-                    mostrarCitas(todasLasCitas.slice(0, pagination.citas.limit));
-                    actualizarPaginacion('citas', todasLasCitas.length);
-                }
+                // Cargar citas
+                const citasResponse = await fetchConClave('/api/citas');
+                todasLasCitas = Array.isArray(citasResponse) ? citasResponse : [];
                 
-                return todasLasCitas;
-            } catch (error) {
-                throw error;
-            }
-        }
-        
-        async function cargarLeads() {
-            mostrarLoading('leads-container', 'Cargando leads...');
-            
-            try {
-                const data = await api.get('/leads');
-                todosLosLeads = data;
+                // Cargar leads
+                const leadsResponse = await fetchConClave('/api/leads');
+                todosLosLeads = Array.isArray(leadsResponse.leads) ? leadsResponse.leads : [];
                 
-                if (todosLosLeads.length === 0) {
-                    mostrarEmptyState('leads-container', 'No hay leads registrados', '👤');
-                } else {
-                    mostrarLeads(todosLosLeads.slice(0, pagination.leads.limit));
-                    actualizarPaginacion('leads', todosLosLeads.length);
-                }
-                
-                return todosLosLeads;
-            } catch (error) {
-                throw error;
-            }
-        }
-        
-        async function cargarEstadisticas() {
-            try {
-                const data = await api.get('/estadisticas');
-                actualizarEstadisticasUI(data);
-                return data;
-            } catch (error) {
-                // Usar datos locales si falla la API
+                // Mostrar datos
+                mostrarCitas(todasLasCitas);
+                mostrarLeads(todosLosLeads);
                 actualizarEstadisticas();
-                throw error;
+                
+            } catch (error) {
+                console.error('Error cargando datos:', error);
+                mostrarEmptyState('citas-container', 'Error al cargar citas', '❌');
+                mostrarEmptyState('leads-container', 'Error al cargar leads', '❌');
             }
         }
         
-        function actualizarEstadisticasUI(stats) {
+        // Mostrar citas
+        function mostrarCitas(citas) {
+            const container = document.getElementById('citas-container');
+            
+            if (!citas || citas.length === 0) {
+                mostrarEmptyState('citas-container', 'No hay citas agendadas', '📭');
+                return;
+            }
+            
+            let html = '';
+            citas.forEach(cita => {
+                const fechaFormateada = formatearFecha(cita.fecha);
+                const horaFormateada = formatearHora(cita.hora);
+                
+                html += `
+                    <div class="cita-card" data-id="${cita.id}" data-estado="${cita.estado}">
+                        <div class="card-header">
+                            <span class="card-id">#${cita.id || 'N/A'}</span>
+                            <span class="status-badge status-${cita.estado || 'pendiente'}">
+                                ${cita.estado === 'pendiente' ? '⏳' : 
+                                  cita.estado === 'confirmada' ? '✅' : 
+                                  cita.estado === 'completada' ? '🏁' : '❌'}
+                                ${(cita.estado || 'pendiente').toUpperCase()}
+                            </span>
+                        </div>
+                        
+                        <div class="card-content">
+                            <h3 style="margin: 0 0 1rem 0; font-size: 1.2rem;">${cita.nombre || 'Sin nombre'}</h3>
+                            
+                            <div class="card-row">
+                                <span>📞</span>
+                                <span>${cita.telefono || 'N/A'}</span>
+                            </div>
+                            
+                            ${cita.email ? `
+                            <div class="card-row">
+                                <span>📧</span>
+                                <span>${cita.email}</span>
+                            </div>
+                            ` : ''}
+                            
+                            <div class="card-row">
+                                <span>📅</span>
+                                <span>${fechaFormateada}</span>
+                            </div>
+                            
+                            <div class="card-row">
+                                <span>⏰</span>
+                                <span>${horaFormateada}</span>
+                            </div>
+                            
+                            ${cita.propiedad_id || cita.propiedad_titulo ? `
+                            <div class="property-info">
+                                <strong>🏠 Propiedad:</strong><br>
+                                ${cita.propiedad_titulo || cita.propiedad_id || 'N/A'}
+                            </div>
+                            ` : ''}
+                            
+                            ${cita.notas ? `
+                            <div style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 6px; font-size: 0.9rem;">
+                                <strong>📝 Notas:</strong><br>
+                                ${cita.notas}
+                            </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="card-actions">
+                            ${(!cita.estado || cita.estado === 'pendiente') ? `
+                                <button class="btn btn-success" onclick="cambiarEstadoCita('${cita.id}', 'confirmada')">
+                                    ✅ Confirmar
+                                </button>
+                            ` : cita.estado === 'confirmada' ? `
+                                <button class="btn btn-primary" onclick="cambiarEstadoCita('${cita.id}', 'completada')">
+                                    🏁 Completar
+                                </button>
+                            ` : ''}
+                            
+                            <button class="btn btn-outline" onclick="mostrarModalRecordatorio('${cita.id}')">
+                                🔔 Recordatorio
+                            </button>
+                            
+                            ${cita.estado !== 'cancelada' && cita.estado !== 'completada' ? `
+                                <button class="btn btn-danger" onclick="cambiarEstadoCita('${cita.id}', 'cancelada')">
+                                    ❌ Cancelar
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // Mostrar leads
+        function mostrarLeads(leads) {
+            const container = document.getElementById('leads-container');
+            
+            if (!leads || leads.length === 0) {
+                mostrarEmptyState('leads-container', 'No hay leads registrados', '👤');
+                return;
+            }
+            
+            let html = '';
+            leads.forEach(lead => {
+                const fecha = lead.timestamp ? formatearFecha(lead.timestamp) : 'Fecha no disponible';
+                
+                html += `
+                    <div class="lead-card" data-id="${lead.user_id || lead.id}">
+                        <div class="card-header">
+                            <span class="card-id">#${lead.user_id ? lead.user_id.slice(-6) : 'N/A'}</span>
+                            <span class="status-badge ${lead.accion === 'lead_completo' ? 'status-confirmada' : 'status-pendiente'}">
+                                ${lead.accion === 'lead_completo' ? '📞 CONTACTADO' : '🆕 NUEVO'}
+                            </span>
+                        </div>
+                        
+                        <div class="card-content">
+                            <h3 style="margin: 0 0 1rem 0; font-size: 1.2rem;">Cliente ${lead.user_id ? lead.user_id.slice(-4) : 'N/A'}</h3>
+                            
+                            <div class="card-row">
+                                <span>📞</span>
+                                <span>${lead.user_id || 'N/A'}</span>
+                            </div>
+                            
+                            <div class="card-row">
+                                <span>📅</span>
+                                <span>${fecha}</span>
+                            </div>
+                            
+                            <div class="card-row">
+                                <span>📊</span>
+                                <span>Acción: ${lead.accion || 'N/A'}</span>
+                            </div>
+                            
+                            ${lead.detalle ? `
+                            <div style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 6px; font-size: 0.9rem;">
+                                <strong>📝 Detalle:</strong><br>
+                                ${lead.detalle}
+                            </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="card-actions">
+                            <button class="btn btn-primary" onclick="contactarLead('${lead.user_id}')">
+                                📞 Contactar
+                            </button>
+                            <button class="btn btn-outline" onclick="agendarCitaDesdeLead('${lead.user_id}')">
+                                📅 Agendar Cita
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // Actualizar estadísticas
+        function actualizarEstadisticas() {
             const hoy = new Date().toISOString().split('T')[0];
             
-            const estadisticas = stats || {
+            const estadisticas = {
                 totalCitas: todasLasCitas.length,
                 citasPendientes: todasLasCitas.filter(c => c.estado === 'pendiente').length,
-                citasHoy: todasLasCitas.filter(c => c.fecha.split('T')[0] === hoy).length,
-                conversionRate: todosLosLeads.length > 0 ? 
-                    (todasLasCitas.length / todosLosLeads.length * 100).toFixed(1) : 0,
+                citasHoy: todasLasCitas.filter(c => c.fecha === hoy).length,
                 totalLeads: todosLosLeads.length,
-                leadsHoy: todosLosLeads.filter(l => l.fecha_creacion && l.fecha_creacion.startsWith(hoy)).length,
-                leadsNuevos: todosLosLeads.filter(l => l.estado === 'nuevo').length
+                leadsHoy: todosLosLeads.filter(l => l.timestamp && l.timestamp.startsWith(hoy)).length,
+                conversionRate: todasLasCitas.length > 0 && todosLosLeads.length > 0 ? 
+                    (todasLasCitas.length / todosLosLeads.length * 100).toFixed(1) : 0
             };
             
             const statsHTML = `
@@ -1333,400 +1226,53 @@
             document.getElementById('stats-grid').innerHTML = statsHTML;
         }
         
-        function mostrarCitas(citas) {
-            const container = document.getElementById('citas-container');
-            
-            if (citas.length === 0) {
-                mostrarEmptyState('citas-container', 'No hay citas con estos filtros', '🔍');
-                return;
-            }
-            
-            let html = '';
-            citas.forEach(cita => {
-                const fechaFormateada = formatearFecha(cita.fecha);
-                const horaFormateada = formatearHora(cita.hora);
-                
-                html += `
-                    <div class="cita-card" data-id="${cita.id}" data-estado="${cita.estado}">
-                        <div class="card-header">
-                            <span class="card-id">#${cita.id}</span>
-                            <span class="status-badge status-${cita.estado}">
-                                ${cita.estado === 'pendiente' ? '⏳' : 
-                                  cita.estado === 'confirmada' ? '✅' : 
-                                  cita.estado === 'completada' ? '🏁' : '❌'}
-                                ${cita.estado.toUpperCase()}
-                            </span>
-                        </div>
-                        
-                        <div class="card-content">
-                            <h3 style="margin: 0 0 1rem 0; font-size: 1.2rem;">${cita.nombre}</h3>
-                            
-                            <div class="card-row">
-                                <span>📞</span>
-                                <span>+${cita.telefono}</span>
-                            </div>
-                            
-                            ${cita.email ? `
-                            <div class="card-row">
-                                <span>📧</span>
-                                <span>${cita.email}</span>
-                            </div>
-                            ` : ''}
-                            
-                            <div class="card-row">
-                                <span>📅</span>
-                                <span>${fechaFormateada}</span>
-                            </div>
-                            
-                            <div class="card-row">
-                                <span>⏰</span>
-                                <span>${horaFormateada}</span>
-                            </div>
-                            
-                            <div class="property-info">
-                                <strong>🏠 Propiedad:</strong><br>
-                                ${cita.propiedad_titulo || cita.propiedad_id}
-                            </div>
-                            
-                            ${cita.notas ? `
-                            <div style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 6px; font-size: 0.9rem;">
-                                <strong>📝 Notas:</strong><br>
-                                ${cita.notas}
-                            </div>
-                            ` : ''}
-                        </div>
-                        
-                        <div class="card-actions">
-                            ${cita.estado === 'pendiente' ? `
-                                <button class="btn btn-success" onclick="cambiarEstado('${cita.id}', 'confirmada')">
-                                    ✅ Confirmar
-                                </button>
-                            ` : cita.estado === 'confirmada' ? `
-                                <button class="btn btn-primary" onclick="cambiarEstado('${cita.id}', 'completada')">
-                                    🏁 Completar
-                                </button>
-                            ` : ''}
-                            
-                            <button class="btn btn-outline" onclick="enviarRecordatorio('${cita.id}')">
-                                🔔 Recordatorio
-                            </button>
-                            
-                            ${cita.estado !== 'cancelada' ? `
-                                <button class="btn btn-outline" onclick="mostrarModalEditarCita('${cita.id}')">
-                                    ✏️ Editar
-                                </button>
-                            ` : ''}
-                            
-                            ${cita.estado !== 'cancelada' && cita.estado !== 'completada' ? `
-                                <button class="btn btn-danger" onclick="cambiarEstado('${cita.id}', 'cancelada')">
-                                    ❌ Cancelar
-                                </button>
-                            ` : ''}
-                        </div>
-                    </div>
-                `;
-            });
-            
-            container.innerHTML = html;
-        }
-        
-        function mostrarLeads(leads) {
-            const container = document.getElementById('leads-container');
-            
-            if (leads.length === 0) {
-                mostrarEmptyState('leads-container', 'No hay leads con estos filtros', '🔍');
-                return;
-            }
-            
-            let html = '';
-            leads.forEach(lead => {
-                const fechaCreacion = lead.fecha_creacion ? formatearFecha(lead.fecha_creacion) : 'No especificada';
-                
-                html += `
-                    <div class="lead-card" data-id="${lead.id}">
-                        <div class="card-header">
-                            <span class="card-id">#${lead.id}</span>
-                            <span class="status-badge ${lead.estado === 'nuevo' ? 'status-pendiente' : 'status-confirmada'}">
-                                ${lead.estado === 'nuevo' ? '🆕 NUEVO' : '📞 CONTACTADO'}
-                            </span>
-                        </div>
-                        
-                        <div class="card-content">
-                            <h3 style="margin: 0 0 1rem 0; font-size: 1.2rem;">${lead.nombre}</h3>
-                            
-                            <div class="card-row">
-                                <span>📞</span>
-                                <span>${lead.telefono}</span>
-                            </div>
-                            
-                            ${lead.email ? `
-                            <div class="card-row">
-                                <span>📧</span>
-                                <span>${lead.email}</span>
-                            </div>
-                            ` : ''}
-                            
-                            <div class="card-row">
-                                <span>📅</span>
-                                <span>${fechaCreacion}</span>
-                            </div>
-                            
-                            ${lead.fuente ? `
-                            <div class="card-row">
-                                <span>🔗</span>
-                                <span>Fuente: ${lead.fuente}</span>
-                            </div>
-                            ` : ''}
-                            
-                            ${lead.interes ? `
-                            <div class="property-info">
-                                <strong>🏠 Interés:</strong><br>
-                                ${lead.interes}
-                            </div>
-                            ` : ''}
-                            
-                            ${lead.notas ? `
-                            <div style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 6px; font-size: 0.9rem;">
-                                <strong>📝 Notas:</strong><br>
-                                ${lead.notas}
-                            </div>
-                            ` : ''}
-                        </div>
-                        
-                        <div class="card-actions">
-                            <button class="btn btn-primary" onclick="contactarLead('${lead.id}')">
-                                📞 Contactar
-                            </button>
-                            <button class="btn btn-outline" onclick="agendarCitaDesdeLead('${lead.id}')">
-                                📅 Agendar Cita
-                            </button>
-                            <button class="btn btn-outline" onclick="agregarNotaLead('${lead.id}')">
-                                📝 Notas
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            container.innerHTML = html;
-        }
-        
-        // Funciones de paginación
-        function actualizarPaginacion(tipo, totalItems) {
-            const pagination = tipo === 'citas' ? window.pagination.citas : window.pagination.leads;
-            const totalPages = Math.ceil(totalItems / pagination.limit);
-            
-            const containerId = `${tipo}-pagination`;
+        // Estados loading/empty
+        function mostrarLoading(containerId, mensaje = 'Cargando...') {
             const container = document.getElementById(containerId);
-            
-            if (totalPages <= 1) {
-                container.innerHTML = '';
-                return;
-            }
-            
-            let html = '';
-            
-            // Botón anterior
-            html += `<button class="page-btn" ${pagination.page === 1 ? 'disabled' : ''} 
-                     onclick="cambiarPagina('${tipo}', ${pagination.page - 1})">←</button>`;
-            
-            // Páginas
-            const maxPagesToShow = 5;
-            let startPage = Math.max(1, pagination.page - Math.floor(maxPagesToShow / 2));
-            let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
-            
-            if (endPage - startPage + 1 < maxPagesToShow) {
-                startPage = Math.max(1, endPage - maxPagesToShow + 1);
-            }
-            
-            for (let i = startPage; i <= endPage; i++) {
-                html += `<button class="page-btn ${i === pagination.page ? 'active' : ''}" 
-                         onclick="cambiarPagina('${tipo}', ${i})">${i}</button>`;
-            }
-            
-            // Botón siguiente
-            html += `<button class="page-btn" ${pagination.page === totalPages ? 'disabled' : ''} 
-                     onclick="cambiarPagina('${tipo}', ${pagination.page + 1})">→</button>`;
-            
-            container.innerHTML = html;
+            container.innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>${mensaje}</p>
+                </div>
+            `;
         }
         
-        function cambiarPagina(tipo, nuevaPagina) {
-            const pagination = tipo === 'citas' ? window.pagination.citas : window.pagination.leads;
-            const items = tipo === 'citas' ? todasLasCitas : todosLosLeads;
-            const totalPages = Math.ceil(items.length / pagination.limit);
-            
-            if (nuevaPagina < 1 || nuevaPagina > totalPages) return;
-            
-            pagination.page = nuevaPagina;
-            const startIndex = (nuevaPagina - 1) * pagination.limit;
-            const endIndex = startIndex + pagination.limit;
-            const itemsPagina = items.slice(startIndex, endIndex);
-            
-            if (tipo === 'citas') {
-                mostrarCitas(itemsPagina);
-            } else {
-                mostrarLeads(itemsPagina);
-            }
-            
-            actualizarPaginacion(tipo, items.length);
-            
-            // Scroll suave hacia arriba
-            const container = document.getElementById(`${tipo}-container`);
-            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-        
-        // Funciones de filtrado
-        function filtrarCitas(termino) {
-            const citasFiltradas = todasLasCitas.filter(cita => {
-                const busqueda = termino.toLowerCase();
-                return (
-                    cita.nombre.toLowerCase().includes(busqueda) ||
-                    cita.telefono.includes(busqueda) ||
-                    (cita.email && cita.email.toLowerCase().includes(busqueda)) ||
-                    (cita.propiedad_titulo && cita.propiedad_titulo.toLowerCase().includes(busqueda))
-                );
-            });
-            
-            mostrarCitas(citasFiltradas.slice(0, pagination.citas.limit));
-            actualizarPaginacion('citas', citasFiltradas.length);
-        }
-        
-        function filtrarCitasPorEstado(estado) {
-            if (!estado) {
-                mostrarCitas(todasLasCitas.slice(0, pagination.citas.limit));
-                actualizarPaginacion('citas', todasLasCitas.length);
-                return;
-            }
-            
-            const citasFiltradas = todasLasCitas.filter(cita => cita.estado === estado);
-            mostrarCitas(citasFiltradas.slice(0, pagination.citas.limit));
-            actualizarPaginacion('citas', citasFiltradas.length);
-        }
-        
-        function filtrarLeads(termino) {
-            const leadsFiltrados = todosLosLeads.filter(lead => {
-                const busqueda = termino.toLowerCase();
-                return (
-                    lead.nombre.toLowerCase().includes(busqueda) ||
-                    lead.telefono.includes(busqueda) ||
-                    (lead.email && lead.email.toLowerCase().includes(busqueda)) ||
-                    (lead.interes && lead.interes.toLowerCase().includes(busqueda))
-                );
-            });
-            
-            mostrarLeads(leadsFiltrados.slice(0, pagination.leads.limit));
-            actualizarPaginacion('leads', leadsFiltrados.length);
-        }
-        
-        function filtrarLeadsPorFuente(fuente) {
-            if (!fuente) {
-                mostrarLeads(todosLosLeads.slice(0, pagination.leads.limit));
-                actualizarPaginacion('leads', todosLosLeads.length);
-                return;
-            }
-            
-            const leadsFiltrados = todosLosLeads.filter(lead => lead.fuente === fuente);
-            mostrarLeads(leadsFiltrados.slice(0, pagination.leads.limit));
-            actualizarPaginacion('leads', leadsFiltrados.length);
+        function mostrarEmptyState(containerId, mensaje = 'No hay datos disponibles', icon = '📭') {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div>${icon}</div>
+                    <h3 style="margin-bottom: 0.5rem;">${mensaje}</h3>
+                    <p style="color: var(--text-muted); font-size: 0.95rem;">Intenta cambiar los filtros o crear nuevos registros</p>
+                </div>
+            `;
         }
         
         // Funciones de gestión
-        async function cambiarEstado(citaId, nuevoEstado) {
+        async function cambiarEstadoCita(citaId, nuevoEstado) {
             if (!confirm(`¿Cambiar estado de la cita #${citaId} a ${nuevoEstado}?`)) return;
             
             try {
                 mostrarToast('Actualizando estado...', 'info');
                 
-                await api.put(`/citas/${citaId}/estado`, { estado: nuevoEstado });
+                await fetchConClave(`/api/citas/${citaId}/estado?estado=${nuevoEstado}`, {
+                    method: 'PUT'
+                });
                 
                 // Actualizar localmente
                 const index = todasLasCitas.findIndex(c => c.id === citaId);
                 if (index !== -1) {
                     todasLasCitas[index].estado = nuevoEstado;
-                    mostrarCitas(todasLasCitas.slice(0, pagination.citas.limit));
+                    todasLasCitas[index].ultima_actualizacion = new Date().toISOString();
+                    mostrarCitas(todasLasCitas);
                     actualizarEstadisticas();
                 }
                 
                 mostrarToast(`✅ Estado cambiado a ${nuevoEstado}`, 'success');
                 
-                // Si se cancela o completa, preguntar por nota
-                if (nuevoEstado === 'cancelada' || nuevoEstado === 'completada') {
-                    setTimeout(() => {
-                        const nota = prompt(`¿Agregar nota para la cita ${nuevoEstado}? (opcional)`);
-                        if (nota) {
-                            agregarNotaCita(citaId, nota);
-                        }
-                    }, 500);
-                }
-                
             } catch (error) {
-                await ErrorHandler.handleError(error, 'cambiarEstado');
+                console.error('Error cambiando estado:', error);
             }
-        }
-        
-        async function agregarNotaCita(citaId, nota) {
-            try {
-                await api.post(`/citas/${citaId}/notas`, { nota });
-                mostrarToast('📝 Nota agregada', 'success');
-            } catch (error) {
-                console.error('Error agregando nota:', error);
-            }
-        }
-        
-        async function enviarRecordatorio(citaId) {
-            try {
-                mostrarToast('Enviando recordatorio...', 'info');
-                
-                await api.post(`/citas/${citaId}/recordatorio`);
-                
-                mostrarToast('🔔 Recordatorio enviado', 'success');
-            } catch (error) {
-                await ErrorHandler.handleError(error, 'enviarRecordatorio');
-            }
-        }
-        
-        async function contactarLead(leadId) {
-            const lead = todosLosLeads.find(l => l.id === leadId);
-            if (!lead) return;
-            
-            const nota = prompt(`Nota de contacto para ${lead.nombre}:`);
-            if (nota) {
-                try {
-                    await api.put(`/leads/${leadId}`, { 
-                        estado: 'contactado',
-                        notas: (lead.notas ? lead.notas + '\n' : '') + `[${new Date().toLocaleString()}] ${nota}`
-                    });
-                    
-                    // Actualizar localmente
-                    const index = todosLosLeads.findIndex(l => l.id === leadId);
-                    if (index !== -1) {
-                        todosLosLeads[index].estado = 'contactado';
-                        todosLosLeads[index].notas = (lead.notas ? lead.notas + '\n' : '') + `[${new Date().toLocaleString()}] ${nota}`;
-                        mostrarLeads(todosLosLeads.slice(0, pagination.leads.limit));
-                    }
-                    
-                    mostrarToast(`✅ Lead ${lead.nombre} marcado como contactado`, 'success');
-                } catch (error) {
-                    await ErrorHandler.handleError(error, 'contactarLead');
-                }
-            }
-        }
-        
-        async function agendarCitaDesdeLead(leadId) {
-            const lead = todosLosLeads.find(l => l.id === leadId);
-            if (!lead) return;
-            
-            // Pre-llenar modal con datos del lead
-            document.getElementById('nuevo-nombre').value = lead.nombre;
-            document.getElementById('nuevo-telefono').value = lead.telefono;
-            document.getElementById('nuevo-email').value = lead.email || '';
-            document.getElementById('nuevo-propiedad').value = lead.interes || '';
-            
-            mostrarModalNuevaCita();
-            
-            // Guardar referencia al lead
-            document.getElementById('form-nueva-cita').dataset.leadId = leadId;
         }
         
         async function crearNuevaCita(event) {
@@ -1742,74 +1288,234 @@
                 notas: document.getElementById('nuevo-notas').value
             };
             
+            // Validar datos
+            if (!formData.nombre || !formData.telefono || !formData.fecha || !formData.hora) {
+                mostrarToast('❌ Por favor completa todos los campos obligatorios', 'error');
+                return;
+            }
+            
             try {
                 mostrarToast('Creando cita...', 'info');
                 
-                const nuevaCita = await api.post('/citas', formData);
+                // Usar la función crear_cita del backend
+                const response = await fetchConClave('/api/panel/citas/nueva', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
                 
-                // Agregar a la lista local
-                todasLasCitas.unshift(nuevaCita);
-                
-                // Actualizar lead si viene de uno
-                const leadId = event.target.dataset.leadId;
-                if (leadId) {
-                    await api.put(`/leads/${leadId}`, { 
-                        tiene_cita: true,
-                        citas: (todosLosLeads.find(l => l.id === leadId)?.citas || 0) + 1
-                    });
+                if (response.status === 'success') {
+                    mostrarToast(`✅ Cita creada para ${formData.nombre}`, 'success');
+                    cerrarModal('modal-nueva-cita');
+                    event.target.reset();
+                    
+                    // Recargar datos
+                    cargarDatos();
+                    
+                    // Cambiar a tab de citas
+                    mostrarTab('citas');
+                } else {
+                    mostrarToast(`❌ Error: ${response.error}`, 'error');
                 }
                 
-                // Limpiar formulario y cerrar modal
-                event.target.reset();
-                cerrarModal('modal-nueva-cita');
-                
-                // Mostrar citas actualizadas
-                mostrarCitas(todasLasCitas.slice(0, pagination.citas.limit));
-                actualizarEstadisticas();
-                actualizarPaginacion('citas', todasLasCitas.length);
-                
-                mostrarToast(`✅ Cita creada para ${formData.nombre}`, 'success');
-                
-                // Cambiar a tab de citas
-                mostrarTab('citas');
-                
             } catch (error) {
-                await ErrorHandler.handleError(error, 'crearNuevaCita');
+                console.error('Error creando cita:', error);
+                mostrarToast('❌ Error al crear la cita', 'error');
             }
         }
         
-        async function exportarDatos() {
-            const tipo = document.getElementById('export-type').value;
-            const desde = document.getElementById('export-fecha-desde').value;
-            const hasta = document.getElementById('export-fecha-hasta').value;
-            const formato = document.querySelector('input[name="export-format"]:checked').value;
+        function contactarLead(telefono) {
+            if (telefono) {
+                window.open(`https://wa.me/${telefono}`, '_blank');
+            }
+        }
+        
+        function agendarCitaDesdeLead(telefono) {
+            if (telefono) {
+                document.getElementById('nuevo-telefono').value = telefono;
+                mostrarModalNuevaCita();
+            }
+        }
+        
+        async function mostrarModalRecordatorio(citaId) {
+            currentCitaId = citaId;
+            const cita = todasLasCitas.find(c => c.id === citaId);
+            
+            if (!cita) {
+                mostrarToast('❌ Cita no encontrada', 'error');
+                return;
+            }
+            
+            const content = `
+                <div class="form-group">
+                    <label class="form-label">Cliente:</label>
+                    <p><strong>${cita.nombre}</strong></p>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Teléfono:</label>
+                    <p><strong>${cita.telefono}</strong></p>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Mensaje de recordatorio:</label>
+                    <textarea class="form-control" id="mensaje-recordatorio" rows="4">
+🔔 *RECORDATORIO DANTE PROPIEDADES*
+
+Hola ${cita.nombre}, este es un recordatorio de tu cita:
+
+📅 Fecha: ${formatearFecha(cita.fecha)}
+⏰ Hora: ${formatearHora(cita.hora)}
+🏠 Propiedad: ${cita.propiedad_titulo || cita.propiedad_id || 'Propiedad seleccionada'}
+
+📍 Por favor, llega 10 minutos antes.
+📱 Para cambios, contacta al +5491151511579
+
+¡Te esperamos! 🏠🗝️
+                    </textarea>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="cerrarModal('modal-recordatorio')">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" style="flex: 1;" onclick="enviarRecordatorio()">
+                        📤 Enviar WhatsApp
+                    </button>
+                </div>
+            `;
+            
+            document.getElementById('recordatorio-content').innerHTML = content;
+            document.getElementById('modal-recordatorio').classList.add('active');
+        }
+        
+        async function enviarRecordatorio() {
+            const mensaje = document.getElementById('mensaje-recordatorio').value;
             
             try {
-                mostrarToast('Generando archivo...', 'info');
+                // Usar la función send_whatsapp_message del backend
+                const cita = todasLasCitas.find(c => c.id === currentCitaId);
                 
-                const params = new URLSearchParams({
-                    tipo,
-                    formato,
-                    ...(desde && { desde }),
-                    ...(hasta && { hasta })
+                const response = await fetchConClave('/send-message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        to: cita.telefono,
+                        message: mensaje
+                    })
                 });
                 
-                // Usar API client para la descarga
-                const token = AuthManager.getToken();
-                const url = `/api/exportar?${params.toString()}`;
-                
-                // Crear link temporal para descarga
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `dante_propiedades_${tipo}_${new Date().toISOString().split('T')[0]}.${formato}`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                
-                mostrarToast('📥 Archivo descargado', 'success');
+                if (response.ok) {
+                    mostrarToast('✅ Recordatorio enviado', 'success');
+                    cerrarModal('modal-recordatorio');
+                } else {
+                    mostrarToast('❌ Error enviando recordatorio', 'error');
+                }
                 
             } catch (error) {
-                await ErrorHandler.handleError(error, 'exportarDatos');
+                console.error('Error enviando recordatorio:', error);
+                mostrarToast('❌ Error enviando recordatorio', 'error');
+            }
+        }
+        
+        // Funciones de filtrado
+        function filtrarCitas(termino) {
+            const citasFiltradas = todasLasCitas.filter(cita => {
+                const busqueda = termino.toLowerCase();
+                return (
+                    (cita.nombre && cita.nombre.toLowerCase().includes(busqueda)) ||
+                    (cita.telefono && cita.telefono.includes(busqueda)) ||
+                    (cita.propiedad_titulo && cita.propiedad_titulo.toLowerCase().includes(busqueda)) ||
+                    (cita.propiedad_id && cita.propiedad_id.toLowerCase().includes(busqueda))
+                );
+            });
+            
+            mostrarCitas(citasFiltradas);
+        }
+        
+        function filtrarCitasPorEstado(estado) {
+            if (!estado) {
+                mostrarCitas(todasLasCitas);
+                return;
+            }
+            
+            const citasFiltradas = todasLasCitas.filter(cita => cita.estado === estado);
+            mostrarCitas(citasFiltradas);
+        }
+        
+        function filtrarLeads(termino) {
+            const leadsFiltrados = todosLosLeads.filter(lead => {
+                const busqueda = termino.toLowerCase();
+                return (
+                    (lead.user_id && lead.user_id.includes(busqueda)) ||
+                    (lead.detalle && lead.detalle.toLowerCase().includes(busqueda)) ||
+                    (lead.accion && lead.accion.toLowerCase().includes(busqueda))
+                );
+            });
+            
+            mostrarLeads(leadsFiltrados);
+        }
+        
+        function filtrarLeadsPorFuente(fuente) {
+            if (!fuente) {
+                mostrarLeads(todosLosLeads);
+                return;
+            }
+            
+            const leadsFiltrados = todosLosLeads.filter(lead => {
+                // Simular fuentes basadas en la acción
+                if (fuente === 'whatsapp') return true; // Todos son de WhatsApp
+                if (fuente === 'telefono') return lead.accion === 'lead_caliente_oferta';
+                return false;
+            });
+            
+            mostrarLeads(leadsFiltrados);
+        }
+        
+        // Exportar datos
+        function exportarDatos() {
+            const tipo = document.getElementById('export-type').value;
+            
+            if (tipo === 'excel') {
+                // Descargar archivo Excel completo
+                window.open(`/api/leads-file?key=${adminKey}`, '_blank');
+                mostrarToast('📥 Descargando archivo Excel...', 'success');
+            } else if (tipo === 'citas') {
+                // Crear CSV de citas
+                const csvContent = "data:text/csv;charset=utf-8," 
+                    + "ID,Nombre,Telefono,Email,Fecha,Hora,Propiedad,Estado,Notas\n"
+                    + todasLasCitas.map(c => 
+                        `"${c.id || ''}","${c.nombre || ''}","${c.telefono || ''}","${c.email || ''}",`
+                        + `"${c.fecha || ''}","${c.hora || ''}","${c.propiedad_titulo || c.propiedad_id || ''}",`
+                        + `"${c.estado || ''}","${c.notas || ''}"`
+                    ).join("\n");
+                
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `citas_dante_${new Date().toISOString().split('T')[0]}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                mostrarToast('📥 Archivo CSV descargado', 'success');
+            } else if (tipo === 'leads') {
+                // Crear CSV de leads
+                const csvContent = "data:text/csv;charset=utf-8," 
+                    + "Telefono,Accion,Detalle,Fecha\n"
+                    + todosLosLeads.map(l => 
+                        `"${l.user_id || ''}","${l.accion || ''}","${l.detalle || ''}","${l.timestamp || ''}"`
+                    ).join("\n");
+                
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `leads_dante_${new Date().toISOString().split('T')[0]}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                mostrarToast('📥 Archivo CSV descargado', 'success');
             }
         }
         
@@ -1818,12 +1524,10 @@
             // Actualizar tabs
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
-                tab.setAttribute('aria-hidden', 'true');
             });
             
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.classList.remove('active');
-                tab.setAttribute('aria-selected', 'false');
             });
             
             // Mostrar tab seleccionado
@@ -1832,9 +1536,7 @@
             
             if (tabContent && tabButton) {
                 tabContent.classList.add('active');
-                tabContent.setAttribute('aria-hidden', 'false');
                 tabButton.classList.add('active');
-                tabButton.setAttribute('aria-selected', 'true');
             }
             
             // Guardar última tab visitada
@@ -1845,11 +1547,10 @@
             // Setear fecha mínima a hoy
             const hoy = new Date().toISOString().split('T')[0];
             document.getElementById('nuevo-fecha').min = hoy;
+            document.getElementById('nuevo-fecha').value = hoy;
             
-            // Si hoy es la fecha, establecer hora mínima a la actual + 1 hora
-            const ahora = new Date();
-            const horaMinima = `${ahora.getHours() + 1}:${ahora.getMinutes().toString().padStart(2, '0')}`;
-            document.getElementById('nuevo-hora').min = horaMinima;
+            // Setear hora por defecto (09:00)
+            document.getElementById('nuevo-hora').value = '09:00';
             
             document.getElementById('modal-nueva-cita').classList.add('active');
         }
@@ -1905,41 +1606,27 @@
         }
         
         // Inicialización
-        document.addEventListener('DOMContentLoaded', async () => {
-            // Verificar autenticación
-            const token = AuthManager.getToken();
-            if (!token) {
-                window.location.href = '/login';
-                return;
+        document.addEventListener('DOMContentLoaded', () => {
+            if (validarAcceso()) {
+                // Cargar configuración
+                cargarConfiguracion();
+                
+                // Cargar datos
+                cargarDatos();
+                
+                // Configurar auto-refresh
+                actualizarRefreshInterval();
+                
+                // Restaurar última tab
+                const ultimaTab = localStorage.getItem('ultima_tab') || 'citas';
+                mostrarTab(ultimaTab);
+                
+                // Actualizar información de usuario
+                document.getElementById('user-info').innerHTML = `
+                    <span>👤 Dante Propiedades</span>
+                    <span style="opacity: 0.7;">Administrador</span>
+                `;
             }
-            
-            // Cargar configuración
-            cargarConfiguracion();
-            
-            // Cargar datos iniciales
-            await cargarDatos();
-            
-            // Restaurar última tab visitada
-            const ultimaTab = localStorage.getItem('ultima_tab') || 'citas';
-            mostrarTab(ultimaTab);
-            
-            // Configurar auto-refresh
-            actualizarRefreshInterval();
-            
-            // Configurar Service Worker para offline
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js').catch(console.error);
-            }
-            
-            // Notificar nueva versión
-            console.log('✅ Panel Dante Propiedades inicializado');
-        });
-        
-        // Manejar recarga de página con confirmación si hay cambios sin guardar
-        window.addEventListener('beforeunload', (e) => {
-            // Aquí podrías verificar si hay cambios sin guardar
-            // e.preventDefault();
-            // e.returnValue = '';
         });
         
         // Manejar conexión/desconexión
