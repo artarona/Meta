@@ -1,478 +1,393 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dante Admin Panel | Dashboard de Leads</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <title>Panel Unificado - Dante Propiedades</title>
     <style>
         :root {
-            --primary: #2563eb;
-            --primary-dark: #1e40af;
+            --primary: #3b82f6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
             --bg: #f8fafc;
             --card-bg: #ffffff;
             --text-main: #1e293b;
             --text-muted: #64748b;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
             --border: #e2e8f0;
         }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg);
             color: var(--text-main);
-            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
         }
-
-        .navbar {
-            background: #1e293b;
-            color: white;
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        }
-
-        .navbar h1 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
+        
         .container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 1rem;
+            max-width: 1400px;
+            margin: 0 auto;
         }
-
+        
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+        }
+        
+        .tabs {
+            display: flex;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .tab {
+            padding: 1rem 2rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab.active {
+            border-bottom-color: var(--primary);
+            background: #eff6ff;
+            color: var(--primary);
+        }
+        
+        .tab:hover {
+            background: #f1f5f9;
+        }
+        
+        .tab-content {
+            display: none;
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 1.5rem;
             margin-bottom: 2rem;
         }
-
+        
         .stat-card {
-            background: var(--card-bg);
+            background: white;
             padding: 1.5rem;
-            border-radius: 12px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .citas-grid, .leads-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .cita-card, .lead-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
             border: 1px solid var(--border);
-            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+            transition: transform 0.2s;
         }
-
-        .stat-card h3 {
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+        
+        .cita-card:hover, .lead-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
         }
-
-        .stat-card .value {
-            font-size: 2rem;
-            font-weight: 700;
-            margin-top: 0.5rem;
-            color: var(--primary);
-        }
-
-        .controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
+        
         .btn {
-            padding: 0.6rem 1.2rem;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
             border: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
         }
-
+        
         .btn-primary {
             background: var(--primary);
             color: white;
         }
-
-        .btn-primary:hover {
-            background: var(--primary-dark);
+        
+        .btn-success {
+            background: var(--success);
+            color: white;
         }
-
-        .btn-outline {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text-main);
-        }
-
-        .btn-outline:hover {
-            background: #f1f5f9;
-        }
-
-        .leads-table-container {
-            background: var(--card-bg);
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-            overflow: hidden;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-        }
-
-        th {
-            background: #f8fafc;
-            padding: 1rem;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            border-bottom: 1px solid var(--border);
-        }
-
-        td {
-            padding: 1rem;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.875rem;
-        }
-
-        tr:last-child td {
-            border-bottom: none;
-        }
-
-        tr:hover {
-            background-color: #f8fafc;
-        }
-
-        .badge {
-            padding: 0.25rem 0.6rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
-        .badge-hot {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .badge-view {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .badge-neutral {
-            background: #f1f5f9;
-            color: #475569;
-        }
-
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255, 255, 255, 0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            display: none;
-        }
-
-        @media (max-width: 768px) {
-            .navbar {
-                padding: 1rem;
-            }
-
-            .container {
-                margin: 1rem auto;
-            }
-
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-
-            th:nth-child(3),
-            td:nth-child(3) {
-                display: none;
-            }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
         }
     </style>
 </head>
-
 <body>
-    <nav class="navbar">
-        <h1 style="display: flex; align-items: center; gap: 0.8rem;">
-            <img src="/imgs/llave.png" alt="Logo" style="height: 40px; width: auto; object-fit: contain;">
-            Dante Admin Panel
-        </h1>
-        <div style="display: flex; gap: 1rem;">
-            <button class="btn btn-outline" onclick="window.location.reload()">🔄 Recargar</button>
-            <input type="file" id="importInput" style="display:none" accept=".xlsx, .xls">
-            <button class="btn btn-outline" onclick="document.getElementById('importInput').click()">📂 Cargar Base
-                Anterior</button>
-            <button class="btn btn-primary" onclick="exportToExcel()">📊 Exportar a Excel</button>
-            <button class="btn btn-outline" style="background-color: var(--danger); color: white; border: none;"
-                onclick="logout()">🚪 Salir</button>
+    <div class="container">
+        <div class="header">
+            <h1>🏠 Dante Propiedades - Panel Unificado</h1>
+            <p>Gestión completa de leads y citas en un solo lugar</p>
         </div>
-    </nav>
-
-    <div class="container" id="mainContent">
+        
         <div class="stats-grid">
             <div class="stat-card">
-                <h3>Total Leads</h3>
-                <div class="value" id="totalLeads">0</div>
+                <div class="stat-number" id="total-citas">0</div>
+                <div>Total Citas</div>
             </div>
             <div class="stat-card">
-                <h3>Hot Leads 🔥</h3>
-                <div class="value" id="hotLeads">0</div>
+                <div class="stat-number" id="citas-pendientes">0</div>
+                <div>Citas Pendientes</div>
             </div>
             <div class="stat-card">
-                <h3>Hoy</h3>
-                <div class="value" id="todayLeads">0</div>
+                <div class="stat-number" id="total-leads">0</div>
+                <div>Total Leads</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="leads-hoy">0</div>
+                <div>Leads Hoy</div>
             </div>
         </div>
-
-        <div class="controls">
-            <h2 style="font-size: 1.5rem;">Listado Reciente</h2>
-            <div style="display: flex; gap: 0.5rem;">
-                <input type="text" id="searchInput" placeholder="Buscar por teléfono o ID..."
-                    style="padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border); width: 250px;">
+        
+        <div class="tabs">
+            <div class="tab active" onclick="mostrarTab('citas')">📅 Citas Agendadas</div>
+            <div class="tab" onclick="mostrarTab('leads')">👥 Todos los Leads</div>
+            <div class="tab" onclick="mostrarTab('exportar')">📤 Exportar Datos</div>
+        </div>
+        
+        <div id="tab-citas" class="tab-content active">
+            <h2>📅 Citas Agendadas</h2>
+            <div class="citas-grid" id="citas-container">
+                <!-- Citas se cargarán aquí -->
             </div>
         </div>
-
-        <div class="leads-table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Fecha/Hora</th>
-                        <th>Cliente (WhatsApp)</th>
-                        <th>Acción</th>
-                        <th>Propiedad</th>
-                        <th>Detalle</th>
-                    </tr>
-                </thead>
-                <tbody id="leadsBody">
-                    <!-- Data will be injected here -->
-                </tbody>
-            </table>
+        
+        <div id="tab-leads" class="tab-content">
+            <h2>👥 Todos los Leads</h2>
+            <div class="leads-grid" id="leads-container">
+                <!-- Leads se cargarán aquí -->
+            </div>
+        </div>
+        
+        <div id="tab-exportar" class="tab-content">
+            <h2>📤 Exportar Datos</h2>
+            <div style="text-align: center; padding: 3rem;">
+                <button class="btn btn-primary" onclick="exportarExcel()" style="padding: 1rem 2rem; font-size: 1.1rem;">
+                    📥 Descargar Excel Completo
+                </button>
+                <p style="margin-top: 1rem; color: var(--text-muted);">
+                    Descarga todas las citas y leads en un solo archivo Excel
+                </p>
+            </div>
         </div>
     </div>
-
-    <div id="loading" class="loading-overlay">
-        <div style="text-align: center;">
-            <div style="font-size: 1.5rem; font-weight: 600; margin-top: 1rem;">Cargando Leads...</div>
-        </div>
-    </div>
-
+    
     <script>
-        let allLeads = [];
-
-        async function fetchLeads() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const key = urlParams.get('key');
-
-            if (!key) {
-                document.body.innerHTML = '<div style="height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column;">' +
-                    '<h1 style="color:var(--danger)">⚠️ Acceso Denegado</h1>' +
-                    '<p>Por favor, utiliza el enlace seguro enviado a tu WhatsApp.</p></div>';
+        let todasLasCitas = [];
+        let todosLosLeads = [];
+        
+        async function cargarDatos() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const key = urlParams.get('key');
+                
+                if (!key) {
+                    alert('Acceso no autorizado');
+                    return;
+                }
+                
+                // Cargar citas
+                const respuestaCitas = await fetch(`/api/citas-excel?key=${key}`);
+                if (respuestaCitas.ok) {
+                    todasLasCitas = await respuestaCitas.json();
+                    mostrarCitas(todasLasCitas);
+                    actualizarEstadisticas();
+                }
+                
+                // Cargar leads (puedes crear una ruta similar)
+                // const respuestaLeads = await fetch(`/api/leads-excel?key=${key}`);
+                // if (respuestaLeads.ok) {
+                //     todosLosLeads = await respuestaLeads.json();
+                //     mostrarLeads(todosLosLeads);
+                // }
+                
+            } catch (error) {
+                console.error('Error cargando datos:', error);
+            }
+        }
+        
+        function mostrarTab(tabName) {
+            // Ocultar todos los tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Mostrar tab seleccionado
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            document.querySelector(`.tab[onclick="mostrarTab('${tabName}')"]`).classList.add('active');
+        }
+        
+        function mostrarCitas(citas) {
+            const container = document.getElementById('citas-container');
+            
+            if (citas.length === 0) {
+                container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 2rem; color: var(--text-muted);">📭 No hay citas agendadas</div>';
                 return;
             }
-
+            
+            let html = '';
+            citas.forEach(cita => {
+                const fechaFormateada = new Date(cita.fecha).toLocaleDateString('es-ES', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                }).replace(/^\w/, c => c.toUpperCase());
+                
+                html += `
+                    <div class="cita-card">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                            <span style="font-size: 0.9rem; color: var(--text-muted);">${cita.id}</span>
+                            <span style="padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; 
+                                background: ${cita.estado === 'pendiente' ? '#fef3c7' : cita.estado === 'confirmada' ? '#d1fae5' : '#fee2e2'};
+                                color: ${cita.estado === 'pendiente' ? '#92400e' : cita.estado === 'confirmada' ? '#065f46' : '#991b1b'};">
+                                ${cita.estado.toUpperCase()}
+                            </span>
+                        </div>
+                        
+                        <h3 style="margin: 0 0 0.5rem 0;">${cita.nombre}</h3>
+                        
+                        <div style="color: var(--text-muted); margin-bottom: 0.5rem;">
+                            📞 +${cita.telefono}
+                        </div>
+                        
+                        <div style="color: var(--text-muted); margin-bottom: 0.5rem;">
+                            📅 ${fechaFormateada}
+                        </div>
+                        
+                        <div style="color: var(--text-muted); margin-bottom: 1rem;">
+                            ⏰ ${cita.hora} hs
+                        </div>
+                        
+                        <div style="background: #f0f9ff; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem;">
+                            <strong>🏠 Propiedad:</strong><br>
+                            ${cita.propiedad_titulo || cita.propiedad_id}
+                        </div>
+                        
+                        ${cita.estado === 'pendiente' ? 
+                            `<button class="btn btn-success" onclick="cambiarEstado('${cita.id}', 'confirmada')" style="width: 100%; margin-bottom: 0.5rem;">
+                                ✅ Confirmar Cita
+                            </button>` : ''}
+                        
+                        <button class="btn" onclick="enviarRecordatorio('${cita.id}')" style="width: 100%; margin-bottom: 0.5rem;">
+                            🔔 Enviar Recordatorio
+                        </button>
+                        
+                        <button class="btn btn-danger" onclick="cambiarEstado('${cita.id}', 'cancelada')" style="width: 100%;">
+                            ❌ Cancelar Cita
+                        </button>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function actualizarEstadisticas() {
+            const hoy = new Date().toISOString().split('T')[0];
+            
+            const totalCitas = todasLasCitas.length;
+            const citasPendientes = todasLasCitas.filter(c => c.estado === 'pendiente').length;
+            
+            // Si tuvieras leads:
+            // const totalLeads = todosLosLeads.length;
+            // const leadsHoy = todosLosLeads.filter(l => l.fecha.startsWith(hoy)).length;
+            
+            document.getElementById('total-citas').textContent = totalCitas;
+            document.getElementById('citas-pendientes').textContent = citasPendientes;
+            // document.getElementById('total-leads').textContent = totalLeads;
+            // document.getElementById('leads-hoy').textContent = leadsHoy;
+        }
+        
+        async function cambiarEstado(citaId, nuevoEstado) {
+            if (!confirm(`¿Cambiar estado de la cita ${citaId} a ${nuevoEstado}?`)) return;
+            
             try {
-                const response = await fetch(`/api/leads?key=${key}`);
-                if (!response.ok) throw new Error('Unauthorized');
-
-                const data = await response.json();
-                mergeLeads(data.leads);
+                const urlParams = new URLSearchParams(window.location.search);
+                const key = urlParams.get('key');
+                
+                const respuesta = await fetch(`/api/actualizar-estado-cita?key=${key}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        id: citaId,
+                        estado: nuevoEstado
+                    })
+                });
+                
+                if (respuesta.ok) {
+                    alert('✅ Estado actualizado');
+                    cargarDatos(); // Recargar datos
+                } else {
+                    alert('❌ Error al actualizar');
+                }
             } catch (error) {
                 console.error('Error:', error);
-                alert('No se pudo cargar la información. Verifica la llave de acceso.');
+                alert('❌ Error de conexión');
             }
         }
-
-        async function autoLoadExcel() {
+        
+        async function enviarRecordatorio(citaId) {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const key = urlParams.get('key');
+                
+                // Aquí llamarías a tu API de recordatorio
+                // await fetch(`/api/enviar-recordatorio/${citaId}?key=${key}`, { method: 'POST' });
+                
+                alert('🔔 Recordatorio enviado (función en desarrollo)');
+            } catch (error) {
+                console.error('Error:', error);
+                alert('❌ Error enviando recordatorio');
+            }
+        }
+        
+        function exportarExcel() {
+            // Descargar el archivo Excel directamente
             const urlParams = new URLSearchParams(window.location.search);
             const key = urlParams.get('key');
-            if (!key) return;
-
-            try {
-                const response = await fetch(`/api/leads-file?key=${key}`);
-                if (!response.ok) return; // Si no hay archivo aún, fallar silenciosamente
-
-                const blob = await response.blob();
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
-                    const importedRaw = XLSX.utils.sheet_to_json(worksheet);
-                    processExcelData(importedRaw);
-                };
-                reader.readAsArrayBuffer(blob);
-            } catch (error) {
-                console.error('Error auto-loading Excel:', error);
-            }
+            
+            window.open(`/api/leads-file?key=${key}`, '_blank');
         }
-
-        function mergeLeads(newLeads) {
-            const combined = [...allLeads, ...newLeads];
-            const uniqueLeads = [];
-            const seen = new Set();
-
-            // Deduplicación por timestamp y user_id
-            combined.forEach(lead => {
-                const key = `${lead.timestamp}-${lead.user_id}`;
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    uniqueLeads.push(lead);
-                }
-            });
-
-            allLeads = uniqueLeads;
-            updateDashboard();
-        }
-
-        function processExcelData(importedData) {
-            const oldLeads = importedData.map(row => {
-                return {
-                    timestamp: row["Fecha/Hora"] || row["timestamp"] || new Date().toISOString(),
-                    user_id: String(row["Teléfono"] || row["user_id"] || "").replace(/^\+/, ""),
-                    accion: (row["Acción"] || row["accion"] || "IMPORTADO").toLowerCase().replace(/ /g, '_'),
-                    propiedad_id: row["Propiedad"] || row["propiedad_id"] || "N/A",
-                    detalle: row["Detalles"] || row["detalle"] || ""
-                };
-            });
-            mergeLeads(oldLeads);
-        }
-
-        function updateDashboard() {
-            const body = document.getElementById('leadsBody');
-            const totalEl = document.getElementById('totalLeads');
-            const hotEl = document.getElementById('hotLeads');
-            const todayEl = document.getElementById('todayLeads');
-
-            // Ordenar por fecha descendente
-            allLeads.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-            body.innerHTML = '';
-            let hotCount = 0;
-            let todayCount = 0;
-            const now = new Date().toDateString();
-
-            allLeads.forEach(lead => {
-                const tr = document.createElement('tr');
-                const date = new Date(lead.timestamp);
-
-                if (date.toDateString() === now) todayCount++;
-
-                let badgeClass = 'badge-neutral';
-                if (lead.accion === 'lead_completo' || lead.accion === 'click_me_interesa') {
-                    badgeClass = 'badge-hot';
-                    hotCount++;
-                } else if (lead.accion === 'ver_fotos') {
-                    badgeClass = 'badge-view';
-                }
-
-                const actionLabel = (lead.accion || "").replace(/_/g, ' ').toUpperCase();
-
-                tr.innerHTML = `
-                    <td>${date.toLocaleString()}</td>
-                    <td style="font-weight:600">+${lead.user_id}</td>
-                    <td><span class="badge ${badgeClass}">${actionLabel}</span></td>
-                    <td><code>${lead.propiedad_id || 'N/A'}</code></td>
-                    <td style="color:var(--text-muted)">${lead.detalle || ''}</td>
-                `;
-                body.appendChild(tr);
-            });
-
-            totalEl.innerText = allLeads.length;
-            hotEl.innerText = hotCount;
-            todayEl.innerText = todayCount;
-        }
-
-        // --- LÓGICA DE IMPORTACIÓN Y COMBINACIÓN ---
-        document.getElementById('importInput').addEventListener('change', function (e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                const importedData = XLSX.utils.sheet_to_json(worksheet);
-                processExcelData(importedData);
-                alert(`✅ Se han importado y combinado ${importedData.length} registros con éxito.`);
-            };
-            reader.readAsArrayBuffer(file);
-        });
-
-        function exportToExcel() {
-            if (allLeads.length === 0) return alert('No hay datos para exportar');
-
-            const data = allLeads.map(lead => ({
-                "Fecha/Hora": new Date(lead.timestamp).toLocaleString(),
-                "Teléfono": `+${lead.user_id}`,
-                "Acción": (lead.accion || "").replace(/_/g, ' ').toUpperCase(),
-                "Propiedad": lead.propiedad_id || 'N/A',
-                "Detalles": lead.detalle || ''
-            }));
-
-            const worksheet = XLSX.utils.json_to_sheet(data);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
-
-            const wscols = [{ wch: 20 }, { wch: 15 }, { wch: 20 }, { wch: 12 }, { wch: 40 }];
-            worksheet['!cols'] = wscols;
-
-            XLSX.writeFile(workbook, `Leads_Dante_Acumulado_${new Date().toISOString().split('T')[0]}.xlsx`);
-        }
-
-        // Search filter
-        document.getElementById('searchInput').addEventListener('input', (e) => {
-            const term = e.target.value.toLowerCase();
-            const rows = document.querySelectorAll('#leadsBody tr');
-            rows.forEach(row => {
-                const text = row.innerText.toLowerCase();
-                row.style.display = text.includes(term) ? '' : 'none';
-            });
-        });
-
-        function logout() {
-            if (confirm('¿Estás seguro de que deseas salir del panel?')) {
-                window.location.href = '/';
-            }
-        }
-
-        fetchLeads();
-        autoLoadExcel();
-        // Auto refresh every 30 seconds
-        setInterval(fetchLeads, 30000);
+        
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', cargarDatos);
+        // Auto-refresh cada 30 segundos
+        setInterval(cargarDatos, 30000);
     </script>
 </body>
-
 </html>
