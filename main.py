@@ -5,6 +5,9 @@ import json
 from datetime import datetime, timedelta  # AÑADIDO timedelta
 from collections import deque
 import threading
+import re  # Agrega esto con los otros imports
+
+
 
 app = Flask(__name__)
 
@@ -776,7 +779,7 @@ def get_bot_response(text, user_id):
     return "❌ *Opción no reconocida*\n\n" \
            "Por favor, selecciona una opción del menú o envía 'Hola' para ver las opciones disponibles."
 
-
+    
 
 # ========== VERIFICACIÓN DE TOKEN ==========
 def check_token_validity():
@@ -1344,7 +1347,7 @@ def webhook():
                                         if response_text == "WELCOME_FLOW_TRIGGER":
                                             # Esto es redundante por el block de arriba pero por si acaso
                                             result = send_welcome_flow(from_number)
-                                        elif response_text.startswith("PHOTOS_TRIGGER|"):
+                                        elif response_text and response_text.startswith("PHOTOS_TRIGGER|"):
                                             # Disparar hilo de fotos en segundo plano
                                             prop_id = response_text.split("|")[1]
                                             base_url = request.host_url.rstrip('/')
@@ -1358,7 +1361,7 @@ def webhook():
                                             # Enviar confirmación inmediata de que se están enviando las fotos
                                             confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
                                             result = send_whatsapp_message(from_number, confirmacion)
-                                        elif response_text:
+                                        elif response_text and response_text != "None":
                                             log(f"🤖 RESPUESTA GENERADA ({len(response_text)} caracteres)")
                                             result = send_whatsapp_message(from_number, response_text)
                                         else:
