@@ -221,6 +221,7 @@ def formatear_detalle_propiedad(propiedad):
     return detalle
 
 # ========== BOT CON PROPIEDADES ==========
+# ========== BOT CON PROPIEDADES ==========
 def get_bot_response(text, user_id):
     """Responde con un mensaje simple, manteniendo estado de usuario"""
     text_lower = text.lower().strip()
@@ -286,6 +287,12 @@ def get_bot_response(text, user_id):
 
     # 3. LÓGICA POR ESTADO (Máquina de Estados)
     
+    # ESTADO: menu_principal - Si recibe un horario, es un error
+    if estado_usuario['paso'] == 'menu_principal':
+        # Verificar si es un formato de horario (HH:MM)
+        if re.match(r'^\d{1,2}:\d{2}$', text):
+            return "❌ *Error de contexto*\n\nParece que intentaste seleccionar un horario, pero primero debes:\n\n1. Seleccionar una propiedad (envía '1' para venta o '2' para alquiler)\n2. Hacer clic en 'Me interesa' (8)\n3. Seguir el proceso de agendamiento de cita\n\nEnvía 'Hola' para comenzar."
+    
     # ESTADO: listado_propiedades
     if estado_usuario['paso'] == 'listado_propiedades':
         if text_lower.isdigit():
@@ -335,6 +342,9 @@ def get_bot_response(text, user_id):
                 return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
             else:
                 return f"❌ El número {indice} está fuera de rango. Elige entre 1 y {len(propiedades)} o escribe 'Hola'."
+        # Si recibe un horario en este estado, es un error
+        elif re.match(r'^\d{1,2}:\d{2}$', text):
+            return "❌ *Error de contexto*\n\nPara seleccionar un horario de cita, primero debes hacer clic en 'Me interesa' (8) en esta propiedad y seguir el proceso de agendamiento.\n\nSi quieres agendar cita para esta propiedad, envía '8'"
 
     # ESTADO: vista_fotos / vista_web / vista_comun
     elif estado_usuario['paso'] in ['vista_fotos', 'vista_web']:
@@ -657,7 +667,7 @@ def get_bot_response(text, user_id):
         else:
             return "❌ *Error: No se encontró la propiedad*\n\n" \
                 "Hubo un problema al procesar tu cita. Por favor, inicia el proceso nuevamente enviando 'Hola'."
-    
+
     # 4. OPCIONES GLOBALES (1..7) - Se procesan si no se capturaron arriba
     if text_lower == "1":
         estado_usuario['paso'] = 'listado_propiedades'
@@ -761,6 +771,12 @@ def get_bot_response(text, user_id):
                    f"📱 *0. Volver al menú principal*"
         else:
             return "⚠️ Acceso restringido. Esta opción es solo para administradores.\n\nEnviá 'Hola' para volver."
+
+    # Si llega aquí sin haber retornado nada, mostrar mensaje de error
+    return "❌ *Opción no reconocida*\n\n" \
+           "Por favor, selecciona una opción del menú o envía 'Hola' para ver las opciones disponibles."
+
+
 
 # ========== VERIFICACIÓN DE TOKEN ==========
 def check_token_validity():
