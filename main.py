@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 from collections import deque
 import threading
 import re  # Para expresiones regulares
-
+import pandas as pd
+from openpyxl import Workbook, load_workbook
 
 app = Flask(__name__)
 
@@ -16,6 +17,9 @@ ACCESS_TOKEN = "EAAJYsGl5pHgBQpT2gMACYFeml7vzkTk4lUZB61rpfKyBY0YHZCX5kJcblFN0k76
 PHONE_NUMBER_ID = "1000705633118215"
 ADMIN_NUMBER = "5491151511579"  # Número donde llegarán las alertas de leads
 LEADS_FILE = "leads.json"
+LEADS_EXCEL_FILE = "leads.xlsx"  # Único archivo para todo
+CITAS_SHEET_NAME = "Citas"       # Hoja para citas
+LEADS_SHEET_NAME = "Leads"       # Hoja para leads generales
 ADMIN_ACCESS_KEY = "dante2026"  # Llave para acceder al panel admin
 
 # ========== CONFIGURACIÓN DE CITAS ==========
@@ -92,6 +96,10 @@ def notificar_agente(mensaje):
     """Envía una notificación al número de Dante (ADMIN_NUMBER)"""
     log(f"📢 NOTIFICANDO AL AGENTE: {mensaje[:50]}...")
     return send_whatsapp_message(ADMIN_NUMBER, f"🔔 *ALERTA DANTE-INSIGHTS*\n{mensaje}")
+
+
+
+
 
 # ========== CARGAR PROPIEDADES ==========
 PROPIEDADES_FILE = "propiedades.json"
@@ -1541,68 +1549,79 @@ def guardar_citas(citas):
         log(f"🔍 TRAZA: {traceback.format_exc()[:500]}")
         return False
 
-def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, notas=""):
-    """Crea una nueva cita - Versión mejorada"""
+def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo="", notas=""):
+    """Crea una nueva cita en Excel"""
     try:
-        log(f"📝 Creando cita para {nombre}...")
+        log(f"📝 Creando cita para {nombre} en Excel...")
         
-        # 1. Asegurar que el archivo existe
-        if not os.path.exists(CITAS_FILE):
-            log(f"⚠️  Archivo {CITAS_FILE} no existe, creando...")
-            inicializar_archivo_citas()
+        # Generar ID único
+        citas = cargar_citas_excel()
+        cita_id = f"C{len(citas) + 1:04d}"
         
-        # 2. Cargar citas existentes
-        citas = cargar_citas()
-        log(f"📄 Citas actuales: {len(citas)}")
-        
-        # 3. Generar ID único
-        nuevo_id = f"cita_{len(citas) + 1:04d}"
-        
-        # 4. Crear nueva cita
-        nueva_cita = {
-            'id': nuevo_id,
-            'user_id': user_id,
+        # Datos de la cita
+        cita_data = {
+            'id': cita_id,
             'nombre': nombre.strip(),
             'telefono': str(telefono).strip(),
+            'email': '',  # Podrías pedir email después
             'fecha': fecha,
             'hora': hora,
             'propiedad_id': propiedad_id,
+            'propiedad_titulo': propiedad_titulo[:100],  # Limitar tamaño
             'estado': 'pendiente',
-            'notas': str(notas)[:500],  # Limitar tamaño
+            'notas': str(notas)[:500],
             'creacion': datetime.now().isoformat(),
-            'ultima_actualizacion': datetime.now().isoformat()
+            'ultima_actualizacion': datetime.now().isoformat(),
+            'recordatorio_enviado': False
         }
         
-        log(f"📋 Datos de cita: {json.dumps(nueva_cita, ensure_ascii=False)[:200]}...")
-        
-        # 5. Agregar a la lista
-        citas.append(nueva_cita)
-        
-        # 6. Guardar
-        if guardar_citas(citas):
-            log(f"✅ CITA CREADA EXITOSAMENTE: {nuevo_id} para {nombre}")
+        # Guardar en Excel
+        if guardar_cita_excel(cita_data):
+            log(f"✅ CITA CREADA EN EXCEL: {cita_id}")
             
-            # 7. Notificar al admin
-            notificar_cita_admin(nueva_cita)
+            # También registrar como lead
+            lead_data = {
+                'telefono': telefono,
+                'nombre': nombre,
+                'propiedad_id': propiedad_id,
+                'propiedad_titulo': propiedad_titulo,
+                'accion': 'agendo_cita',
+                'detalles': f"Cita agendada: {fecha} {hora}",
+                'tipo_lead': 'Con Cita',
+                'interes': 'Alto',
+                'prioridad': 'Alta'
+            }
+            registrar_lead_excel(lead_data)
             
-            # 8. También notificar al cliente (opcional)
-            try:
-                mensaje_cliente = f"✅ *CITA CONFIRMADA*\n\nHemos agendado tu cita para visitar:\n\n🏠 *{propiedad_id}*\n📅 *Fecha:* {fecha}\n⏰ *Hora:* {hora}\n🆔 *ID:* {nuevo_id}\n\n¡Te esperamos! 🏠🗝️"
-                send_whatsapp_message(telefono, mensaje_cliente)
-                log(f"📱 Notificación enviada al cliente")
-            except Exception as e:
-                log(f"⚠️  No se pudo notificar al cliente: {e}")
+            # Notificar al admin
+            notificar_cita_admin(cita_data)
             
-            return nueva_cita
+            return cita_data
         else:
-            log(f"❌ ERROR: No se pudo guardar la cita")
+            log(f"❌ Error guardando cita en Excel")
             return None
             
     except Exception as e:
-        log(f"🔥 ERROR CRÍTICO creando cita: {str(e)}")
-        import traceback
-        log(f"🔍 TRAZA: {traceback.format_exc()[:500]}")
+        log(f"🔥 ERROR creando cita: {str(e)}")
         return None
+
+def notificar_cita_admin(cita):
+    """Envía notificación de nueva cita al admin"""
+    try:
+        mensaje = f"📅 *NUEVA CITA AGENDADA - EXCEL*\n\n"
+        mensaje += f"👤 *Cliente:* {cita['nombre']}\n"
+        mensaje += f"📞 *Teléfono:* +{cita['telefono']}\n"
+        mensaje += f"📅 *Fecha:* {cita['fecha']}\n"
+        mensaje += f"⏰ *Hora:* {cita['hora']} hs\n"
+        mensaje += f"🏠 *Propiedad:* {cita.get('propiedad_titulo', cita['propiedad_id'])}\n"
+        mensaje += f"🆔 *ID Cita:* {cita['id']}\n"
+        mensaje += f"📊 *Estado:* {cita['estado'].upper()}\n\n"
+        mensaje += f"📍 *Acción requerida:* Verificar en panel de citas"
+        
+        return send_whatsapp_message(ADMIN_NUMBER, mensaje)
+    except Exception as e:
+        log(f"❌ Error notificando cita al admin: {e}")
+        return False
 
 def obtener_horarios_disponibles(fecha_str):
     """Obtiene horarios disponibles para una fecha específica"""
@@ -1671,6 +1690,188 @@ def info_archivos():
     }
     
     return jsonify(info)
+
+
+def inicializar_excel():
+    """Inicializa el archivo Excel con las hojas necesarias"""
+    try:
+        if not os.path.exists(LEADS_EXCEL_FILE):
+            log(f"📄 Creando archivo Excel unificado: {LEADS_EXCEL_FILE}")
+            
+            # Crear workbook con dos hojas
+            wb = Workbook()
+            
+            # Hoja para Citas
+            ws_citas = wb.active
+            ws_citas.title = CITAS_SHEET_NAME
+            ws_citas.append([
+                "ID", "Fecha Creación", "Nombre", "Teléfono", "Email", 
+                "Fecha Cita", "Hora Cita", "Propiedad ID", "Título Propiedad",
+                "Estado", "Notas", "Última Actualización", "Recordatorio Enviado"
+            ])
+            
+            # Hoja para Leads generales
+            ws_leads = wb.create_sheet(title=LEADS_SHEET_NAME)
+            ws_leads.append([
+                "ID", "Fecha", "Teléfono", "Nombre", "Propiedad ID", 
+                "Título Propiedad", "Acción", "Detalles", "Tipo Lead",
+                "Interés", "Seguimiento", "Prioridad", "Agente Asignado"
+            ])
+            
+            # Ajustar anchos de columna para Citas
+            column_widths_citas = [15, 20, 25, 15, 25, 15, 10, 20, 40, 12, 50, 20, 20]
+            for i, width in enumerate(column_widths_citas, 1):
+                ws_citas.column_dimensions[chr(64 + i)].width = width
+            
+            # Ajustar anchos de columna para Leads
+            column_widths_leads = [15, 20, 15, 25, 20, 40, 20, 50, 15, 15, 30, 12, 20]
+            for i, width in enumerate(column_widths_leads, 1):
+                ws_leads.column_dimensions[chr(64 + i)].width = width
+            
+            wb.save(LEADS_EXCEL_FILE)
+            log(f"✅ Archivo Excel creado con hojas: {CITAS_SHEET_NAME}, {LEADS_SHEET_NAME}")
+        else:
+            log(f"📄 Archivo Excel ya existe: {LEADS_EXCEL_FILE}")
+            
+    except Exception as e:
+        log(f"🔥 Error inicializando Excel: {e}")
+
+def cargar_citas_excel():
+    """Carga todas las citas desde Excel"""
+    try:
+        if not os.path.exists(LEADS_EXCEL_FILE):
+            inicializar_excel()
+            return []
+        
+        df = pd.read_excel(LEADS_EXCEL_FILE, sheet_name=CITAS_SHEET_NAME)
+        
+        if df.empty:
+            return []
+        
+        # Convertir DataFrame a lista de diccionarios
+        citas = []
+        for _, row in df.iterrows():
+            cita = {
+                'id': str(row.get('ID', '')),
+                'nombre': str(row.get('Nombre', '')),
+                'telefono': str(row.get('Teléfono', '')),
+                'email': str(row.get('Email', '')),
+                'fecha': str(row.get('Fecha Cita', '')),
+                'hora': str(row.get('Hora Cita', '')),
+                'propiedad_id': str(row.get('Propiedad ID', '')),
+                'propiedad_titulo': str(row.get('Título Propiedad', '')),
+                'estado': str(row.get('Estado', 'pendiente')).lower(),
+                'notas': str(row.get('Notas', '')),
+                'creacion': str(row.get('Fecha Creación', '')),
+                'ultima_actualizacion': str(row.get('Última Actualización', '')),
+                'recordatorio_enviado': bool(row.get('Recordatorio Enviado', False))
+            }
+            citas.append(cita)
+        
+        log(f"✅ Cargadas {len(citas)} citas desde Excel")
+        return citas
+        
+    except Exception as e:
+        log(f"❌ Error cargando citas desde Excel: {e}")
+        return []
+
+def guardar_cita_excel(cita_data):
+    """Guarda o actualiza una cita en Excel"""
+    try:
+        if not os.path.exists(LEADS_EXCEL_FILE):
+            inicializar_excel()
+        
+        # Cargar citas existentes
+        wb = load_workbook(LEADS_EXCEL_FILE)
+        ws = wb[CITAS_SHEET_NAME]
+        
+        # Verificar si la cita ya existe (por ID)
+        cita_id = cita_data.get('id')
+        fila_existente = None
+        
+        for row in range(2, ws.max_row + 1):
+            if ws.cell(row=row, column=1).value == cita_id:
+                fila_existente = row
+                break
+        
+        if fila_existente:
+            # Actualizar cita existente
+            log(f"🔄 Actualizando cita existente: {cita_id}")
+            ws.cell(row=fila_existente, column=2, value=cita_data.get('creacion', ''))
+            ws.cell(row=fila_existente, column=3, value=cita_data.get('nombre', ''))
+            ws.cell(row=fila_existente, column=4, value=cita_data.get('telefono', ''))
+            ws.cell(row=fila_existente, column=5, value=cita_data.get('email', ''))
+            ws.cell(row=fila_existente, column=6, value=cita_data.get('fecha', ''))
+            ws.cell(row=fila_existente, column=7, value=cita_data.get('hora', ''))
+            ws.cell(row=fila_existente, column=8, value=cita_data.get('propiedad_id', ''))
+            ws.cell(row=fila_existente, column=9, value=cita_data.get('propiedad_titulo', ''))
+            ws.cell(row=fila_existente, column=10, value=cita_data.get('estado', 'pendiente'))
+            ws.cell(row=fila_existente, column=11, value=cita_data.get('notas', ''))
+            ws.cell(row=fila_existente, column=12, value=cita_data.get('ultima_actualizacion', ''))
+            ws.cell(row=fila_existente, column=13, value=cita_data.get('recordatorio_enviado', False))
+        else:
+            # Nueva cita
+            log(f"➕ Agregando nueva cita: {cita_id}")
+            nueva_fila = ws.max_row + 1
+            ws.cell(row=nueva_fila, column=1, value=cita_data.get('id', ''))
+            ws.cell(row=nueva_fila, column=2, value=cita_data.get('creacion', ''))
+            ws.cell(row=nueva_fila, column=3, value=cita_data.get('nombre', ''))
+            ws.cell(row=nueva_fila, column=4, value=cita_data.get('telefono', ''))
+            ws.cell(row=nueva_fila, column=5, value=cita_data.get('email', ''))
+            ws.cell(row=nueva_fila, column=6, value=cita_data.get('fecha', ''))
+            ws.cell(row=nueva_fila, column=7, value=cita_data.get('hora', ''))
+            ws.cell(row=nueva_fila, column=8, value=cita_data.get('propiedad_id', ''))
+            ws.cell(row=nueva_fila, column=9, value=cita_data.get('propiedad_titulo', ''))
+            ws.cell(row=nueva_fila, column=10, value=cita_data.get('estado', 'pendiente'))
+            ws.cell(row=nueva_fila, column=11, value=cita_data.get('notas', ''))
+            ws.cell(row=nueva_fila, column=12, value=cita_data.get('ultima_actualizacion', ''))
+            ws.cell(row=nueva_fila, column=13, value=cita_data.get('recordatorio_enviado', False))
+        
+        wb.save(LEADS_EXCEL_FILE)
+        log(f"✅ Cita guardada en Excel: {cita_id}")
+        return True
+        
+    except Exception as e:
+        log(f"🔥 Error guardando cita en Excel: {e}")
+        return False
+
+def registrar_lead_excel(lead_data):
+    """Registra un lead en la hoja Leads"""
+    try:
+        if not os.path.exists(LEADS_EXCEL_FILE):
+            inicializar_excel()
+        
+        wb = load_workbook(LEADS_EXCEL_FILE)
+        ws = wb[LEADS_SHEET_NAME]
+        
+        # Generar ID único
+        lead_id = f"L{ws.max_row:05d}"
+        
+        # Agregar nueva fila
+        nueva_fila = ws.max_row + 1
+        ws.cell(row=nueva_fila, column=1, value=lead_id)
+        ws.cell(row=nueva_fila, column=2, value=datetime.now().isoformat())
+        ws.cell(row=nueva_fila, column=3, value=lead_data.get('telefono', ''))
+        ws.cell(row=nueva_fila, column=4, value=lead_data.get('nombre', ''))
+        ws.cell(row=nueva_fila, column=5, value=lead_data.get('propiedad_id', ''))
+        ws.cell(row=nueva_fila, column=6, value=lead_data.get('propiedad_titulo', ''))
+        ws.cell(row=nueva_fila, column=7, value=lead_data.get('accion', ''))
+        ws.cell(row=nueva_fila, column=8, value=lead_data.get('detalles', ''))
+        ws.cell(row=nueva_fila, column=9, value=lead_data.get('tipo_lead', 'Interesado'))
+        ws.cell(row=nueva_fila, column=10, value=lead_data.get('interes', 'Medio'))
+        ws.cell(row=nueva_fila, column=11, value=lead_data.get('seguimiento', ''))
+        ws.cell(row=nueva_fila, column=12, value=lead_data.get('prioridad', 'Normal'))
+        ws.cell(row=nueva_fila, column=13, value=lead_data.get('agente', ''))
+        
+        wb.save(LEADS_EXCEL_FILE)
+        log(f"✅ Lead registrado en Excel: {lead_id}")
+        return True
+        
+    except Exception as e:
+        log(f"🔥 Error registrando lead en Excel: {e}")
+        return False
+
+
 
 
 @app.route("/test", methods=["GET"])
@@ -2167,6 +2368,61 @@ def actualizar_estado_cita(cita_id):
             
     except Exception as e:
         log(f"❌ Error actualizando estado de cita: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/citas-excel", methods=["GET"])
+def api_citas_excel():
+    """Retorna todas las citas desde Excel"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    citas = cargar_citas_excel()
+    return jsonify(citas)
+
+@app.route("/api/actualizar-estado-cita", methods=["PUT"])
+def api_actualizar_estado_cita():
+    """Actualiza el estado de una cita en Excel"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        data = request.get_json()
+        cita_id = data.get('id')
+        nuevo_estado = data.get('estado')
+        
+        if not cita_id or not nuevo_estado:
+            return jsonify({"error": "Faltan datos"}), 400
+        
+        if nuevo_estado not in ['pendiente', 'confirmada', 'cancelada', 'completada']:
+            return jsonify({"error": "Estado inválido"}), 400
+        
+        # Cargar todas las citas
+        citas = cargar_citas_excel()
+        
+        # Encontrar y actualizar la cita
+        cita_actualizada = None
+        for cita in citas:
+            if cita['id'] == cita_id:
+                cita['estado'] = nuevo_estado
+                cita['ultima_actualizacion'] = datetime.now().isoformat()
+                cita_actualizada = cita
+                break
+        
+        if not cita_actualizada:
+            return jsonify({"error": "Cita no encontrada"}), 404
+        
+        # Guardar cambios en Excel
+        if guardar_cita_excel(cita_actualizada):
+            log(f"✅ Estado actualizado en Excel: {cita_id} -> {nuevo_estado}")
+            return jsonify({"status": "success", "cita": cita_actualizada})
+        else:
+            return jsonify({"error": "Error guardando en Excel"}), 500
+            
+    except Exception as e:
+        log(f"❌ Error actualizando estado: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/citas/recordatorio/<cita_id>", methods=["POST"])
