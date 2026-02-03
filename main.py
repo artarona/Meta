@@ -1542,53 +1542,67 @@ def guardar_citas(citas):
         return False
 
 def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, notas=""):
-    """Crea una nueva cita"""
+    """Crea una nueva cita - Versión mejorada"""
     try:
-        citas = cargar_citas()
+        log(f"📝 Creando cita para {nombre}...")
         
+        # 1. Asegurar que el archivo existe
+        if not os.path.exists(CITAS_FILE):
+            log(f"⚠️  Archivo {CITAS_FILE} no existe, creando...")
+            inicializar_archivo_citas()
+        
+        # 2. Cargar citas existentes
+        citas = cargar_citas()
+        log(f"📄 Citas actuales: {len(citas)}")
+        
+        # 3. Generar ID único
+        nuevo_id = f"cita_{len(citas) + 1:04d}"
+        
+        # 4. Crear nueva cita
         nueva_cita = {
-            'id': f"cita_{len(citas)+1:04d}",
+            'id': nuevo_id,
             'user_id': user_id,
-            'nombre': nombre,
-            'telefono': telefono,
+            'nombre': nombre.strip(),
+            'telefono': str(telefono).strip(),
             'fecha': fecha,
             'hora': hora,
             'propiedad_id': propiedad_id,
-            'estado': 'pendiente',  # pendiente | confirmada | cancelada | completada
-            'notas': notas,
+            'estado': 'pendiente',
+            'notas': str(notas)[:500],  # Limitar tamaño
             'creacion': datetime.now().isoformat(),
             'ultima_actualizacion': datetime.now().isoformat()
         }
         
+        log(f"📋 Datos de cita: {json.dumps(nueva_cita, ensure_ascii=False)[:200]}...")
+        
+        # 5. Agregar a la lista
         citas.append(nueva_cita)
         
+        # 6. Guardar
         if guardar_citas(citas):
-            log(f"✅ Cita creada: {nueva_cita['id']} para {nombre}")
-            # Notificar al admin
+            log(f"✅ CITA CREADA EXITOSAMENTE: {nuevo_id} para {nombre}")
+            
+            # 7. Notificar al admin
             notificar_cita_admin(nueva_cita)
+            
+            # 8. También notificar al cliente (opcional)
+            try:
+                mensaje_cliente = f"✅ *CITA CONFIRMADA*\n\nHemos agendado tu cita para visitar:\n\n🏠 *{propiedad_id}*\n📅 *Fecha:* {fecha}\n⏰ *Hora:* {hora}\n🆔 *ID:* {nuevo_id}\n\n¡Te esperamos! 🏠🗝️"
+                send_whatsapp_message(telefono, mensaje_cliente)
+                log(f"📱 Notificación enviada al cliente")
+            except Exception as e:
+                log(f"⚠️  No se pudo notificar al cliente: {e}")
+            
             return nueva_cita
-        return None
+        else:
+            log(f"❌ ERROR: No se pudo guardar la cita")
+            return None
+            
     except Exception as e:
-        log(f"❌ Error creando cita: {e}")
+        log(f"🔥 ERROR CRÍTICO creando cita: {str(e)}")
+        import traceback
+        log(f"🔍 TRAZA: {traceback.format_exc()[:500]}")
         return None
-
-def notificar_cita_admin(cita):
-    """Envía notificación de nueva cita al admin"""
-    try:
-        mensaje = f"📅 *NUEVA CITA AGENDADA*\n\n"
-        mensaje += f"👤 *Cliente:* {cita['nombre']}\n"
-        mensaje += f"📞 *Teléfono:* +{cita['telefono']}\n"
-        mensaje += f"📅 *Fecha:* {cita['fecha']}\n"
-        mensaje += f"⏰ *Hora:* {cita['hora']}\n"
-        mensaje += f"🏠 *Propiedad ID:* {cita['propiedad_id']}\n"
-        mensaje += f"🆔 *ID Cita:* {cita['id']}\n"
-        mensaje += f"📝 *Notas:* {cita.get('notas', 'Sin notas')}\n\n"
-        mensaje += f"📍 *Estado:* {cita['estado'].upper()}"
-        
-        return send_whatsapp_message(ADMIN_NUMBER, mensaje)
-    except Exception as e:
-        log(f"❌ Error notificando cita al admin: {e}")
-        return False
 
 def obtener_horarios_disponibles(fecha_str):
     """Obtiene horarios disponibles para una fecha específica"""
@@ -1634,6 +1648,30 @@ def formatear_horarios_disponibles(horarios):
     mensaje += "\nPara volver atrás, envía 'Atrás'"
     
     return mensaje
+
+
+@app.route("/info-archivos", methods=["GET"])
+def info_archivos():
+    """Muestra información sobre los archivos del sistema"""
+    info = {
+        "directorio_actual": os.getcwd(),
+        "archivos_en_directorio": os.listdir('.'),
+        "citas_json": {
+            "ruta_absoluta": os.path.abspath(CITAS_FILE),
+            "existe": os.path.exists(CITAS_FILE),
+            "tamano": os.path.getsize(CITAS_FILE) if os.path.exists(CITAS_FILE) else 0,
+            "permisos": oct(os.stat(CITAS_FILE).st_mode)[-3:] if os.path.exists(CITAS_FILE) else "N/A",
+            "modificacion": datetime.fromtimestamp(os.path.getmtime(CITAS_FILE)).isoformat() if os.path.exists(CITAS_FILE) else "N/A"
+        },
+        "otros_archivos": {
+            "propiedades_json": os.path.exists(PROPIEDADES_FILE),
+            "leads_json": os.path.exists(LEADS_FILE),
+            "main_py": os.path.exists("main.py")
+        }
+    }
+    
+    return jsonify(info)
+
 
 @app.route("/test", methods=["GET"])
 def test_send():
