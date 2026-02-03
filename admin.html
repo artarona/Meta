@@ -7,74 +7,86 @@
     <style>
         :root {
             --primary: #3b82f6;
+            --primary-dark: #2563eb;
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
+            --danger-dark: #dc2626;
             --bg: #f8fafc;
             --card-bg: #ffffff;
             --text-main: #1e293b;
             --text-muted: #64748b;
             --border: #e2e8f0;
+            --border-light: #f1f5f9;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.12);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 12px;
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             background: var(--bg);
             color: var(--text-main);
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            min-height: 100vh;
         }
         
         .container {
             max-width: 1400px;
             margin: 0 auto;
+            padding: 20px;
         }
         
         .header {
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             color: white;
-            padding: 2rem;
-            border-radius: 12px;
+            padding: 2.5rem 2rem;
+            border-radius: var(--radius-lg);
             margin-bottom: 2rem;
-        }
-        
-        .tabs {
-            display: flex;
-            background: white;
-            border-radius: 8px;
+            box-shadow: var(--shadow-md);
+            position: relative;
             overflow: hidden;
-            margin-bottom: 2rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         
-        .tab {
-            padding: 1rem 2rem;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s;
-            border-bottom: 3px solid transparent;
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6, #10b981);
         }
         
-        .tab.active {
-            border-bottom-color: var(--primary);
-            background: #eff6ff;
-            color: var(--primary);
+        .header h1 {
+            margin: 0 0 0.5rem 0;
+            font-size: 2.2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
         
-        .tab:hover {
-            background: #f1f5f9;
+        .header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 1.1rem;
         }
         
-        .tab-content {
-            display: none;
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-        }
-        
-        .tab-content.active {
-            display: block;
+        .user-info {
+            position: absolute;
+            top: 1.5rem;
+            right: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: rgba(255,255,255,0.1);
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-md);
+            backdrop-filter: blur(10px);
         }
         
         .stats-grid {
@@ -87,15 +99,158 @@
         .stat-card {
             background: white;
             padding: 1.5rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            text-align: center;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--border-light);
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--primary);
         }
         
         .stat-number {
             font-size: 2.5rem;
-            font-weight: bold;
+            font-weight: 800;
             margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #1e3c72, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .stat-trend {
+            font-size: 0.875rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--radius-sm);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        .stat-trend.up {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .stat-trend.down {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .tabs {
+            display: flex;
+            background: white;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 1.25rem 2rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            background: none;
+            border: none;
+            font-size: 1rem;
+            color: var(--text-muted);
+        }
+        
+        .tab:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: -2px;
+        }
+        
+        .tab.active {
+            border-bottom-color: var(--primary);
+            background: #eff6ff;
+            color: var(--primary);
+        }
+        
+        .tab:hover:not(.active) {
+            background: #f8fafc;
+            color: var(--text-main);
+        }
+        
+        .tab-content {
+            display: none;
+            background: white;
+            padding: 2rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .tab-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .filters {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .search-box {
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            width: 300px;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .select-filter {
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            background: white;
+            font-size: 0.95rem;
+            min-width: 150px;
         }
         
         .citas-grid, .leads-grid {
@@ -106,24 +261,138 @@
         
         .cita-card, .lead-card {
             background: white;
-            border-radius: 10px;
+            border-radius: var(--radius-md);
             padding: 1.5rem;
             border: 1px solid var(--border);
-            transition: transform 0.2s;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .cita-card::before, .lead-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--success));
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .cita-card:hover::before, .lead-card:hover::before {
+            opacity: 1;
         }
         
         .cita-card:hover, .lead-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+        
+        .card-id {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-family: 'Courier New', monospace;
+            background: var(--bg);
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--radius-sm);
+        }
+        
+        .status-badge {
+            padding: 0.4rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        
+        .status-pendiente {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-confirmada {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-cancelada {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .status-completada {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+        
+        .card-content {
+            margin-bottom: 1.5rem;
+        }
+        
+        .card-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+        }
+        
+        .card-row i {
+            width: 20px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+        
+        .property-info {
+            background: #f0f9ff;
+            padding: 1rem;
+            border-radius: var(--radius-sm);
+            margin: 1rem 0;
+            border-left: 3px solid var(--primary);
+        }
+        
+        .card-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
         }
         
         .btn {
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
+            padding: 0.75rem 1.25rem;
+            border-radius: var(--radius-md);
             border: none;
             cursor: pointer;
             font-weight: 600;
-            transition: all 0.2s;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            text-align: center;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .btn:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
         }
         
         .btn-primary {
@@ -131,14 +400,282 @@
             color: white;
         }
         
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+        
         .btn-success {
             background: var(--success);
             color: white;
         }
         
+        .btn-success:hover:not(:disabled) {
+            background: #0da271;
+            transform: translateY(-1px);
+        }
+        
         .btn-danger {
             background: var(--danger);
             color: white;
+        }
+        
+        .btn-danger:hover:not(:disabled) {
+            background: var(--danger-dark);
+            transform: translateY(-1px);
+        }
+        
+        .btn-outline {
+            background: white;
+            color: var(--text-main);
+            border: 1px solid var(--border);
+        }
+        
+        .btn-outline:hover:not(:disabled) {
+            background: var(--bg);
+            border-color: var(--primary);
+        }
+        
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem;
+            color: var(--text-muted);
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-muted);
+            grid-column: 1 / -1;
+        }
+        
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+        }
+        
+        .page-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border);
+            background: white;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .page-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        .page-btn:hover:not(.active) {
+            background: var(--bg);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: modalSlideIn 0.3s ease;
+        }
+        
+        @keyframes modalSlideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
+            padding: 0.5rem;
+            border-radius: var(--radius-sm);
+        }
+        
+        .modal-close:hover {
+            background: var(--bg);
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            z-index: 1001;
+            animation: slideIn 0.3s ease;
+            border-left: 4px solid var(--primary);
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .toast.success { border-left-color: var(--success); }
+        .toast.error { border-left-color: var(--danger); }
+        .toast.warning { border-left-color: var(--warning); }
+        
+        .toast-close {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: var(--text-muted);
+            padding: 0.25rem;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .header {
+                padding: 1.5rem;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .user-info {
+                position: static;
+                margin-top: 1rem;
+                width: fit-content;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                padding: 1rem;
+                justify-content: flex-start;
+            }
+            
+            .tab-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .filters {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .search-box, .select-filter {
+                width: 100%;
+            }
+            
+            .citas-grid, .leads-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .card-actions {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .modal-content {
+                width: 95%;
+                padding: 1.5rem;
+            }
         }
     </style>
 </head>
@@ -147,167 +684,745 @@
         <div class="header">
             <h1>🏠 Dante Propiedades - Panel Unificado</h1>
             <p>Gestión completa de leads y citas en un solo lugar</p>
-        </div>
-        
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-number" id="total-citas">0</div>
-                <div>Total Citas</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="citas-pendientes">0</div>
-                <div>Citas Pendientes</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="total-leads">0</div>
-                <div>Total Leads</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="leads-hoy">0</div>
-                <div>Leads Hoy</div>
+            <div class="user-info" id="user-info">
+                <!-- Usuario cargado dinámicamente -->
             </div>
         </div>
         
-        <div class="tabs">
-            <div class="tab active" onclick="mostrarTab('citas')">📅 Citas Agendadas</div>
-            <div class="tab" onclick="mostrarTab('leads')">👥 Todos los Leads</div>
-            <div class="tab" onclick="mostrarTab('exportar')">📤 Exportar Datos</div>
+        <div class="stats-grid" id="stats-grid">
+            <!-- Estadísticas cargadas dinámicamente -->
         </div>
         
-        <div id="tab-citas" class="tab-content active">
-            <h2>📅 Citas Agendadas</h2>
+        <div class="tabs" role="tablist">
+            <button class="tab active" onclick="mostrarTab('citas')" role="tab" aria-selected="true" aria-controls="tab-citas">
+                <span>📅</span> Citas Agendadas
+            </button>
+            <button class="tab" onclick="mostrarTab('leads')" role="tab" aria-selected="false" aria-controls="tab-leads">
+                <span>👥</span> Todos los Leads
+            </button>
+            <button class="tab" onclick="mostrarTab('exportar')" role="tab" aria-selected="false" aria-controls="tab-exportar">
+                <span>📤</span> Exportar Datos
+            </button>
+            <button class="tab" onclick="mostrarTab('configuracion')" role="tab" aria-selected="false" aria-controls="tab-configuracion">
+                <span>⚙️</span> Configuración
+            </button>
+        </div>
+        
+        <!-- Tab Citas -->
+        <div id="tab-citas" class="tab-content active" role="tabpanel" aria-labelledby="citas-tab">
+            <div class="tab-header">
+                <h2>📅 Citas Agendadas</h2>
+                <div class="filters">
+                    <input type="text" class="search-box" placeholder="🔍 Buscar citas..." oninput="filtrarCitas(this.value)">
+                    <select class="select-filter" onchange="filtrarCitasPorEstado(this.value)">
+                        <option value="">Todos los estados</option>
+                        <option value="pendiente">Pendiente</option>
+                        <option value="confirmada">Confirmada</option>
+                        <option value="completada">Completada</option>
+                        <option value="cancelada">Cancelada</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="mostrarModalNuevaCita()">
+                        <span>➕</span> Nueva Cita
+                    </button>
+                </div>
+            </div>
             <div class="citas-grid" id="citas-container">
-                <!-- Citas se cargarán aquí -->
+                <!-- Citas cargadas dinámicamente -->
             </div>
+            <div class="pagination" id="citas-pagination"></div>
         </div>
         
-        <div id="tab-leads" class="tab-content">
-            <h2>👥 Todos los Leads</h2>
+        <!-- Tab Leads -->
+        <div id="tab-leads" class="tab-content" role="tabpanel" aria-labelledby="leads-tab">
+            <div class="tab-header">
+                <h2>👥 Todos los Leads</h2>
+                <div class="filters">
+                    <input type="text" class="search-box" placeholder="🔍 Buscar leads..." oninput="filtrarLeads(this.value)">
+                    <select class="select-filter" onchange="filtrarLeadsPorFuente(this.value)">
+                        <option value="">Todas las fuentes</option>
+                        <option value="web">Web</option>
+                        <option value="telefono">Teléfono</option>
+                        <option value="whatsapp">WhatsApp</option>
+                        <option value="referido">Referido</option>
+                    </select>
+                </div>
+            </div>
             <div class="leads-grid" id="leads-container">
-                <!-- Leads se cargarán aquí -->
+                <!-- Leads cargados dinámicamente -->
+            </div>
+            <div class="pagination" id="leads-pagination"></div>
+        </div>
+        
+        <!-- Tab Exportar -->
+        <div id="tab-exportar" class="tab-content" role="tabpanel" aria-labelledby="exportar-tab">
+            <h2>📤 Exportar Datos</h2>
+            <div style="max-width: 600px; margin: 0 auto;">
+                <div class="form-group">
+                    <label class="form-label">Tipo de datos:</label>
+                    <select class="form-control" id="export-type">
+                        <option value="citas">Citas Agendadas</option>
+                        <option value="leads">Todos los Leads</option>
+                        <option value="todo">Todo (Citas + Leads)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Rango de fechas:</label>
+                    <div style="display: flex; gap: 1rem;">
+                        <input type="date" class="form-control" id="export-fecha-desde">
+                        <input type="date" class="form-control" id="export-fecha-hasta">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Formato:</label>
+                    <div style="display: flex; gap: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="radio" name="export-format" value="excel" checked> Excel (.xlsx)
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="radio" name="export-format" value="csv"> CSV
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="radio" name="export-format" value="pdf"> PDF
+                        </label>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; padding: 2rem;">
+                    <button class="btn btn-primary" onclick="exportarDatos()" style="padding: 1rem 2rem; font-size: 1.1rem;">
+                        📥 Generar y Descargar
+                    </button>
+                    <p style="margin-top: 1rem; color: var(--text-muted); font-size: 0.9rem;">
+                        Los datos se generarán según los filtros seleccionados
+                    </p>
+                </div>
             </div>
         </div>
         
-        <div id="tab-exportar" class="tab-content">
-            <h2>📤 Exportar Datos</h2>
-            <div style="text-align: center; padding: 3rem;">
-                <button class="btn btn-primary" onclick="exportarExcel()" style="padding: 1rem 2rem; font-size: 1.1rem;">
-                    📥 Descargar Excel Completo
-                </button>
-                <p style="margin-top: 1rem; color: var(--text-muted);">
-                    Descarga todas las citas y leads en un solo archivo Excel
-                </p>
+        <!-- Tab Configuración -->
+        <div id="tab-configuracion" class="tab-content" role="tabpanel" aria-labelledby="configuracion-tab">
+            <h2>⚙️ Configuración</h2>
+            <div style="max-width: 600px; margin: 0 auto;">
+                <div class="form-group">
+                    <label class="form-label">Auto-refresh:</label>
+                    <select class="form-control" id="refresh-interval" onchange="actualizarRefreshInterval()">
+                        <option value="0">Desactivado</option>
+                        <option value="30">Cada 30 segundos</option>
+                        <option value="60" selected>Cada 1 minuto</option>
+                        <option value="300">Cada 5 minutos</option>
+                        <option value="600">Cada 10 minutos</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Notificaciones:</label>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="notif-citas" checked> Nuevas citas
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="notif-leads" checked> Nuevos leads
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="notif-recordatorios" checked> Recordatorios
+                        </label>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border);">
+                    <button class="btn btn-primary" onclick="guardarConfiguracion()">
+                        💾 Guardar Configuración
+                    </button>
+                </div>
             </div>
         </div>
     </div>
     
+    <!-- Modal Nueva Cita -->
+    <div class="modal" id="modal-nueva-cita">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin: 0;">➕ Nueva Cita</h3>
+                <button class="modal-close" onclick="cerrarModal('modal-nueva-cita')">×</button>
+            </div>
+            <form id="form-nueva-cita" onsubmit="crearNuevaCita(event)">
+                <div class="form-group">
+                    <label class="form-label">Nombre del cliente *</label>
+                    <input type="text" class="form-control" id="nuevo-nombre" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Teléfono *</label>
+                    <input type="tel" class="form-control" id="nuevo-telefono" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" id="nuevo-email">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Fecha *</label>
+                    <input type="date" class="form-control" id="nuevo-fecha" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Hora *</label>
+                    <input type="time" class="form-control" id="nuevo-hora" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Propiedad *</label>
+                    <input type="text" class="form-control" id="nuevo-propiedad" required placeholder="ID o nombre de la propiedad">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Notas adicionales</label>
+                    <textarea class="form-control" id="nuevo-notas" rows="3"></textarea>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="cerrarModal('modal-nueva-cita')">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">
+                        Agendar Cita
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Toast Container -->
+    <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;"></div>
+    
     <script>
+        // Variables globales
         let todasLasCitas = [];
         let todosLosLeads = [];
+        let refreshInterval = null;
+        let configuracion = {
+            autoRefresh: 60,
+            notificaciones: {
+                citas: true,
+                leads: true,
+                recordatorios: true
+            }
+        };
+        let currentUser = null;
+        let pagination = {
+            citas: { page: 1, limit: 10, total: 0 },
+            leads: { page: 1, limit: 12, total: 0 }
+        };
         
-        async function cargarDatos() {
-            try {
-                const urlParams = new URLSearchParams(window.location.search);
-                const key = urlParams.get('key');
+        // Clase para manejar autenticación y tokens
+        class AuthManager {
+            static getToken() {
+                return localStorage.getItem('dante_auth_token');
+            }
+            
+            static setToken(token) {
+                localStorage.setItem('dante_auth_token', token);
+            }
+            
+            static removeToken() {
+                localStorage.removeItem('dante_auth_token');
+            }
+            
+            static async validateToken() {
+                const token = this.getToken();
+                if (!token) return false;
                 
-                if (!key) {
-                    alert('Acceso no autorizado');
-                    return;
+                try {
+                    const response = await fetch('/api/validate-token', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    return response.ok;
+                } catch {
+                    return false;
                 }
+            }
+            
+            static async refreshToken() {
+                const token = this.getToken();
+                if (!token) return null;
                 
-                // Cargar citas
-                const respuestaCitas = await fetch(`/api/citas-excel?key=${key}`);
-                if (respuestaCitas.ok) {
-                    todasLasCitas = await respuestaCitas.json();
-                    mostrarCitas(todasLasCitas);
-                    actualizarEstadisticas();
+                try {
+                    const response = await fetch('/api/refresh-token', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.setToken(data.token);
+                        return data.token;
+                    }
+                } catch {
+                    return null;
                 }
-                
-                // Cargar leads (puedes crear una ruta similar)
-                // const respuestaLeads = await fetch(`/api/leads-excel?key=${key}`);
-                // if (respuestaLeads.ok) {
-                //     todosLosLeads = await respuestaLeads.json();
-                //     mostrarLeads(todosLosLeads);
-                // }
-                
-            } catch (error) {
-                console.error('Error cargando datos:', error);
             }
         }
         
-        function mostrarTab(tabName) {
-            // Ocultar todos los tabs
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
+        // Clase para manejo de errores
+        class ErrorHandler {
+            static async handleError(error, context = '') {
+                console.error(`Error en ${context}:`, error);
+                
+                // Mostrar toast de error
+                mostrarToast('❌ Error: ' + (error.message || 'Ocurrió un error'), 'error');
+                
+                // Si es error de autenticación, redirigir a login
+                if (error.status === 401) {
+                    setTimeout(() => {
+                        window.location.href = '/login?expired=true';
+                    }, 2000);
+                }
+                
+                // Registrar error en servicio de monitoreo (si existe)
+                if (window.errorReportingService) {
+                    window.errorReportingService.captureException(error);
+                }
+            }
+        }
+        
+        // Clase para manejo de caché
+        class CacheManager {
+            static set(key, data, ttl = 300) { // 5 minutos por defecto
+                const item = {
+                    data: data,
+                    expiry: Date.now() + (ttl * 1000)
+                };
+                localStorage.setItem(`cache_${key}`, JSON.stringify(item));
+            }
             
-            // Mostrar tab seleccionado
-            document.getElementById(`tab-${tabName}`).classList.add('active');
-            document.querySelector(`.tab[onclick="mostrarTab('${tabName}')"]`).classList.add('active');
+            static get(key) {
+                const itemStr = localStorage.getItem(`cache_${key}`);
+                if (!itemStr) return null;
+                
+                const item = JSON.parse(itemStr);
+                if (Date.now() > item.expiry) {
+                    localStorage.removeItem(`cache_${key}`);
+                    return null;
+                }
+                
+                return item.data;
+            }
+            
+            static clear(pattern = 'cache_') {
+                Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith(pattern)) {
+                        localStorage.removeItem(key);
+                    }
+                });
+            }
+        }
+        
+        // API Client mejorado
+        class APIClient {
+            constructor(baseURL = '/api') {
+                this.baseURL = baseURL;
+            }
+            
+            async request(endpoint, options = {}) {
+                const token = AuthManager.getToken();
+                const headers = {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                };
+                
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+                
+                const url = `${this.baseURL}${endpoint}`;
+                
+                try {
+                    const response = await fetch(url, {
+                        ...options,
+                        headers
+                    });
+                    
+                    // Si token expiró, intentar refrescar
+                    if (response.status === 401) {
+                        const newToken = await AuthManager.refreshToken();
+                        if (newToken) {
+                            headers['Authorization'] = `Bearer ${newToken}`;
+                            return await fetch(url, { ...options, headers });
+                        } else {
+                            throw new Error('Sesión expirada');
+                        }
+                    }
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    return response;
+                } catch (error) {
+                    await ErrorHandler.handleError(error, `API Request: ${endpoint}`);
+                    throw error;
+                }
+            }
+            
+            async get(endpoint) {
+                const response = await this.request(endpoint);
+                return response.json();
+            }
+            
+            async post(endpoint, data) {
+                const response = await this.request(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                return response.json();
+            }
+            
+            async put(endpoint, data) {
+                const response = await this.request(endpoint, {
+                    method: 'PUT',
+                    body: JSON.stringify(data)
+                });
+                return response.json();
+            }
+            
+            async delete(endpoint) {
+                const response = await this.request(endpoint, {
+                    method: 'DELETE'
+                });
+                return response.json();
+            }
+        }
+        
+        // Inicializar API Client
+        const api = new APIClient();
+        
+        // Funciones de utilidad
+        function formatearFecha(fechaISO) {
+            const fecha = new Date(fechaISO);
+            return fecha.toLocaleDateString('es-ES', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            }).replace(/^\w/, c => c.toUpperCase());
+        }
+        
+        function formatearHora(hora) {
+            return hora.replace(/^(\d{1,2}):(\d{2})$/, (match, h, m) => {
+                const horas = parseInt(h);
+                return `${horas.toString().padStart(2, '0')}:${m} hs`;
+            });
+        }
+        
+        function mostrarLoading(containerId, mensaje = 'Cargando...') {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>${mensaje}</p>
+                </div>
+            `;
+        }
+        
+        function mostrarEmptyState(containerId, mensaje = 'No hay datos disponibles', icon = '📭') {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div>${icon}</div>
+                    <h3 style="margin-bottom: 0.5rem;">${mensaje}</h3>
+                    <p style="color: var(--text-muted); font-size: 0.95rem;">Intenta cambiar los filtros o crear nuevos registros</p>
+                </div>
+            `;
+        }
+        
+        function mostrarToast(mensaje, tipo = 'success', duracion = 5000) {
+            const container = document.getElementById('toast-container');
+            const toastId = 'toast-' + Date.now();
+            
+            const toast = document.createElement('div');
+            toast.className = `toast ${tipo}`;
+            toast.id = toastId;
+            toast.innerHTML = `
+                <div style="flex: 1;">
+                    <strong>${tipo === 'success' ? '✅' : tipo === 'error' ? '❌' : '⚠️'} ${mensaje}</strong>
+                </div>
+                <button class="toast-close" onclick="document.getElementById('${toastId}').remove()">×</button>
+            `;
+            
+            container.appendChild(toast);
+            
+            // Auto-remover
+            setTimeout(() => {
+                const elem = document.getElementById(toastId);
+                if (elem) elem.remove();
+            }, duracion);
+        }
+        
+        // Funciones principales mejoradas
+        async function cargarDatos() {
+            try {
+                // Verificar autenticación
+                const isValid = await AuthManager.validateToken();
+                if (!isValid) {
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                // Cargar usuario
+                await cargarUsuario();
+                
+                // Intentar obtener datos de caché primero
+                const cacheKey = 'dashboard_data';
+                const cachedData = CacheManager.get(cacheKey);
+                
+                if (cachedData) {
+                    procesarDatosCache(cachedData);
+                }
+                
+                // Siempre cargar datos frescos en segundo plano
+                Promise.all([
+                    cargarCitas(),
+                    cargarLeads(),
+                    cargarEstadisticas()
+                ]).then(([citas, leads, stats]) => {
+                    const freshData = { citas, leads, stats };
+                    CacheManager.set(cacheKey, freshData, 60); // Cache por 1 minuto
+                    mostrarToast('Datos actualizados', 'success');
+                });
+                
+            } catch (error) {
+                await ErrorHandler.handleError(error, 'cargarDatos');
+                mostrarEmptyState('citas-container', 'Error al cargar datos', '❌');
+                mostrarEmptyState('leads-container', 'Error al cargar datos', '❌');
+            }
+        }
+        
+        function procesarDatosCache(data) {
+            if (data.citas) {
+                todasLasCitas = data.citas;
+                mostrarCitas(todasLasCitas.slice(0, pagination.citas.limit));
+                actualizarPaginacion('citas', todasLasCitas.length);
+            }
+            
+            if (data.leads) {
+                todosLosLeads = data.leads;
+                mostrarLeads(todosLosLeads.slice(0, pagination.leads.limit));
+                actualizarPaginacion('leads', todosLosLeads.length);
+            }
+            
+            if (data.stats) {
+                actualizarEstadisticasUI(data.stats);
+            }
+        }
+        
+        async function cargarUsuario() {
+            try {
+                const response = await api.get('/usuario');
+                currentUser = response;
+                
+                const userInfo = document.getElementById('user-info');
+                userInfo.innerHTML = `
+                    <span>👤 ${currentUser.nombre}</span>
+                    <span style="opacity: 0.7;">${currentUser.rol}</span>
+                `;
+            } catch (error) {
+                console.warn('No se pudo cargar información del usuario');
+            }
+        }
+        
+        async function cargarCitas() {
+            mostrarLoading('citas-container', 'Cargando citas...');
+            
+            try {
+                const data = await api.get('/citas');
+                todasLasCitas = data;
+                
+                if (todasLasCitas.length === 0) {
+                    mostrarEmptyState('citas-container', 'No hay citas agendadas', '📭');
+                } else {
+                    mostrarCitas(todasLasCitas.slice(0, pagination.citas.limit));
+                    actualizarPaginacion('citas', todasLasCitas.length);
+                }
+                
+                return todasLasCitas;
+            } catch (error) {
+                throw error;
+            }
+        }
+        
+        async function cargarLeads() {
+            mostrarLoading('leads-container', 'Cargando leads...');
+            
+            try {
+                const data = await api.get('/leads');
+                todosLosLeads = data;
+                
+                if (todosLosLeads.length === 0) {
+                    mostrarEmptyState('leads-container', 'No hay leads registrados', '👤');
+                } else {
+                    mostrarLeads(todosLosLeads.slice(0, pagination.leads.limit));
+                    actualizarPaginacion('leads', todosLosLeads.length);
+                }
+                
+                return todosLosLeads;
+            } catch (error) {
+                throw error;
+            }
+        }
+        
+        async function cargarEstadisticas() {
+            try {
+                const data = await api.get('/estadisticas');
+                actualizarEstadisticasUI(data);
+                return data;
+            } catch (error) {
+                // Usar datos locales si falla la API
+                actualizarEstadisticas();
+                throw error;
+            }
+        }
+        
+        function actualizarEstadisticasUI(stats) {
+            const hoy = new Date().toISOString().split('T')[0];
+            
+            const estadisticas = stats || {
+                totalCitas: todasLasCitas.length,
+                citasPendientes: todasLasCitas.filter(c => c.estado === 'pendiente').length,
+                citasHoy: todasLasCitas.filter(c => c.fecha.split('T')[0] === hoy).length,
+                conversionRate: todosLosLeads.length > 0 ? 
+                    (todasLasCitas.length / todosLosLeads.length * 100).toFixed(1) : 0,
+                totalLeads: todosLosLeads.length,
+                leadsHoy: todosLosLeads.filter(l => l.fecha_creacion && l.fecha_creacion.startsWith(hoy)).length,
+                leadsNuevos: todosLosLeads.filter(l => l.estado === 'nuevo').length
+            };
+            
+            const statsHTML = `
+                <div class="stat-card">
+                    <div class="stat-number">${estadisticas.totalCitas}</div>
+                    <div>Total Citas</div>
+                    <div class="stat-trend ${estadisticas.citasHoy > 0 ? 'up' : ''}">
+                        ${estadisticas.citasHoy > 0 ? '↗' : ''} ${estadisticas.citasHoy} hoy
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${estadisticas.citasPendientes}</div>
+                    <div>Citas Pendientes</div>
+                    <div class="stat-trend ${estadisticas.citasPendientes > 5 ? 'warning' : 'up'}">
+                        ${estadisticas.citasPendientes > 5 ? '⚠️' : ''} 
+                        ${estadisticas.citasPendientes > 5 ? 'Revisar' : 'Al día'}
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${estadisticas.totalLeads}</div>
+                    <div>Total Leads</div>
+                    <div class="stat-trend ${estadisticas.leadsHoy > 0 ? 'up' : ''}">
+                        ${estadisticas.leadsHoy > 0 ? '↗' : ''} ${estadisticas.leadsHoy} hoy
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${estadisticas.conversionRate}%</div>
+                    <div>Tasa Conversión</div>
+                    <div class="stat-trend ${estadisticas.conversionRate > 30 ? 'up' : 'down'}">
+                        ${estadisticas.conversionRate > 30 ? '↗ Excelente' : '↗ Mejorable'}
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('stats-grid').innerHTML = statsHTML;
         }
         
         function mostrarCitas(citas) {
             const container = document.getElementById('citas-container');
             
             if (citas.length === 0) {
-                container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 2rem; color: var(--text-muted);">📭 No hay citas agendadas</div>';
+                mostrarEmptyState('citas-container', 'No hay citas con estos filtros', '🔍');
                 return;
             }
             
             let html = '';
             citas.forEach(cita => {
-                const fechaFormateada = new Date(cita.fecha).toLocaleDateString('es-ES', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                }).replace(/^\w/, c => c.toUpperCase());
+                const fechaFormateada = formatearFecha(cita.fecha);
+                const horaFormateada = formatearHora(cita.hora);
                 
                 html += `
-                    <div class="cita-card">
-                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-                            <span style="font-size: 0.9rem; color: var(--text-muted);">${cita.id}</span>
-                            <span style="padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; 
-                                background: ${cita.estado === 'pendiente' ? '#fef3c7' : cita.estado === 'confirmada' ? '#d1fae5' : '#fee2e2'};
-                                color: ${cita.estado === 'pendiente' ? '#92400e' : cita.estado === 'confirmada' ? '#065f46' : '#991b1b'};">
+                    <div class="cita-card" data-id="${cita.id}" data-estado="${cita.estado}">
+                        <div class="card-header">
+                            <span class="card-id">#${cita.id}</span>
+                            <span class="status-badge status-${cita.estado}">
+                                ${cita.estado === 'pendiente' ? '⏳' : 
+                                  cita.estado === 'confirmada' ? '✅' : 
+                                  cita.estado === 'completada' ? '🏁' : '❌'}
                                 ${cita.estado.toUpperCase()}
                             </span>
                         </div>
                         
-                        <h3 style="margin: 0 0 0.5rem 0;">${cita.nombre}</h3>
-                        
-                        <div style="color: var(--text-muted); margin-bottom: 0.5rem;">
-                            📞 +${cita.telefono}
+                        <div class="card-content">
+                            <h3 style="margin: 0 0 1rem 0; font-size: 1.2rem;">${cita.nombre}</h3>
+                            
+                            <div class="card-row">
+                                <span>📞</span>
+                                <span>+${cita.telefono}</span>
+                            </div>
+                            
+                            ${cita.email ? `
+                            <div class="card-row">
+                                <span>📧</span>
+                                <span>${cita.email}</span>
+                            </div>
+                            ` : ''}
+                            
+                            <div class="card-row">
+                                <span>📅</span>
+                                <span>${fechaFormateada}</span>
+                            </div>
+                            
+                            <div class="card-row">
+                                <span>⏰</span>
+                                <span>${horaFormateada}</span>
+                            </div>
+                            
+                            <div class="property-info">
+                                <strong>🏠 Propiedad:</strong><br>
+                                ${cita.propiedad_titulo || cita.propiedad_id}
+                            </div>
+                            
+                            ${cita.notas ? `
+                            <div style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 6px; font-size: 0.9rem;">
+                                <strong>📝 Notas:</strong><br>
+                                ${cita.notas}
+                            </div>
+                            ` : ''}
                         </div>
                         
-                        <div style="color: var(--text-muted); margin-bottom: 0.5rem;">
-                            📅 ${fechaFormateada}
+                        <div class="card-actions">
+                            ${cita.estado === 'pendiente' ? `
+                                <button class="btn btn-success" onclick="cambiarEstado('${cita.id}', 'confirmada')">
+                                    ✅ Confirmar
+                                </button>
+                            ` : cita.estado === 'confirmada' ? `
+                                <button class="btn btn-primary" onclick="cambiarEstado('${cita.id}', 'completada')">
+                                    🏁 Completar
+                                </button>
+                            ` : ''}
+                            
+                            <button class="btn btn-outline" onclick="enviarRecordatorio('${cita.id}')">
+                                🔔 Recordatorio
+                            </button>
+                            
+                            ${cita.estado !== 'cancelada' ? `
+                                <button class="btn btn-outline" onclick="mostrarModalEditarCita('${cita.id}')">
+                                    ✏️ Editar
+                                </button>
+                            ` : ''}
+                            
+                            ${cita.estado !== 'cancelada' && cita.estado !== 'completada' ? `
+                                <button class="btn btn-danger" onclick="cambiarEstado('${cita.id}', 'cancelada')">
+                                    ❌ Cancelar
+                                </button>
+                            ` : ''}
                         </div>
-                        
-                        <div style="color: var(--text-muted); margin-bottom: 1rem;">
-                            ⏰ ${cita.hora} hs
-                        </div>
-                        
-                        <div style="background: #f0f9ff; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem;">
-                            <strong>🏠 Propiedad:</strong><br>
-                            ${cita.propiedad_titulo || cita.propiedad_id}
-                        </div>
-                        
-                        ${cita.estado === 'pendiente' ? 
-                            `<button class="btn btn-success" onclick="cambiarEstado('${cita.id}', 'confirmada')" style="width: 100%; margin-bottom: 0.5rem;">
-                                ✅ Confirmar Cita
-                            </button>` : ''}
-                        
-                        <button class="btn" onclick="enviarRecordatorio('${cita.id}')" style="width: 100%; margin-bottom: 0.5rem;">
-                            🔔 Enviar Recordatorio
-                        </button>
-                        
-                        <button class="btn btn-danger" onclick="cambiarEstado('${cita.id}', 'cancelada')" style="width: 100%;">
-                            ❌ Cancelar Cita
-                        </button>
                     </div>
                 `;
             });
@@ -315,79 +1430,527 @@
             container.innerHTML = html;
         }
         
-        function actualizarEstadisticas() {
-            const hoy = new Date().toISOString().split('T')[0];
+        function mostrarLeads(leads) {
+            const container = document.getElementById('leads-container');
             
-            const totalCitas = todasLasCitas.length;
-            const citasPendientes = todasLasCitas.filter(c => c.estado === 'pendiente').length;
+            if (leads.length === 0) {
+                mostrarEmptyState('leads-container', 'No hay leads con estos filtros', '🔍');
+                return;
+            }
             
-            // Si tuvieras leads:
-            // const totalLeads = todosLosLeads.length;
-            // const leadsHoy = todosLosLeads.filter(l => l.fecha.startsWith(hoy)).length;
+            let html = '';
+            leads.forEach(lead => {
+                const fechaCreacion = lead.fecha_creacion ? formatearFecha(lead.fecha_creacion) : 'No especificada';
+                
+                html += `
+                    <div class="lead-card" data-id="${lead.id}">
+                        <div class="card-header">
+                            <span class="card-id">#${lead.id}</span>
+                            <span class="status-badge ${lead.estado === 'nuevo' ? 'status-pendiente' : 'status-confirmada'}">
+                                ${lead.estado === 'nuevo' ? '🆕 NUEVO' : '📞 CONTACTADO'}
+                            </span>
+                        </div>
+                        
+                        <div class="card-content">
+                            <h3 style="margin: 0 0 1rem 0; font-size: 1.2rem;">${lead.nombre}</h3>
+                            
+                            <div class="card-row">
+                                <span>📞</span>
+                                <span>${lead.telefono}</span>
+                            </div>
+                            
+                            ${lead.email ? `
+                            <div class="card-row">
+                                <span>📧</span>
+                                <span>${lead.email}</span>
+                            </div>
+                            ` : ''}
+                            
+                            <div class="card-row">
+                                <span>📅</span>
+                                <span>${fechaCreacion}</span>
+                            </div>
+                            
+                            ${lead.fuente ? `
+                            <div class="card-row">
+                                <span>🔗</span>
+                                <span>Fuente: ${lead.fuente}</span>
+                            </div>
+                            ` : ''}
+                            
+                            ${lead.interes ? `
+                            <div class="property-info">
+                                <strong>🏠 Interés:</strong><br>
+                                ${lead.interes}
+                            </div>
+                            ` : ''}
+                            
+                            ${lead.notas ? `
+                            <div style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 6px; font-size: 0.9rem;">
+                                <strong>📝 Notas:</strong><br>
+                                ${lead.notas}
+                            </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="card-actions">
+                            <button class="btn btn-primary" onclick="contactarLead('${lead.id}')">
+                                📞 Contactar
+                            </button>
+                            <button class="btn btn-outline" onclick="agendarCitaDesdeLead('${lead.id}')">
+                                📅 Agendar Cita
+                            </button>
+                            <button class="btn btn-outline" onclick="agregarNotaLead('${lead.id}')">
+                                📝 Notas
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
             
-            document.getElementById('total-citas').textContent = totalCitas;
-            document.getElementById('citas-pendientes').textContent = citasPendientes;
-            // document.getElementById('total-leads').textContent = totalLeads;
-            // document.getElementById('leads-hoy').textContent = leadsHoy;
+            container.innerHTML = html;
         }
         
+        // Funciones de paginación
+        function actualizarPaginacion(tipo, totalItems) {
+            const pagination = tipo === 'citas' ? window.pagination.citas : window.pagination.leads;
+            const totalPages = Math.ceil(totalItems / pagination.limit);
+            
+            const containerId = `${tipo}-pagination`;
+            const container = document.getElementById(containerId);
+            
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            
+            // Botón anterior
+            html += `<button class="page-btn" ${pagination.page === 1 ? 'disabled' : ''} 
+                     onclick="cambiarPagina('${tipo}', ${pagination.page - 1})">←</button>`;
+            
+            // Páginas
+            const maxPagesToShow = 5;
+            let startPage = Math.max(1, pagination.page - Math.floor(maxPagesToShow / 2));
+            let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+            
+            if (endPage - startPage + 1 < maxPagesToShow) {
+                startPage = Math.max(1, endPage - maxPagesToShow + 1);
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<button class="page-btn ${i === pagination.page ? 'active' : ''}" 
+                         onclick="cambiarPagina('${tipo}', ${i})">${i}</button>`;
+            }
+            
+            // Botón siguiente
+            html += `<button class="page-btn" ${pagination.page === totalPages ? 'disabled' : ''} 
+                     onclick="cambiarPagina('${tipo}', ${pagination.page + 1})">→</button>`;
+            
+            container.innerHTML = html;
+        }
+        
+        function cambiarPagina(tipo, nuevaPagina) {
+            const pagination = tipo === 'citas' ? window.pagination.citas : window.pagination.leads;
+            const items = tipo === 'citas' ? todasLasCitas : todosLosLeads;
+            const totalPages = Math.ceil(items.length / pagination.limit);
+            
+            if (nuevaPagina < 1 || nuevaPagina > totalPages) return;
+            
+            pagination.page = nuevaPagina;
+            const startIndex = (nuevaPagina - 1) * pagination.limit;
+            const endIndex = startIndex + pagination.limit;
+            const itemsPagina = items.slice(startIndex, endIndex);
+            
+            if (tipo === 'citas') {
+                mostrarCitas(itemsPagina);
+            } else {
+                mostrarLeads(itemsPagina);
+            }
+            
+            actualizarPaginacion(tipo, items.length);
+            
+            // Scroll suave hacia arriba
+            const container = document.getElementById(`${tipo}-container`);
+            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+        // Funciones de filtrado
+        function filtrarCitas(termino) {
+            const citasFiltradas = todasLasCitas.filter(cita => {
+                const busqueda = termino.toLowerCase();
+                return (
+                    cita.nombre.toLowerCase().includes(busqueda) ||
+                    cita.telefono.includes(busqueda) ||
+                    (cita.email && cita.email.toLowerCase().includes(busqueda)) ||
+                    (cita.propiedad_titulo && cita.propiedad_titulo.toLowerCase().includes(busqueda))
+                );
+            });
+            
+            mostrarCitas(citasFiltradas.slice(0, pagination.citas.limit));
+            actualizarPaginacion('citas', citasFiltradas.length);
+        }
+        
+        function filtrarCitasPorEstado(estado) {
+            if (!estado) {
+                mostrarCitas(todasLasCitas.slice(0, pagination.citas.limit));
+                actualizarPaginacion('citas', todasLasCitas.length);
+                return;
+            }
+            
+            const citasFiltradas = todasLasCitas.filter(cita => cita.estado === estado);
+            mostrarCitas(citasFiltradas.slice(0, pagination.citas.limit));
+            actualizarPaginacion('citas', citasFiltradas.length);
+        }
+        
+        function filtrarLeads(termino) {
+            const leadsFiltrados = todosLosLeads.filter(lead => {
+                const busqueda = termino.toLowerCase();
+                return (
+                    lead.nombre.toLowerCase().includes(busqueda) ||
+                    lead.telefono.includes(busqueda) ||
+                    (lead.email && lead.email.toLowerCase().includes(busqueda)) ||
+                    (lead.interes && lead.interes.toLowerCase().includes(busqueda))
+                );
+            });
+            
+            mostrarLeads(leadsFiltrados.slice(0, pagination.leads.limit));
+            actualizarPaginacion('leads', leadsFiltrados.length);
+        }
+        
+        function filtrarLeadsPorFuente(fuente) {
+            if (!fuente) {
+                mostrarLeads(todosLosLeads.slice(0, pagination.leads.limit));
+                actualizarPaginacion('leads', todosLosLeads.length);
+                return;
+            }
+            
+            const leadsFiltrados = todosLosLeads.filter(lead => lead.fuente === fuente);
+            mostrarLeads(leadsFiltrados.slice(0, pagination.leads.limit));
+            actualizarPaginacion('leads', leadsFiltrados.length);
+        }
+        
+        // Funciones de gestión
         async function cambiarEstado(citaId, nuevoEstado) {
-            if (!confirm(`¿Cambiar estado de la cita ${citaId} a ${nuevoEstado}?`)) return;
+            if (!confirm(`¿Cambiar estado de la cita #${citaId} a ${nuevoEstado}?`)) return;
             
             try {
-                const urlParams = new URLSearchParams(window.location.search);
-                const key = urlParams.get('key');
+                mostrarToast('Actualizando estado...', 'info');
                 
-                const respuesta = await fetch(`/api/actualizar-estado-cita?key=${key}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        id: citaId,
-                        estado: nuevoEstado
-                    })
-                });
+                await api.put(`/citas/${citaId}/estado`, { estado: nuevoEstado });
                 
-                if (respuesta.ok) {
-                    alert('✅ Estado actualizado');
-                    cargarDatos(); // Recargar datos
-                } else {
-                    alert('❌ Error al actualizar');
+                // Actualizar localmente
+                const index = todasLasCitas.findIndex(c => c.id === citaId);
+                if (index !== -1) {
+                    todasLasCitas[index].estado = nuevoEstado;
+                    mostrarCitas(todasLasCitas.slice(0, pagination.citas.limit));
+                    actualizarEstadisticas();
                 }
+                
+                mostrarToast(`✅ Estado cambiado a ${nuevoEstado}`, 'success');
+                
+                // Si se cancela o completa, preguntar por nota
+                if (nuevoEstado === 'cancelada' || nuevoEstado === 'completada') {
+                    setTimeout(() => {
+                        const nota = prompt(`¿Agregar nota para la cita ${nuevoEstado}? (opcional)`);
+                        if (nota) {
+                            agregarNotaCita(citaId, nota);
+                        }
+                    }, 500);
+                }
+                
             } catch (error) {
-                console.error('Error:', error);
-                alert('❌ Error de conexión');
+                await ErrorHandler.handleError(error, 'cambiarEstado');
+            }
+        }
+        
+        async function agregarNotaCita(citaId, nota) {
+            try {
+                await api.post(`/citas/${citaId}/notas`, { nota });
+                mostrarToast('📝 Nota agregada', 'success');
+            } catch (error) {
+                console.error('Error agregando nota:', error);
             }
         }
         
         async function enviarRecordatorio(citaId) {
             try {
-                const urlParams = new URLSearchParams(window.location.search);
-                const key = urlParams.get('key');
+                mostrarToast('Enviando recordatorio...', 'info');
                 
-                // Aquí llamarías a tu API de recordatorio
-                // await fetch(`/api/enviar-recordatorio/${citaId}?key=${key}`, { method: 'POST' });
+                await api.post(`/citas/${citaId}/recordatorio`);
                 
-                alert('🔔 Recordatorio enviado (función en desarrollo)');
+                mostrarToast('🔔 Recordatorio enviado', 'success');
             } catch (error) {
-                console.error('Error:', error);
-                alert('❌ Error enviando recordatorio');
+                await ErrorHandler.handleError(error, 'enviarRecordatorio');
             }
         }
         
-        function exportarExcel() {
-            // Descargar el archivo Excel directamente
-            const urlParams = new URLSearchParams(window.location.search);
-            const key = urlParams.get('key');
+        async function contactarLead(leadId) {
+            const lead = todosLosLeads.find(l => l.id === leadId);
+            if (!lead) return;
             
-            window.open(`/api/leads-file?key=${key}`, '_blank');
+            const nota = prompt(`Nota de contacto para ${lead.nombre}:`);
+            if (nota) {
+                try {
+                    await api.put(`/leads/${leadId}`, { 
+                        estado: 'contactado',
+                        notas: (lead.notas ? lead.notas + '\n' : '') + `[${new Date().toLocaleString()}] ${nota}`
+                    });
+                    
+                    // Actualizar localmente
+                    const index = todosLosLeads.findIndex(l => l.id === leadId);
+                    if (index !== -1) {
+                        todosLosLeads[index].estado = 'contactado';
+                        todosLosLeads[index].notas = (lead.notas ? lead.notas + '\n' : '') + `[${new Date().toLocaleString()}] ${nota}`;
+                        mostrarLeads(todosLosLeads.slice(0, pagination.leads.limit));
+                    }
+                    
+                    mostrarToast(`✅ Lead ${lead.nombre} marcado como contactado`, 'success');
+                } catch (error) {
+                    await ErrorHandler.handleError(error, 'contactarLead');
+                }
+            }
         }
         
-        // Inicializar
-        document.addEventListener('DOMContentLoaded', cargarDatos);
-        // Auto-refresh cada 30 segundos
-        setInterval(cargarDatos, 30000);
+        async function agendarCitaDesdeLead(leadId) {
+            const lead = todosLosLeads.find(l => l.id === leadId);
+            if (!lead) return;
+            
+            // Pre-llenar modal con datos del lead
+            document.getElementById('nuevo-nombre').value = lead.nombre;
+            document.getElementById('nuevo-telefono').value = lead.telefono;
+            document.getElementById('nuevo-email').value = lead.email || '';
+            document.getElementById('nuevo-propiedad').value = lead.interes || '';
+            
+            mostrarModalNuevaCita();
+            
+            // Guardar referencia al lead
+            document.getElementById('form-nueva-cita').dataset.leadId = leadId;
+        }
+        
+        async function crearNuevaCita(event) {
+            event.preventDefault();
+            
+            const formData = {
+                nombre: document.getElementById('nuevo-nombre').value,
+                telefono: document.getElementById('nuevo-telefono').value,
+                email: document.getElementById('nuevo-email').value,
+                fecha: document.getElementById('nuevo-fecha').value,
+                hora: document.getElementById('nuevo-hora').value,
+                propiedad: document.getElementById('nuevo-propiedad').value,
+                notas: document.getElementById('nuevo-notas').value
+            };
+            
+            try {
+                mostrarToast('Creando cita...', 'info');
+                
+                const nuevaCita = await api.post('/citas', formData);
+                
+                // Agregar a la lista local
+                todasLasCitas.unshift(nuevaCita);
+                
+                // Actualizar lead si viene de uno
+                const leadId = event.target.dataset.leadId;
+                if (leadId) {
+                    await api.put(`/leads/${leadId}`, { 
+                        tiene_cita: true,
+                        citas: (todosLosLeads.find(l => l.id === leadId)?.citas || 0) + 1
+                    });
+                }
+                
+                // Limpiar formulario y cerrar modal
+                event.target.reset();
+                cerrarModal('modal-nueva-cita');
+                
+                // Mostrar citas actualizadas
+                mostrarCitas(todasLasCitas.slice(0, pagination.citas.limit));
+                actualizarEstadisticas();
+                actualizarPaginacion('citas', todasLasCitas.length);
+                
+                mostrarToast(`✅ Cita creada para ${formData.nombre}`, 'success');
+                
+                // Cambiar a tab de citas
+                mostrarTab('citas');
+                
+            } catch (error) {
+                await ErrorHandler.handleError(error, 'crearNuevaCita');
+            }
+        }
+        
+        async function exportarDatos() {
+            const tipo = document.getElementById('export-type').value;
+            const desde = document.getElementById('export-fecha-desde').value;
+            const hasta = document.getElementById('export-fecha-hasta').value;
+            const formato = document.querySelector('input[name="export-format"]:checked').value;
+            
+            try {
+                mostrarToast('Generando archivo...', 'info');
+                
+                const params = new URLSearchParams({
+                    tipo,
+                    formato,
+                    ...(desde && { desde }),
+                    ...(hasta && { hasta })
+                });
+                
+                // Usar API client para la descarga
+                const token = AuthManager.getToken();
+                const url = `/api/exportar?${params.toString()}`;
+                
+                // Crear link temporal para descarga
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `dante_propiedades_${tipo}_${new Date().toISOString().split('T')[0]}.${formato}`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+                mostrarToast('📥 Archivo descargado', 'success');
+                
+            } catch (error) {
+                await ErrorHandler.handleError(error, 'exportarDatos');
+            }
+        }
+        
+        // Funciones de UI
+        function mostrarTab(tabName) {
+            // Actualizar tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+                tab.setAttribute('aria-hidden', 'true');
+            });
+            
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+                tab.setAttribute('aria-selected', 'false');
+            });
+            
+            // Mostrar tab seleccionado
+            const tabContent = document.getElementById(`tab-${tabName}`);
+            const tabButton = document.querySelector(`.tab[onclick="mostrarTab('${tabName}')"]`);
+            
+            if (tabContent && tabButton) {
+                tabContent.classList.add('active');
+                tabContent.setAttribute('aria-hidden', 'false');
+                tabButton.classList.add('active');
+                tabButton.setAttribute('aria-selected', 'true');
+            }
+            
+            // Guardar última tab visitada
+            localStorage.setItem('ultima_tab', tabName);
+        }
+        
+        function mostrarModalNuevaCita() {
+            // Setear fecha mínima a hoy
+            const hoy = new Date().toISOString().split('T')[0];
+            document.getElementById('nuevo-fecha').min = hoy;
+            
+            // Si hoy es la fecha, establecer hora mínima a la actual + 1 hora
+            const ahora = new Date();
+            const horaMinima = `${ahora.getHours() + 1}:${ahora.getMinutes().toString().padStart(2, '0')}`;
+            document.getElementById('nuevo-hora').min = horaMinima;
+            
+            document.getElementById('modal-nueva-cita').classList.add('active');
+        }
+        
+        function cerrarModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+        
+        function guardarConfiguracion() {
+            const refreshValue = parseInt(document.getElementById('refresh-interval').value);
+            const notifCitas = document.getElementById('notif-citas').checked;
+            const notifLeads = document.getElementById('notif-leads').checked;
+            const notifRecordatorios = document.getElementById('notif-recordatorios').checked;
+            
+            configuracion = {
+                autoRefresh: refreshValue,
+                notificaciones: {
+                    citas: notifCitas,
+                    leads: notifLeads,
+                    recordatorios: notifRecordatorios
+                }
+            };
+            
+            localStorage.setItem('configuracion_panel', JSON.stringify(configuracion));
+            actualizarRefreshInterval();
+            
+            mostrarToast('✅ Configuración guardada', 'success');
+        }
+        
+        function cargarConfiguracion() {
+            const savedConfig = localStorage.getItem('configuracion_panel');
+            if (savedConfig) {
+                configuracion = JSON.parse(savedConfig);
+                
+                document.getElementById('refresh-interval').value = configuracion.autoRefresh;
+                document.getElementById('notif-citas').checked = configuracion.notificaciones.citas;
+                document.getElementById('notif-leads').checked = configuracion.notificaciones.leads;
+                document.getElementById('notif-recordatorios').checked = configuracion.notificaciones.recordatorios;
+            }
+        }
+        
+        function actualizarRefreshInterval() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+            
+            const interval = parseInt(document.getElementById('refresh-interval').value) * 1000;
+            if (interval > 0) {
+                refreshInterval = setInterval(cargarDatos, interval);
+                console.log(`Auto-refresh configurado a ${interval/1000} segundos`);
+            }
+        }
+        
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Verificar autenticación
+            const token = AuthManager.getToken();
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            // Cargar configuración
+            cargarConfiguracion();
+            
+            // Cargar datos iniciales
+            await cargarDatos();
+            
+            // Restaurar última tab visitada
+            const ultimaTab = localStorage.getItem('ultima_tab') || 'citas';
+            mostrarTab(ultimaTab);
+            
+            // Configurar auto-refresh
+            actualizarRefreshInterval();
+            
+            // Configurar Service Worker para offline
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js').catch(console.error);
+            }
+            
+            // Notificar nueva versión
+            console.log('✅ Panel Dante Propiedades inicializado');
+        });
+        
+        // Manejar recarga de página con confirmación si hay cambios sin guardar
+        window.addEventListener('beforeunload', (e) => {
+            // Aquí podrías verificar si hay cambios sin guardar
+            // e.preventDefault();
+            // e.returnValue = '';
+        });
+        
+        // Manejar conexión/desconexión
+        window.addEventListener('online', () => {
+            mostrarToast('✅ Conexión restablecida', 'success');
+            cargarDatos();
+        });
+        
+        window.addEventListener('offline', () => {
+            mostrarToast('⚠️ Sin conexión a internet', 'warning');
+        });
     </script>
 </body>
 </html>
