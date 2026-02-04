@@ -41,9 +41,40 @@ def obtener_estado_usuario(user_id):
     return estados_usuarios[user_id]
 
 def actualizar_estado_usuario(user_id, nuevo_estado):
-    """Actualiza el estado de un usuario"""
-    nuevo_estado['timestamp'] = datetime.now().isoformat()
-    estados_usuarios[user_id] = nuevo_estado
+    """Actualiza el estado de un usuario preservando campos existentes"""
+    
+    # Obtener el estado actual del usuario (si existe)
+    estado_actual = estados_usuarios.get(user_id, {})
+    
+    # ✅ FUSIONAR el estado actual con las nuevas actualizaciones
+    estado_fusionado = {
+        **estado_actual,  # Campos existentes
+        **nuevo_estado,   # Nuevos valores
+        'timestamp': datetime.now().isoformat()  # Siempre actualizar timestamp
+    }
+    
+    # Asegurar campos críticos que deben preservarse
+    if 'propiedades_filtradas' in estado_actual and 'propiedades_filtradas' not in nuevo_estado:
+        estado_fusionado['propiedades_filtradas'] = estado_actual['propiedades_filtradas']
+    
+    if 'ultimo_indice_preguntado' in estado_actual and 'ultimo_indice_preguntado' not in nuevo_estado:
+        estado_fusionado['ultimo_indice_preguntado'] = estado_actual['ultimo_indice_preguntado']
+    
+    if 'operacion_seleccionada' in estado_actual and 'operacion_seleccionada' not in nuevo_estado:
+        estado_fusionado['operacion_seleccionada'] = estado_actual['operacion_seleccionada']
+    
+    if 'nombre_cliente' in estado_actual and 'nombre_cliente' not in nuevo_estado:
+        estado_fusionado['nombre_cliente'] = estado_actual['nombre_cliente']
+    
+    # Guardar el estado fusionado
+    estados_usuarios[user_id] = estado_fusionado
+    
+    # Log detallado para debugging
+    log(f"💾 Estado actualizado para {user_id}:")
+    log(f"   Paso: {estado_fusionado.get('paso', 'N/A')}")
+    log(f"   Nombre: {estado_fusionado.get('nombre_cliente', 'N/A')}")
+    log(f"   Propiedades: {len(estado_fusionado.get('propiedades_filtradas', []))}")
+    log(f"   Índice: {estado_fusionado.get('ultimo_indice_preguntado', 'N/A')}")
     
     # Limpiar estados antiguos (más de 1 hora)
     ahora = datetime.now()
@@ -53,6 +84,7 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
     ]
     
     for uid in usuarios_a_eliminar:
+        log(f"🗑️  Eliminando estado antiguo para {uid}")
         del estados_usuarios[uid]
 
 # ========== GESTIÓN DE LEADS (CLIENTES INTERESADOS) ==========
@@ -345,57 +377,64 @@ def get_bot_response(text, user_id):
         return "⚠️ Opción no válida.\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
 
     # ESTADO: esperando_nombre_lead
-    elif estado_usuario['paso'] == 'esperando_nombre_lead':
-        nombre_cliente = text.strip()
+    
+    
+    # ESTADO: esperando_nombre_lead
+# ESTADO: esperando_nombre_lead
+elif estado_usuario['paso'] == 'esperando_nombre_lead':
+    nombre_cliente = text.strip()
+    
+    # Validar que el nombre tenga al menos 2 caracteres
+    if len(nombre_cliente) < 2:
+        return "❌ Por favor, ingresa tu nombre completo (mínimo 2 caracteres)."
+    
+    # ✅ Crear un objeto NUEVO con solo los campos a actualizar
+    actualizaciones = {
+        'nombre_cliente': nombre_cliente,
+        'paso': 'ofrecer_cita'  # ¡IMPORTANTE! Cambiar al siguiente paso
+    }
+    
+    # ✅ Llamar a actualizar_estado_usuario con solo las actualizaciones
+    actualizar_estado_usuario(user_id, actualizaciones)
+    
+    # Obtener el estado ACTUALIZADO
+    estado_usuario = obtener_estado_usuario(user_id)
+    
+    # Obtener datos de la propiedad
+    indice = estado_usuario.get('ultimo_indice_preguntado')
+    propiedades = estado_usuario.get('propiedades_filtradas', [])
+    
+    if indice and 1 <= indice <= len(propiedades):
+        propiedad = obtener_detalle_propiedad(propiedades, indice)
+        propiedad_id = propiedad.get('id_temporal', 'N/A')
+        propiedad_titulo = propiedad.get('titulo', 'Propiedad sin título')
         
-        # Validar que el nombre tenga al menos 2 caracteres
-        if len(nombre_cliente) < 2:
-            return "❌ Por favor, ingresa tu nombre completo (mínimo 2 caracteres)."
+        # Registrar lead completo
+        registrar_lead(user_id, propiedad_id, "lead_completo", f"Nombre: {nombre_cliente}")
         
-        # Guardar el nombre en el estado del usuario
-        estado_usuario['nombre_cliente'] = nombre_cliente
+        # Notificar al agente (versión breve)
+        notificar_agente(f"🔥 *NUEVO INTERESADO*\n👤 Cliente: {nombre_cliente}\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad_titulo}")
         
-        # Obtener datos de la propiedad
-        indice = estado_usuario.get('ultimo_indice_preguntado')
-        propiedades = estado_usuario.get('propiedades_filtradas', [])
+        # Mensaje mejorado con emojis
+        return f"✅ *¡Perfecto {nombre_cliente}!*\n\n" \
+            f"Hemos registrado tu interés en:\n" \
+            f"🏠 *{propiedad_titulo}*\n\n" \
+            f"📅 *¿Te gustaría agendar una cita para visitar la propiedad?*\n\n" \
+            f"1️⃣ *SÍ, AGENDAR CITA* 📅 (Recomendado)\n" \
+            f"2️⃣ *No por ahora, solo información* 📋\n" \
+            f"3️⃣ *Ya la vi, quiero ofertar* 💰\n" \
+            f"0️⃣ *Salir* ❌"
+    
+    else:
+        # Error: no se encontró la propiedad
+        actualizar_estado_usuario(user_id, {'paso': 'menu_principal'})
+        return "❌ Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad enviando 'Hola'."# NUEVO ESTADO: ofrecer_cita
+    
+elif estado_usuario['paso'] == 'ofrecer_cita':
+    text_lower = text.lower().strip()
         
-        if indice and 1 <= indice <= len(propiedades):
-            propiedad = obtener_detalle_propiedad(propiedades, indice)
-            propiedad_id = propiedad.get('id_temporal', 'N/A')
-            propiedad_titulo = propiedad.get('titulo', 'Propiedad sin título')
-            
-            # Registrar lead completo
-            registrar_lead(user_id, propiedad_id, "lead_completo", f"Nombre: {nombre_cliente}")
-            
-            # Notificar al agente (versión breve)
-            notificar_agente(f"🔥 *NUEVO INTERESADO*\n👤 Cliente: {nombre_cliente}\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad_titulo}")
-            
-            # Cambiar estado para ofrecer cita
-            estado_usuario['paso'] = 'ofrecer_cita'
-            actualizar_estado_usuario(user_id, estado_usuario)
-            
-            # Mensaje mejorado con emojis
-            return f"✅ *¡Perfecto {nombre_cliente}!*\n\n" \
-                f"Hemos registrado tu interés en:\n" \
-                f"🏠 *{propiedad_titulo}*\n\n" \
-                f"📅 *¿Te gustaría agendar una cita para visitar la propiedad?*\n\n" \
-                f"1️⃣ *SÍ, AGENDAR CITA* 📅 (Recomendado)\n" \
-                f"2️⃣ *No por ahora, solo información* 📋\n" \
-                f"3️⃣ *Ya la vi, quiero ofertar* 💰\n" \
-                f"0️⃣ *Salir* ❌"
-        
-        else:
-            # Error: no se encontró la propiedad
-            estado_usuario['paso'] = 'menu_principal'
-            actualizar_estado_usuario(user_id, estado_usuario)
-            return "❌ Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad enviando 'Hola'."
-
-    # NUEVO ESTADO: ofrecer_cita
-    elif estado_usuario['paso'] == 'ofrecer_cita':
-        text_lower = text.lower().strip()
-        
-        # Opción 1: Sí, agendar cita
-        if text_lower in ["1", "si", "sí", "si quiero", "agendar", "cita", "visita"]:
+    # Opción 1: Sí, agendar cita
+    if text_lower in ["1", "si", "sí", "si quiero", "agendar", "cita", "visita"]:
             estado_usuario['paso'] = 'solicitar_fecha_cita'
             actualizar_estado_usuario(user_id, estado_usuario)
             
@@ -1417,6 +1456,26 @@ def webhook():
             import traceback
             log(f"🔍 TRAZABILIDAD: {traceback.format_exc()[:500]}")
             return jsonify({"status": "error", "error": str(e)}), 500
+
+
+@app.route("/debug-estado/<user_id>", methods=["GET"])
+def debug_estado_usuario(user_id):
+    """Muestra el estado actual de un usuario para debugging"""
+    estado = estados_usuarios.get(user_id, {})
+    
+    # Formatear para mejor lectura
+    debug_info = {
+        "user_id": user_id,
+        "paso_actual": estado.get('paso', 'NO EXISTE'),
+        "nombre_cliente": estado.get('nombre_cliente', 'NO DEFINIDO'),
+        "ultimo_indice": estado.get('ultimo_indice_preguntado', 'NO DEFINIDO'),
+        "propiedades_filtradas": len(estado.get('propiedades_filtradas', [])),
+        "operacion": estado.get('operacion_seleccionada', 'NO DEFINIDO'),
+        "timestamp": estado.get('timestamp', 'NO DEFINIDO'),
+        "todos_los_campos": estado
+    }
+    
+    return jsonify(debug_info)
 
 # ========== GESTIÓN DE CITAS ==========
 def cargar_citas():
