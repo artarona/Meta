@@ -791,42 +791,45 @@ def check_token_validity():
 
 # ========== SEND WHATSAPP MESSAGE ==========
 def send_whatsapp_message(to_number, message_text):
-    """Envía un mensaje de WhatsApp usando texto directo"""
+    """Envía un mensaje de WhatsApp usando texto directo con manejo avanzado de errores"""
     try:
-        # Primero verificar si el token es válido
+        # ============================
+        # 1. Validación previa del token
+        # ============================
         token_valid, token_info = check_token_validity()
         if not token_valid:
             log("❌❌❌ TOKEN INVÁLIDO - No se puede enviar mensaje")
             return {
                 "status": "error",
-                "error_code": "invalid_token",
-                "error_message": "Token de acceso expirado o inválido",
-                "details": "Ve a Meta Developers > WhatsApp > Getting Started para generar nuevo token"
+                "category": "token",
+                "error_code": 190,
+                "error_subcode": None,
+                "message": "Token de acceso expirado o inválido",
+                "action_required": "Generar un nuevo token en Meta Developers",
+                "meta_raw": None
             }
-        
-        # ========== TRANSFORMAR NÚMERO PARA SANDBOX (AR) ==========
+
+        # ============================
+        # 2. Transformación del número (Sandbox AR)
+        # ============================
         def transform_number(number):
-            # Formato ARG Sandbox: 54911XXXXXXXX -> 541115XXXXXXXX
             if number.startswith("549") and len(number) == 13:
-                # Quitamos el '9' y agregamos '15' después del código de área
-                country = number[:2]    # 54
-                area = number[3:5]       # 11 (o el área que sea)
-                rest = number[5:]       # El resto del número
+                country = number[:2]
+                area = number[3:5]
+                rest = number[5:]
                 return f"{country}{area}15{rest}"
             return number
-        
+
         transformed_number = transform_number(to_number)
-        
-        # URL de la API de Meta
+
+        # ============================
+        # 3. Construcción de la solicitud
+        # ============================
         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-        
-        # Headers con el token de acceso
         headers = {
             "Authorization": f"Bearer {ACCESS_TOKEN}",
             "Content-Type": "application/json"
         }
-        
-        # Payload para mensaje de texto directo
         payload = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
@@ -837,23 +840,29 @@ def send_whatsapp_message(to_number, message_text):
                 "body": message_text
             }
         }
-        
-        log(f"📤 ENVIANDO MENSAJE DIRECTO")
+
+        log("📤 ENVIANDO MENSAJE DIRECTO")
         log(f"   Token válido: ✓")
         log(f"   Número original: {to_number}")
         log(f"   Número transformado: {transformed_number}")
         log(f"💬 MENSAJE: {message_text[:100]}...")
-        
-        # Enviar la solicitud
+
+        # ============================
+        # 4. Envío de la solicitud
+        # ============================
         response = requests.post(url, json=payload, headers=headers, timeout=30)
-        
         log(f"📊 STATUS HTTP: {response.status_code}")
-        
+
+        # ============================
+        # 5. Caso exitoso
+        # ============================
         if response.status_code == 200:
             result = response.json()
-            message_id = result.get('messages', [{}])[0].get('id', 'N/A')
-            log(f"✅ ✅ ✅ MENSAJE ENVIADO EXITOSAMENTE")
+            message_id = result.get("messages", [{}])[0].get("id", "N/A")
+
+            log("✅ MENSAJE ENVIADO EXITOSAMENTE")
             log(f"📱 ID del mensaje: {message_id}")
+
             return {
                 "status": "success",
                 "message_id": message_id,
@@ -861,52 +870,81 @@ def send_whatsapp_message(to_number, message_text):
                 "numero_original": to_number,
                 "numero_usado": transformed_number
             }
-        else:
-            error_data = response.json() if response.content else {}
-            error_code = error_data.get('error', {}).get('code', 'N/A')
-            error_message = error_data.get('error', {}).get('message', 'Error desconocido')
-            
-            log(f"❌ ERROR EN API: {error_code}")
-            log(f"❌ MENSAJE: {error_message}")
-            
-            # Manejar diferentes tipos de errores
-            if error_code == 190:  # Token expirado
-                log("⚠️  TOKEN EXPIRADO - Debes renovarlo en Meta Developers")
-                return {
-                    "status": "error",
-                    "error_code": error_code,
-                    "error_message": "Token expirado. Renueva el token en Meta Developers.",
-                    "details": "Ve a: https://developers.facebook.com/apps/"
-                }
-            elif error_code == 10:  # Permisos insuficientes
-                log("❌ ERROR DE PERMISOS - El token no tiene 'whatsapp_business_messaging'")
-                return {
-                    "status": "error",
-                    "error_code": error_code,
-                    "error_message": "El token no tiene permisos suficientes (whatsapp_business_messaging).",
-                    "details": "Asegúrate de marcar los permisos al generar el token."
-                }
-            elif error_code == 131030:  # Número no permitido
-                log("⚠️  NÚMERO NO PERMITIDO - Agrega a números de prueba")
-                return {
-                    "status": "error",
-                    "error_code": error_code,
-                    "error_message": "Número no está en la lista de números de prueba",
-                    "details": f"Agrega {to_number} a la lista de números de prueba en Meta"
-                }
-            
+
+        # ============================
+        # 6. Manejo de errores de Meta
+        # ============================
+        error_data = response.json() if response.content else {}
+        meta_error = error_data.get("error", {})
+
+        error_code = meta_error.get("code")
+        error_subcode = meta_error.get("error_subcode")
+        error_message = meta_error.get("message", "Error desconocido")
+
+        log(f"❌ ERROR EN API: {error_code} / Subcode: {error_subcode}")
+        log(f"❌ MENSAJE: {error_message}")
+
+        # ----------------------------
+        # Errores específicos
+        # ----------------------------
+
+        # Token expirado o inválido
+        if error_code == 190:
             return {
                 "status": "error",
+                "category": "token",
                 "error_code": error_code,
-                "error_message": error_message,
-                "details": error_data
+                "error_subcode": error_subcode,
+                "message": "Token expirado o inválido",
+                "action_required": "Renovar token en Meta Developers",
+                "meta_raw": error_data
             }
-            
+
+        # Permisos insuficientes
+        if error_code == 10:
+            return {
+                "status": "error",
+                "category": "permissions",
+                "error_code": error_code,
+                "error_subcode": error_subcode,
+                "message": "El token no tiene permisos suficientes (whatsapp_business_messaging)",
+                "action_required": "Regenerar token marcando los permisos requeridos",
+                "meta_raw": error_data
+            }
+
+        # Número no permitido en Sandbox
+        if error_code == 131030:
+            return {
+                "status": "error",
+                "category": "number",
+                "error_code": error_code,
+                "error_subcode": error_subcode,
+                "message": "El número no está en la lista de números de prueba",
+                "action_required": f"Agregar {to_number} a la lista de números de prueba en Meta",
+                "meta_raw": error_data
+            }
+
+        # ----------------------------
+        # Error genérico
+        # ----------------------------
+        return {
+            "status": "error",
+            "category": "api",
+            "error_code": error_code,
+            "error_subcode": error_subcode,
+            "message": error_message,
+            "action_required": "Revisar detalles del error",
+            "meta_raw": error_data
+        }
+
     except Exception as e:
         log(f"🔥 ERROR INESPERADO: {str(e)}")
         return {
             "status": "error",
-            "error": str(e)
+            "category": "unexpected",
+            "exception_type": type(e).__name__,
+            "message": str(e),
+            "action_required": "Revisar logs del servidor"
         }
 
 def send_photos_async(user_id, propiedad_id, base_url):
