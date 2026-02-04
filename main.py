@@ -1898,6 +1898,287 @@ def test_send():
         "result": result
     })
 
+
+# ========== RUTAS PARA EL PANEL ADMIN MEJORADO ==========
+# ========== RUTAS PARA EL PANEL ADMIN MEJORADO ==========
+@app.route("/admin/panel")
+def admin_panel_mejorado():
+    """Sirve el panel de administración mejorado"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return "⚠️ Acceso No Autorizado. Por favor usa el enlace seguro.", 403
+    
+    # Leer el archivo admin.html
+    try:
+        with open('admin.html', 'r', encoding='utf-8') as f:
+            contenido = f.read()
+        return contenido
+    except FileNotFoundError:
+        return "❌ Archivo admin.html no encontrado. Por favor súbelo a Render.", 404
+
+@app.route("/api/panel/citas")
+def api_panel_citas():
+    """API para obtener citas para el panel"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        citas = cargar_citas()
+        return jsonify(citas)
+    except Exception as e:
+        log(f"❌ Error en API citas: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/panel/leads")
+def api_panel_leads():
+    """API para obtener leads para el panel"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        leads = []
+        if os.path.exists(LEADS_FILE):
+            with open(LEADS_FILE, 'r', encoding='utf-8') as f:
+                leads = json.load(f)
+        return jsonify({"leads": leads})
+    except Exception as e:
+        log(f"❌ Error en API leads: {e}")
+        return jsonify({"error": str(e)}), 500
+    
+    
+@app.route("/api/panel/estadisticas")
+def api_panel_estadisticas():
+    """API para estadísticas del panel"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        citas = cargar_citas()
+        leads = []
+        if os.path.exists(LEADS_FILE):
+            with open(LEADS_FILE, 'r', encoding='utf-8') as f:
+                leads = json.load(f)
+        
+        hoy = datetime.now().strftime("%Y-%m-%d")
+        leads_hoy = [l for l in leads if l.get('timestamp', '').startswith(hoy)]
+        
+        estadisticas = {
+            'totalCitas': len(citas),
+            'citasPendientes': len([c for c in citas if c.get('estado') == 'pendiente']),
+            'citasHoy': len([c for c in citas if c.get('fecha') == hoy]),
+            'totalLeads': len(leads),
+            'leadsHoy': len(leads_hoy),
+            'leadsNuevos': len([l for l in leads if l.get('accion') == 'lead_completo']),
+            'conversionRate': len(citas) / len(leads) * 100 if len(leads) > 0 else 0
+        }
+        
+        return jsonify(estadisticas)
+    except Exception as e:
+        log(f"❌ Error en API estadísticas: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/panel/citas/<cita_id>/estado", methods=["PUT"])
+def api_panel_actualizar_estado(cita_id):
+    """Actualizar estado de cita desde panel"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        nuevo_estado = request.args.get('estado')
+        if nuevo_estado not in ['pendiente', 'confirmada', 'completada', 'cancelada']:
+            return jsonify({"error": "Estado inválido"}), 400
+        
+        citas = cargar_citas()
+        cita_encontrada = None
+        
+        for cita in citas:
+            if cita['id'] == cita_id:
+                cita['estado'] = nuevo_estado
+                cita['ultima_actualizacion'] = datetime.now().isoformat()
+                cita_encontrada = cita
+                break
+        
+        if not cita_encontrada:
+            return jsonify({"error": "Cita no encontrada"}), 404
+        
+        if guardar_citas(citas):
+            return jsonify({"status": "success", "cita": cita_encontrada})
+        else:
+            return jsonify({"error": "Error guardando cambios"}), 500
+            
+    except Exception as e:
+        log(f"❌ Error actualizando estado: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/panel/citas/nueva", methods=["POST"])
+def api_panel_nueva_cita():
+    """Crear nueva cita desde panel"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        datos = request.json
+        
+        # Validar datos requeridos
+        campos_requeridos = ['nombre', 'telefono', 'fecha', 'hora']
+        for campo in campos_requeridos:
+            if not datos.get(campo):
+                return jsonify({"error": f"Campo {campo} es requerido"}), 400
+        
+        # Generar ID único
+        citas = cargar_citas()
+        cita_id = f"C{len(citas) + 1:04d}"
+        
+        nueva_cita = {
+            'id': cita_id,
+            'nombre': datos['nombre'],
+            'telefono': datos['telefono'],
+            'email': datos.get('email', ''),
+            'fecha': datos['fecha'],
+            'hora': datos['hora'],
+            'propiedad_id': datos.get('propiedad', ''),
+            'propiedad_titulo': datos.get('propiedad', ''),
+            'estado': 'pendiente',
+            'notas': datos.get('notas', ''),
+            'creacion': datetime.now().isoformat(),
+            'ultima_actualizacion': datetime.now().isoformat()
+        }
+        
+        citas.append(nueva_cita)
+        
+        if guardar_citas(citas):
+            # También guardar en Excel si existe la función
+            try:
+                guardar_cita_excel(nueva_cita)
+            except:
+                pass
+                
+            return jsonify({"status": "success", "cita": nueva_cita})
+        else:
+            return jsonify({"error": "Error guardando cita"}), 500
+            
+    except Exception as e:
+        log(f"❌ Error creando cita: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/send-message", methods=["POST"])
+def send_message_from_panel():
+    """Enviar mensaje desde el panel admin"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        data = request.json
+        to_number = data.get('to')
+        message = data.get('message')
+        
+        if not to_number or not message:
+            return jsonify({"error": "Faltan datos"}), 400
+        
+        result = send_whatsapp_message(to_number, message)
+        
+        if result.get('status') == 'success':
+            return jsonify({"status": "success", "message": "Mensaje enviado"})
+        else:
+            return jsonify({"error": result.get('error_message', 'Error desconocido')}), 500
+            
+    except Exception as e:
+        log(f"❌ Error enviando mensaje desde panel: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# También agrega esta ruta adicional para compatibilidad con las rutas existentes
+@app.route("/api/citas/<cita_id>/estado", methods=["PUT"])
+def actualizar_estado_cita_compatibilidad(cita_id):
+    """Compatibilidad con ruta existente"""
+    return api_panel_actualizar_estado(cita_id)
+
+@app.route("/api/panel/exportar")
+def api_panel_exportar():
+    """Exportar datos desde panel"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        tipo = request.args.get('tipo', 'citas')
+        formato = request.args.get('formato', 'excel')
+        
+        if tipo == 'citas':
+            citas = cargar_citas_excel()
+            if formato == 'excel':
+                # Crear archivo Excel temporal
+                df = pd.DataFrame(citas)
+                archivo_temp = 'temp_citas.xlsx'
+                df.to_excel(archivo_temp, index=False)
+                
+                return send_file(archivo_temp, as_attachment=True,
+                               download_name=f'citas_dante_{datetime.now().strftime("%Y%m%d")}.xlsx')
+            elif formato == 'csv':
+                df = pd.DataFrame(citas)
+                return df.to_csv(index=False)
+                
+        elif tipo == 'leads':
+            # Similar para leads
+            pass
+            
+        return jsonify({"error": "Formato no soportado"}), 400
+        
+    except Exception as e:
+        log(f"❌ Error exportando: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# Función auxiliar para cargar leads simple
+def cargar_leads_simple():
+    """Cargar leads en formato simple para estadísticas"""
+    leads = []
+    
+    # 1. Intentar desde Excel
+    if os.path.exists(LEADS_EXCEL_FILE):
+        try:
+            df = pd.read_excel(LEADS_EXCEL_FILE, sheet_name=LEADS_SHEET_NAME)
+            if not df.empty:
+                for _, row in df.iterrows():
+                    fecha = row.get('Fecha', '')
+                    if pd.isna(fecha):
+                        fecha = ''
+                    else:
+                        fecha = str(fecha)
+                    
+                    lead = {
+                        'id': str(row.get('ID', '')),
+                        'nombre': str(row.get('Nombre', '')),
+                        'telefono': str(row.get('Teléfono', '')),
+                        'fecha_creacion': fecha,
+                        'estado': 'nuevo' if str(row.get('Seguimiento', '')).strip() == '' else 'contactado'
+                    }
+                    leads.append(lead)
+        except Exception as e:
+            log(f"⚠️ Error leyendo leads Excel: {e}")
+    
+    # 2. Si no hay en Excel, usar leads.json
+    if len(leads) == 0 and os.path.exists(LEADS_FILE):
+        try:
+            with open(LEADS_FILE, 'r', encoding='utf-8') as f:
+                leads_json = json.load(f)
+                for i, lead in enumerate(leads_json):
+                    leads.append({
+                        'id': f"L{i:05d}",
+                        'nombre': f"Cliente {lead.get('user_id', '')[-4:]}",
+                        'telefono': lead.get('user_id', ''),
+                        'fecha_creacion': lead.get('timestamp', ''),
+                        'estado': 'nuevo'
+                    })
+        except Exception as e:
+            log(f"⚠️ Error leyendo leads JSON: {e}")
+    
+    return leads
+
 @app.route("/test-propiedades", methods=["GET"])
 def test_propiedades():
     """Prueba la carga de propiedades"""
@@ -2541,7 +2822,31 @@ def inicializar_archivo_citas():
         log(f"🔥 ERROR inicializando archivo de citas: {e}")
         return False
 
-
+@app.route("/send-message", methods=["POST"])
+def send_message_from_panel():
+    """Enviar mensaje desde el panel admin"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        data = request.json
+        to_number = data.get('to')
+        message = data.get('message')
+        
+        if not to_number or not message:
+            return jsonify({"error": "Faltan datos"}), 400
+        
+        result = send_whatsapp_message(to_number, message)
+        
+        if result.get('status') == 'success':
+            return jsonify({"status": "success", "message": "Mensaje enviado"})
+        else:
+            return jsonify({"error": result.get('error_message', 'Error desconocido')}), 500
+            
+    except Exception as e:
+        log(f"❌ Error enviando mensaje desde panel: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/ver-citas-raw", methods=["GET"])
 def ver_citas_raw():
