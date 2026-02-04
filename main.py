@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory, send_file
 import requests
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta  # AÑADIDO timedelta
 from collections import deque
 import threading
 
@@ -10,24 +10,19 @@ app = Flask(__name__)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-ACCESS_TOKEN = "EAAJYsGl5pHgBQhLB0GaHstYNId6Y9z21qZBWeKfBio4LoDP3WZAZAMwqEIkpZBoZA6NqIvIv19GK1w1weW0DPrlZAyo3ZAqfiZAA18LT5NtijkdUAVrDPpbui4JhH7qJrV9z6NPgqZBzvmgjXeo8HSkgAAmxlfcJYKN9SNp3dkTLmX8u13POITB17nWqUnawdaSBsr0PO40K1Q4Yxc0Tunjl9MoCSIcvxhb9DQRgWc2cDHRO7GKGUYR5SVgW25BVxnCa2sgPwQLsFSggdk8CXnyyTEErdNjpzLwYKEg0ZD"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQgtZCcZBtwGQyNjpopv7Rsxa77RxidZBxTTdsD1F7IbZAYRgzVlEfnoY8tpHVbB98HbzlcjZC0GyKkyMh6MBMijWdWSjoUjtFIYSRHfeEZB5l4E1zybmpJlIr0fM80kV4O74IBHcyMQiFuSkWK5tFsYZBaiTCNGggs8yeeZAmPdauJtyOeJZCHyCeP4FQ6eOoZCZBgUHxo9TRGqj2gKt6QrutfWnuTAbZBP6lS3xCR4gFBNr6ZAggVSyP9JjPOjnPp5iBm4zMo4UiipM8H3Au0KjSB57gAQZDZD"
 PHONE_NUMBER_ID = "1000705633118215"
 ADMIN_NUMBER = "5491151511579"  # Número donde llegarán las alertas de leads
 LEADS_FILE = "leads.json"
 ADMIN_ACCESS_KEY = "dante2026"  # Llave para acceder al panel admin
 
-# ========== CONFIGURACIÓN ==========
-# ... (variables existentes) ...
+# ========== CONFIGURACIÓN DE CITAS ==========
 CITAS_FILE = "citas.json"  # Nuevo archivo para almacenar citas
 CITAS_DISPONIBLES = [  # Horarios disponibles para citas
     "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
     "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
     "17:00", "17:30", "18:00", "18:30"
 ]
-# ========== URL DEL LOGO ==========
-#LOGO_URL = "https://meta-chat-npbx.onrender.com/llave.png"
-# ========== URL DEL LOGO ==========
-# LOGO_URL = "https://images.weserv.nl/?url=i.ibb.co/XZkNL0GJ/llave.png&w=200&output=png"
 
 # ========== GESTIÓN DE ESTADO DE USUARIOS ==========
 estados_usuarios = {}
@@ -225,9 +220,6 @@ def formatear_detalle_propiedad(propiedad):
     
     return detalle
 
-
-
-
 # ========== BOT CON PROPIEDADES ==========
 def get_bot_response(text, user_id):
     """Responde con un mensaje simple, manteniendo estado de usuario"""
@@ -353,7 +345,6 @@ def get_bot_response(text, user_id):
         return "⚠️ Opción no válida.\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
 
     # ESTADO: esperando_nombre_lead
-    # ESTADO: esperando_nombre_lead (ACTUALIZADO CON SISTEMA DE CITAS)
     elif estado_usuario['paso'] == 'esperando_nombre_lead':
         nombre_cliente = text.strip()
         
@@ -590,16 +581,82 @@ def get_bot_response(text, user_id):
                 "*Ejemplo:* 2024-12-25\n\n" \
                 "También puedes escribir 'Ver fechas' para ver disponibilidad."
 
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+    # NUEVO ESTADO: seleccionar_hora_cita
+    elif estado_usuario['paso'] == 'seleccionar_hora_cita':
+        text_lower = text.lower().strip()
+        
+        # Volver atrás
+        if text_lower in ["atrás", "atras", "volver", "back"]:
+            estado_usuario['paso'] = 'solicitar_fecha_cita'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "🔄 *Volviendo atrás...*\n\nEnvía una nueva fecha (AAAA-MM-DD) o 'Ver fechas'"
+        
+        # Validar horario seleccionado
+        horarios_disponibles = estado_usuario.get('horarios_disponibles', [])
+        
+        if text not in horarios_disponibles:
+            return "❌ *Horario no disponible*\n\n" \
+                "El horario seleccionado no está disponible. Por favor elige uno de los horarios listados.\n\n" \
+                "Ejemplo: '09:30' o '14:00'"
+        
+        # Guardar horario en estado
+        estado_usuario['hora_cita'] = text
+        
+        # Obtener datos de la propiedad
+        indice = estado_usuario.get('ultimo_indice_preguntado')
+        propiedades = estado_usuario.get('propiedades_filtradas', [])
+        
+        if indice and 1 <= indice <= len(propiedades):
+            propiedad = obtener_detalle_propiedad(propiedades, indice)
+            propiedad_id = propiedad.get('id_temporal', 'N/A')
+            propiedad_titulo = propiedad.get('titulo', 'Propiedad sin título')
+            nombre_cliente = estado_usuario.get('nombre_cliente', 'Cliente')
+            fecha_cita = estado_usuario.get('fecha_cita')
+            hora_cita = text
+            
+            # Crear la cita
+            cita = crear_cita(
+                user_id=user_id,
+                nombre=nombre_cliente,
+                telefono=user_id,
+                fecha=fecha_cita,
+                hora=hora_cita,
+                propiedad_id=propiedad_id,
+                notas=f"Propiedad: {propiedad_titulo}"
+            )
+            
+            if cita:
+                # Formatear fecha para mostrar
+                fecha_obj = datetime.strptime(fecha_cita, "%Y-%m-%d")
+                fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
+                
+                # Resetear estado
+                estado_usuario['paso'] = 'menu_principal'
+                estado_usuario['nombre_cliente'] = None
+                estado_usuario['fecha_cita'] = None
+                estado_usuario['hora_cita'] = None
+                actualizar_estado_usuario(user_id, estado_usuario)
+                
+                return f"🎉 *¡CITA AGENDADA CON ÉXITO!*\n\n" \
+                    f"✅ **Resumen de tu cita:**\n" \
+                    f"👤 *Cliente:* {nombre_cliente}\n" \
+                    f"📅 *Fecha:* {fecha_formateada}\n" \
+                    f"⏰ *Hora:* {hora_cita} hs\n" \
+                    f"🏠 *Propiedad:* {propiedad_titulo[:50]}...\n" \
+                    f"🆔 *ID Cita:* {cita['id']}\n\n" \
+                    f"📍 *Instrucciones importantes:*\n" \
+                    f"• Llega 10 minutos antes\n" \
+                    f"• Trae tu documento de identidad\n" \
+                    f"• Si necesitas cancelar o reprogramar, contacta al administrador\n\n" \
+                    f"📞 *Contacto:* +{ADMIN_NUMBER}\n\n" \
+                    f"¡Gracias por elegir Dante Propiedades! 🏠🗝️"
+            else:
+                return "❌ *Error al agendar la cita*\n\n" \
+                    "Hubo un problema al guardar tu cita. Por favor, intenta nuevamente o contacta al administrador."
+        
+        else:
+            return "❌ *Error: No se encontró la propiedad*\n\n" \
+                "Hubo un problema al procesar tu cita. Por favor, inicia el proceso nuevamente enviando 'Hola'."
     
     # 4. OPCIONES GLOBALES (1..7) - Se procesan si no se capturaron arriba
     if text_lower == "1":
@@ -634,23 +691,76 @@ def get_bot_response(text, user_id):
         actualizar_estado_usuario(user_id, estado_usuario)
         return "📋 *TODAS LAS PROPIEDADES*\n\n" + generar_listado_propiedades(propiedades)
 
+    elif text_lower == "6":
+        # Verificar si es el número de Dante (admin) para mostrar panel de citas
+        if user_id == ADMIN_NUMBER.lstrip('549'):
+            # Para Dante, mostrar opciones admin
+            estado_usuario['paso'] = 'menu_admin'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            return f"🔐 *PANEL ADMINISTRATIVO*\n\n" \
+                   f"Hola Dante 👋\n\n" \
+                   f"Opciones disponibles:\n\n" \
+                   f"📊 *1. Ver dashboard principal*\n" \
+                   f"📅 *2. Gestionar citas*\n" \
+                   f"👥 *3. Ver leads*\n" \
+                   f"🏠 *4. Gestionar propiedades*\n" \
+                   f"📈 *5. Ver estadísticas*\n\n" \
+                   f"📱 *0. Volver al menú principal*"
+        else:
+            # Para usuarios normales, verificar si tienen citas agendadas
+            citas = cargar_citas()
+            citas_usuario = [c for c in citas if c['telefono'] == user_id and c['estado'] != 'cancelada']
+            
+            if not citas_usuario:
+                return "📅 *No tienes citas agendadas*\n\n" \
+                       "Para agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n" \
+                       "Enviá 'Hola' para volver al menú."
+            
+            # Mostrar citas del usuario
+            mensaje = f"📅 *TUS CITAS AGENDADAS*\n\n"
+            mensaje += f"Tienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
+            
+            for i, cita in enumerate(citas_usuario, 1):
+                fecha_obj = datetime.strptime(cita['fecha'], "%Y-%m-%d")
+                fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
+                
+                mensaje += f"{i}. *{cita['propiedad_id']}*\n"
+                mensaje += f"   📅 {fecha_formateada} - ⏰ {cita['hora']}\n"
+                mensaje += f"   📍 Estado: {cita['estado'].upper()}\n"
+                
+                if cita.get('notas') and cita['notas'] != 'Sin notas adicionales':
+                    mensaje += f"   📝 Notas: {cita['notas'][:50]}...\n"
+                
+                mensaje += "   ───────────────\n"
+            
+            mensaje += f"\nPara consultar o modificar una cita, contacta al administrador.\n\n"
+            mensaje += f"Para volver al menú, envía '1' | Para salir envía '0' ❌"
+            
+            return mensaje
+    
     elif text_lower == "7":
         estado_usuario['paso'] = 'vista_web'
         actualizar_estado_usuario(user_id, estado_usuario)
         return f"🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
-
-    # FALLBACK FINAL
-    if estado_usuario['paso'] == 'menu_principal':
-        return "WELCOME_FLOW_TRIGGER"
-    else:
-        # Si el usuario mandó cualquier cosa y no estábamos en menú, lo llevamos al menú por seguridad
-        estado_usuario['paso'] = 'menu_principal'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "No entendí tu mensaje. Enviá 'Hola' para volver al inicio."
-
-
-
-
+    
+    elif text_lower == "8":
+        # Verificar si es Dante
+        if user_id == ADMIN_NUMBER.lstrip('549'):
+            estado_usuario['paso'] = 'menu_admin'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            return f"🔐 *ACCESO ADMIN DETECTADO*\n\n" \
+                   f"Bienvenido Dante 👋\n\n" \
+                   f"Selecciona una opción:\n\n" \
+                   f"📊 *1. Ver dashboard principal*\n" \
+                   f"📅 *2. Gestionar citas*\n" \
+                   f"👥 *3. Ver leads*\n" \
+                   f"🏠 *4. Gestionar propiedades*\n" \
+                   f"📈 *5. Ver estadísticas*\n\n" \
+                   f"📱 *0. Volver al menú principal*"
+        else:
+            return "⚠️ Acceso restringido. Esta opción es solo para administradores.\n\nEnviá 'Hola' para volver."
 
 # ========== VERIFICACIÓN DE TOKEN ==========
 def check_token_validity():
@@ -799,7 +909,6 @@ def send_whatsapp_message(to_number, message_text):
             "error": str(e)
         }
 
-
 def send_photos_async(user_id, propiedad_id, base_url):
     """Tarea ejecutada en hilo secundario para enviar fotos sin bloquear el webhook"""
     try:
@@ -903,25 +1012,24 @@ def send_welcome_flow(user_id):
     # 2. Mensaje de bienvenida CON EMOJIS 🔑🏠
     welcome_message = """🏠🗝️ *DANTE PROPIEDADES*
 
-¡Hola! Soy el asistente inmobiliario de Dante Propiedades.
+    ¡Hola! Soy el asistente inmobiliario de Dante Propiedades.
 
-*¿Qué tipo de operación te interesa?*
-Escribí el número de tu opción:
+    *¿Qué tipo de operación te interesa?*
+    Escribí el número de tu opción:
 
-1️⃣ *💰 VENTA* - Propiedades en venta
-2️⃣ *🔑 ALQUILER* - Propiedades en alquiler
-3️⃣ *📍 Búsqueda por zona* (próximamente)
-4️⃣ *🔍 Búsqueda libre* (próximamente)
-5️⃣ *📋 Ver todas las propiedades*
-6️⃣ *ℹ️ Información* (próximamente)
-7️⃣ *🌐 Ir a nuestra Web*
-0️⃣ *❌ SALIR*
+    1️⃣ *💰 VENTA* - Propiedades en venta
+    2️⃣ *🔑 ALQUILER* - Propiedades en alquiler
+    3️⃣ *📍 Búsqueda por zona* (próximamente)
+    4️⃣ *🔍 Búsqueda libre* (próximamente)
+    5️⃣ *📋 Ver todas las propiedades*
+    6️⃣ *📅 Mis citas agendadas* (NUEVO)
+    7️⃣ *🌐 Ir a nuestra Web*
+    8️⃣ *🔐 Panel Admin* (Solo Dante)
+    0️⃣ *❌ SALIR*
 
-Para seleccionar, solo envía el número (ej: "1" o "0")"""
+    Para seleccionar, solo envía el número (ej: "1" o "0")"""   
     
     return send_whatsapp_message(user_id, welcome_message)
-
-
 
 # ========== RUTAS PRINCIPALES ==========
 @app.route("/")
@@ -1066,8 +1174,6 @@ def home():
     """
     return html, 200
 
-
-
 # ========== RUTAS DEL PANEL ADMINISTRATIVO ==========
 @app.route("/admin")
 def admin_panel():
@@ -1107,7 +1213,6 @@ def api_leads_file():
     else:
         log(f"⚠️ Archivo {filename} no encontrado para descarga admin")
         return jsonify({"error": "File not found"}), 404
-
 
 # ========== RUTA PARA IMÁGENES LOCALES ==========
 @app.route('/imgs/<path:filename>')
@@ -1205,9 +1310,6 @@ def webhook():
                                     response_text = get_bot_response(message_text, from_number)
                                     
                                     # ✅ MODIFICACIÓN: Manejo especial para bienvenida con logo
-                                    
-                                    
-                                    # ✅ MODIFICACIÓN: Manejo especial para bienvenida con logo
                                     if response_text == "WELCOME_FLOW_TRIGGER":
                                         log("🎯 DETECTADA SOLICITUD DE BIENVENIDA")
                                         log("🔄 ENVIANDO FLUJO COMPLETO (logo + mensaje)")
@@ -1238,7 +1340,7 @@ def webhook():
                                             thread.start()
                                             
                                             # Enviar confirmación inmediata de que se están enviando las fotos
-confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
+                                            confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
                                             result = send_whatsapp_message(from_number, confirmacion)
                                         elif response_text:
                                             log(f"🤖 RESPUESTA GENERADA ({len(response_text)} caracteres)")
@@ -1277,7 +1379,6 @@ confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nPar
             import traceback
             log(f"🔍 TRAZABILIDAD: {traceback.format_exc()[:500]}")
             return jsonify({"status": "error", "error": str(e)}), 500
-
 
 # ========== GESTIÓN DE CITAS ==========
 def cargar_citas():
@@ -1632,6 +1733,123 @@ def health_check():
         "venta_count": len([p for p in propiedades if p.get('operacion') == 'venta']),
         "alquiler_count": len([p for p in propiedades if p.get('operacion') == 'alquiler'])
     })
+
+# ========== RUTAS API PARA PANEL DE CITAS ==========
+@app.route("/api/citas", methods=["GET"])
+def api_citas():
+    """Retorna todas las citas en formato JSON"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    citas = cargar_citas()
+    return jsonify(citas)
+
+@app.route("/api/citas/<cita_id>/estado", methods=["PUT"])
+def actualizar_estado_cita(cita_id):
+    """Actualiza el estado de una cita"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    nuevo_estado = request.args.get('estado')
+    if nuevo_estado not in ['pendiente', 'confirmada', 'cancelada']:
+        return jsonify({"error": "Estado inválido"}), 400
+    
+    try:
+        citas = cargar_citas()
+        cita_encontrada = False
+        
+        for cita in citas:
+            if cita['id'] == cita_id:
+                cita['estado'] = nuevo_estado
+                cita['ultima_actualizacion'] = datetime.now().isoformat()
+                cita_encontrada = True
+                break
+        
+        if not cita_encontrada:
+            return jsonify({"error": "Cita no encontrada"}), 404
+        
+        if guardar_citas(citas):
+            log(f"✅ Estado actualizado: {cita_id} -> {nuevo_estado}")
+            return jsonify({"status": "success", "message": "Estado actualizado"})
+        else:
+            return jsonify({"error": "Error guardando cambios"}), 500
+            
+    except Exception as e:
+        log(f"❌ Error actualizando estado de cita: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/citas/recordatorio/<cita_id>", methods=["POST"])
+def enviar_recordatorio_cita(cita_id):
+    """Envía un recordatorio de cita por WhatsApp"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        citas = cargar_citas()
+        cita = next((c for c in citas if c['id'] == cita_id), None)
+        
+        if not cita:
+            return jsonify({"error": "Cita no encontrada"}), 404
+        
+        # Formatear fecha para el mensaje
+        fecha_obj = datetime.strptime(cita['fecha'], "%Y-%m-%d")
+        fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
+        
+        mensaje = f"🔔 *RECORDATORIO DE CITA - DANTE PROPIEDADES*\n\n"
+        mensaje += f"👤 *Cliente:* {cita['nombre']}\n"
+        mensaje += f"📅 *Fecha:* {fecha_formateada}\n"
+        mensaje += f"⏰ *Hora:* {cita['hora']}\n"
+        mensaje += f"🏠 *Propiedad:* {cita['propiedad_id']}\n\n"
+        mensaje += f"📍 *Instrucciones:*\n"
+        mensaje += f"• Llega 10 minutos antes\n"
+        mensaje += f"• Trae tu documento de identidad\n"
+        mensaje += f"• Contacto: +{ADMIN_NUMBER}\n\n"
+        mensaje += f"¡Te esperamos! 🏠🗝️"
+        
+        # Enviar mensaje al cliente
+        result = send_whatsapp_message(cita['telefono'], mensaje)
+        
+        if result.get('status') == 'success':
+            log(f"✅ Recordatorio enviado a {cita['telefono']}")
+            return jsonify({"status": "success", "message": "Recordatorio enviado"})
+        else:
+            return jsonify({"error": "Error enviando mensaje", "details": result}), 500
+            
+    except Exception as e:
+        log(f"❌ Error enviando recordatorio: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# Agregar también la función para ver el panel de citas
+@app.route("/admin/citas")
+def admin_citas_panel():
+    """Sirve el panel de administración de citas"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return "⚠️ Acceso No Autorizado. Por favor usa el enlace seguro.", 403
+    return send_file("admin_citas.html")
+
+# También modificar la función cargar_citas para mejor manejo de errores
+def cargar_citas():
+    """Carga las citas existentes desde el archivo JSON"""
+    try:
+        if os.path.exists(CITAS_FILE):
+            with open(CITAS_FILE, 'r', encoding='utf-8') as f:
+                citas = json.load(f)
+                # Asegurar que cada cita tenga todos los campos necesarios
+                for cita in citas:
+                    if 'telefono' not in cita and 'user_id' in cita:
+                        cita['telefono'] = cita['user_id']
+                    if 'notas' not in cita:
+                        cita['notas'] = 'Sin notas'
+                return citas
+        return []
+    except Exception as e:
+        log(f"❌ Error cargando citas: {e}")
+        return []
+
 
 if __name__ == "__main__":
     print("\n" + "=" * 60)
