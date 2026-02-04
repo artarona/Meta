@@ -160,10 +160,10 @@ def generar_listado_propiedades(propiedades):
     listado = "📋 *LISTADO DE PROPIEDADES*\n\n"
     
     for i, prop in enumerate(propiedades[:10], 1):  # Limitar a 10 propiedades
-        listado += f"{numero_a_emoji(i)} {prop.get('titulo', 'Sin título')}\n"
+        # listado += f"{numero_a_emoji(i)} {prop.get('titulo', 'Sin título')}\n"
+        listado += f"{numero_a_emoji(i)} {prop.get('titulo', 'Sin título')} | {prop.get('operacion', '')}\n"
         listado += f"   📍 {prop.get('barrio', 'N/A')} | "
         listado += f"💰 "
-        
         precio = prop.get('precio', 0)
         moneda = prop.get('moneda_precio', 'USD')
         if moneda == 'USD':
@@ -270,7 +270,7 @@ def get_bot_response(text, user_id):
         estado_usuario['propiedades_filtradas'] = []
         estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
-        return f"👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌"
+        return "👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌ | 🏠🗝️ DANTE PROPIEDADES"
 
     # 2. BOTONES DE NAVEGACIÓN RÁPIDA (Solo en ciertos estados)
     if text_lower == "1" and estado_usuario['paso'] in ['detalle_propiedad', 'vista_fotos', 'vista_web', 'esperando_nombre_lead']:
