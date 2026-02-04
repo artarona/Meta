@@ -957,8 +957,13 @@ def send_whatsapp_message(to_number, message_text):
         log(f"🔥 ERROR INESPERADO: {str(e)}")
         return {
             "status": "error",
-            "error": str(e)
+            "category": "unexpected",
+            "exception_type": type(e).__name__,
+            "message": str(e),
+            "action_required": "Revisar logs del servidor"
         }
+
+
 
 def send_photos_async(user_id, propiedad_id, base_url):
     """Tarea ejecutada en hilo secundario para enviar fotos sin bloquear el webhook"""
