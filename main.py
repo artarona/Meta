@@ -16,6 +16,25 @@ ADMIN_NUMBER = "5491151511579"  # Número donde llegarán las alertas de leads
 LEADS_FILE = "leads.json"
 ADMIN_ACCESS_KEY = "dante2026"  # Llave para acceder al panel admin
 
+token_valid, token_info = check_token_validity()
+    if token_valid:
+        print(f"✅ TOKEN VÁLIDO")
+        print(f"   📞 Número: {token_info.get('display_phone_number', 'N/A')}")
+        print(f"   📛 Nombre: {token_info.get('verified_name', 'N/A')}")
+    else:
+        print(f"❌❌❌ TOKEN INVÁLIDO O EXPIRADO ❌❌❌")
+        print(f"   ⚠️  El bot NO PODRÁ ENVIAR MENSAJES")
+        print(f"   ℹ️  Visita: https://meta-chat-npbx.onrender.com/token-help")
+    
+    print(f"🌐 URL: https://meta-chat-npbx.onrender.com")
+    print(f"📁 Propiedades: {PROPIEDADES_FILE}")
+    print(f"📅 Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 60 + "\n")
+
+
+
+
+
 # ========== CONFIGURACIÓN DE CITAS ==========
 CITAS_FILE = "citas.json"  # Nuevo archivo para almacenar citas
 CITAS_DISPONIBLES = [  # Horarios disponibles para citas
@@ -1865,20 +1884,7 @@ if __name__ == "__main__":
         print(f"💰 En venta: {ventas} propiedades")
         print(f"🔑 En alquiler: {alquileres} propiedades")
     
-    token_valid, token_info = check_token_validity()
-    if token_valid:
-        print(f"✅ TOKEN VÁLIDO")
-        print(f"   📞 Número: {token_info.get('display_phone_number', 'N/A')}")
-        print(f"   📛 Nombre: {token_info.get('verified_name', 'N/A')}")
-    else:
-        print(f"❌❌❌ TOKEN INVÁLIDO O EXPIRADO ❌❌❌")
-        print(f"   ⚠️  El bot NO PODRÁ ENVIAR MENSAJES")
-        print(f"   ℹ️  Visita: https://meta-chat-npbx.onrender.com/token-help")
     
-    print(f"🌐 URL: https://meta-chat-npbx.onrender.com")
-    print(f"📁 Propiedades: {PROPIEDADES_FILE}")
-    print(f"📅 Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 60 + "\n")
     
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
