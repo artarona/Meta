@@ -8,14 +8,31 @@ import threading
 import re  # Para expresiones regulares
 # import pandas as pd
 # from openpyxl import Workbook, load_workbook
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import psycopg
+from psycopg.rows import dict_row
 
 
 
 
 
 app = Flask(__name__)
+
+
+if __name__ == "__main__":
+    print("\n" + "=" * 60)
+    print("🏠 WHATSAPP BOT - POSTGRESQL (psycopg 3.x)")
+    print("=" * 60)
+    
+    # Inicializar PostgreSQL
+    print("🔧 Inicializando PostgreSQL...")
+    if init_postgresql():
+        print("✅ PostgreSQL listo")
+    else:
+        print("❌ ERROR: PostgreSQL no se pudo inicializar")
+        print("   Verifica DATABASE_URL en Render Environment")
+    
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port, debug=False)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
@@ -52,9 +69,9 @@ if not DATABASE_URL:
 
 # ========== CONEXIÓN A POSTGRESQL ==========
 def get_db_connection():
-    """Conexión a PostgreSQL"""
+    """Conexión a PostgreSQL con psycopg 3.x"""
     try:
-        conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+        conn = psycopg.connect(DATABASE_URL, autocommit=True)
         return conn
     except Exception as e:
         print(f"❌ Error conectando a PostgreSQL: {e}")
@@ -2254,73 +2271,73 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, propiedad_t
         log(f"   Datos fallidos: {cita_id}, {nombre}, {telefono}")
         return None
 
-@app.route("/diagnostico-excel", methods=["GET"])
-def diagnostico_excel():
-    """Muestra estado del archivo Excel"""
-    info = {
-        "excel": {
-            "existe": os.path.exists(LEADS_EXCEL_FILE),
-            "tamano": os.path.getsize(LEADS_EXCEL_FILE) if os.path.exists(LEADS_EXCEL_FILE) else 0,
-            "hojas": obtener_hojas_excel() if os.path.exists(LEADS_EXCEL_FILE) else []
-        },
-        "citas_en_memoria": len(cargar_citas_db()),
-        "directorio": os.listdir('.')
-    }
-    return jsonify(info)
+# @app.route("/diagnostico-excel", methods=["GET"])
+# def diagnostico_excel():
+#     """Muestra estado del archivo Excel"""
+#     info = {
+#         "excel": {
+#             "existe": os.path.exists(LEADS_EXCEL_FILE),
+#             "tamano": os.path.getsize(LEADS_EXCEL_FILE) if os.path.exists(LEADS_EXCEL_FILE) else 0,
+#             "hojas": obtener_hojas_excel() if os.path.exists(LEADS_EXCEL_FILE) else []
+#         },
+#         "citas_en_memoria": len(cargar_citas_db()),
+#         "directorio": os.listdir('.')
+#     }
+#     return jsonify(info)
 
-def obtener_hojas_excel():
-    """Obtiene las hojas del archivo Excel"""
-    try:
-        wb = load_workbook(LEADS_EXCEL_FILE, read_only=True)
-        return wb.sheetnames
-    except:
-        return []
+# def obtener_hojas_excel():
+#     """Obtiene las hojas del archivo Excel"""
+#     try:
+#         wb = load_workbook(LEADS_EXCEL_FILE, read_only=True)
+#         return wb.sheetnames
+#     except:
+#         return []
 
 
-def inicializar_excel():
-    """Inicializa el archivo Excel con las hojas necesarias"""
-    try:
-        if not os.path.exists(LEADS_EXCEL_FILE):
-            log(f"📄 Creando archivo Excel unificado: {LEADS_EXCEL_FILE}")
+# def inicializar_excel():
+#     """Inicializa el archivo Excel con las hojas necesarias"""
+#     try:
+#         if not os.path.exists(LEADS_EXCEL_FILE):
+#             log(f"📄 Creando archivo Excel unificado: {LEADS_EXCEL_FILE}")
             
-            wb = Workbook()
+#             wb = Workbook()
             
-            # Hoja para Citas
-            ws_citas = wb.active
-            ws_citas.title = CITAS_SHEET_NAME
-            ws_citas.append([
-                "ID", "Fecha Creación", "Nombre", "Teléfono", "Email", 
-                "Fecha Cita", "Hora Cita", "Propiedad ID", "Título Propiedad",
-                "Estado", "Notas", "Última Actualización", "Recordatorio Enviado"
-            ])
+#             # Hoja para Citas
+#             ws_citas = wb.active
+#             ws_citas.title = CITAS_SHEET_NAME
+#             ws_citas.append([
+#                 "ID", "Fecha Creación", "Nombre", "Teléfono", "Email", 
+#                 "Fecha Cita", "Hora Cita", "Propiedad ID", "Título Propiedad",
+#                 "Estado", "Notas", "Última Actualización", "Recordatorio Enviado"
+#             ])
             
-            # Hoja para Leads
-            ws_leads = wb.create_sheet(title=LEADS_SHEET_NAME)
-            ws_leads.append([
-                "ID", "Fecha", "Teléfono", "Nombre", "Propiedad ID", 
-                "Título Propiedad", "Acción", "Detalles", "Tipo Lead",
-                "Interés", "Seguimiento", "Prioridad", "Agente Asignado"
-            ])
+#             # Hoja para Leads
+#             ws_leads = wb.create_sheet(title=LEADS_SHEET_NAME)
+#             ws_leads.append([
+#                 "ID", "Fecha", "Teléfono", "Nombre", "Propiedad ID", 
+#                 "Título Propiedad", "Acción", "Detalles", "Tipo Lead",
+#                 "Interés", "Seguimiento", "Prioridad", "Agente Asignado"
+#             ])
             
-            # Ajustar anchos
-            for i, width in enumerate([15, 20, 25, 15, 25, 15, 10, 20, 40, 12, 50, 20, 20], 1):
-                ws_citas.column_dimensions[chr(64 + i)].width = width
+#             # Ajustar anchos
+#             for i, width in enumerate([15, 20, 25, 15, 25, 15, 10, 20, 40, 12, 50, 20, 20], 1):
+#                 ws_citas.column_dimensions[chr(64 + i)].width = width
             
-            for i, width in enumerate([15, 20, 15, 25, 20, 40, 20, 50, 15, 15, 30, 12, 20], 1):
-                ws_leads.column_dimensions[chr(64 + i)].width = width
+#             for i, width in enumerate([15, 20, 15, 25, 20, 40, 20, 50, 15, 15, 30, 12, 20], 1):
+#                 ws_leads.column_dimensions[chr(64 + i)].width = width
             
-            wb.save(LEADS_EXCEL_FILE)
-            log(f"✅ Archivo Excel creado con hojas: {CITAS_SHEET_NAME}, {LEADS_SHEET_NAME}")
+#             wb.save(LEADS_EXCEL_FILE)
+#             log(f"✅ Archivo Excel creado con hojas: {CITAS_SHEET_NAME}, {LEADS_SHEET_NAME}")
             
-            # Crear algunas citas de prueba (solo desarrollo)
-            if os.environ.get("RENDER") != "true":  # No en producción
-                crear_citas_prueba()
+#             # Crear algunas citas de prueba (solo desarrollo)
+#             if os.environ.get("RENDER") != "true":  # No en producción
+#                 crear_citas_prueba()
                 
-        else:
-            log(f"📄 Archivo Excel ya existe: {LEADS_EXCEL_FILE}")
+#         else:
+#             log(f"📄 Archivo Excel ya existe: {LEADS_EXCEL_FILE}")
             
-    except Exception as e:
-        log(f"🔥 Error inicializando Excel: {e}")
+#     except Exception as e:
+#         log(f"🔥 Error inicializando Excel: {e}")
 
 
 def crear_citas_prueba():
@@ -2564,25 +2581,34 @@ def test_propiedades():
 
 @app.route("/test-postgres", methods=["GET"])
 def test_postgres():
-    """Prueba simple de PostgreSQL"""
+    """Prueba PostgreSQL con psycopg 3.x"""
     try:
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT 1 as test, current_timestamp, version()")
+            cursor.execute("SELECT version(), current_timestamp")
             result = cursor.fetchone()
+            
+            # Contar registros
+            cursor.execute("SELECT COUNT(*) FROM citas")
+            citas_count = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM leads")
+            leads_count = cursor.fetchone()[0]
+            
             conn.close()
             
             return jsonify({
                 "status": "connected",
-                "test": result[0],
-                "timestamp": result[1],
-                "version": result[2]
+                "postgres_version": result[0],
+                "server_time": str(result[1]),
+                "citas_count": citas_count,
+                "leads_count": leads_count,
+                "message": "✅ PostgreSQL funcionando con psycopg 3.x"
             })
         else:
-            return jsonify({"status": "no_connection"})
+            return jsonify({"status": "error", "message": "❌ No hay conexión"})
     except Exception as e:
-        return jsonify({"status": "error", "error": str(e)})
+        return jsonify({"status": "error", "message": f"❌ Error: {str(e)}"})
     
 # @app.route("/db-tables", methods=["GET"])
 # def db_tables():
@@ -3102,15 +3128,15 @@ def actualizar_estado_cita(cita_id):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/citas-excel", methods=["GET"])
-def api_citas_excel():
-    """Retorna todas las citas desde Excel"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
+# @app.route("/api/citas-excel", methods=["GET"])
+# def api_citas_excel():
+#     """Retorna todas las citas desde Excel"""
+#     key = request.args.get('key')
+#     if key != ADMIN_ACCESS_KEY:
+#         return jsonify({"error": "Unauthorized"}), 403
     
-    citas = cargar_citas_db()
-    return jsonify(citas)
+#     citas = cargar_citas_db()
+#     return jsonify(citas)
 
 @app.route("/api/actualizar-estado-cita", methods=["PUT"])
 def api_actualizar_estado_cita():
@@ -3365,31 +3391,31 @@ def test_postgres():
         return jsonify({"status": "error", "message": f"❌ Error: {str(e)}"})
 
 
-if __name__ == "__main__":
-    print("\n" + "=" * 60)
-    print("🏠 WHATSAPP BOT - POSTGRESQL VERSION")
-    print("=" * 60)
+# if __name__ == "__main__":
+#     print("\n" + "=" * 60)
+#     print("🏠 WHATSAPP BOT - POSTGRESQL VERSION")
+#     print("=" * 60)
     
-    # 1. Inicializar PostgreSQL
-    if init_postgresql():
-        print("✅ PostgreSQL inicializado")
+#     # 1. Inicializar PostgreSQL
+#     if init_postgresql():
+#         print("✅ PostgreSQL inicializado")
         
-        # Verificar datos
-        conn = get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM citas")
-            citas_count = cursor.fetchone()[0]
-            cursor.execute("SELECT COUNT(*) FROM leads")
-            leads_count = cursor.fetchone()[0]
-            conn.close()
-            print(f"📊 Datos iniciales: {citas_count} citas, {leads_count} leads")
-    else:
-        print("❌ ERROR: PostgreSQL no se pudo inicializar")
+#         # Verificar datos
+#         conn = get_db_connection()
+#         if conn:
+#             cursor = conn.cursor()
+#             cursor.execute("SELECT COUNT(*) FROM citas")
+#             citas_count = cursor.fetchone()[0]
+#             cursor.execute("SELECT COUNT(*) FROM leads")
+#             leads_count = cursor.fetchone()[0]
+#             conn.close()
+#             print(f"📊 Datos iniciales: {citas_count} citas, {leads_count} leads")
+#     else:
+#         print("❌ ERROR: PostgreSQL no se pudo inicializar")
     
-    # Resto del código normal...
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+#     # Resto del código normal...
+#     port = int(os.environ.get("PORT", 10000))
+#     app.run(host="0.0.0.0", port=port, debug=False)
 
 
 # if __name__ == "__main__":
