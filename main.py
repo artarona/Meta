@@ -1820,226 +1820,226 @@ def db_info():
         return jsonify({"error": str(e)})
 
 
-@app.route("/admin/db-dashboard", methods=["GET"])
-def db_dashboard():
-    """Dashboard completo de la base de datos"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return "⚠️ Acceso No Autorizado", 403
+# @app.route("/admin/db-dashboard", methods=["GET"])
+# def db_dashboard():
+#     """Dashboard completo de la base de datos"""
+#     key = request.args.get('key')
+#     if key != ADMIN_ACCESS_KEY:
+#         return "⚠️ Acceso No Autorizado", 403
     
-    try:
-        conn = get_db_connection()
-        if not conn:
-            return "❌ No se pudo conectar a PostgreSQL"
+#     try:
+#         conn = get_db_connection()
+#         if not conn:
+#             return "❌ No se pudo conectar a PostgreSQL"
         
-        cursor = conn.cursor()
+#         cursor = conn.cursor()
         
-        # Estadísticas generales
-        cursor.execute("""
-            SELECT 
-                (SELECT COUNT(*) FROM citas) as total_citas,
-                (SELECT COUNT(*) FROM leads) as total_leads,
-                (SELECT COUNT(*) FROM citas WHERE estado = 'pendiente') as citas_pendientes,
-                (SELECT COUNT(*) FROM citas WHERE estado = 'confirmada') as citas_confirmadas,
-                (SELECT COUNT(*) FROM citas WHERE fecha = CURRENT_DATE::varchar) as citas_hoy
-        """)
-        stats = cursor.fetchone()
+#         # Estadísticas generales
+#         cursor.execute("""
+#             SELECT 
+#                 (SELECT COUNT(*) FROM citas) as total_citas,
+#                 (SELECT COUNT(*) FROM leads) as total_leads,
+#                 (SELECT COUNT(*) FROM citas WHERE estado = 'pendiente') as citas_pendientes,
+#                 (SELECT COUNT(*) FROM citas WHERE estado = 'confirmada') as citas_confirmadas,
+#                 (SELECT COUNT(*) FROM citas WHERE fecha = CURRENT_DATE::varchar) as citas_hoy
+#         """)
+#         stats = cursor.fetchone()
         
-        # Últimas 10 citas
-        cursor.execute("""
-            SELECT id, nombre, telefono, fecha, hora, estado, propiedad_titulo
-            FROM citas 
-            ORDER BY creacion DESC 
-            LIMIT 10
-        """)
-        ultimas_citas = cursor.fetchall()
+#         # Últimas 10 citas
+#         cursor.execute("""
+#             SELECT id, nombre, telefono, fecha, hora, estado, propiedad_titulo
+#             FROM citas 
+#             ORDER BY creacion DESC 
+#             LIMIT 10
+#         """)
+#         ultimas_citas = cursor.fetchall()
         
-        # Últimos 10 leads
-        cursor.execute("""
-            SELECT id, telefono, accion, propiedad_titulo, fecha::varchar
-            FROM leads 
-            ORDER BY fecha DESC 
-            LIMIT 10
-        """)
-        ultimos_leads = cursor.fetchall()
+#         # Últimos 10 leads
+#         cursor.execute("""
+#             SELECT id, telefono, accion, propiedad_titulo, fecha::varchar
+#             FROM leads 
+#             ORDER BY fecha DESC 
+#             LIMIT 10
+#         """)
+#         ultimos_leads = cursor.fetchall()
         
-        conn.close()
+#         conn.close()
         
-        # Generar HTML
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>📊 Dashboard PostgreSQL - Dante Propiedades</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }}
-                .stats-container {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 30px 0; }}
-                .stat-card {{ background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }}
-                .stat-number {{ font-size: 36px; font-weight: bold; margin: 10px 0; }}
-                .table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-                .table th, .table td {{ padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }}
-                .table th {{ background-color: #f4f4f4; }}
-                .success {{ color: #28a745; }}
-                .warning {{ color: #ffc107; }}
-                .danger {{ color: #dc3545; }}
-                .refresh-btn {{ background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 10px 0; }}
-            </style>
-        </head>
-        <body>
-            <h1>📊 Dashboard PostgreSQL</h1>
-            <p><strong>Base de datos:</strong> dantepropiedades_db</p>
-            <p><strong>Estado:</strong> <span style="color: green;">✅ Conectado</span></p>
+#         # Generar HTML
+#         html = f"""
+#         <!DOCTYPE html>
+#         <html>
+#         <head>
+#             <title>📊 Dashboard PostgreSQL - Dante Propiedades</title>
+#             <style>
+#                 body {{ font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }}
+#                 .stats-container {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 30px 0; }}
+#                 .stat-card {{ background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }}
+#                 .stat-number {{ font-size: 36px; font-weight: bold; margin: 10px 0; }}
+#                 .table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+#                 .table th, .table td {{ padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }}
+#                 .table th {{ background-color: #f4f4f4; }}
+#                 .success {{ color: #28a745; }}
+#                 .warning {{ color: #ffc107; }}
+#                 .danger {{ color: #dc3545; }}
+#                 .refresh-btn {{ background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 10px 0; }}
+#             </style>
+#         </head>
+#         <body>
+#             <h1>📊 Dashboard PostgreSQL</h1>
+#             <p><strong>Base de datos:</strong> dantepropiedades_db</p>
+#             <p><strong>Estado:</strong> <span style="color: green;">✅ Conectado</span></p>
             
-            <button class="refresh-btn" onclick="location.reload()">🔄 Actualizar</button>
+#             <button class="refresh-btn" onclick="location.reload()">🔄 Actualizar</button>
             
-            <div class="stats-container">
-                <div class="stat-card">
-                    <h3>📅 Total Citas</h3>
-                    <div class="stat-number">{stats[0]}</div>
-                </div>
-                <div class="stat-card">
-                    <h3>👥 Total Leads</h3>
-                    <div class="stat-number">{stats[1]}</div>
-                </div>
-                <div class="stat-card">
-                    <h3>⏳ Citas Pendientes</h3>
-                    <div class="stat-number {'warning' if stats[2] > 0 else 'success'}">{stats[2]}</div>
-                </div>
-                <div class="stat-card">
-                    <h3>✅ Citas Confirmadas</h3>
-                    <div class="stat-number">{stats[3]}</div>
-                </div>
-                <div class="stat-card">
-                    <h3>📌 Citas Hoy</h3>
-                    <div class="stat-number">{stats[4]}</div>
-                </div>
-            </div>
+#             <div class="stats-container">
+#                 <div class="stat-card">
+#                     <h3>📅 Total Citas</h3>
+#                     <div class="stat-number">{stats[0]}</div>
+#                 </div>
+#                 <div class="stat-card">
+#                     <h3>👥 Total Leads</h3>
+#                     <div class="stat-number">{stats[1]}</div>
+#                 </div>
+#                 <div class="stat-card">
+#                     <h3>⏳ Citas Pendientes</h3>
+#                     <div class="stat-number {'warning' if stats[2] > 0 else 'success'}">{stats[2]}</div>
+#                 </div>
+#                 <div class="stat-card">
+#                     <h3>✅ Citas Confirmadas</h3>
+#                     <div class="stat-number">{stats[3]}</div>
+#                 </div>
+#                 <div class="stat-card">
+#                     <h3>📌 Citas Hoy</h3>
+#                     <div class="stat-number">{stats[4]}</div>
+#                 </div>
+#             </div>
             
-            <h2>📋 Últimas Citas</h2>
-            <table class="table">
-                <tr>
-                    <th>ID</th><th>Nombre</th><th>Teléfono</th><th>Fecha</th><th>Hora</th><th>Estado</th><th>Propiedad</th>
-                </tr>
-        """
+#             <h2>📋 Últimas Citas</h2>
+#             <table class="table">
+#                 <tr>
+#                     <th>ID</th><th>Nombre</th><th>Teléfono</th><th>Fecha</th><th>Hora</th><th>Estado</th><th>Propiedad</th>
+#                 </tr>
+#         """
         
-        for cita in ultimas_citas:
-            estado_color = "green" if cita[5] == 'confirmada' else "orange" if cita[5] == 'pendiente' else "red"
-            html += f"""
-                <tr>
-                    <td><strong>{cita[0]}</strong></td>
-                    <td>{cita[1]}</td>
-                    <td>{cita[2]}</td>
-                    <td>{cita[3]}</td>
-                    <td>{cita[4]}</td>
-                    <td><span style="color:{estado_color}">●</span> {cita[5]}</td>
-                    <td>{cita[6][:30]}...</td>
-                </tr>
-            """
+#         for cita in ultimas_citas:
+#             estado_color = "green" if cita[5] == 'confirmada' else "orange" if cita[5] == 'pendiente' else "red"
+#             html += f"""
+#                 <tr>
+#                     <td><strong>{cita[0]}</strong></td>
+#                     <td>{cita[1]}</td>
+#                     <td>{cita[2]}</td>
+#                     <td>{cita[3]}</td>
+#                     <td>{cita[4]}</td>
+#                     <td><span style="color:{estado_color}">●</span> {cita[5]}</td>
+#                     <td>{cita[6][:30]}...</td>
+#                 </tr>
+#             """
         
-        html += """
-            </table>
+#         html += """
+#             </table>
             
-            <h2>👥 Últimos Leads</h2>
-            <table class="table">
-                <tr><th>ID</th><th>Teléfono</th><th>Acción</th><th>Propiedad</th><th>Fecha</th></tr>
-        """
+#             <h2>👥 Últimos Leads</h2>
+#             <table class="table">
+#                 <tr><th>ID</th><th>Teléfono</th><th>Acción</th><th>Propiedad</th><th>Fecha</th></tr>
+#         """
         
-        for lead in ultimos_leads:
-            html += f"""
-                <tr>
-                    <td>{lead[0]}</td>
-                    <td>{lead[1]}</td>
-                    <td>{lead[2]}</td>
-                    <td>{lead[3][:40]}...</td>
-                    <td>{lead[4]}</td>
-                </tr>
-            """
+#         for lead in ultimos_leads:
+#             html += f"""
+#                 <tr>
+#                     <td>{lead[0]}</td>
+#                     <td>{lead[1]}</td>
+#                     <td>{lead[2]}</td>
+#                     <td>{lead[3][:40]}...</td>
+#                     <td>{lead[4]}</td>
+#                 </tr>
+#             """
         
-        html += """
-            </table>
+#         html += """
+#             </table>
             
-            <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
-                <h3>🔍 Pruebas Rápidas</h3>
-                <p><a href="/test-db-insert">Probar inserción de datos de prueba</a></p>
-                <p><a href="/api/citas?key=dante2026">Ver todas las citas (JSON)</a></p>
-                <p><a href="/api/leads?key=dante2026">Ver todos los leads (JSON)</a></p>
-            </div>
+#             <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+#                 <h3>🔍 Pruebas Rápidas</h3>
+#                 <p><a href="/test-db-insert">Probar inserción de datos de prueba</a></p>
+#                 <p><a href="/api/citas?key=dante2026">Ver todas las citas (JSON)</a></p>
+#                 <p><a href="/api/leads?key=dante2026">Ver todos los leads (JSON)</a></p>
+#             </div>
             
-            <script>
-                // Auto-refresh cada 30 segundos
-                setTimeout(() => location.reload(), 30000);
-            </script>
-        </body>
-        </html>
-        """
+#             <script>
+#                 // Auto-refresh cada 30 segundos
+#                 setTimeout(() => location.reload(), 30000);
+#             </script>
+#         </body>
+#         </html>
+#         """
         
-        return html
+#         return html
         
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
+#     except Exception as e:
+#         return f"❌ Error: {str(e)}"
 
 
-@app.route("/test-db-insert", methods=["GET"])
-def test_db_insert():
-    """Inserta datos de prueba en la base de datos"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return "⚠️ Acceso No Autorizado", 403
+# @app.route("/test-db-insert", methods=["GET"])
+# def test_db_insert():
+#     """Inserta datos de prueba en la base de datos"""
+#     key = request.args.get('key')
+#     if key != ADMIN_ACCESS_KEY:
+#         return "⚠️ Acceso No Autorizado", 403
     
-    try:
-        conn = get_db_connection()
-        if not conn:
-            return "❌ No se pudo conectar a PostgreSQL"
+#     try:
+#         conn = get_db_connection()
+#         if not conn:
+#             return "❌ No se pudo conectar a PostgreSQL"
         
-        cursor = conn.cursor()
+#         cursor = conn.cursor()
         
-        # Insertar cita de prueba
-        cursor.execute("""
-            INSERT INTO citas (id, nombre, telefono, fecha, hora, propiedad_titulo, estado, notas)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (id) DO NOTHING
-        """, (
-            f"C-TEST-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-            "Cliente de Prueba",
-            "5491151511579",
-            datetime.now().strftime("%Y-%m-%d"),
-            "14:30",
-            "Propiedad de Prueba",
-            "pendiente",
-            "Cita creada automáticamente para pruebas"
-        ))
+#         # Insertar cita de prueba
+#         cursor.execute("""
+#             INSERT INTO citas (id, nombre, telefono, fecha, hora, propiedad_titulo, estado, notas)
+#             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+#             ON CONFLICT (id) DO NOTHING
+#         """, (
+#             f"C-TEST-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+#             "Cliente de Prueba",
+#             "5491151511579",
+#             datetime.now().strftime("%Y-%m-%d"),
+#             "14:30",
+#             "Propiedad de Prueba",
+#             "pendiente",
+#             "Cita creada automáticamente para pruebas"
+#         ))
         
-        # Insertar lead de prueba
-        cursor.execute("""
-            INSERT INTO leads (telefono, propiedad_titulo, accion, detalles)
-            VALUES (%s, %s, %s, %s)
-        """, (
-            "5491151511579",
-            "Propiedad de Prueba",
-            "test_insert",
-            "Lead creado automáticamente para pruebas"
-        ))
+#         # Insertar lead de prueba
+#         cursor.execute("""
+#             INSERT INTO leads (telefono, propiedad_titulo, accion, detalles)
+#             VALUES (%s, %s, %s, %s)
+#         """, (
+#             "5491151511579",
+#             "Propiedad de Prueba",
+#             "test_insert",
+#             "Lead creado automáticamente para pruebas"
+#         ))
         
-        conn.commit()
+#         conn.commit()
         
-        # Verificar
-        cursor.execute("SELECT COUNT(*) FROM citas")
-        citas_count = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM leads")
-        leads_count = cursor.fetchone()[0]
+#         # Verificar
+#         cursor.execute("SELECT COUNT(*) FROM citas")
+#         citas_count = cursor.fetchone()[0]
+#         cursor.execute("SELECT COUNT(*) FROM leads")
+#         leads_count = cursor.fetchone()[0]
         
-        conn.close()
+#         conn.close()
         
-        return f"""
-        <h1>✅ Datos de Prueba Insertados</h1>
-        <p>Se insertaron datos de prueba correctamente.</p>
-        <p><strong>Citas totales:</strong> {citas_count}</p>
-        <p><strong>Leads totales:</strong> {leads_count}</p>
-        <p><a href="/admin/db-dashboard?key={key}">← Volver al Dashboard</a></p>
-        """
+#         return f"""
+#         <h1>✅ Datos de Prueba Insertados</h1>
+#         <p>Se insertaron datos de prueba correctamente.</p>
+#         <p><strong>Citas totales:</strong> {citas_count}</p>
+#         <p><strong>Leads totales:</strong> {leads_count}</p>
+#         <p><a href="/admin/db-dashboard?key={key}">← Volver al Dashboard</a></p>
+#         """
         
-    except Exception as e:
-        return f"❌ Error insertando datos: {str(e)}"
+#     except Exception as e:
+#         return f"❌ Error insertando datos: {str(e)}"
 
 
 
@@ -2429,51 +2429,141 @@ def test_postgres():
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)})
     
-@app.route("/db-tables", methods=["GET"])
-def db_tables():
-    """Muestra las tablas existentes en PostgreSQL"""
+# @app.route("/db-tables", methods=["GET"])
+# def db_tables():
+#     """Muestra las tablas existentes en PostgreSQL"""
+#     try:
+#         conn = get_db_connection()
+#         if not conn:
+#             return "❌ No hay conexión a PostgreSQL"
+        
+#         cursor = conn.cursor()
+        
+#         # Ver tablas
+#         cursor.execute("""
+#             SELECT table_name, table_type 
+#             FROM information_schema.tables 
+#             WHERE table_schema = 'public'
+#             ORDER BY table_name
+#         """)
+        
+#         tables = cursor.fetchall()
+        
+#         html = "<h1>📊 Tablas en PostgreSQL</h1>"
+#         if tables:
+#             html += "<table border='1'><tr><th>Tabla</th><th>Tipo</th></tr>"
+#             for table in tables:
+#                 html += f"<tr><td>{table[0]}</td><td>{table[1]}</td></tr>"
+#             html += "</table>"
+#         else:
+#             html += "<p>❌ No hay tablas en la base de datos</p>"
+        
+#         # Ver conteos
+#         if tables:
+#             for table in tables:
+#                 table_name = table[0]
+#                 try:
+#                     cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+#                     count = cursor.fetchone()[0]
+#                     html += f"<p>📈 {table_name}: {count} registros</p>"
+#                 except:
+#                     html += f"<p>⚠️ No se pudo contar {table_name}</p>"
+        
+#         conn.close()
+#         return html
+        
+#     except Exception as e:
+#         return f"❌ Error: {str(e)}"
+
+
+@app.route("/test-postgres", methods=["GET"])
+def test_postgres():
+    """Prueba simple de PostgreSQL"""
     try:
         conn = get_db_connection()
-        if not conn:
-            return "❌ No hay conexión a PostgreSQL"
-        
-        cursor = conn.cursor()
-        
-        # Ver tablas
-        cursor.execute("""
-            SELECT table_name, table_type 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public'
-            ORDER BY table_name
-        """)
-        
-        tables = cursor.fetchall()
-        
-        html = "<h1>📊 Tablas en PostgreSQL</h1>"
-        if tables:
-            html += "<table border='1'><tr><th>Tabla</th><th>Tipo</th></tr>"
-            for table in tables:
-                html += f"<tr><td>{table[0]}</td><td>{table[1]}</td></tr>"
-            html += "</table>"
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1 as test, current_timestamp, version()")
+            result = cursor.fetchone()
+            
+            # Ver tablas
+            cursor.execute("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public'
+            """)
+            tables = [row[0] for row in cursor.fetchall()]
+            
+            conn.close()
+            
+            return jsonify({
+                "status": "connected",
+                "test": result[0],
+                "timestamp": str(result[1]),
+                "version": result[2],
+                "tables": tables,
+                "message": f"Conectado a PostgreSQL. Tablas: {', '.join(tables) if tables else 'Ninguna'}"
+            })
         else:
-            html += "<p>❌ No hay tablas en la base de datos</p>"
-        
-        # Ver conteos
-        if tables:
-            for table in tables:
-                table_name = table[0]
-                try:
-                    cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
-                    count = cursor.fetchone()[0]
-                    html += f"<p>📈 {table_name}: {count} registros</p>"
-                except:
-                    html += f"<p>⚠️ No se pudo contar {table_name}</p>"
-        
-        conn.close()
-        return html
-        
+            return jsonify({"status": "no_connection", "message": "No hay conexión"})
     except Exception as e:
-        return f"❌ Error: {str(e)}"
+        return jsonify({"status": "error", "error": str(e)})
+
+def registrar_lead(user_id, propiedad_id, accion, detalle=""):
+    """Registra una interacción de lead"""
+    log(f"🔥🔥🔥🔥🔥 REGISTRAR_LEAD INICIADO")
+    log(f"🔥 User: {user_id}")
+    log(f"🔥 Propiedad ID: {propiedad_id}")
+    log(f"🔥 Acción: {accion}")
+    log(f"🔥 Detalle: {detalle}")
+    
+    try:
+        # Buscar propiedad para obtener título
+        propiedades = cargar_propiedades()
+        log(f"🔥 Propiedades cargadas: {len(propiedades)}")
+        
+        propiedad = next((p for p in propiedades if p.get('id_temporal') == propiedad_id), None)
+        log(f"🔥 Propiedad encontrada: {propiedad is not None}")
+        
+        titulo = propiedad.get('titulo', 'Sin título') if propiedad else 'Propiedad no encontrada'
+        log(f"🔥 Título propiedad: {titulo}")
+        
+        # ==== INTENTAR POSTGRESQL PRIMERO ====
+        log(f"🔥 Intentando PostgreSQL...")
+        conn = get_db_connection()
+        if conn:
+            try:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO leads (telefono, nombre, propiedad_id, propiedad_titulo, accion, detalles)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (user_id, '', propiedad_id, titulo, accion, detalle))
+                
+                lead_id = cursor.fetchone()[0]
+                conn.commit()
+                conn.close()
+                
+                log(f"✅✅✅ Lead registrado en PostgreSQL ID: {lead_id}")
+                
+                # Notificar al admin
+                notificar_agente(f"📈 NUEVO LEAD (PostgreSQL)\n👤 {user_id}\n🏠 {titulo[:50]}\n🔗 Acción: {accion}")
+                
+                return True
+                
+            except Exception as e:
+                log(f"❌❌❌ ERROR PostgreSQL: {e}")
+                conn.close()
+                return False
+        else:
+            log(f"❌ No hay conexión a PostgreSQL")
+            return False
+            
+    except Exception as e:
+        log(f"🔥🔥🔥 ERROR CRÍTICO: {e}")
+        import traceback
+        log(f"🔥 Traceback: {traceback.format_exc()[:300]}")
+        return False
 
 
 @app.route("/propiedades-info", methods=["GET"])
@@ -3091,41 +3181,45 @@ def start_monitor():
 
 if __name__ == "__main__":
     print("\n" + "=" * 60)
-    print("🏠 🏠 🏠 WHATSAPP BOT INMOBILIARIO - VERSIÓN 3.0 (PostgreSQL)")
+    print("🏠 WHATSAPP BOT - DIAGNÓSTICO POSTGRESQL")
     print("=" * 60)
     
-    # Inicializar base de datos PostgreSQL
-    print("🔧 Inicializando base de datos PostgreSQL...")
-    if init_database():
-        print("✅ Base de datos PostgreSQL inicializada correctamente")
-        
-        # Mostrar estadísticas
-        conn = get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) as count FROM citas")
-            citas_count = cursor.fetchone()[0]
-            cursor.execute("SELECT COUNT(*) as count FROM leads")
-            leads_count = cursor.fetchone()[0]
-            conn.close()
-            
-            print(f"📊 Estadísticas iniciales:")
-            print(f"   📅 Citas en DB: {citas_count}")
-            print(f"   👥 Leads en DB: {leads_count}")
-    else:
-        print("⚠️  Advertencia: No se pudo inicializar PostgreSQL")
-        print("   Se usará almacenamiento temporal en memoria")
+    # ========== DIAGNÓSTICO POSTGRESQL ==========
+    print("🔍 Diagnosticando PostgreSQL...")
     
-    # Cargar propiedades
+    # 1. Verificar DATABASE_URL
+    if DATABASE_URL:
+        print(f"✅ DATABASE_URL encontrada: {DATABASE_URL[:50]}...")
+    else:
+        print("❌ DATABASE_URL NO encontrada")
+        print("   Asegúrate de configurarla en Render Environment")
+    
+    # 2. Inicializar base de datos
+    print("📊 Inicializando tablas PostgreSQL...")
+    if init_database():
+        print("✅ Tablas PostgreSQL inicializadas")
+    else:
+        print("❌ Error inicializando PostgreSQL")
+    
+    # 3. Probar conexión
+    print("🔌 Probando conexión a PostgreSQL...")
+    conn = get_db_connection()
+    if conn:
+        print("✅ Conexión PostgreSQL exitosa")
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM citas")
+        citas_count = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM leads")
+        leads_count = cursor.fetchone()[0]
+        conn.close()
+        print(f"   📅 Citas: {citas_count}")
+        print(f"   👥 Leads: {leads_count}")
+    else:
+        print("❌ No se pudo conectar a PostgreSQL")
+    
+    # Resto del código normal...
     propiedades = cargar_propiedades()
     print(f"📊 Propiedades cargadas: {len(propiedades)}")
-    # Iniciar monitor de base de datos
-    start_monitor()
-    if propiedades:
-        ventas = len([p for p in propiedades if p.get('operacion') == 'venta'])
-        alquileres = len([p for p in propiedades if p.get('operacion') == 'alquiler'])
-        print(f"💰 En venta: {ventas} propiedades")
-        print(f"🔑 En alquiler: {alquileres} propiedades")
     
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
