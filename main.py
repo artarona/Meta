@@ -39,6 +39,18 @@ processed_message_ids = deque(maxlen=100)
 # IMPORTANTE: En Render, la variable DATABASE_URL se configura automáticamente
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
+
+
+# Almacenamiento en memoria para desarrollo/fallback
+citas_memoria = []
+leads_memoria = []
+
+def log(message):
+    """Función para logging"""
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"{timestamp} {message}", flush=True)
+
+
 if not DATABASE_URL:
     log("⚠️ ADVERTENCIA: DATABASE_URL no encontrada en variables de entorno")
     log("   En Render, configúrala en Environment Variables")
@@ -49,14 +61,42 @@ if not DATABASE_URL:
     log("   4. Configúrala en Environment Variables de tu web service")
     DATABASE_URL = None
 
-# Almacenamiento en memoria para desarrollo/fallback
-citas_memoria = []
-leads_memoria = []
 
-def log(message):
-    """Función para logging"""
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(f"{timestamp} {message}", flush=True)
+def guardar_citas_backup():
+    """Guarda las citas en memoria a un archivo JSON al salir"""
+    try:
+        if citas_memoria:
+            backup_file = "citas_backup.json"
+            with open(backup_file, 'w', encoding='utf-8') as f:
+                json.dump({
+                    'timestamp': datetime.now().isoformat(),
+                    'citas': citas_memoria,
+                    'total': len(citas_memoria)
+                }, f, indent=2, ensure_ascii=False)
+            log(f"💾 Backup guardado: {backup_file} ({len(citas_memoria)} citas)")
+    except Exception as e:
+        log(f"❌ Error guardando backup: {e}")
+
+def cargar_citas_backup():
+    """Carga citas desde backup si existen"""
+    global citas_memoria
+    try:
+        backup_file = "citas_backup.json"
+        if os.path.exists(backup_file):
+            with open(backup_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                citas_memoria = data.get('citas', [])
+                log(f"💾 Backup cargado: {len(citas_memoria)} citas desde {backup_file}")
+                return True
+    except Exception as e:
+        log(f"❌ Error cargando backup: {e}")
+    return False
+
+# Registrar función de backup al salir
+atexit.register(guardar_citas_backup)
+
+
+
 
 def get_db_connection():
     """Conexión a PostgreSQL con psycopg2"""
@@ -294,38 +334,7 @@ def crear_cita_db(user_id, nombre, telefono, fecha, hora, propiedad_id, propieda
 
 
 # Función para guardar citas en archivo al salir
-def guardar_citas_backup():
-    """Guarda las citas en memoria a un archivo JSON al salir"""
-    try:
-        if citas_memoria:
-            backup_file = "citas_backup.json"
-            with open(backup_file, 'w', encoding='utf-8') as f:
-                json.dump({
-                    'timestamp': datetime.now().isoformat(),
-                    'citas': citas_memoria,
-                    'total': len(citas_memoria)
-                }, f, indent=2, ensure_ascii=False)
-            log(f"💾 Backup guardado: {backup_file} ({len(citas_memoria)} citas)")
-    except Exception as e:
-        log(f"❌ Error guardando backup: {e}")
 
-def cargar_citas_backup():
-    """Carga citas desde backup si existen"""
-    global citas_memoria
-    try:
-        backup_file = "citas_backup.json"
-        if os.path.exists(backup_file):
-            with open(backup_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                citas_memoria = data.get('citas', [])
-                log(f"💾 Backup cargado: {len(citas_memoria)} citas desde {backup_file}")
-                return True
-    except Exception as e:
-        log(f"❌ Error cargando backup: {e}")
-    return False
-
-# Registrar función de backup al salir
-atexit.register(guardar_citas_backup)
 
 
 
