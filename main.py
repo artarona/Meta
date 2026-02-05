@@ -2002,6 +2002,38 @@ def db_test_simple():
         })
 
 
+@app.route("/check-env", methods=["GET"])
+def check_env():
+    """Verifica las variables de entorno configuradas"""
+    # Obtener todas las variables de entorno relevantes
+    env_vars = {
+        "DATABASE_URL": "✅ Configurada" if os.environ.get('DATABASE_URL') else "❌ NO CONFIGURADA",
+        "VERIFY_TOKEN": "✅ Configurada" if os.environ.get('VERIFY_TOKEN') else "❌ NO CONFIGURADA",
+        "ACCESS_TOKEN": "✅ Configurada" if os.environ.get('ACCESS_TOKEN') else "❌ NO CONFIGURADA",
+        "PORT": os.environ.get('PORT', '10000 (default)'),
+        "PYTHON_VERSION": os.environ.get('PYTHON_VERSION', 'No especificada')
+    }
+    
+    # Mostrar valores (ocultando contraseñas)
+    db_url = os.environ.get('DATABASE_URL', '')
+    safe_db_url = "No configurada"
+    if db_url:
+        if '@' in db_url:
+            parts = db_url.split('@')
+            user_part = parts[0]
+            if ':' in user_part:
+                user = user_part.split(':')[0]
+                safe_db_url = f"postgres://{user}:****@{parts[1]}"
+        else:
+            safe_db_url = db_url[:50] + "..." if len(db_url) > 50 else db_url
+    
+    return jsonify({
+        "environment_variables": env_vars,
+        "database_url_safe": safe_db_url,
+        "database_url_length": len(db_url) if db_url else 0,
+        "suggestion": "Configura DATABASE_URL en Render > Environment Variables"
+    })
+
 
 @app.route("/test", methods=["GET"])
 def test_send():
@@ -2085,6 +2117,53 @@ def test_postgres():
             "citas_in_memory": len(citas_memoria),
             "leads_in_memory": len(leads_memoria)
         })
+
+
+@app.route("/env-status", methods=["GET"])
+def env_status():
+    """Muestra el estado de las variables de entorno"""
+    status = {}
+    
+    # Verificar cada variable
+    variables = ['DATABASE_URL', 'VERIFY_TOKEN', 'ACCESS_TOKEN', 'ADMIN_ACCESS_KEY', 'PORT']
+    
+    for var in variables:
+        value = os.environ.get(var)
+        if value:
+            # Ocultar información sensible
+            if var == 'DATABASE_URL' and '@' in value:
+                parts = value.split('@')
+                user_part = parts[0]
+                if ':' in user_part:
+                    user = user_part.split(':')[0]
+                    safe_value = f"postgres://{user}:****@{parts[1]}"
+                else:
+                    safe_value = "Configurada (oculta)"
+            elif var == 'ACCESS_TOKEN':
+                safe_value = f"{value[:15]}... (longitud: {len(value)})"
+            elif var in ['VERIFY_TOKEN', 'ADMIN_ACCESS_KEY']:
+                safe_value = "Configurada (oculta por seguridad)"
+            else:
+                safe_value = value
+                
+            status[var] = {
+                "configurada": True,
+                "valor_seguro": safe_value,
+                "longitud": len(value)
+            }
+        else:
+            status[var] = {
+                "configurada": False,
+                "error": f"❌ NO CONFIGURADA - Agrega {var} en Environment Variables"
+            }
+    
+    return jsonify({
+        "timestamp": datetime.now().isoformat(),
+        "variables": status,
+        "total_configuradas": sum(1 for v in status.values() if v['configurada']),
+        "total_esperadas": len(variables)
+    })
+
 
 @app.route("/propiedades-info", methods=["GET"])
 def propiedades_info():
@@ -2340,6 +2419,7 @@ def health_check():
 
 # ========== INICIALIZACIÓN ==========
 # ========== INICIALIZACIÓN ==========
+# ========== INICIALIZACIÓN ==========
 if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("🏠 WHATSAPP BOT - DANTE PROPIEDADES")
@@ -2358,29 +2438,43 @@ if __name__ == "__main__":
         print(f"❌❌❌ TOKEN INVÁLIDO O EXPIRADO ❌❌❌")
         print(f"   ⚠️  El bot NO PODRÁ ENVIAR MENSAJES")
     
-    # Inicializar PostgreSQL (si está disponible)
-    print("🔧 Inicializando base de datos...")
-    if init_postgresql():
-        print("✅ PostgreSQL conectado y listo")
-        print(f"   💾 Persistencia: ACTIVADA")
-        print(f"   ⚠️  Las citas NO se perderán al reiniciar")
+    # INICIALIZAR POSTGRESQL (ESTO ES LO IMPORTANTE)
+    print("\n🔧 Inicializando base de datos...")
+    
+    # Mostrar estado de DATABASE_URL
+    if DATABASE_URL:
+        safe_url = DATABASE_URL
+        if '@' in safe_url:
+            parts = safe_url.split('@')
+            user_part = parts[0]
+            if ':' in user_part:
+                user = user_part.split(':')[0]
+                safe_url = f"postgres://{user}:****@{parts[1]}"
+        print(f"   📊 DATABASE_URL: {safe_url[:80]}...")
+        
+        # Intentar conexión
+        if init_postgresql():
+            print("✅ PostgreSQL conectado y listo")
+            print(f"   💾 Persistencia: ACTIVADA")
+            print(f"   ✅ Las citas NO se perderán al reiniciar")
+        else:
+            print("❌ Error inicializando PostgreSQL")
+            print(f"   💾 Persistencia: DESACTIVADA")
+            print(f"   ⚠️  LAS CITAS SE PERDERÁN AL REINICIAR")
     else:
-        print("⚠️  PostgreSQL no disponible")
-        print("   💾 Persistencia: DESACTIVADA")
+        print("❌ DATABASE_URL no configurada")
+        print(f"   💾 Persistencia: DESACTIVADA")
         print(f"   ⚠️  LAS CITAS SE PERDERÁN AL REINICIAR")
-        print(f"   Citas en memoria: {len(citas_memoria)}")
-        print(f"   Leads en memoria: {len(leads_memoria)}")
         print(f"   🔧 Para activar persistencia:")
-        print(f"   1. Ve a Render Dashboard")
-        print(f"   2. Crea una nueva base de datos PostgreSQL")
-        print(f"   3. Copia la DATABASE_URL")
-        print(f"   4. Configúrala en Environment Variables")
+        print(f"   1. Ve a Render Dashboard > Tu web service")
+        print(f"   2. Environment Variables")
+        print(f"   3. Agrega DATABASE_URL con Internal Database URL")
     
     propiedades = cargar_propiedades()
     print(f"📊 Propiedades cargadas: {len(propiedades)}")
     
     # Mostrar estado del sistema
-    print(f"🌐 URL: https://meta-chat-npbx.onrender.com")
+    print(f"🌐 URL: https://tudominio.onrender.com")
     print(f"📁 Propiedades: {PROPIEDADES_FILE}")
     print(f"📅 Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60 + "\n")
