@@ -8,6 +8,12 @@ import threading
 import re  # Para expresiones regulares
 import pandas as pd
 from openpyxl import Workbook, load_workbook
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+
+
+
 
 app = Flask(__name__)
 
@@ -16,10 +22,6 @@ VERIFY_TOKEN = "mi_token_secreto_123"
 ACCESS_TOKEN = "EAAJYsGl5pHgBQkRuStkU3AqgTjfFkRAFm8qEqmEXANRLvGbe8TebZBgdiZAs0aSL8F0UuSN85ZAqreQiPg3Ryk4mPh3vZBA8glcVktXyIjlZCuHih0CGsnkpPesnfTjjNrr8knYnpn7sY0ZCteFZCSe8XQ7f6qdQ12CUhy38UmLD10GPU9SsinkqVLoAUqVu0SROyOZAZCSxRZBS1bMcp9cmhdwZAFSctZBtr57aXjxudsyyxuFA2dJTs62wYY4b4vdF8MZAbrBZCflq2CnjN7DEeCTlQDhB7pqVOMwPYZCywZDZD
 PHONE_NUMBER_ID = "1000705633118215"
 ADMIN_NUMBER = "5491151511579"  # Número donde llegarán las alertas de leads
-# LEADS_FILE = "leads.json"
-LEADS_EXCEL_FILE = "leads.xlsx"  # Único archivo para todo
-CITAS_SHEET_NAME = "Citas"       # Hoja para citas
-LEADS_SHEET_NAME = "Leads"       # Hoja para leads generales
 ADMIN_ACCESS_KEY = "dante2026"  # Llave para acceder al panel admin
 
 
@@ -38,6 +40,121 @@ print(f"🌐 URL: https://meta-chat-npbx.onrender.com")
 print(f"📁 Propiedades: {PROPIEDADES_FILE}")
 print(f"📅 Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 print("=" * 60 + "\n")
+
+
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if not DATABASE_URL:
+    log("⚠️  ADVERTENCIA: DATABASE_URL no encontrada. Usando SQLite local.")
+    DATABASE_URL = "postgresql://localhost/dante_propiedades"
+
+
+
+# ========== CONEXIÓN A POSTGRESQL ==========
+def get_db_connection():
+    """Obtiene conexión a PostgreSQL"""
+    try:
+        conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+        return conn
+    except Exception as e:
+        log(f"❌ Error conectando a PostgreSQL: {e}")
+        # Si falla, intentar con SQLite como fallback
+        try:
+            import sqlite3
+            log("🔄 Intentando con SQLite como fallback...")
+            conn = sqlite3.connect('local_database.db')
+            conn.row_factory = sqlite3.Row
+            return conn
+        except Exception as e2:
+            log(f"🔥 Error crítico de base de datos: {e2}")
+            return None
+
+def init_database():
+    """Inicializa las tablas en PostgreSQL si no existen"""
+    conn = get_db_connection()
+    if not conn:
+        log("❌ No se pudo conectar a la base de datos")
+        return False
+    
+    try:
+        cursor = conn.cursor()
+        
+        # Tabla de citas
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS citas (
+                id VARCHAR(50) PRIMARY KEY,
+                nombre VARCHAR(100) NOT NULL,
+                telefono VARCHAR(20) NOT NULL,
+                email VARCHAR(100),
+                fecha VARCHAR(10) NOT NULL,
+                hora VARCHAR(5) NOT NULL,
+                propiedad_id VARCHAR(50),
+                propiedad_titulo VARCHAR(200),
+                estado VARCHAR(20) DEFAULT 'pendiente',
+                notas TEXT,
+                creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                ultima_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                recordatorio_enviado BOOLEAN DEFAULT FALSE
+            )
+        ''')
+        
+        # Tabla de leads
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS leads (
+                id SERIAL PRIMARY KEY,
+                fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                telefono VARCHAR(20),
+                nombre VARCHAR(100),
+                propiedad_id VARCHAR(50),
+                propiedad_titulo VARCHAR(200),
+                accion VARCHAR(50),
+                detalles TEXT,
+                tipo_lead VARCHAR(30),
+                interes VARCHAR(20),
+                seguimiento TEXT,
+                prioridad VARCHAR(20),
+                agente_asignado VARCHAR(100)
+            )
+        ''')
+        
+        # Tabla de propiedades (opcional, para cache)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS propiedades_cache (
+                id_temporal VARCHAR(50) PRIMARY KEY,
+                titulo VARCHAR(200),
+                operacion VARCHAR(20),
+                barrio VARCHAR(100),
+                precio DECIMAL(15,2),
+                moneda_precio VARCHAR(10),
+                ambientes INTEGER,
+                metros_cuadrados DECIMAL(10,2),
+                tipo VARCHAR(50),
+                estado VARCHAR(50),
+                expensas DECIMAL(15,2),
+                moneda_expensas VARCHAR(10),
+                descripcion TEXT,
+                fotos TEXT,
+                cochera BOOLEAN,
+                balcon BOOLEAN,
+                pileta BOOLEAN,
+                aire_acondicionado BOOLEAN,
+                acepta_mascotas BOOLEAN,
+                direccion VARCHAR(200),
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        conn.commit()
+        log("✅ Base de datos PostgreSQL inicializada correctamente")
+        return True
+        
+    except Exception as e:
+        log(f"❌ Error inicializando base de datos: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+
 
 
 # ========== CONFIGURACIÓN DE CITAS ==========
@@ -106,7 +223,7 @@ def registrar_lead(user_id, propiedad_id, accion, detalle=""):
             'prioridad': 'Alta' if 'completo' in accion else 'Normal'
         }
         
-        if registrar_lead_excel(lead_data):
+        if registrar_lead_db(lead_data):
             log(f"📈 Lead registrado en Excel: {user_id} - {accion}")
             return True
         else:
@@ -1275,35 +1392,29 @@ def admin_panel():
 
 @app.route("/api/leads", methods=["GET"])
 def api_leads():
-    """Retorna todos los leads desde Excel"""
+    """Retorna todos los leads desde PostgreSQL"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
     
-    try:
-        if not os.path.exists(LEADS_EXCEL_FILE):
-            inicializar_excel()
-            return jsonify({"leads": []})
-        
-        df = pd.read_excel(LEADS_EXCEL_FILE, sheet_name=LEADS_SHEET_NAME)
-        
-        if df.empty:
-            return jsonify({"leads": []})
-        
-        leads = []
-        for _, row in df.iterrows():
-            leads.append({
-                'user_id': str(row.get('Teléfono', '')),
-                'accion': row.get('Acción', ''),
-                'detalle': row.get('Detalles', ''),
-                'timestamp': str(row.get('Fecha', ''))
-            })
-        
-        return jsonify({"leads": leads})
-        
-    except Exception as e:
-        log(f"❌ Error cargando leads desde Excel: {e}")
+    conn = get_db_connection()
+    if not conn:
         return jsonify({"leads": []})
+    
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("""
+            SELECT * FROM leads 
+            ORDER BY fecha DESC 
+            LIMIT 100
+        """)
+        leads = [dict(lead) for lead in cursor.fetchall()]
+        return jsonify({"leads": leads})
+    except Exception as e:
+        log(f"❌ Error cargando leads desde DB: {e}")
+        return jsonify({"leads": []})
+    finally:
+        conn.close()
 
 
 
@@ -1508,13 +1619,13 @@ def webhook():
 # ========== GESTIÓN DE CITAS ==========
 def cargar_citas():
     """Carga todas las citas desde Excel (REEMPLAZA la función JSON)"""
-    return cargar_citas_excel()
+    return cargar_citas_db()
 
-def guardar_citas(citas_lista):
+def guardar_cita(citas_lista):
     """Guarda una lista de citas en Excel (REEMPLAZA la función JSON)"""
     try:
         for cita in citas_lista:
-            guardar_cita_excel(cita)
+            guardar_cita_db(cita)
         return True
     except Exception as e:
         log(f"❌ Error guardando lista de citas: {e}")
@@ -1526,7 +1637,7 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, propiedad_t
         log(f"📝 Creando cita para {nombre} en Excel...")
         
         # Cargar citas existentes
-        citas = cargar_citas_excel()
+        citas = cargar_citas_db()
         cita_id = f"C{len(citas) + 1:04d}"
         
         cita_data = {
@@ -1546,7 +1657,7 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, propiedad_t
         }
         
         # Guardar en Excel
-        if guardar_cita_excel(cita_data):
+        if guardar_cita_db(cita_data):
             log(f"✅ CITA CREADA EN EXCEL: {cita_id}")
             
             # Registrar también como lead
@@ -1561,7 +1672,7 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, propiedad_t
                 'interes': 'Alto',
                 'prioridad': 'Alta'
             }
-            registrar_lead_excel(lead_data)
+            registrar_lead_db(lead_data)
             
             # Notificar al admin
             notificar_cita_admin(cita_data)
@@ -1671,7 +1782,7 @@ def diagnostico_excel():
             "tamano": os.path.getsize(LEADS_EXCEL_FILE) if os.path.exists(LEADS_EXCEL_FILE) else 0,
             "hojas": obtener_hojas_excel() if os.path.exists(LEADS_EXCEL_FILE) else []
         },
-        "citas_en_memoria": len(cargar_citas_excel()),
+        "citas_en_memoria": len(cargar_citas_db()),
         "directorio": os.listdir('.')
     }
     return jsonify(info)
@@ -1766,7 +1877,7 @@ def crear_citas_prueba():
                 'ultima_actualizacion': datetime.now().isoformat(),
                 'recordatorio_enviado': False
             })
-            guardar_cita_excel(cita)
+            guardar_cita_db(cita)
         
         log("✅ Citas de prueba creadas")
     except Exception as e:
@@ -1774,142 +1885,154 @@ def crear_citas_prueba():
 
 
 
-def cargar_citas_excel():
-    """Carga todas las citas desde Excel"""
-    try:
-        if not os.path.exists(LEADS_EXCEL_FILE):
-            inicializar_excel()
-            return []
-        
-        df = pd.read_excel(LEADS_EXCEL_FILE, sheet_name=CITAS_SHEET_NAME)
-        
-        if df.empty:
-            return []
-        
-        # Convertir DataFrame a lista de diccionarios
-        citas = []
-        for _, row in df.iterrows():
-            cita = {
-                'id': str(row.get('ID', '')),
-                'nombre': str(row.get('Nombre', '')),
-                'telefono': str(row.get('Teléfono', '')),
-                'email': str(row.get('Email', '')),
-                'fecha': str(row.get('Fecha Cita', '')),
-                'hora': str(row.get('Hora Cita', '')),
-                'propiedad_id': str(row.get('Propiedad ID', '')),
-                'propiedad_titulo': str(row.get('Título Propiedad', '')),
-                'estado': str(row.get('Estado', 'pendiente')).lower(),
-                'notas': str(row.get('Notas', '')),
-                'creacion': str(row.get('Fecha Creación', '')),
-                'ultima_actualizacion': str(row.get('Última Actualización', '')),
-                'recordatorio_enviado': bool(row.get('Recordatorio Enviado', False))
-            }
-            citas.append(cita)
-        
-        log(f"✅ Cargadas {len(citas)} citas desde Excel")
-        return citas
-        
-    except Exception as e:
-        log(f"❌ Error cargando citas desde Excel: {e}")
+def cargar_citas_db():
+    """Carga todas las citas desde PostgreSQL"""
+    conn = get_db_connection()
+    if not conn:
         return []
-
-def guardar_cita_excel(cita_data):
-    """Guarda o actualiza una cita en Excel"""
+    
     try:
-        if not os.path.exists(LEADS_EXCEL_FILE):
-            inicializar_excel()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("""
+            SELECT id, nombre, telefono, email, fecha, hora, 
+                   propiedad_id, propiedad_titulo, estado, notas,
+                   TO_CHAR(creacion, 'YYYY-MM-DD HH24:MI:SS') as creacion,
+                   TO_CHAR(ultima_actualizacion, 'YYYY-MM-DD HH24:MI:SS') as ultima_actualizacion,
+                   recordatorio_enviado
+            FROM citas 
+            ORDER BY fecha DESC, hora DESC
+        """)
+        citas = cursor.fetchall()
+        # Convertir a diccionario regular
+        citas_list = [dict(cita) for cita in citas]
+        log(f"✅ Cargadas {len(citas_list)} citas desde PostgreSQL")
+        return citas_list
+    except Exception as e:
+        log(f"❌ Error cargando citas desde DB: {e}")
+        return []
+    finally:
+        conn.close()
+
+def guardar_cita_db(cita_data):
+    """Guarda o actualiza una cita en PostgreSQL"""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    
+    try:
+        cursor = conn.cursor()
         
-        # Cargar citas existentes
-        wb = load_workbook(LEADS_EXCEL_FILE)
-        ws = wb[CITAS_SHEET_NAME]
+        cursor.execute("""
+            INSERT INTO citas (id, nombre, telefono, email, fecha, hora, 
+                              propiedad_id, propiedad_titulo, estado, notas,
+                              creacion, ultima_actualizacion, recordatorio_enviado)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO UPDATE SET
+                nombre = EXCLUDED.nombre,
+                telefono = EXCLUDED.telefono,
+                email = EXCLUDED.email,
+                fecha = EXCLUDED.fecha,
+                hora = EXCLUDED.hora,
+                propiedad_id = EXCLUDED.propiedad_id,
+                propiedad_titulo = EXCLUDED.propiedad_titulo,
+                estado = EXCLUDED.estado,
+                notas = EXCLUDED.notas,
+                ultima_actualizacion = EXCLUDED.ultima_actualizacion,
+                recordatorio_enviado = EXCLUDED.recordatorio_enviado
+        """, (
+            cita_data.get('id'),
+            cita_data.get('nombre', ''),
+            cita_data.get('telefono', ''),
+            cita_data.get('email', ''),
+            cita_data.get('fecha', ''),
+            cita_data.get('hora', ''),
+            cita_data.get('propiedad_id', ''),
+            cita_data.get('propiedad_titulo', ''),
+            cita_data.get('estado', 'pendiente'),
+            cita_data.get('notas', ''),
+            cita_data.get('creacion', datetime.now().isoformat()),
+            datetime.now().isoformat(),
+            cita_data.get('recordatorio_enviado', False)
+        ))
         
-        # Verificar si la cita ya existe (por ID)
-        cita_id = cita_data.get('id')
-        fila_existente = None
+        conn.commit()
+        log(f"✅ Cita guardada en PostgreSQL: {cita_data.get('id')}")
+        return True
+    except Exception as e:
+        log(f"❌ Error guardando cita en DB: {e}")
+        return False
+    finally:
+        conn.close()
         
-        for row in range(2, ws.max_row + 1):
-            if ws.cell(row=row, column=1).value == cita_id:
-                fila_existente = row
-                break
+
+def registrar_lead_db(lead_data):
+    """Registra un lead en PostgreSQL"""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    
+    try:
+        cursor = conn.cursor()
         
-        if fila_existente:
-            # Actualizar cita existente
-            log(f"🔄 Actualizando cita existente: {cita_id}")
-            ws.cell(row=fila_existente, column=2, value=cita_data.get('creacion', ''))
-            ws.cell(row=fila_existente, column=3, value=cita_data.get('nombre', ''))
-            ws.cell(row=fila_existente, column=4, value=cita_data.get('telefono', ''))
-            ws.cell(row=fila_existente, column=5, value=cita_data.get('email', ''))
-            ws.cell(row=fila_existente, column=6, value=cita_data.get('fecha', ''))
-            ws.cell(row=fila_existente, column=7, value=cita_data.get('hora', ''))
-            ws.cell(row=fila_existente, column=8, value=cita_data.get('propiedad_id', ''))
-            ws.cell(row=fila_existente, column=9, value=cita_data.get('propiedad_titulo', ''))
-            ws.cell(row=fila_existente, column=10, value=cita_data.get('estado', 'pendiente'))
-            ws.cell(row=fila_existente, column=11, value=cita_data.get('notas', ''))
-            ws.cell(row=fila_existente, column=12, value=cita_data.get('ultima_actualizacion', ''))
-            ws.cell(row=fila_existente, column=13, value=cita_data.get('recordatorio_enviado', False))
+        cursor.execute("""
+            INSERT INTO leads (telefono, nombre, propiedad_id, propiedad_titulo, 
+                              accion, detalles, tipo_lead, interes, seguimiento, 
+                              prioridad, agente_asignado)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            lead_data.get('telefono', ''),
+            lead_data.get('nombre', ''),
+            lead_data.get('propiedad_id', ''),
+            lead_data.get('propiedad_titulo', ''),
+            lead_data.get('accion', ''),
+            lead_data.get('detalles', ''),
+            lead_data.get('tipo_lead', 'Interesado'),
+            lead_data.get('interes', 'Medio'),
+            lead_data.get('seguimiento', ''),
+            lead_data.get('prioridad', 'Normal'),
+            lead_data.get('agente', '')
+        ))
+        
+        lead_id = cursor.fetchone()[0]
+        conn.commit()
+        log(f"✅ Lead registrado en PostgreSQL con ID: {lead_id}")
+        return True
+    except Exception as e:
+        log(f"❌ Error registrando lead en DB: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+
+def registrar_lead(user_id, propiedad_id, accion, detalle=""):
+    """Registra una interacción de lead en PostgreSQL"""
+    try:
+        # ... mismo código para buscar propiedad ...
+        
+        lead_data = {
+            'telefono': user_id,
+            'nombre': '',
+            'propiedad_id': propiedad_id,
+            'propiedad_titulo': titulo,
+            'accion': accion,
+            'detalles': detalle,
+            'tipo_lead': 'Interesado',
+            'interes': 'Alto' if 'caliente' in accion else 'Medio',
+            'prioridad': 'Alta' if 'completo' in accion else 'Normal',
+            'agente': ''
+        }
+        
+        if registrar_lead_db(lead_data):  # ← Cambiado
+            log(f"📈 Lead registrado en PostgreSQL: {user_id} - {accion}")
+            return True
         else:
-            # Nueva cita
-            log(f"➕ Agregando nueva cita: {cita_id}")
-            nueva_fila = ws.max_row + 1
-            ws.cell(row=nueva_fila, column=1, value=cita_data.get('id', ''))
-            ws.cell(row=nueva_fila, column=2, value=cita_data.get('creacion', ''))
-            ws.cell(row=nueva_fila, column=3, value=cita_data.get('nombre', ''))
-            ws.cell(row=nueva_fila, column=4, value=cita_data.get('telefono', ''))
-            ws.cell(row=nueva_fila, column=5, value=cita_data.get('email', ''))
-            ws.cell(row=nueva_fila, column=6, value=cita_data.get('fecha', ''))
-            ws.cell(row=nueva_fila, column=7, value=cita_data.get('hora', ''))
-            ws.cell(row=nueva_fila, column=8, value=cita_data.get('propiedad_id', ''))
-            ws.cell(row=nueva_fila, column=9, value=cita_data.get('propiedad_titulo', ''))
-            ws.cell(row=nueva_fila, column=10, value=cita_data.get('estado', 'pendiente'))
-            ws.cell(row=nueva_fila, column=11, value=cita_data.get('notas', ''))
-            ws.cell(row=nueva_fila, column=12, value=cita_data.get('ultima_actualizacion', ''))
-            ws.cell(row=nueva_fila, column=13, value=cita_data.get('recordatorio_enviado', False))
-        
-        wb.save(LEADS_EXCEL_FILE)
-        log(f"✅ Cita guardada en Excel: {cita_id}")
-        return True
-        
+            log(f"❌ Error registrando lead en PostgreSQL")
+            return False
     except Exception as e:
-        log(f"🔥 Error guardando cita en Excel: {e}")
+        log(f"🔥 Error registrando lead: {e}")
         return False
-
-def registrar_lead_excel(lead_data):
-    """Registra un lead en la hoja Leads"""
-    try:
-        if not os.path.exists(LEADS_EXCEL_FILE):
-            inicializar_excel()
-        
-        wb = load_workbook(LEADS_EXCEL_FILE)
-        ws = wb[LEADS_SHEET_NAME]
-        
-        # Generar ID único
-        lead_id = f"L{ws.max_row:05d}"
-        
-        # Agregar nueva fila
-        nueva_fila = ws.max_row + 1
-        ws.cell(row=nueva_fila, column=1, value=lead_id)
-        ws.cell(row=nueva_fila, column=2, value=datetime.now().isoformat())
-        ws.cell(row=nueva_fila, column=3, value=lead_data.get('telefono', ''))
-        ws.cell(row=nueva_fila, column=4, value=lead_data.get('nombre', ''))
-        ws.cell(row=nueva_fila, column=5, value=lead_data.get('propiedad_id', ''))
-        ws.cell(row=nueva_fila, column=6, value=lead_data.get('propiedad_titulo', ''))
-        ws.cell(row=nueva_fila, column=7, value=lead_data.get('accion', ''))
-        ws.cell(row=nueva_fila, column=8, value=lead_data.get('detalles', ''))
-        ws.cell(row=nueva_fila, column=9, value=lead_data.get('tipo_lead', 'Interesado'))
-        ws.cell(row=nueva_fila, column=10, value=lead_data.get('interes', 'Medio'))
-        ws.cell(row=nueva_fila, column=11, value=lead_data.get('seguimiento', ''))
-        ws.cell(row=nueva_fila, column=12, value=lead_data.get('prioridad', 'Normal'))
-        ws.cell(row=nueva_fila, column=13, value=lead_data.get('agente', ''))
-        
-        wb.save(LEADS_EXCEL_FILE)
-        log(f"✅ Lead registrado en Excel: {lead_id}")
-        return True
-        
-    except Exception as e:
-        log(f"🔥 Error registrando lead en Excel: {e}")
-        return False
-
-
 
 
 @app.route("/test", methods=["GET"])
@@ -2153,128 +2276,15 @@ def health_check():
 # ========== RUTAS API PARA PANEL DE CITAS ==========
 @app.route("/api/citas", methods=["GET"])
 def api_citas():
-    """Retorna todas las citas desde Excel"""
+    """Retorna todas las citas desde PostgreSQL"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
     
-    citas = cargar_citas_excel()  # ← Cambiado a Excel
+    citas = cargar_citas_db()  # ← Cambiado
     return jsonify(citas)
 
 
-# @app.route("/forzar-cita-test", methods=["GET"])
-# def forzar_cita_test():
-#     """Crea una cita de prueba FORZADA"""
-#     try:
-#         # Primero, asegurar que el archivo existe
-#         inicializar_archivo_citas()
-        
-#         # Crear cita de prueba
-#         cita_prueba = {
-#             'id': 'cita_0001',
-#             'user_id': '5491151511579',
-#             'nombre': 'MARTIN HERNANDEZ (TEST)',
-#             'telefono': '5491151511579',
-#             'fecha': '2026-02-12',
-#             'hora': '17:00',
-#             'propiedad_id': 'Oficina en Microcentro Superluminoso...',
-#             'estado': 'pendiente',
-#             'notas': 'CITA DE PRUEBA - Propiedad: Oficina en Microcentro...',
-#             'creacion': datetime.now().isoformat(),
-#             'ultima_actualizacion': datetime.now().isoformat()
-#         }
-        
-#         # Cargar citas existentes
-#         citas = cargar_citas()
-        
-#         # Agregar cita de prueba
-#         citas.append(cita_prueba)
-        
-#         # Guardar
-#         if guardar_citas(citas):
-#             return jsonify({
-#                 "status": "success",
-#                 "message": "Cita de prueba creada",
-#                 "cita": cita_prueba,
-#                 "total_citas": len(citas),
-#                 "archivo": CITAS_FILE,
-#                 "existe": os.path.exists(CITAS_FILE)
-#             })
-#         else:
-#             return jsonify({
-#                 "status": "error",
-#                 "message": "Error guardando cita"
-#             }), 500
-            
-#     except Exception as e:
-#         return jsonify({
-#             "status": "error",
-#             "message": str(e)
-#         }), 500
-
-
-# @app.route("/reparar-citas", methods=["GET"])
-# def reparar_citas():
-#     """Repara el archivo de citas"""
-#     try:
-#         log("🔧 Iniciando reparación de archivo de citas...")
-        
-#         # 1. Verificar estado actual
-#         estado_inicial = {
-#             "existe": os.path.exists(CITAS_FILE),
-#             "tamano": os.path.getsize(CITAS_FILE) if os.path.exists(CITAS_FILE) else 0,
-#             "citas_cargadas": len(cargar_citas())
-#         }
-        
-#         # 2. Crear archivo nuevo si está corrupto
-#         if estado_inicial["existe"] and estado_inicial["tamano"] < 10:  # Menos de 10 bytes = vacío/corrupto
-#             log("📄 Archivo parece corrupto, creando nuevo...")
-#             with open(CITAS_FILE, 'w', encoding='utf-8') as f:
-#                 json.dump([], f, indent=4)
-        
-#         # 3. Cargar y guardar para reparar formato
-#         citas = cargar_citas()
-        
-#         # 4. Si no hay citas, agregar una de prueba
-#         if len(citas) == 0:
-#             log("📝 Agregando cita de prueba...")
-#             citas = [{
-#                 'id': 'cita_0001',
-#                 'user_id': '5491151511579',
-#                 'nombre': 'MARTIN HERNANDEZ (REPARADO)',
-#                 'telefono': '5491151511579',
-#                 'fecha': datetime.now().strftime('%Y-%m-%d'),
-#                 'hora': '17:00',
-#                 'propiedad_id': 'Oficina de prueba',
-#                 'estado': 'pendiente',
-#                 'notas': 'Cita creada durante reparación',
-#                 'creacion': datetime.now().isoformat(),
-#                 'ultima_actualizacion': datetime.now().isoformat()
-#             }]
-        
-#         # 5. Guardar reparado
-#         guardar_citas(citas)
-        
-#         # 6. Verificar resultado
-#         estado_final = {
-#             "existe": os.path.exists(CITAS_FILE),
-#             "tamano": os.path.getsize(CITAS_FILE) if os.path.exists(CITAS_FILE) else 0,
-#             "citas_cargadas": len(cargar_citas()),
-#             "contenido": cargar_citas()[:3]  # Primeras 3 citas
-#         }
-        
-#         return jsonify({
-#             "status": "success",
-#             "message": "Archivo de citas reparado",
-#             "antes": estado_inicial,
-#             "despues": estado_final
-#         })
-        
-#     except Exception as e:
-#         return jsonify({
-#             "status": "error",
-#             "message": str(e)
-#         }), 500
 
 @app.route("/ver-citas-contenido", methods=["GET"])
 def ver_citas_contenido():
@@ -2422,7 +2432,7 @@ def actualizar_estado_cita(cita_id):
     
     try:
         # Cargar citas desde Excel
-        citas = cargar_citas_excel()
+        citas = cargar_citas_db()
         cita_encontrada = None
         
         for cita in citas:
@@ -2436,7 +2446,7 @@ def actualizar_estado_cita(cita_id):
             return jsonify({"error": "Cita no encontrada"}), 404
         
         # Guardar el cambio en Excel
-        if guardar_cita_excel(cita_encontrada):
+        if guardar_cita_db(cita_encontrada):
             log(f"✅ Estado actualizado en Excel: {cita_id} -> {nuevo_estado}")
             return jsonify({"status": "success", "message": "Estado actualizado"})
         else:
@@ -2454,7 +2464,7 @@ def api_citas_excel():
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
     
-    citas = cargar_citas_excel()
+    citas = cargar_citas_db()
     return jsonify(citas)
 
 @app.route("/api/actualizar-estado-cita", methods=["PUT"])
@@ -2476,7 +2486,7 @@ def api_actualizar_estado_cita():
             return jsonify({"error": "Estado inválido"}), 400
         
         # Cargar todas las citas
-        citas = cargar_citas_excel()
+        citas = cargar_citas_db()
         
         # Encontrar y actualizar la cita
         cita_actualizada = None
@@ -2491,7 +2501,7 @@ def api_actualizar_estado_cita():
             return jsonify({"error": "Cita no encontrada"}), 404
         
         # Guardar cambios en Excel
-        if guardar_cita_excel(cita_actualizada):
+        if guardar_cita_db(cita_actualizada):
             log(f"✅ Estado actualizado en Excel: {cita_id} -> {nuevo_estado}")
             return jsonify({"status": "success", "cita": cita_actualizada})
         else:
@@ -2571,7 +2581,7 @@ def cargar_citas():
         log(f"❌ Error cargando citas: {e}")
         return []
 
-def guardar_citas(citas):
+def guardar_cita(citas):
     """Guarda las citas en el archivo JSON, creando el archivo si no existe"""
     try:
         log(f"💾 Intentando guardar {len(citas)} citas en {CITAS_FILE}")
@@ -2633,31 +2643,41 @@ def inicializar_archivo_citas():
 #         return f"❌ Error: {str(e)}"
 
 if __name__ == "__main__":
-    
-
     print("\n" + "=" * 60)
-    print("🏠 🏠 🏠 WHATSAPP BOT INMOBILIARIO - VERSIÓN 2.1")
+    print("🏠 🏠 🏠 WHATSAPP BOT INMOBILIARIO - VERSIÓN 3.0 (PostgreSQL)")
     print("=" * 60)
     
-    # Inicializar archivos necesarios
-    print("📄 Inicializando archivos del sistema...")
-    inicializar_archivo_citas()
+    # Inicializar base de datos PostgreSQL
+    print("🔧 Inicializando base de datos PostgreSQL...")
+    if init_database():
+        print("✅ Base de datos PostgreSQL inicializada correctamente")
+        
+        # Mostrar estadísticas
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) as count FROM citas")
+            citas_count = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) as count FROM leads")
+            leads_count = cursor.fetchone()[0]
+            conn.close()
+            
+            print(f"📊 Estadísticas iniciales:")
+            print(f"   📅 Citas en DB: {citas_count}")
+            print(f"   👥 Leads en DB: {leads_count}")
+    else:
+        print("⚠️  Advertencia: No se pudo inicializar PostgreSQL")
+        print("   Se usará almacenamiento temporal en memoria")
     
+    # Cargar propiedades
     propiedades = cargar_propiedades()
     print(f"📊 Propiedades cargadas: {len(propiedades)}")
-    
-    # Mostrar estado de citas
-    citas = cargar_citas()
-    print(f"📅 Citas cargadas: {len(citas)}")
-    
     
     if propiedades:
         ventas = len([p for p in propiedades if p.get('operacion') == 'venta'])
         alquileres = len([p for p in propiedades if p.get('operacion') == 'alquiler'])
         print(f"💰 En venta: {ventas} propiedades")
         print(f"🔑 En alquiler: {alquileres} propiedades")
-    
-    
     
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
