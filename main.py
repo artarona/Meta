@@ -18,21 +18,7 @@ from psycopg.rows import dict_row
 app = Flask(__name__)
 
 
-if __name__ == "__main__":
-    print("\n" + "=" * 60)
-    print("🏠 WHATSAPP BOT - POSTGRESQL (psycopg 3.x)")
-    print("=" * 60)
-    
-    # Inicializar PostgreSQL
-    print("🔧 Inicializando PostgreSQL...")
-    if init_postgresql():
-        print("✅ PostgreSQL listo")
-    else:
-        print("❌ ERROR: PostgreSQL no se pudo inicializar")
-        print("   Verifica DATABASE_URL en Render Environment")
-    
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
@@ -3390,7 +3376,24 @@ def test_postgres():
     except Exception as e:
         return jsonify({"status": "error", "message": f"❌ Error: {str(e)}"})
 
-
+if __name__ == "__main__":
+    print("\n" + "=" * 60)
+    print("🏠 WHATSAPP BOT - POSTGRESQL (psycopg 3.x)")
+    print("=" * 60)
+    
+    # Inicializar PostgreSQL
+    print("🔧 Inicializando PostgreSQL...")
+    if init_postgresql():
+        print("✅ PostgreSQL listo")
+    else:
+        print("❌ ERROR: PostgreSQL no se pudo inicializar")
+        print("   Verifica DATABASE_URL en Render Environment")
+    
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port, debug=False)
+    
+    
+    
 # if __name__ == "__main__":
 #     print("\n" + "=" * 60)
 #     print("🏠 WHATSAPP BOT - POSTGRESQL VERSION")
