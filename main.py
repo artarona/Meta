@@ -2082,6 +2082,47 @@ def token_status():
         log(f"🔥 Error verificando token: {str(e)}")
         return jsonify({"valid": False, "error": str(e)})
 
+
+# Agregar esta ruta a main.py para verificar
+@app.route("/check-backup", methods=["GET"])
+def check_backup():
+    """Verifica el estado del backup"""
+    backup_file = "citas_backup.json"
+    exists = os.path.exists(backup_file)
+    
+    if exists:
+        try:
+            with open(backup_file, 'r') as f:
+                data = json.load(f)
+                citas_count = len(data.get('citas', []))
+                timestamp = data.get('timestamp', 'N/A')
+                return jsonify({
+                    "status": "backup_exists",
+                    "file": backup_file,
+                    "citas_count": citas_count,
+                    "timestamp": timestamp,
+                    "citas_in_memory": len(citas_memoria)
+                })
+        except Exception as e:
+            return jsonify({"status": "error", "error": str(e)})
+    else:
+        return jsonify({
+            "status": "no_backup",
+            "file": backup_file,
+            "citas_in_memory": len(citas_memoria)
+        })
+
+# Agregar esta ruta para ver citas en memoria
+@app.route("/citas-memoria", methods=["GET"])
+def ver_citas_memoria():
+    """Muestra las citas almacenadas en memoria"""
+    return jsonify({
+        "total_citas": len(citas_memoria),
+        "citas": citas_memoria,
+        "timestamp": datetime.now().isoformat()
+    })
+
+
 @app.route("/token-help", methods=["GET"])
 def token_help():
     """Muestra instrucciones para renovar el token"""
