@@ -161,7 +161,11 @@ def generar_listado_propiedades(propiedades):
     
     for i, prop in enumerate(propiedades[:10], 1):  # Limitar a 10 propiedades
         # listado += f"{numero_a_emoji(i)} {prop.get('titulo', 'Sin título')}\n"
-        listado += f"{numero_a_emoji(i)} {prop.get('titulo', 'Sin título')} | {prop.get('operacion', 'Sin operación')}\n"
+        listado += (
+                f"{numero_a_emoji(i)} {prop.get('titulo', 'Sin título')}\n"
+                f"   🏷️ Operación: {prop.get('operacion', 'Sin operación')}\n"
+        )
+        
         listado += f"   📍 {prop.get('barrio', 'N/A')} | "
         listado += f"💰 "
         precio = prop.get('precio', 0)
@@ -270,8 +274,17 @@ def get_bot_response(text, user_id):
         estado_usuario['propiedades_filtradas'] = []
         estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌ | 🏠🗝️ DANTE PROPIEDADES"
-
+        # return "👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌ | 🏠🗝️ DANTE PROPIEDADES"
+        return (
+                "👋 ¡Gracias por contactarnos!\n"
+                "Para volver al menú, envía '1'\n"
+                "Para salir envía '0' ❌\n"
+                "🏠🗝️ DANTE PROPIEDADES"
+        )
+    
+    
+    
+    
     # 2. BOTONES DE NAVEGACIÓN RÁPIDA (Solo en ciertos estados)
     if text_lower == "1" and estado_usuario['paso'] in ['detalle_propiedad', 'vista_fotos', 'vista_web', 'esperando_nombre_lead']:
         estado_usuario['paso'] = 'menu_principal'
@@ -510,7 +523,14 @@ def get_bot_response(text, user_id):
             estado_usuario['nombre_cliente'] = None
             actualizar_estado_usuario(user_id, estado_usuario)
             
-            return "👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌ | 🏠🗝️ DANTE PROPIEDADES"
+            # return "👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌ | 🏠🗝️ DANTE PROPIEDADES"
+            return (
+                "👋 ¡Gracias por contactarnos!\n"
+                "Para volver al menú, envía '1'\n"
+                "Para salir envía '0' ❌\n"
+                "🏠🗝️ DANTE PROPIEDADES"
+            )
+        
         
         # Respuesta no reconocida
         else:
