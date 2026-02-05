@@ -35,23 +35,27 @@ estados_usuarios = {}
 processed_message_ids = deque(maxlen=100)
 
 # ========== CONEXIÓN A POSTGRESQL ==========
+# IMPORTANTE: En Render, la variable DATABASE_URL se configura automáticamente
 DATABASE_URL = os.environ.get('DATABASE_URL')
+
 if not DATABASE_URL:
     print("⚠️ ADVERTENCIA: DATABASE_URL no encontrada en variables de entorno")
-    print("   En local, puedes usar PostgreSQL local o SQLite como fallback")
     print("   En Render, configúrala en Environment Variables")
     DATABASE_URL = None
 
+# Almacenamiento en memoria para desarrollo/fallback
+citas_memoria = []
+leads_memoria = []
 
-POSTGRES_AVAILABLE = False
+def log(message):
+    """Función para logging"""
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"{timestamp} {message}", flush=True)
 
 def get_db_connection():
     """Conexión a PostgreSQL con psycopg2"""
-    global POSTGRES_AVAILABLE
-    
     if not DATABASE_URL:
-        print("❌ DATABASE_URL no configurada")
-        POSTGRES_AVAILABLE = False
+        log("❌ DATABASE_URL no configurada")
         return None
     
     try:
@@ -64,21 +68,20 @@ def get_db_connection():
             # Desarrollo local
             conn = psycopg2.connect(DATABASE_URL)
         
-        POSTGRES_AVAILABLE = True
+        log("✅ Conexión PostgreSQL exitosa")
         return conn
     except Exception as e:
-        print(f"❌ Error conectando a PostgreSQL: {e}")
-        POSTGRES_AVAILABLE = False
+        log(f"❌ Error conectando a PostgreSQL: {e}")
         return None
 
 def init_postgresql():
     """Inicializa las tablas en PostgreSQL si no existen"""
-    print("🔧 Inicializando PostgreSQL...")
+    log("🔧 Inicializando PostgreSQL...")
     
     conn = get_db_connection()
     if not conn:
-        print("❌ No se pudo conectar a PostgreSQL")
-        print("   Usando almacenamiento en memoria para desarrollo...")
+        log("❌ No se pudo conectar a PostgreSQL")
+        log("   Usando almacenamiento en memoria para desarrollo...")
         return False
     
     try:
@@ -115,7 +118,7 @@ def init_postgresql():
         ''')
         
         conn.commit()
-        print("✅ Tablas PostgreSQL creadas/verificadas")
+        log("✅ Tablas PostgreSQL creadas/verificadas")
         
         # Verificar si hay datos
         cursor.execute("SELECT COUNT(*) FROM citas")
@@ -123,83 +126,186 @@ def init_postgresql():
         cursor.execute("SELECT COUNT(*) FROM leads")
         leads_count = cursor.fetchone()[0]
         
-        print(f"   📊 Citas existentes: {citas_count}")
-        print(f"   📊 Leads existentes: {leads_count}")
+        log(f"   📊 Citas existentes: {citas_count}")
+        log(f"   📊 Leads existentes: {leads_count}")
         
         conn.close()
         return True
         
     except Exception as e:
-        print(f"❌ Error inicializando base de datos: {e}")
+        log(f"❌ Error inicializando base de datos: {e}")
         return False
     finally:
         if conn:
             conn.close()
 
-def init_postgresql():
-    """Inicializa las tablas en PostgreSQL si no existen"""
-    print("🔧 Inicializando PostgreSQL...")
-    
-    conn = get_db_connection()
-    if not conn:
-        print("❌ No se pudo conectar a PostgreSQL")
-        print("   Usando almacenamiento en memoria para desarrollo...")
-        return False
-    
+# ========== FUNCIONES UNIFICADAS DE ALMACENAMIENTO ==========
+def crear_cita_db(user_id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo="", notas=""):
+    """Crea cita en PostgreSQL o memoria"""
     try:
-        cursor = conn.cursor()
+        # Primero intentar PostgreSQL
+        conn = get_db_connection()
+        if conn:
+            # Generar ID
+            cita_id = f"pg_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO citas (id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo, estado, notas)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (cita_id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo, 'pendiente', notas))
+            
+            inserted_id = cursor.fetchone()[0]
+            conn.commit()
+            conn.close()
+            
+            log(f"✅✅✅ CITA GUARDADA EN POSTGRESQL ID: {inserted_id}")
+            
+            # Notificar al admin
+            mensaje = f"📅 *NUEVA CITA AGENDADA (PostgreSQL)*\n\n"
+            mensaje += f"👤 *Cliente:* {nombre}\n"
+            mensaje += f"📞 *Teléfono:* +{telefono}\n"
+            mensaje += f"📅 *Fecha:* {fecha}\n"
+            mensaje += f"⏰ *Hora:* {hora}\n"
+            mensaje += f"🏠 *Propiedad:* {propiedad_titulo[:50]}...\n"
+            mensaje += f"🆔 *ID Cita:* {cita_id}"
+            notificar_agente(mensaje)
+            
+            return {
+                'id': cita_id,
+                'nombre': nombre,
+                'telefono': telefono,
+                'fecha': fecha,
+                'hora': hora,
+                'propiedad_id': propiedad_id,
+                'propiedad_titulo': propiedad_titulo,
+                'estado': 'pendiente',
+                'storage': 'postgresql'
+            }
         
-        # Tabla de citas (versión simplificada)
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS citas (
-                id VARCHAR(50) PRIMARY KEY,
-                nombre VARCHAR(100) NOT NULL,
-                telefono VARCHAR(20) NOT NULL,
-                fecha VARCHAR(10) NOT NULL,
-                hora VARCHAR(5) NOT NULL,
-                propiedad_id VARCHAR(50),
-                propiedad_titulo VARCHAR(200),
-                estado VARCHAR(20) DEFAULT 'pendiente',
-                notas TEXT,
-                creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
+        # Fallback a memoria
+        log("⚠️  PostgreSQL no disponible, usando almacenamiento en memoria")
+        cita_id = f"mem_{datetime.now().strftime('%Y%m%d%H%M%S')}"
         
-        # Tabla de leads (versión simplificada)
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS leads (
-                id SERIAL PRIMARY KEY,
-                fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                telefono VARCHAR(20),
-                nombre VARCHAR(100),
-                propiedad_id VARCHAR(50),
-                propiedad_titulo VARCHAR(200),
-                accion VARCHAR(50),
-                detalles TEXT
-            )
-        ''')
+        cita_data = {
+            'id': cita_id,
+            'nombre': nombre,
+            'telefono': telefono,
+            'fecha': fecha,
+            'hora': hora,
+            'propiedad_id': propiedad_id,
+            'propiedad_titulo': propiedad_titulo,
+            'estado': 'pendiente',
+            'notas': notas,
+            'storage': 'memory'
+        }
         
-        conn.commit()
-        print("✅ Tablas PostgreSQL creadas/verificadas")
+        citas_memoria.append(cita_data)
+        log(f"✅✅✅ CITA GUARDADA EN MEMORIA ID: {cita_id}")
         
-        # Verificar si hay datos
-        cursor.execute("SELECT COUNT(*) FROM citas")
-        citas_count = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM leads")
-        leads_count = cursor.fetchone()[0]
+        # Notificar al admin
+        mensaje = f"📅 *NUEVA CITA AGENDADA (Memoria)*\n\n"
+        mensaje += f"👤 *Cliente:* {nombre}\n"
+        mensaje += f"📞 *Teléfono:* +{telefono}\n"
+        mensaje += f"📅 *Fecha:* {fecha}\n"
+        mensaje += f"⏰ *Hora:* {hora}\n"
+        mensaje += f"🏠 *Propiedad:* {propiedad_titulo[:50]}...\n"
+        mensaje += f"🆔 *ID Cita:* {cita_id}\n"
+        mensaje += f"⚠️  *ALERTA:* Usando almacenamiento temporal"
+        notificar_agente(mensaje)
         
-        print(f"   📊 Citas existentes: {citas_count}")
-        print(f"   📊 Leads existentes: {leads_count}")
+        return cita_data
         
-        conn.close()
+    except Exception as e:
+        log(f"❌❌❌ ERROR GUARDANDO CITA: {e}")
+        return None
+
+def registrar_lead_db(user_id, propiedad_id, accion, detalle=""):
+    """Registra lead en PostgreSQL o memoria"""
+    try:
+        # Buscar propiedad para obtener título
+        propiedades = cargar_propiedades()
+        propiedad = next((p for p in propiedades if p.get('id_temporal') == propiedad_id), None)
+        titulo = propiedad.get('titulo', 'Sin título') if propiedad else 'Sin título'
+        
+        # Primero intentar PostgreSQL
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO leads (telefono, propiedad_id, propiedad_titulo, accion, detalles)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+            """, (user_id, propiedad_id, titulo, accion, detalle))
+            
+            lead_id = cursor.fetchone()[0]
+            conn.commit()
+            conn.close()
+            
+            log(f"✅✅✅ LEAD GUARDADO EN POSTGRESQL ID: {lead_id}")
+            
+            # Notificar al admin
+            notificar_agente(f"📈 NUEVO LEAD (PostgreSQL ID: {lead_id})\n👤 {user_id}\n🏠 {titulo}\n🔗 {accion}")
+            
+            return True
+        
+        # Fallback a memoria
+        log("⚠️  PostgreSQL no disponible, usando almacenamiento en memoria para lead")
+        
+        lead_data = {
+            'id': f"mem_lead_{len(leads_memoria) + 1}",
+            'telefono': user_id,
+            'propiedad_id': propiedad_id,
+            'propiedad_titulo': titulo,
+            'accion': accion,
+            'detalles': detalle,
+            'fecha': datetime.now().isoformat(),
+            'storage': 'memory'
+        }
+        
+        leads_memoria.append(lead_data)
+        log(f"✅✅✅ LEAD GUARDADO EN MEMORIA")
+        
+        # Notificar al admin
+        notificar_agente(f"📈 NUEVO LEAD (Memoria)\n👤 {user_id}\n🏠 {titulo}\n🔗 {accion}\n⚠️  ALMACENAMIENTO TEMPORAL")
+        
         return True
         
     except Exception as e:
-        print(f"❌ Error inicializando base de datos: {e}")
+        log(f"❌❌❌ ERROR GUARDANDO LEAD: {e}")
         return False
-    finally:
+
+def obtener_horarios_disponibles(fecha_str):
+    """Obtiene horarios disponibles para una fecha específica"""
+    try:
+        horarios_ocupados = []
+        
+        # Intentar PostgreSQL primero
+        conn = get_db_connection()
         if conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT hora FROM citas 
+                WHERE fecha = %s AND estado IN ('pendiente', 'confirmada')
+            """, (fecha_str,))
+            
+            horarios_ocupados = [row[0] for row in cursor.fetchall()]
             conn.close()
+        else:
+            # Fallback a memoria
+            for cita in citas_memoria:
+                if cita.get('fecha') == fecha_str and cita.get('estado') in ['pendiente', 'confirmada']:
+                    horarios_ocupados.append(cita.get('hora'))
+        
+        # Filtrar horarios disponibles
+        horarios_disponibles = [hora for hora in CITAS_DISPONIBLES if hora not in horarios_ocupados]
+        
+        log(f"📅 Horarios disponibles para {fecha_str}: {len(horarios_disponibles)}/{len(CITAS_DISPONIBLES)}")
+        return horarios_disponibles
+    except Exception as e:
+        log(f"❌ Error obteniendo horarios disponibles: {e}")
+        return CITAS_DISPONIBLES  # Devuelve todos si hay error
 
 # ========== VERIFICACIÓN DE TOKEN ==========
 def check_token_validity():
@@ -322,28 +428,6 @@ def send_whatsapp_message(to_number, message_text):
             "error": str(e)
         }
 
-# ========== ALMACENAMIENTO EN MEMORIA (FALLBACK) ==========
-# Si PostgreSQL no está disponible, usamos memoria temporal
-citas_memoria = []
-leads_memoria = []
-
-def cargar_citas_memoria():
-    """Carga citas desde memoria (fallback)"""
-    return citas_memoria.copy()
-
-def guardar_cita_memoria(cita):
-    """Guarda cita en memoria (fallback)"""
-    citas_memoria.append(cita)
-    return True
-
-def registrar_lead_memoria(lead):
-    """Registra lead en memoria (fallback)"""
-    leads_memoria.append(lead)
-    return True
-
-
-
-
 # ========== CARGAR PROPIEDADES ==========
 def cargar_propiedades():
     """Carga las propiedades desde el archivo JSON"""
@@ -358,7 +442,6 @@ def cargar_propiedades():
     except json.JSONDecodeError as e:
         log(f"❌ Error al leer JSON: {e}")
         return []
-
 
 def numero_a_emoji(n):
     """Convierte un número a su emoji correspondiente (1-10)"""
@@ -626,178 +709,6 @@ def notificar_agente(mensaje):
     """Envía una notificación al número de Dante (ADMIN_NUMBER)"""
     log(f"📢 NOTIFICANDO AL AGENTE: {mensaje[:50]}...")
     return send_whatsapp_message(ADMIN_NUMBER, f"🔔 *ALERTA DANTE-INSIGHTS*\n{mensaje}")
-
-def registrar_lead_db(user_id, propiedad_id, accion, detalle=""):
-    """Registra lead en PostgreSQL o memoria"""
-    try:
-        # Buscar propiedad para obtener título
-        propiedades = cargar_propiedades()
-        propiedad = next((p for p in propiedades if p.get('id_temporal') == propiedad_id), None)
-        titulo = propiedad.get('titulo', 'Sin título') if propiedad else 'Sin título'
-        
-        # Primero intentar PostgreSQL
-        conn = get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO leads (telefono, propiedad_id, propiedad_titulo, accion, detalles)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING id
-            """, (user_id, propiedad_id, titulo, accion, detalle))
-            
-            lead_id = cursor.fetchone()[0]
-            conn.commit()
-            conn.close()
-            
-            log(f"✅✅✅ LEAD GUARDADO EN POSTGRESQL ID: {lead_id}")
-            
-            # Notificar al admin
-            notificar_agente(f"📈 NUEVO LEAD (PostgreSQL ID: {lead_id})\n👤 {user_id}\n🏠 {titulo}\n🔗 {accion}")
-            
-            return True
-        else:
-            # Fallback a memoria
-            log("⚠️  PostgreSQL no disponible, usando almacenamiento en memoria para lead")
-            
-            lead_data = {
-                'id': f"mem_lead_{len(leads_memoria) + 1}",
-                'telefono': user_id,
-                'propiedad_id': propiedad_id,
-                'propiedad_titulo': titulo,
-                'accion': accion,
-                'detalles': detalle,
-                'fecha': datetime.now().isoformat(),
-                'storage': 'memory'
-            }
-            
-            if registrar_lead_memoria(lead_data):
-                log(f"✅✅✅ LEAD GUARDADO EN MEMORIA")
-                
-                # Notificar al admin
-                notificar_agente(f"📈 NUEVO LEAD (Memoria)\n👤 {user_id}\n🏠 {titulo}\n🔗 {accion}\n⚠️  ALMACENAMIENTO TEMPORAL")
-                
-                return True
-            else:
-                return False
-                
-    except Exception as e:
-        log(f"❌❌❌ ERROR GUARDANDO LEAD: {e}")
-        return False
-
-def obtener_horarios_disponibles(fecha_str):
-    """Obtiene horarios disponibles para una fecha específica"""
-    try:
-        # Primero intentar PostgreSQL
-        conn = get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT hora FROM citas 
-                WHERE fecha = %s AND estado IN ('pendiente', 'confirmada')
-            """, (fecha_str,))
-            
-            horarios_ocupados = [row[0] for row in cursor.fetchall()]
-            conn.close()
-        else:
-            # Fallback a memoria
-            horarios_ocupados = []
-            for cita in citas_memoria:
-                if cita.get('fecha') == fecha_str and cita.get('estado') in ['pendiente', 'confirmada']:
-                    horarios_ocupados.append(cita.get('hora'))
-        
-        # Filtrar horarios disponibles
-        horarios_disponibles = [hora for hora in CITAS_DISPONIBLES if hora not in horarios_ocupados]
-        
-        log(f"📅 Horarios disponibles para {fecha_str}: {len(horarios_disponibles)}/{len(CITAS_DISPONIBLES)}")
-        return horarios_disponibles
-    except Exception as e:
-        log(f"❌ Error obteniendo horarios disponibles: {e}")
-        return CITAS_DISPONIBLES  # Devuelve todos si hay error
-    
-    
-    
-def crear_cita_db(user_id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo="", notas=""):
-    """Crea cita en PostgreSQL o memoria"""
-    try:
-        # Primero intentar PostgreSQL
-        conn = get_db_connection()
-        if conn:
-            # Generar ID
-            cita_id = f"cita_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-            
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO citas (id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo, estado, notas)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-            """, (cita_id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo, 'pendiente', notas))
-            
-            inserted_id = cursor.fetchone()[0]
-            conn.commit()
-            conn.close()
-            
-            log(f"✅✅✅ CITA GUARDADA EN POSTGRESQL ID: {inserted_id}")
-            
-            # Notificar al admin
-            mensaje = f"📅 *NUEVA CITA AGENDADA (PostgreSQL)*\n\n"
-            mensaje += f"👤 *Cliente:* {nombre}\n"
-            mensaje += f"📞 *Teléfono:* +{telefono}\n"
-            mensaje += f"📅 *Fecha:* {fecha}\n"
-            mensaje += f"⏰ *Hora:* {hora}\n"
-            mensaje += f"🏠 *Propiedad:* {propiedad_titulo[:50]}...\n"
-            mensaje += f"🆔 *ID Cita:* {cita_id}"
-            notificar_agente(mensaje)
-            
-            return {
-                'id': cita_id,
-                'nombre': nombre,
-                'telefono': telefono,
-                'fecha': fecha,
-                'hora': hora,
-                'propiedad_id': propiedad_id,
-                'propiedad_titulo': propiedad_titulo,
-                'estado': 'pendiente',
-                'storage': 'postgresql'
-            }
-        else:
-            # Fallback a memoria
-            log("⚠️  PostgreSQL no disponible, usando almacenamiento en memoria")
-            cita_id = f"mem_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-            
-            cita_data = {
-                'id': cita_id,
-                'nombre': nombre,
-                'telefono': telefono,
-                'fecha': fecha,
-                'hora': hora,
-                'propiedad_id': propiedad_id,
-                'propiedad_titulo': propiedad_titulo,
-                'estado': 'pendiente',
-                'notas': notas,
-                'storage': 'memory'
-            }
-            
-            if guardar_cita_memoria(cita_data):
-                log(f"✅✅✅ CITA GUARDADA EN MEMORIA ID: {cita_id}")
-                
-                # Notificar al admin
-                mensaje = f"📅 *NUEVA CITA AGENDADA (Memoria)*\n\n"
-                mensaje += f"👤 *Cliente:* {nombre}\n"
-                mensaje += f"📞 *Teléfono:* +{telefono}\n"
-                mensaje += f"📅 *Fecha:* {fecha}\n"
-                mensaje += f"⏰ *Hora:* {hora}\n"
-                mensaje += f"🏠 *Propiedad:* {propiedad_titulo[:50]}...\n"
-                mensaje += f"🆔 *ID Cita:* {cita_id}\n"
-                mensaje += f"⚠️  *ALERTA:* Usando almacenamiento temporal"
-                notificar_agente(mensaje)
-                
-                return cita_data
-            else:
-                return None
-                
-    except Exception as e:
-        log(f"❌❌❌ ERROR GUARDANDO CITA: {e}")
-        return None
 
 # ========== BOT CON PROPIEDADES ==========
 def get_bot_response(text, user_id):
@@ -1223,7 +1134,7 @@ def get_bot_response(text, user_id):
             fecha_cita = estado_usuario.get('fecha_cita')
             hora_cita = text
             
-            # Crear la cita
+            # Crear la cita usando la función unificada
             cita = crear_cita_db(
                 user_id=user_id,
                 nombre=nombre_cliente,
@@ -1231,6 +1142,7 @@ def get_bot_response(text, user_id):
                 fecha=fecha_cita,
                 hora=hora_cita,
                 propiedad_id=propiedad_id,
+                propiedad_titulo=propiedad_titulo,
                 notas=f"Propiedad: {propiedad_titulo}"
             )
             
@@ -1246,13 +1158,19 @@ def get_bot_response(text, user_id):
                 estado_usuario['hora_cita'] = None
                 actualizar_estado_usuario(user_id, estado_usuario)
                 
+                # Mensaje basado en el tipo de almacenamiento
+                if cita.get('storage') == 'memory':
+                    storage_warning = "\n⚠️  *Nota:* Esta cita está almacenada temporalmente en memoria. Para guardarla permanentemente, configura PostgreSQL."
+                else:
+                    storage_warning = ""
+                
                 return f"🎉 *¡CITA AGENDADA CON ÉXITO!*\n\n" \
                     f"✅ **Resumen de tu cita:**\n" \
                     f"👤 *Cliente:* {nombre_cliente}\n" \
                     f"📅 *Fecha:* {fecha_formateada}\n" \
                     f"⏰ *Hora:* {hora_cita} hs\n" \
                     f"🏠 *Propiedad:* {propiedad_titulo[:50]}...\n" \
-                    f"🆔 *ID Cita:* {cita['id']}\n\n" \
+                    f"🆔 *ID Cita:* {cita['id']}{storage_warning}\n\n" \
                     f"📍 *Instrucciones importantes:*\n" \
                     f"• Llega 10 minutos antes\n" \
                     f"• Trae tu documento de identidad\n" \
@@ -1317,8 +1235,10 @@ def get_bot_response(text, user_id):
                    f"📈 *5. Ver estadísticas*\n\n" \
                    f"📱 *0. Volver al menú principal*"
         else:
-            # Para usuarios normales, verificar si tienen citas agendadas
+            # Para usuarios normales
             try:
+                # Intentar PostgreSQL primero
+                citas_usuario = []
                 conn = get_db_connection()
                 if conn:
                     cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -1328,36 +1248,41 @@ def get_bot_response(text, user_id):
                         WHERE telefono = %s AND estado != 'cancelada'
                         ORDER BY fecha DESC
                     """, (user_id,))
-                    
                     citas_usuario = cursor.fetchall()
                     conn.close()
-                    
-                    if not citas_usuario:
-                        return "📅 *No tienes citas agendadas*\n\n" \
-                               "Para agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n" \
-                               "Enviá 'Hola' para volver al menú."
-                    
-                    # Mostrar citas del usuario
-                    mensaje = f"📅 *TUS CITAS AGENDADAS*\n\n"
-                    mensaje += f"Tienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
-                    
-                    for i, cita in enumerate(citas_usuario, 1):
+                else:
+                    # Fallback a memoria
+                    citas_usuario = [c for c in citas_memoria if c.get('telefono') == user_id and c.get('estado') != 'cancelada']
+                
+                if not citas_usuario:
+                    return "📅 *No tienes citas agendadas*\n\n" \
+                           "Para agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n" \
+                           "Enviá 'Hola' para volver al menú."
+                
+                # Mostrar citas del usuario
+                mensaje = f"📅 *TUS CITAS AGENDADAS*\n\n"
+                mensaje += f"Tienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
+                
+                for i, cita in enumerate(citas_usuario, 1):
+                    try:
                         fecha_obj = datetime.strptime(cita['fecha'], "%Y-%m-%d")
                         fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
-                        
-                        mensaje += f"{i}. *{cita['propiedad_titulo']}*\n"
-                        mensaje += f"   📅 {fecha_formateada} - ⏰ {cita['hora']}\n"
-                        mensaje += f"   📍 Estado: {cita['estado'].upper()}\n"
-                        
-                        if cita.get('notas') and cita['notas'] != 'Sin notas adicionales':
-                            mensaje += f"   📝 Notas: {cita['notas'][:50]}...\n"
-                        
-                        mensaje += "   ───────────────\n"
+                    except:
+                        fecha_formateada = cita['fecha']
                     
-                    mensaje += f"\nPara consultar o modificar una cita, contacta al administrador.\n\n"
-                    mensaje += f"Para volver al menú, envía '1' | Para salir envía '0' ❌"
+                    mensaje += f"{i}. *{cita.get('propiedad_titulo', 'Propiedad')}*\n"
+                    mensaje += f"   📅 {fecha_formateada} - ⏰ {cita['hora']}\n"
+                    mensaje += f"   📍 Estado: {cita['estado'].upper()}\n"
                     
-                    return mensaje
+                    if cita.get('notas') and cita['notas'] != 'Sin notas adicionales':
+                        mensaje += f"   📝 Notas: {cita['notas'][:50]}...\n"
+                    
+                    mensaje += "   ───────────────\n"
+                
+                mensaje += f"\nPara consultar o modificar una cita, contacta al administrador.\n\n"
+                mensaje += f"Para volver al menú, envía '1' | Para salir envía '0' ❌"
+                
+                return mensaje
             except Exception as e:
                 log(f"❌ Error obteniendo citas: {e}")
                 return "📅 *Error al cargar citas*\n\nPor favor, inténtalo más tarde."
@@ -1397,6 +1322,18 @@ def home():
     ventas = len([p for p in propiedades if p.get('operacion') == 'venta'])
     alquileres = len([p for p in propiedades if p.get('operacion') == 'alquiler'])
     
+    # Verificar estado de la base de datos
+    db_status = "Desconocido"
+    try:
+        conn = get_db_connection()
+        if conn:
+            db_status = "✅ Conectado a PostgreSQL"
+            conn.close()
+        else:
+            db_status = "⚠️  Usando almacenamiento en memoria"
+    except:
+        db_status = "⚠️  Usando almacenamiento en memoria"
+    
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -1407,6 +1344,7 @@ def home():
             .status {{ padding: 10px; border-radius: 5px; margin: 10px 0; }}
             .success {{ background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }}
             .error {{ background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }}
+            .warning {{ background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }}
             .test-btn {{ background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }}
             .test-btn:hover {{ background-color: #0056b3; }}
             .info-box {{ background-color: #e7f3ff; padding: 15px; border-radius: 5px; margin: 15px 0; }}
@@ -1421,6 +1359,7 @@ def home():
             <h3>🤖 Información del Bot Inmobiliario</h3>
             <p><strong>📞 Número Sandbox:</strong> +1 555 149 2382</p>
             <p><strong>📊 Propiedades cargadas:</strong> {len(propiedades)} propiedades disponibles</p>
+            <p><strong>🗄️ Estado BD:</strong> {db_status}</p>
             <p><strong>🚀 Instrucciones:</strong> Envía "Hola" al número de WhatsApp para comenzar</p>
         </div>
         
@@ -1445,6 +1384,7 @@ def home():
         <h2>🔧 Pruebas del Sistema</h2>
         <button class="test-btn" onclick="testSend()">Probar envío manual</button>
         <button class="test-btn" onclick="testMenu()">Probar flujo de propiedades</button>
+        <button class="test-btn" onclick="testDB()">Probar base de datos</button>
         <div id="testResult" style="margin-top: 10px;"></div>
         
         <h2>🔑 Estado del Token</h2>
@@ -1455,7 +1395,8 @@ def home():
         <p>
             <a href="/health">Ver estado del sistema</a> | 
             <a href="/webhook" target="_blank">Verificar webhook</a> | 
-            <a href="/propiedades-info">Ver propiedades cargadas</a>
+            <a href="/propiedades-info">Ver propiedades cargadas</a> |
+            <a href="/test-postgres">Probar PostgreSQL</a>
         </p>
         
         <script>
@@ -1525,6 +1466,33 @@ def home():
                     }});
             }}
             
+            function testDB() {{
+                const resultDiv = document.getElementById('testResult');
+                resultDiv.innerHTML = '<div class="status">Probando base de datos...</div>';
+                
+                fetch('/test-postgres')
+                    .then(r => r.json())
+                    .then(data => {{
+                        if (data.status === 'connected') {{
+                            resultDiv.innerHTML = '<div class="status success">' +
+                                '<strong>✅ PostgreSQL Conectado:</strong><br>' +
+                                'Versión: ' + data.postgres_version.split(',')[0] + '<br>' +
+                                'Citas: ' + data.citas_count + '<br>' +
+                                'Leads: ' + data.leads_count +
+                                '</div>';
+                        }} else {{
+                            resultDiv.innerHTML = '<div class="status warning">' +
+                                '<strong>⚠️ PostgreSQL No Disponible:</strong><br>' +
+                                'Usando almacenamiento en memoria<br>' +
+                                'Para producción, configura DATABASE_URL en Render' +
+                                '</div>';
+                        }}
+                    }})
+                    .catch(error => {{
+                        resultDiv.innerHTML = '<div class="status error">❌ Error de conexión: ' + error + '</div>';
+                    }});
+            }}
+            
             checkToken();
         </script>
     </body>
@@ -1543,29 +1511,30 @@ def admin_panel():
 
 @app.route("/api/leads", methods=["GET"])
 def api_leads():
-    """Retorna todos los leads desde PostgreSQL"""
+    """Retorna todos los leads desde PostgreSQL o memoria"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
     
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"leads": []})
-    
     try:
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
-            SELECT * FROM leads 
-            ORDER BY fecha DESC 
-            LIMIT 100
-        """)
-        leads = [dict(lead) for lead in cursor.fetchall()]
-        return jsonify({"leads": leads})
+        # Intentar PostgreSQL primero
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute("""
+                SELECT * FROM leads 
+                ORDER BY fecha DESC 
+                LIMIT 100
+            """)
+            leads = [dict(lead) for lead in cursor.fetchall()]
+            conn.close()
+            return jsonify({"leads": leads, "storage": "postgresql"})
+        else:
+            # Fallback a memoria
+            return jsonify({"leads": leads_memoria, "storage": "memory"})
     except Exception as e:
-        log(f"❌ Error cargando leads desde DB: {e}")
-        return jsonify({"leads": []})
-    finally:
-        conn.close()
+        log(f"❌ Error cargando leads: {e}")
+        return jsonify({"leads": leads_memoria, "storage": "memory"})
 
 # ========== RUTA PARA IMÁGENES LOCALES ==========
 @app.route('/imgs/<path:filename>')
@@ -1736,28 +1705,29 @@ def webhook():
 # ========== RUTAS API PARA PANEL DE CITAS ==========
 @app.route("/api/citas", methods=["GET"])
 def api_citas():
-    """Retorna todas las citas desde PostgreSQL"""
+    """Retorna todas las citas desde PostgreSQL o memoria"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
     
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"citas": []})
-    
     try:
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
-            SELECT * FROM citas 
-            ORDER BY fecha DESC, hora DESC
-        """)
-        citas = [dict(cita) for cita in cursor.fetchall()]
-        return jsonify({"citas": citas})
+        # Intentar PostgreSQL primero
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute("""
+                SELECT * FROM citas 
+                ORDER BY fecha DESC, hora DESC
+            """)
+            citas = [dict(cita) for cita in cursor.fetchall()]
+            conn.close()
+            return jsonify({"citas": citas, "storage": "postgresql"})
+        else:
+            # Fallback a memoria
+            return jsonify({"citas": citas_memoria, "storage": "memory"})
     except Exception as e:
-        log(f"❌ Error cargando citas desde DB: {e}")
-        return jsonify({"citas": []})
-    finally:
-        conn.close()
+        log(f"❌ Error cargando citas: {e}")
+        return jsonify({"citas": citas_memoria, "storage": "memory"})
 
 @app.route("/test", methods=["GET"])
 def test_send():
@@ -1827,9 +1797,20 @@ def test_postgres():
                 "message": "✅ PostgreSQL funcionando"
             })
         else:
-            return jsonify({"status": "error", "message": "❌ No hay conexión"})
+            # Mostrar estado de memoria
+            return jsonify({
+                "status": "memory",
+                "citas_in_memory": len(citas_memoria),
+                "leads_in_memory": len(leads_memoria),
+                "message": "⚠️  Usando almacenamiento en memoria. Configura DATABASE_URL para PostgreSQL."
+            })
     except Exception as e:
-        return jsonify({"status": "error", "message": f"❌ Error: {str(e)}"})
+        return jsonify({
+            "status": "error", 
+            "message": f"❌ Error: {str(e)}",
+            "citas_in_memory": len(citas_memoria),
+            "leads_in_memory": len(leads_memoria)
+        })
 
 @app.route("/propiedades-info", methods=["GET"])
 def propiedades_info():
@@ -2017,15 +1998,29 @@ def health_check():
     token_valid, _ = check_token_validity()
     propiedades = cargar_propiedades()
     
+    # Verificar estado de la base de datos
+    db_connected = False
+    try:
+        conn = get_db_connection()
+        if conn:
+            db_connected = True
+            conn.close()
+    except:
+        pass
+    
     return jsonify({
         "status": "healthy" if token_valid else "unhealthy_token",
         "service": "whatsapp-bot-inmobiliario",
         "version": "2.1",
         "timestamp": datetime.now().isoformat(),
         "token_valid": token_valid,
+        "database_connected": db_connected,
+        "storage_mode": "postgresql" if db_connected else "memory",
         "propiedades_cargadas": len(propiedades),
         "venta_count": len([p for p in propiedades if p.get('operacion') == 'venta']),
-        "alquiler_count": len([p for p in propiedades if p.get('operacion') == 'alquiler'])
+        "alquiler_count": len([p for p in propiedades if p.get('operacion') == 'alquiler']),
+        "citas_in_memory": len(citas_memoria),
+        "leads_in_memory": len(leads_memoria)
     })
 
 # ========== INICIALIZACIÓN ==========
@@ -2055,16 +2050,8 @@ if __name__ == "__main__":
         print("⚠️  PostgreSQL no disponible")
         print("   Usando almacenamiento en memoria para desarrollo")
         print("   Para producción, configura DATABASE_URL en Render")
+        print(f"   Citas en memoria: {len(citas_memoria)}")
+        print(f"   Leads en memoria: {len(leads_memoria)}")
     
     propiedades = cargar_propiedades()
-    print(f"📊 Propiedades cargadas: {len(propiedades)}")
-    
-    # Mostrar estado del sistema
-    print(f"🌐 URL: https://meta-chat-npbx.onrender.com")
-    print(f"📁 Propiedades: {PROPIEDADES_FILE}")
-    print(f"🗄️  Almacenamiento: {'PostgreSQL' if POSTGRES_AVAILABLE else 'Memoria (temporal)'}")
-    print(f"📅 Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 60 + "\n")
-    
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    print(f"📊 Propiedades cargadas: {len(propiedades)}
