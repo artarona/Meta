@@ -1903,7 +1903,7 @@ def db_dashboard():
                 </div>
                 <div class="stat-card">
                     <h3>⏳ Citas Pendientes</h3>
-                    <div class="stat-number {stats[2] > 0 ? 'warning' : 'success'}">{stats[2]}</div>
+                    <div class="stat-number {'warning' if stats[2] > 0 else 'success'}">{stats[2]}</div>
                 </div>
                 <div class="stat-card">
                     <h3>✅ Citas Confirmadas</h3>
@@ -2334,6 +2334,10 @@ def registrar_lead_db(lead_data):
 
 def registrar_lead(user_id, propiedad_id, accion, detalle=""):
     """Registra una interacción de lead en PostgreSQL"""
+    """Registra una interacción de lead"""
+    log(f"🎯🎯🎯 FUNCIÓN REGISTRAR_LEAD LLAMADA")
+    log(f"   User: {user_id}, Propiedad: {propiedad_id}, Acción: {accion}")
+    
     try:
         # ... mismo código para buscar propiedad ...
         
@@ -2401,6 +2405,76 @@ def test_propiedades():
         "archivo": PROPIEDADES_FILE,
         "timestamp": datetime.now().isoformat()
     })
+
+
+@app.route("/test-postgres", methods=["GET"])
+def test_postgres():
+    """Prueba simple de PostgreSQL"""
+    try:
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1 as test, current_timestamp, version()")
+            result = cursor.fetchone()
+            conn.close()
+            
+            return jsonify({
+                "status": "connected",
+                "test": result[0],
+                "timestamp": result[1],
+                "version": result[2]
+            })
+        else:
+            return jsonify({"status": "no_connection"})
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)})
+    
+@app.route("/db-tables", methods=["GET"])
+def db_tables():
+    """Muestra las tablas existentes en PostgreSQL"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return "❌ No hay conexión a PostgreSQL"
+        
+        cursor = conn.cursor()
+        
+        # Ver tablas
+        cursor.execute("""
+            SELECT table_name, table_type 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+            ORDER BY table_name
+        """)
+        
+        tables = cursor.fetchall()
+        
+        html = "<h1>📊 Tablas en PostgreSQL</h1>"
+        if tables:
+            html += "<table border='1'><tr><th>Tabla</th><th>Tipo</th></tr>"
+            for table in tables:
+                html += f"<tr><td>{table[0]}</td><td>{table[1]}</td></tr>"
+            html += "</table>"
+        else:
+            html += "<p>❌ No hay tablas en la base de datos</p>"
+        
+        # Ver conteos
+        if tables:
+            for table in tables:
+                table_name = table[0]
+                try:
+                    cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+                    count = cursor.fetchone()[0]
+                    html += f"<p>📈 {table_name}: {count} registros</p>"
+                except:
+                    html += f"<p>⚠️ No se pudo contar {table_name}</p>"
+        
+        conn.close()
+        return html
+        
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+
 
 @app.route("/propiedades-info", methods=["GET"])
 def propiedades_info():
