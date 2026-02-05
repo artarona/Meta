@@ -99,25 +99,73 @@ atexit.register(guardar_citas_backup)
 
 
 def get_db_connection():
-    """Conexión a PostgreSQL con psycopg2"""
+    """Conexión a PostgreSQL con psycopg2 - Optimizada para Render"""
     if not DATABASE_URL:
         log("❌ DATABASE_URL no configurada")
+        log("   Configúrala en Environment Variables de tu web service")
         return None
     
     try:
-        # Para Render, usa sslmode='require'
-        # Para desarrollo local, no uses sslmode
-        if 'onrender.com' in DATABASE_URL or 'postgres://' in DATABASE_URL:
-            # URL de Render - usar sslmode
-            conn = psycopg2.connect(DATABASE_URL, sslmode='require')
-        else:
-            # Desarrollo local
-            conn = psycopg2.connect(DATABASE_URL)
+        log(f"🔗 Intentando conectar a PostgreSQL...")
+        log(f"   URL (inicio): {DATABASE_URL[:30]}...")
         
-        log("✅ Conexión PostgreSQL exitosa")
+        # Opción 1: Usar psycopg2 con parámetros explícitos
+        import urllib.parse
+        
+        # Parsear la URL
+        parsed = urllib.parse.urlparse(DATABASE_URL)
+        
+        # Extraer componentes
+        dbname = parsed.path[1:]  # Quitar el '/' inicial
+        user = parsed.username
+        password = parsed.password
+        host = parsed.hostname
+        port = parsed.port or 5432
+        
+        # Conectar con SSL para Render
+        conn = psycopg2.connect(
+            dbname=dbname,
+            user=user,
+            password=password,
+            host=host,
+            port=port,
+            sslmode='require',  # Obligatorio en Render
+            connect_timeout=10
+        )
+        
+        # Verificar conexión
+        cursor = conn.cursor()
+        cursor.execute("SELECT version(), current_timestamp")
+        result = cursor.fetchone()
+        cursor.close()
+        
+        log(f"✅ Conexión PostgreSQL exitosa")
+        log(f"   Host: {host}")
+        log(f"   Database: {dbname}")
+        log(f"   Usuario: {user}")
+        log(f"   PostgreSQL: {result[0].split(',')[0]}")
+        log(f"   Hora servidor: {result[1]}")
+        
         return conn
+        
     except Exception as e:
-        log(f"❌ Error conectando a PostgreSQL: {e}")
+        log(f"❌❌❌ ERROR CRÍTICO conectando a PostgreSQL: {e}")
+        
+        # Mostrar URL sin contraseña para debugging
+        safe_url = DATABASE_URL
+        if '@' in safe_url:
+            # Ocultar contraseña en logs
+            parts = safe_url.split('@')
+            user_pass = parts[0]
+            if ':' in user_pass:
+                user = user_pass.split(':')[0]
+                safe_url = f"postgres://{user}:****@{parts[1]}"
+        
+        log(f"   URL usada: {safe_url}")
+        log(f"   Sugerencia 1: Usa Internal Database URL, no External")
+        log(f"   Sugerencia 2: Verifica que el usuario/contraseña sean correctos")
+        log(f"   Sugerencia 3: Asegúrate de que la base de datos esté en estado 'available'")
+        
         return None
 
 def init_postgresql():
@@ -1905,6 +1953,55 @@ def api_citas():
     except Exception as e:
         log(f"❌ Error cargando citas: {e}")
         return jsonify({"citas": citas_memoria, "storage": "memory"})
+
+@app.route("/db-test-simple", methods=["GET"])
+def db_test_simple():
+    """Prueba simple de conexión a base de datos"""
+    try:
+        # Mostrar información de la URL (sin contraseña)
+        safe_url = "No configurada"
+        if DATABASE_URL:
+            if '@' in DATABASE_URL:
+                parts = DATABASE_URL.split('@')
+                user_part = parts[0]
+                if ':' in user_part:
+                    user = user_part.split(':')[0]
+                    safe_url = f"postgres://{user}:****@{parts[1]}"
+            else:
+                safe_url = DATABASE_URL[:50] + "..."
+        
+        # Intentar conexión
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT '✅ CONECTADO' as status, current_timestamp as hora")
+            result = cursor.fetchone()
+            conn.close()
+            
+            return jsonify({
+                "status": "success",
+                "message": result[0],
+                "database_time": str(result[1]),
+                "connection_type": "Internal" if ':5432/' in DATABASE_URL else "External",
+                "url_safe": safe_url
+            })
+        else:
+            return jsonify({
+                "status": "error",
+                "message": "No se pudo conectar",
+                "database_url_set": "Sí" if DATABASE_URL else "No",
+                "url_safe": safe_url,
+                "suggestion": "Usa Internal Database URL, no External"
+            })
+            
+    except Exception as e:
+        return jsonify({
+            "status": "exception",
+            "error": str(e),
+            "database_url_first_50": DATABASE_URL[:50] if DATABASE_URL else "No configurada"
+        })
+
+
 
 @app.route("/test", methods=["GET"])
 def test_send():
