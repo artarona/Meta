@@ -13,7 +13,7 @@ app = Flask(__name__)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-ACCESS_TOKEN = "EAAJYsGl5pHgBQqQQe9cgMhjuy3f7xs9oDi8WRdryCvmwBZAbIObXTEa946kEgSUxu7LJj1WSJ2hzi6bp511ZCbUwabxIueSlvtF30W7O8M2tg0O0lIMAj7o5WAf9iApFwFNZByXySqVu4kSqRZBaZBSukjVwKjZBnkYEMDXmcdGcZC1UJcm3v30fTDnDgyCMz0zdqBIT71JoDLqNiJpxaZA3cCy7FKFHS02kQI9vpi9W9U7KAMImU1VJNZCgw0YW5bNMZAnin3PrYszfPMowE5XGVnTi9Ejka6PJKHBUUZD"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQgFbCsWZBygzrfRZAIGqlIgVZB9mqCpygt6miASefd3Y8C28kqGN5tMEsmsD3lehZBok1sBfrXKJvQ00tVwKR2z1ZBZCZBxP6r8ynzwH7YPDp7P0aeMeTZCkuteZA1vA1hFaBNrGElCB21ATPecuVPfKxCw869YMt9CBe3LpFHFhjxtG8ZBEjGjHf1RyX7yOrPJB3l8vOfMapx4YyWZAsSz7hRXuefbni52SyLQl8PSK2s4IxRmfP4EvvEWhrOGZAlBZCRsVwcBRRrcF63iogGYZCdNGf8bwZDZDEAAJYsGl5pHgBQvMLmjToqZA2CcAlsMMnIAQH2SQ9E2b7ZCVCgSsKkPt5T5m1YuVMrGmZBYf5jH6HYKtISTXsaQDnR0kpvYDcmXKwN7zWR1jAZCZCvZBqdUuZBZBvgZByjI8r8hSIxMRVmxe9bIAESZAZB0cKlXhpklHZCvcqUZCMYhuidwaB6TTLwqBCHX3xamaR3AKlETmnzAk04sglXc86QuC1dW9xtKX3wYJqpXpXvNz4KZBBOnmsELdFxnS0vFiJhQ1Yv4K6IkHMNTuo8bPBZBBqZBizVd7rL8AuFks9b5sZD"
 PHONE_NUMBER_ID = "1000705633118215"
 ADMIN_NUMBER = "5491151511579"  # Número donde llegarán las alertas de leads
 ADMIN_ACCESS_KEY = "dante2026"  # Llave para acceder al panel admin
@@ -2054,4 +2054,13 @@ if __name__ == "__main__":
         print(f"   Leads en memoria: {len(leads_memoria)}")
     
     propiedades = cargar_propiedades()
-    print(f"📊 Propiedades cargadas: {len(propiedades)}
+    print(f"📊 Propiedades cargadas: {len(propiedades)}")
+    
+    # Mostrar estado del sistema
+    print(f"🌐 URL: https://meta-chat-npbx.onrender.com")
+    print(f"📁 Propiedades: {PROPIEDADES_FILE}")
+    print(f"📅 Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 60 + "\n")
+    
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port, debug=False)
