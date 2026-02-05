@@ -2,12 +2,9 @@ from flask import Flask, request, jsonify, send_from_directory, send_file
 import requests
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta  # AÑADIDO timedelta
 from collections import deque
 import threading
-import re  # Para expresiones regulares
-import psycopg2
-from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
 
@@ -16,14 +13,11 @@ VERIFY_TOKEN = "mi_token_secreto_123"
 ACCESS_TOKEN = "EAAJYsGl5pHgBQvMLmjToqZA2CcAlsMMnIAQH2SQ9E2b7ZCVCgSsKkPt5T5m1YuVMrGmZBYf5jH6HYKtISTXsaQDnR0kpvYDcmXKwN7zWR1jAZCZCvZBqdUuZBZBvgZByjI8r8hSIxMRVmxe9bIAESZAZB0cKlXhpklHZCvcqUZCMYhuidwaB6TTLwqBCHX3xamaR3AKlETmnzAk04sglXc86QuC1dW9xtKX3wYJqpXpXvNz4KZBBOnmsELdFxnS0vFiJhQ1Yv4K6IkHMNTuo8bPBZBBqZBizVd7rL8AuFks9b5sZD"
 PHONE_NUMBER_ID = "1000705633118215"
 ADMIN_NUMBER = "5491151511579"  # Número donde llegarán las alertas de leads
+LEADS_FILE = "leads.json"
 ADMIN_ACCESS_KEY = "dante2026"  # Llave para acceder al panel admin
 
-# ========== ARCHIVOS ==========
-PROPIEDADES_FILE = "propiedades.json"
-CITAS_FILE = "citas.json"
-LEADS_FILE = "leads.json"
-
 # ========== CONFIGURACIÓN DE CITAS ==========
+CITAS_FILE = "citas.json"  # Nuevo archivo para almacenar citas
 CITAS_DISPONIBLES = [  # Horarios disponibles para citas
     "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
     "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
@@ -34,211 +28,66 @@ CITAS_DISPONIBLES = [  # Horarios disponibles para citas
 estados_usuarios = {}
 processed_message_ids = deque(maxlen=100)
 
-# ========== CONEXIÓN A POSTGRESQL ==========
-DATABASE_URL = os.environ.get('DATABASE_URL')
-if not DATABASE_URL:
-    print("❌ ADVERTENCIA: DATABASE_URL no encontrada")
-    print("   Configúrala en Render -> Environment")
-    # URL local para desarrollo
-    DATABASE_URL = "postgresql://localhost/dantepropiedades_db"
+def obtener_estado_usuario(user_id):
+    """Obtiene o crea el estado de un usuario"""
+    if user_id not in estados_usuarios:
+        estados_usuarios[user_id] = {
+            'paso': 'menu_principal',
+            'operacion_seleccionada': None,
+            'propiedades_filtradas': [],
+            'ultimo_indice_preguntado': None,
+            'timestamp': datetime.now().isoformat()
+        }
+    return estados_usuarios[user_id]
 
-def get_db_connection():
-    """Conexión a PostgreSQL con psycopg2"""
-    try:
-        # Para Render, usa sslmode='require'
-        conn = psycopg2.connect(DATABASE_URL, sslmode='require')
-        return conn
-    except Exception as e:
-        print(f"❌ Error conectando a PostgreSQL: {e}")
-        return None
-
-def init_postgresql():
-    """Inicializa las tablas en PostgreSQL si no existen"""
-    print("🔧 Inicializando PostgreSQL...")
-    conn = get_db_connection()
-    if not conn:
-        log("❌ No se pudo conectar a la base de datos")
-        return False
+def actualizar_estado_usuario(user_id, nuevo_estado):
+    """Actualiza el estado de un usuario"""
+    nuevo_estado['timestamp'] = datetime.now().isoformat()
+    estados_usuarios[user_id] = nuevo_estado
     
-    try:
-        cursor = conn.cursor()
-        
-        # Tabla de citas
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS citas (
-                id VARCHAR(50) PRIMARY KEY,
-                nombre VARCHAR(100) NOT NULL,
-                telefono VARCHAR(20) NOT NULL,
-                email VARCHAR(100),
-                fecha VARCHAR(10) NOT NULL,
-                hora VARCHAR(5) NOT NULL,
-                propiedad_id VARCHAR(50),
-                propiedad_titulo VARCHAR(200),
-                estado VARCHAR(20) DEFAULT 'pendiente',
-                notas TEXT,
-                creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                ultima_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                recordatorio_enviado BOOLEAN DEFAULT FALSE
-            )
-        ''')
-        
-        # Tabla de leads
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS leads (
-                id SERIAL PRIMARY KEY,
-                fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                telefono VARCHAR(20),
-                nombre VARCHAR(100),
-                propiedad_id VARCHAR(50),
-                propiedad_titulo VARCHAR(200),
-                accion VARCHAR(50),
-                detalles TEXT,
-                tipo_lead VARCHAR(30),
-                interes VARCHAR(20),
-                seguimiento TEXT,
-                prioridad VARCHAR(20),
-                agente_asignado VARCHAR(100)
-            )
-        ''')
-        
-        conn.commit()
-        log("✅ Base de datos PostgreSQL inicializada correctamente")
-        return True
-        
-    except Exception as e:
-        log(f"❌ Error inicializando base de datos: {e}")
-        return False
-    finally:
-        if conn:
-            conn.close()
+    # Limpiar estados antiguos (más de 1 hora)
+    ahora = datetime.now()
+    usuarios_a_eliminar = [
+        uid for uid, estado in estados_usuarios.items()
+        if 'timestamp' in estado and (ahora - datetime.fromisoformat(estado['timestamp'])).total_seconds() > 3600
+    ]
+    
+    for uid in usuarios_a_eliminar:
+        del estados_usuarios[uid]
 
-def log(message):
-    """Función para logging"""
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(f"{timestamp} {message}", flush=True)
-
-# ========== VERIFICACIÓN DE TOKEN ==========
-def check_token_validity():
-    """Verifica si el token de acceso es válido"""
+# ========== GESTIÓN DE LEADS (CLIENTES INTERESADOS) ==========
+def registrar_lead(user_id, propiedad_id, accion, detalle=""):
+    """Registra una interacción de lead en el archivo leads.json"""
     try:
-        log("🔍 Verificando validez del token de acceso...")
-        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}"
-        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
-        response = requests.get(url, headers=headers, timeout=10)
+        leads = []
+        if os.path.exists(LEADS_FILE):
+            with open(LEADS_FILE, 'r', encoding='utf-8') as f:
+                leads = json.load(f)
         
-        if response.status_code == 200:
-            data = response.json()
-            log(f"✅ TOKEN VÁLIDO")
-            log(f"   Phone ID: {data.get('id')}")
-            log(f"   Nombre: {data.get('verified_name', 'N/A')}")
-            log(f"   Número: {data.get('display_phone_number', 'N/A')}")
-            return True, data
-        else:
-            error_data = response.json() if response.content else {}
-            log(f"❌ TOKEN INVÁLIDO: Status {response.status_code}")
-            log(f"   Error: {error_data.get('error', {}).get('message', 'Error desconocido')}")
-            log(f"   Código: {error_data.get('error', {}).get('code', 'N/A')}")
-            return False, error_data
+        nuevo_lead = {
+            'timestamp': datetime.now().isoformat(),
+            'user_id': user_id,
+            'propiedad_id': propiedad_id,
+            'accion': accion,
+            'detalle': detalle
+        }
+        leads.append(nuevo_lead)
+        
+        with open(LEADS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(leads, f, indent=4, ensure_ascii=False)
             
+        log(f"📈 Lead registrado: {user_id} - {accion}")
     except Exception as e:
-        log(f"🔥 ERROR VERIFICANDO TOKEN: {e}")
-        return False, {"error": str(e)}
+        log(f"🔥 Error registrando lead: {e}")
 
-# ========== SEND WHATSAPP MESSAGE ==========
-def send_whatsapp_message(to_number, message_text):
-    """Envía un mensaje de WhatsApp usando texto directo"""
-    try:
-        # Primero verificar si el token es válido
-        token_valid, token_info = check_token_validity()
-        if not token_valid:
-            log("❌❌❌ TOKEN INVÁLIDO - No se puede enviar mensaje")
-            return {
-                "status": "error",
-                "error_code": "invalid_token",
-                "error_message": "Token de acceso expirado o inválido",
-                "details": "Ve a Meta Developers > WhatsApp > Getting Started para generar nuevo token"
-            }
-        
-        # Transformar número para Sandbox (AR)
-        def transform_number(number):
-            # Formato ARG Sandbox: 54911XXXXXXXX -> 541115XXXXXXXX
-            if number.startswith("549") and len(number) == 13:
-                # Quitamos el '9' y agregamos '15' después del código de área
-                country = number[:2]    # 54
-                area = number[3:5]       # 11 (o el área que sea)
-                rest = number[5:]       # El resto del número
-                return f"{country}{area}15{rest}"
-            return number
-        
-        transformed_number = transform_number(to_number)
-        
-        # URL de la API de Meta
-        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-        
-        # Headers con el token de acceso
-        headers = {
-            "Authorization": f"Bearer {ACCESS_TOKEN}",
-            "Content-Type": "application/json"
-        }
-        
-        # Payload para mensaje de texto directo
-        payload = {
-            "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": transformed_number,
-            "type": "text",
-            "text": {
-                "preview_url": False,
-                "body": message_text
-            }
-        }
-        
-        log(f"📤 ENVIANDO MENSAJE DIRECTO")
-        log(f"   Token válido: ✓")
-        log(f"   Número original: {to_number}")
-        log(f"   Número transformado: {transformed_number}")
-        log(f"💬 MENSAJE: {message_text[:100]}...")
-        
-        # Enviar la solicitud
-        response = requests.post(url, json=payload, headers=headers, timeout=30)
-        
-        log(f"📊 STATUS HTTP: {response.status_code}")
-        
-        if response.status_code == 200:
-            result = response.json()
-            message_id = result.get('messages', [{}])[0].get('id', 'N/A')
-            log(f"✅ ✅ ✅ MENSAJE ENVIADO EXITOSAMENTE")
-            log(f"📱 ID del mensaje: {message_id}")
-            return {
-                "status": "success",
-                "message_id": message_id,
-                "details": "Mensaje de texto directo enviado",
-                "numero_original": to_number,
-                "numero_usado": transformed_number
-            }
-        else:
-            error_data = response.json() if response.content else {}
-            error_code = error_data.get('error', {}).get('code', 'N/A')
-            error_message = error_data.get('error', {}).get('message', 'Error desconocido')
-            
-            log(f"❌ ERROR EN API: {error_code}")
-            log(f"❌ MENSAJE: {error_message}")
-            
-            return {
-                "status": "error",
-                "error_code": error_code,
-                "error_message": error_message,
-                "details": error_data
-            }
-            
-    except Exception as e:
-        log(f"🔥 ERROR INESPERADO: {str(e)}")
-        return {
-            "status": "error",
-            "error": str(e)
-        }
+def notificar_agente(mensaje):
+    """Envía una notificación al número de Dante (ADMIN_NUMBER)"""
+    log(f"📢 NOTIFICANDO AL AGENTE: {mensaje[:50]}...")
+    return send_whatsapp_message(ADMIN_NUMBER, f"🔔 *ALERTA DANTE-INSIGHTS*\n{mensaje}")
 
 # ========== CARGAR PROPIEDADES ==========
+PROPIEDADES_FILE = "propiedades.json"
+
 def cargar_propiedades():
     """Carga las propiedades desde el archivo JSON"""
     try:
@@ -252,6 +101,11 @@ def cargar_propiedades():
     except json.JSONDecodeError as e:
         log(f"❌ Error al leer JSON: {e}")
         return []
+
+def log(message):
+    """Función para logging"""
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"{timestamp} {message}", flush=True)
 
 def numero_a_emoji(n):
     """Convierte un número a su emoji correspondiente (1-10)"""
@@ -284,13 +138,10 @@ def generar_listado_propiedades(propiedades):
     listado = "📋 *LISTADO DE PROPIEDADES*\n\n"
     
     for i, prop in enumerate(propiedades[:10], 1):  # Limitar a 10 propiedades
-        listado += (
-            f"{numero_a_emoji(i)} {prop.get('titulo', 'Sin título')}\n"
-            f"   🏷️ Operación: {prop.get('operacion', 'Sin operación')}\n"
-        )
-        
+        listado += f"{numero_a_emoji(i)} {prop.get('titulo', 'Sin título')}\n"
         listado += f"   📍 {prop.get('barrio', 'N/A')} | "
         listado += f"💰 "
+        
         precio = prop.get('precio', 0)
         moneda = prop.get('moneda_precio', 'USD')
         if moneda == 'USD':
@@ -369,283 +220,6 @@ def formatear_detalle_propiedad(propiedad):
     
     return detalle
 
-def send_whatsapp_image(to_number, image_url, caption=""):
-    """Envía una imagen por WhatsApp"""
-    try:
-        # Verificar token primero
-        token_valid, _ = check_token_validity()
-        if not token_valid:
-            log("❌ Token inválido - No se puede enviar imagen")
-            return False
-        
-        # Transformar número si es necesario (Sandbox ARG)
-        def transform_number(number):
-            if number.startswith("549") and len(number) == 13:
-                country = number[:2]
-                area = number[3:5]
-                rest = number[5:]
-                return f"{country}{area}15{rest}"
-            return number
-        
-        transformed_number = transform_number(to_number)
-        
-        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-        headers = {
-            "Authorization": f"Bearer {ACCESS_TOKEN}",
-            "Content-Type": "application/json"
-        }
-        
-        payload = {
-            "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": transformed_number,
-            "type": "image",
-            "image": {
-                "link": image_url,
-                "caption": caption[:1024]
-            }
-        }
-        
-        log(f"🖼️ ENVIANDO IMAGEN: {image_url}")
-        
-        response = requests.post(url, json=payload, headers=headers, timeout=30)
-        
-        if response.status_code == 200:
-            log(f"✅ Imagen enviada exitosamente")
-            return True
-        else:
-            error_data = response.json() if response.content else {}
-            log(f"❌ Error enviando imagen: {error_data}")
-            return False
-            
-    except Exception as e:
-        log(f"🔥 ERROR enviando imagen: {str(e)}")
-        return False
-
-def send_photos_async(user_id, propiedad_id, base_url):
-    """Tarea ejecutada en hilo secundario para enviar fotos sin bloquear el webhook"""
-    try:
-        # Recuperar datos de la propiedad
-        propiedades = cargar_propiedades()
-        propiedad = next((p for p in propiedades if p.get('id_temporal') == propiedad_id), None)
-        
-        if not propiedad:
-            log(f"❌ No se encontró propiedad {propiedad_id} para envío de fotos")
-            return
-
-        fotos = propiedad.get('fotos', [])
-        if not fotos:
-            return
-
-        # Enviar mensaje de aviso inicial
-        send_whatsapp_message(user_id, f"🏠🗝️ *DANTE PROPIEDADES*\nRecuperando {len(fotos)} fotos...")
-
-        # Enviar cada foto
-        for foto_path in fotos:
-            img_url = f"{base_url}/{foto_path.lstrip('/')}"
-            log(f"📤 HILO-SECUNDARIO: Enviando {img_url}")
-            send_whatsapp_image(user_id, img_url)
-            
-        # Notificaciones finales
-        notificar_agente(f"👤 El cliente {user_id} está viendo fotos de: {propiedad.get('titulo')}")
-        registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_fotos")
-        
-        # Enviar mensaje de cierre con instrucciones al usuario
-        final_msg = "✅ *¡Fotos enviadas!*\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
-        send_whatsapp_message(user_id, final_msg)
-        
-        log(f"✅ HILO-SECUNDARIO: Envío de fotos completado para {user_id}")
-    except Exception as e:
-        log(f"🔥 Error en hilo de fotos: {e}")
-
-def send_welcome_flow(user_id):
-    """Envía el flujo completo de bienvenida: logo (imagen) + mensaje con emoji"""
-    # Mensaje de bienvenida CON EMOJIS 🔑🏠
-    welcome_message = """🏠🗝️ *DANTE PROPIEDADES*
-
-¡Hola! Soy el asistente inmobiliario de Dante Propiedades.
-
-*¿Qué tipo de operación te interesa?*
-Escribí el número de tu opción:
-
-1️⃣ *💰 VENTA* - Propiedades en venta
-2️⃣ *🔑 ALQUILER* - Propiedades en alquiler
-3️⃣ *📍 Búsqueda por zona* (próximamente)
-4️⃣ *🔍 Búsqueda libre* (próximamente)
-5️⃣ *📋 Ver todas las propiedades*
-6️⃣ *📅 Mis citas agendadas* (NUEVO)
-7️⃣ *🌐 Ir a nuestra Web*
-8️⃣ *🔐 Panel Admin* (Solo Dante)
-0️⃣ *❌ SALIR*
-
-Para seleccionar, solo envía el número (ej: "1" o "0")"""   
-    
-    return send_whatsapp_message(user_id, welcome_message)
-
-def obtener_estado_usuario(user_id):
-    """Obtiene o crea el estado de un usuario"""
-    if user_id not in estados_usuarios:
-        estados_usuarios[user_id] = {
-            'paso': 'menu_principal',
-            'operacion_seleccionada': None,
-            'propiedades_filtradas': [],
-            'ultimo_indice_preguntado': None,
-            'timestamp': datetime.now().isoformat()
-        }
-    return estados_usuarios[user_id]
-
-def actualizar_estado_usuario(user_id, nuevo_estado):
-    """Actualiza el estado de un usuario"""
-    nuevo_estado['timestamp'] = datetime.now().isoformat()
-    estados_usuarios[user_id] = nuevo_estado
-    
-    log(f"💾 Guardando estado para {user_id}:")
-    log(f"   Paso: {nuevo_estado.get('paso', 'N/A')}")
-    log(f"   Nombre cliente: {nuevo_estado.get('nombre_cliente', 'N/A')}")
-    log(f"   Fecha cita: {nuevo_estado.get('fecha_cita', 'N/A')}")
-    
-    # Limpiar estados antiguos (más de 1 hora)
-    ahora = datetime.now()
-    usuarios_a_eliminar = [
-        uid for uid, estado in estados_usuarios.items()
-        if 'timestamp' in estado and (ahora - datetime.fromisoformat(estado['timestamp'])).total_seconds() > 3600
-    ]
-    
-    for uid in usuarios_a_eliminar:
-        log(f"🗑️  Eliminando estado antiguo para {uid}")
-        del estados_usuarios[uid]
-
-def notificar_agente(mensaje):
-    """Envía una notificación al número de Dante (ADMIN_NUMBER)"""
-    log(f"📢 NOTIFICANDO AL AGENTE: {mensaje[:50]}...")
-    return send_whatsapp_message(ADMIN_NUMBER, f"🔔 *ALERTA DANTE-INSIGHTS*\n{mensaje}")
-
-def registrar_lead(user_id, propiedad_id, accion, detalle=""):
-    """Registra lead en PostgreSQL"""
-    log(f"🎯🎯🎯 REGISTRAR_LEAD LLAMADO")
-    log(f"   User: {user_id}")
-    log(f"   Propiedad: {propiedad_id}")
-    log(f"   Acción: {accion}")
-    
-    try:
-        # Buscar propiedad
-        propiedades = cargar_propiedades()
-        propiedad = next((p for p in propiedades if p.get('id_temporal') == propiedad_id), None)
-        titulo = propiedad.get('titulo', 'Sin título') if propiedad else 'Sin título'
-        
-        log(f"   Propiedad título: {titulo}")
-        
-        # Guardar en PostgreSQL
-        conn = get_db_connection()
-        if not conn:
-            log("❌ No hay conexión a PostgreSQL")
-            return False
-        
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO leads (telefono, propiedad_id, propiedad_titulo, accion, detalles)
-            VALUES (%s, %s, %s, %s, %s)
-            RETURNING id
-        """, (user_id, propiedad_id, titulo, accion, detalle))
-        
-        lead_id = cursor.fetchone()[0]
-        conn.commit()
-        conn.close()
-        
-        log(f"✅✅✅ LEAD GUARDADO EN POSTGRESQL ID: {lead_id}")
-        
-        # Notificar al admin
-        notificar_agente(f"📈 NUEVO LEAD (PostgreSQL ID: {lead_id})\n👤 {user_id}\n🏠 {titulo}\n🔗 {accion}")
-        
-        return True
-        
-    except Exception as e:
-        log(f"❌❌❌ ERROR GUARDANDO LEAD: {e}")
-        return False
-
-def obtener_horarios_disponibles(fecha_str):
-    """Obtiene horarios disponibles para una fecha específica"""
-    try:
-        # Convertir fecha string a objeto datetime
-        fecha_deseada = datetime.strptime(fecha_str, "%Y-%m-%d")
-        
-        # Cargar citas existentes desde PostgreSQL
-        conn = get_db_connection()
-        if not conn:
-            return CITAS_DISPONIBLES
-        
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT hora FROM citas 
-            WHERE fecha = %s AND estado IN ('pendiente', 'confirmada')
-        """, (fecha_str,))
-        
-        horarios_ocupados = [row[0] for row in cursor.fetchall()]
-        conn.close()
-        
-        # Filtrar horarios disponibles
-        horarios_disponibles = [hora for hora in CITAS_DISPONIBLES if hora not in horarios_ocupados]
-        
-        log(f"📅 Horarios disponibles para {fecha_str}: {len(horarios_disponibles)}/{len(CITAS_DISPONIBLES)}")
-        return horarios_disponibles
-    except Exception as e:
-        log(f"❌ Error obteniendo horarios disponibles: {e}")
-        return CITAS_DISPONIBLES  # Devuelve todos si hay error
-
-def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo="", notas=""):
-    """Crea cita en PostgreSQL"""
-    log(f"🎯🎯🎯 CREAR_CITA LLAMADO")
-    log(f"   Nombre: {nombre}")
-    log(f"   Fecha: {fecha} {hora}")
-    
-    try:
-        # Generar ID
-        cita_id = f"cita_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        
-        # Guardar en PostgreSQL
-        conn = get_db_connection()
-        if not conn:
-            log("❌ No hay conexión a PostgreSQL")
-            return None
-        
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO citas (id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo, estado, notas)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """, (cita_id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo, 'pendiente', notas))
-        
-        inserted_id = cursor.fetchone()[0]
-        conn.commit()
-        conn.close()
-        
-        log(f"✅✅✅ CITA GUARDADA EN POSTGRESQL ID: {inserted_id}")
-        
-        # Notificar al admin
-        mensaje = f"📅 *NUEVA CITA AGENDADA*\n\n"
-        mensaje += f"👤 *Cliente:* {nombre}\n"
-        mensaje += f"📞 *Teléfono:* +{telefono}\n"
-        mensaje += f"📅 *Fecha:* {fecha}\n"
-        mensaje += f"⏰ *Hora:* {hora}\n"
-        mensaje += f"🏠 *Propiedad:* {propiedad_titulo[:50]}...\n"
-        mensaje += f"🆔 *ID Cita:* {cita_id}"
-        notificar_agente(mensaje)
-        
-        return {
-            'id': cita_id,
-            'nombre': nombre,
-            'telefono': telefono,
-            'fecha': fecha,
-            'hora': hora,
-            'propiedad_id': propiedad_id,
-            'propiedad_titulo': propiedad_titulo,
-            'estado': 'pendiente'
-        }
-        
-    except Exception as e:
-        log(f"❌❌❌ ERROR GUARDANDO CITA: {e}")
-        return None
-
 # ========== BOT CON PROPIEDADES ==========
 def get_bot_response(text, user_id):
     """Responde con un mensaje simple, manteniendo estado de usuario"""
@@ -653,7 +227,7 @@ def get_bot_response(text, user_id):
     
     # Obtener estado actual del usuario
     estado_usuario = obtener_estado_usuario(user_id)
-    log(f"👤 Estado usuario {user_id}: {estado_usuario['paso']} - Texto recibido: '{text}'")
+    log(f"👤 Estado usuario {user_id}: {estado_usuario['paso']}")
     
     # 1. COMANDOS UNIVERSALES (Hola / Salir)
     if text_lower in ["hola", "hi", "hello", "hola bot", "inicio", "menu", "volver", "atras"]:
@@ -671,13 +245,8 @@ def get_bot_response(text, user_id):
         estado_usuario['propiedades_filtradas'] = []
         estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
-        return (
-            "👋 ¡Gracias por contactarnos!\n"
-            "Para volver al menú, envía '1'\n"
-            "Para salir envía '0' ❌\n"
-            "🏠🗝️ DANTE PROPIEDADES"
-        )
-    
+        return f"👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌"
+
     # 2. BOTONES DE NAVEGACIÓN RÁPIDA (Solo en ciertos estados)
     if text_lower == "1" and estado_usuario['paso'] in ['detalle_propiedad', 'vista_fotos', 'vista_web', 'esperando_nombre_lead']:
         estado_usuario['paso'] = 'menu_principal'
@@ -716,19 +285,6 @@ def get_bot_response(text, user_id):
             return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
 
     # 3. LÓGICA POR ESTADO (Máquina de Estados)
-    
-    # ESTADO: menu_principal - Si recibe un horario, es un error
-    if estado_usuario['paso'] == 'menu_principal':
-        # Verificar si es un formato de horario (HH:MM o H:MM)
-        try:
-            if re.match(r'^\d{1,2}:\d{2}$', text):
-                return "❌ *Error de contexto*\n\nParece que intentaste seleccionar un horario, pero primero debes:\n\n1. Seleccionar una propiedad (envía '1' para venta o '2' para alquiler)\n2. Hacer clic en 'Me interesa' (8)\n3. Seguir el proceso de agendamiento de cita\n\nEnvía 'Hola' para comenzar."
-        except:
-            # Si por alguna razón re no está disponible, usar una verificación simple
-            if ':' in text and len(text.split(':')) == 2:
-                parts = text.split(':')
-                if parts[0].isdigit() and parts[1].isdigit():
-                    return "❌ *Error de contexto*\n\nParece que intentaste seleccionar un horario, pero primero debes:\n\n1. Seleccionar una propiedad (envía '1' para venta o '2' para alquiler)\n2. Hacer clic en 'Me interesa' (8)\n3. Seguir el proceso de agendamiento de cita\n\nEnvía 'Hola' para comenzar."
     
     # ESTADO: listado_propiedades
     if estado_usuario['paso'] == 'listado_propiedades':
@@ -779,9 +335,6 @@ def get_bot_response(text, user_id):
                 return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
             else:
                 return f"❌ El número {indice} está fuera de rango. Elige entre 1 y {len(propiedades)} o escribe 'Hola'."
-        # Si recibe un horario en este estado, es un error
-        elif re.match(r'^\d{1,2}:\d{2}$', text):
-            return "❌ *Error de contexto*\n\nPara seleccionar un horario de cita, primero debes hacer clic en 'Me interesa' (8) en esta propiedad y seguir el proceso de agendamiento.\n\nSi quieres agendar cita para esta propiedad, envía '8'"
 
     # ESTADO: vista_fotos / vista_web / vista_comun
     elif estado_usuario['paso'] in ['vista_fotos', 'vista_web']:
@@ -837,15 +390,13 @@ def get_bot_response(text, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             return "❌ Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad enviando 'Hola'."
 
-    # ESTADO: ofrecer_cita
+    # NUEVO ESTADO: ofrecer_cita
     elif estado_usuario['paso'] == 'ofrecer_cita':
         text_lower = text.lower().strip()
-        log(f"📅 Estado ofrecer_cita - Opción seleccionada: '{text_lower}'")
         
         # Opción 1: Sí, agendar cita
-        if text_lower in ["1", "si", "sí", "si quiero", "agendar", "cita", "visita", "sí agendar"]:
+        if text_lower in ["1", "si", "sí", "si quiero", "agendar", "cita", "visita"]:
             estado_usuario['paso'] = 'solicitar_fecha_cita'
-            estado_usuario['ultima_accion'] = 'selecciono_agendar_cita'
             actualizar_estado_usuario(user_id, estado_usuario)
             
             # Mostrar ejemplo de fecha
@@ -915,12 +466,7 @@ def get_bot_response(text, user_id):
             estado_usuario['nombre_cliente'] = None
             actualizar_estado_usuario(user_id, estado_usuario)
             
-            return (
-                "👋 ¡Gracias por contactarnos!\n"
-                "Para volver al menú, envía '1'\n"
-                "Para salir envía '0' ❌\n"
-                "🏠🗝️ DANTE PROPIEDADES"
-            )
+            return f"👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌"
         
         # Respuesta no reconocida
         else:
@@ -930,9 +476,8 @@ def get_bot_response(text, user_id):
                 f"3️⃣ *Ya la vi, quiero ofertar* 💰\n" \
                 f"0️⃣ *Salir* ❌"
 
-    # ESTADO: solicitar_fecha_cita
+    # NUEVO ESTADO: solicitar_fecha_cita
     elif estado_usuario['paso'] == 'solicitar_fecha_cita':
-        log(f"📅 Estado solicitar_fecha_cita - Fecha recibida: '{text}'")
         text_lower = text.lower().strip()
         
         # Comando especial: ver fechas disponibles
@@ -970,7 +515,7 @@ def get_bot_response(text, user_id):
                 return "❌ *Plazo excedido*\nSolo podemos agendar hasta 30 días en el futuro.\n\n" \
                     "Por favor, elige una fecha más cercana."
             
-            # Verificar si es fin de semana (opcional)
+            # Verificar si es fin de semana (opcional, puedes comentar estas líneas si aceptas fines de semana)
             if fecha_ingresada.weekday() >= 5:  # 5 = sábado, 6 = domingo
                 return "⚠️ *Fin de semana*\nLa disponibilidad de fines de semana es limitada.\n\n" \
                     "¿Confirmas que quieres agendar para fin de semana?\n\n" \
@@ -979,7 +524,6 @@ def get_bot_response(text, user_id):
             # Guardar fecha en estado
             fecha_str = fecha_ingresada.strftime("%Y-%m-%d")
             estado_usuario['fecha_cita'] = fecha_str
-            estado_usuario['ultima_accion'] = 'ingreso_fecha_cita'
             
             # Obtener horarios disponibles
             horarios_disponibles = obtener_horarios_disponibles(fecha_str)
@@ -1037,7 +581,7 @@ def get_bot_response(text, user_id):
                 "*Ejemplo:* 2024-12-25\n\n" \
                 "También puedes escribir 'Ver fechas' para ver disponibilidad."
 
-    # ESTADO: seleccionar_hora_cita
+    # NUEVO ESTADO: seleccionar_hora_cita
     elif estado_usuario['paso'] == 'seleccionar_hora_cita':
         text_lower = text.lower().strip()
         
@@ -1113,7 +657,7 @@ def get_bot_response(text, user_id):
         else:
             return "❌ *Error: No se encontró la propiedad*\n\n" \
                 "Hubo un problema al procesar tu cita. Por favor, inicia el proceso nuevamente enviando 'Hola'."
-
+    
     # 4. OPCIONES GLOBALES (1..7) - Se procesan si no se capturaron arriba
     if text_lower == "1":
         estado_usuario['paso'] = 'listado_propiedades'
@@ -1165,49 +709,35 @@ def get_bot_response(text, user_id):
                    f"📱 *0. Volver al menú principal*"
         else:
             # Para usuarios normales, verificar si tienen citas agendadas
-            try:
-                conn = get_db_connection()
-                if conn:
-                    cursor = conn.cursor(cursor_factory=RealDictCursor)
-                    cursor.execute("""
-                        SELECT id, fecha, hora, estado, propiedad_titulo, notas 
-                        FROM citas 
-                        WHERE telefono = %s AND estado != 'cancelada'
-                        ORDER BY fecha DESC
-                    """, (user_id,))
-                    
-                    citas_usuario = cursor.fetchall()
-                    conn.close()
-                    
-                    if not citas_usuario:
-                        return "📅 *No tienes citas agendadas*\n\n" \
-                               "Para agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n" \
-                               "Enviá 'Hola' para volver al menú."
-                    
-                    # Mostrar citas del usuario
-                    mensaje = f"📅 *TUS CITAS AGENDADAS*\n\n"
-                    mensaje += f"Tienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
-                    
-                    for i, cita in enumerate(citas_usuario, 1):
-                        fecha_obj = datetime.strptime(cita['fecha'], "%Y-%m-%d")
-                        fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
-                        
-                        mensaje += f"{i}. *{cita['propiedad_titulo']}*\n"
-                        mensaje += f"   📅 {fecha_formateada} - ⏰ {cita['hora']}\n"
-                        mensaje += f"   📍 Estado: {cita['estado'].upper()}\n"
-                        
-                        if cita.get('notas') and cita['notas'] != 'Sin notas adicionales':
-                            mensaje += f"   📝 Notas: {cita['notas'][:50]}...\n"
-                        
-                        mensaje += "   ───────────────\n"
-                    
-                    mensaje += f"\nPara consultar o modificar una cita, contacta al administrador.\n\n"
-                    mensaje += f"Para volver al menú, envía '1' | Para salir envía '0' ❌"
-                    
-                    return mensaje
-            except Exception as e:
-                log(f"❌ Error obteniendo citas: {e}")
-                return "📅 *Error al cargar citas*\n\nPor favor, inténtalo más tarde."
+            citas = cargar_citas()
+            citas_usuario = [c for c in citas if c['telefono'] == user_id and c['estado'] != 'cancelada']
+            
+            if not citas_usuario:
+                return "📅 *No tienes citas agendadas*\n\n" \
+                       "Para agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n" \
+                       "Enviá 'Hola' para volver al menú."
+            
+            # Mostrar citas del usuario
+            mensaje = f"📅 *TUS CITAS AGENDADAS*\n\n"
+            mensaje += f"Tienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
+            
+            for i, cita in enumerate(citas_usuario, 1):
+                fecha_obj = datetime.strptime(cita['fecha'], "%Y-%m-%d")
+                fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
+                
+                mensaje += f"{i}. *{cita['propiedad_id']}*\n"
+                mensaje += f"   📅 {fecha_formateada} - ⏰ {cita['hora']}\n"
+                mensaje += f"   📍 Estado: {cita['estado'].upper()}\n"
+                
+                if cita.get('notas') and cita['notas'] != 'Sin notas adicionales':
+                    mensaje += f"   📝 Notas: {cita['notas'][:50]}...\n"
+                
+                mensaje += "   ───────────────\n"
+            
+            mensaje += f"\nPara consultar o modificar una cita, contacta al administrador.\n\n"
+            mensaje += f"Para volver al menú, envía '1' | Para salir envía '0' ❌"
+            
+            return mensaje
     
     elif text_lower == "7":
         estado_usuario['paso'] = 'vista_web'
@@ -1232,9 +762,274 @@ def get_bot_response(text, user_id):
         else:
             return "⚠️ Acceso restringido. Esta opción es solo para administradores.\n\nEnviá 'Hola' para volver."
 
-    # Si llega aquí sin haber retornado nada, mostrar mensaje de error
-    return "❌ *Opción no reconocida*\n\n" \
-           "Por favor, selecciona una opción del menú o envía 'Hola' para ver las opciones disponibles."
+# ========== VERIFICACIÓN DE TOKEN ==========
+def check_token_validity():
+    """Verifica si el token de acceso es válido"""
+    try:
+        log("🔍 Verificando validez del token de acceso...")
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}"
+        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            log(f"✅ TOKEN VÁLIDO")
+            log(f"   Phone ID: {data.get('id')}")
+            log(f"   Nombre: {data.get('verified_name', 'N/A')}")
+            log(f"   Número: {data.get('display_phone_number', 'N/A')}")
+            return True, data
+        else:
+            error_data = response.json() if response.content else {}
+            log(f"❌ TOKEN INVÁLIDO: Status {response.status_code}")
+            log(f"   Error: {error_data.get('error', {}).get('message', 'Error desconocido')}")
+            log(f"   Código: {error_data.get('error', {}).get('code', 'N/A')}")
+            return False, error_data
+            
+    except Exception as e:
+        log(f"🔥 ERROR VERIFICANDO TOKEN: {e}")
+        return False, {"error": str(e)}
+
+# ========== SEND WHATSAPP MESSAGE ==========
+def send_whatsapp_message(to_number, message_text):
+    """Envía un mensaje de WhatsApp usando texto directo"""
+    try:
+        # Primero verificar si el token es válido
+        token_valid, token_info = check_token_validity()
+        if not token_valid:
+            log("❌❌❌ TOKEN INVÁLIDO - No se puede enviar mensaje")
+            return {
+                "status": "error",
+                "error_code": "invalid_token",
+                "error_message": "Token de acceso expirado o inválido",
+                "details": "Ve a Meta Developers > WhatsApp > Getting Started para generar nuevo token"
+            }
+        
+        # ========== TRANSFORMAR NÚMERO PARA SANDBOX (AR) ==========
+        def transform_number(number):
+            # Formato ARG Sandbox: 54911XXXXXXXX -> 541115XXXXXXXX
+            if number.startswith("549") and len(number) == 13:
+                # Quitamos el '9' y agregamos '15' después del código de área
+                country = number[:2]    # 54
+                area = number[3:5]       # 11 (o el área que sea)
+                rest = number[5:]       # El resto del número
+                return f"{country}{area}15{rest}"
+            return number
+        
+        transformed_number = transform_number(to_number)
+        
+        # URL de la API de Meta
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+        
+        # Headers con el token de acceso
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        
+        # Payload para mensaje de texto directo
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": transformed_number,
+            "type": "text",
+            "text": {
+                "preview_url": False,
+                "body": message_text
+            }
+        }
+        
+        log(f"📤 ENVIANDO MENSAJE DIRECTO")
+        log(f"   Token válido: ✓")
+        log(f"   Número original: {to_number}")
+        log(f"   Número transformado: {transformed_number}")
+        log(f"💬 MENSAJE: {message_text[:100]}...")
+        
+        # Enviar la solicitud
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        
+        log(f"📊 STATUS HTTP: {response.status_code}")
+        
+        if response.status_code == 200:
+            result = response.json()
+            message_id = result.get('messages', [{}])[0].get('id', 'N/A')
+            log(f"✅ ✅ ✅ MENSAJE ENVIADO EXITOSAMENTE")
+            log(f"📱 ID del mensaje: {message_id}")
+            return {
+                "status": "success",
+                "message_id": message_id,
+                "details": "Mensaje de texto directo enviado",
+                "numero_original": to_number,
+                "numero_usado": transformed_number
+            }
+        else:
+            error_data = response.json() if response.content else {}
+            error_code = error_data.get('error', {}).get('code', 'N/A')
+            error_message = error_data.get('error', {}).get('message', 'Error desconocido')
+            
+            log(f"❌ ERROR EN API: {error_code}")
+            log(f"❌ MENSAJE: {error_message}")
+            
+            # Manejar diferentes tipos de errores
+            if error_code == 190:  # Token expirado
+                log("⚠️  TOKEN EXPIRADO - Debes renovarlo en Meta Developers")
+                return {
+                    "status": "error",
+                    "error_code": error_code,
+                    "error_message": "Token expirado. Renueva el token en Meta Developers.",
+                    "details": "Ve a: https://developers.facebook.com/apps/"
+                }
+            elif error_code == 10:  # Permisos insuficientes
+                log("❌ ERROR DE PERMISOS - El token no tiene 'whatsapp_business_messaging'")
+                return {
+                    "status": "error",
+                    "error_code": error_code,
+                    "error_message": "El token no tiene permisos suficientes (whatsapp_business_messaging).",
+                    "details": "Asegúrate de marcar los permisos al generar el token."
+                }
+            elif error_code == 131030:  # Número no permitido
+                log("⚠️  NÚMERO NO PERMITIDO - Agrega a números de prueba")
+                return {
+                    "status": "error",
+                    "error_code": error_code,
+                    "error_message": "Número no está en la lista de números de prueba",
+                    "details": f"Agrega {to_number} a la lista de números de prueba en Meta"
+                }
+            
+            return {
+                "status": "error",
+                "error_code": error_code,
+                "error_message": error_message,
+                "details": error_data
+            }
+            
+    except Exception as e:
+        log(f"🔥 ERROR INESPERADO: {str(e)}")
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+def send_photos_async(user_id, propiedad_id, base_url):
+    """Tarea ejecutada en hilo secundario para enviar fotos sin bloquear el webhook"""
+    try:
+        # Recuperar datos de la propiedad
+        propiedades = cargar_propiedades()
+        propiedad = next((p for p in propiedades if p.get('id_temporal') == propiedad_id), None)
+        
+        if not propiedad:
+            log(f"❌ No se encontró propiedad {propiedad_id} para envío de fotos")
+            return
+
+        fotos = propiedad.get('fotos', [])
+        if not fotos:
+            return
+
+        # Enviar mensaje de aviso inicial
+        send_whatsapp_message(user_id, f"🏠🗝️ *DANTE PROPIEDADES*\nRecuperando {len(fotos)} fotos...")
+
+        # Enviar cada foto
+        for foto_path in fotos:
+            img_url = f"{base_url}/{foto_path.lstrip('/')}"
+            log(f"📤 HILO-SECUNDARIO: Enviando {img_url}")
+            send_whatsapp_image(user_id, img_url)
+            
+        # Notificaciones finales
+        notificar_agente(f"👤 El cliente {user_id} está viendo fotos de: {propiedad.get('titulo')}")
+        registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_fotos")
+        
+        # Enviar mensaje de cierre con instrucciones al usuario
+        final_msg = "✅ *¡Fotos enviadas!*\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
+        send_whatsapp_message(user_id, final_msg)
+        
+        log(f"✅ HILO-SECUNDARIO: Envío de fotos completado para {user_id}")
+    except Exception as e:
+        log(f"🔥 Error en hilo de fotos: {e}")
+
+def send_whatsapp_image(to_number, image_url, caption=""):
+    """Envía una imagen por WhatsApp"""
+    try:
+        # Verificar token primero
+        token_valid, _ = check_token_validity()
+        if not token_valid:
+            log("❌ Token inválido - No se puede enviar imagen")
+            return False
+        
+        # Transformar número si es necesario (Sandbox ARG)
+        def transform_number(number):
+            if number.startswith("549") and len(number) == 13:
+                country = number[:2]
+                area = number[3:5]
+                rest = number[5:]
+                return f"{country}{area}15{rest}"
+            return number
+        
+        transformed_number = transform_number(to_number)
+        
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": transformed_number,
+            "type": "image",
+            "image": {
+                "link": image_url,
+                "caption": caption[:1024]
+            }
+        }
+        
+        log(f"🖼️ ENVIANDO IMAGEN: {image_url}")
+        
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        
+        if response.status_code == 200:
+            log(f"✅ Imagen enviada exitosamente")
+            return True
+        else:
+            error_data = response.json() if response.content else {}
+            log(f"❌ Error enviando imagen: {error_data}")
+            return False
+            
+    except Exception as e:
+        log(f"🔥 ERROR enviando imagen: {str(e)}")
+        return False
+
+def send_welcome_flow(user_id):
+    """Envía el flujo completo de bienvenida: logo (imagen) + mensaje con emoji"""
+    # 1. Enviar logo como imagen separada
+    # image_sent = send_whatsapp_image(user_id, LOGO_URL, "Dante Propiedades")
+    image_sent = False
+    
+    if image_sent:
+        log(f"✅ Logo enviado a {user_id}")
+    else:
+        log(f"⚠️  No se pudo enviar logo a {user_id}")
+    
+    # 2. Mensaje de bienvenida CON EMOJIS 🔑🏠
+    welcome_message = """🏠🗝️ *DANTE PROPIEDADES*
+
+    ¡Hola! Soy el asistente inmobiliario de Dante Propiedades.
+
+    *¿Qué tipo de operación te interesa?*
+    Escribí el número de tu opción:
+
+    1️⃣ *💰 VENTA* - Propiedades en venta
+    2️⃣ *🔑 ALQUILER* - Propiedades en alquiler
+    3️⃣ *📍 Búsqueda por zona* (próximamente)
+    4️⃣ *🔍 Búsqueda libre* (próximamente)
+    5️⃣ *📋 Ver todas las propiedades*
+    6️⃣ *📅 Mis citas agendadas* (NUEVO)
+    7️⃣ *🌐 Ir a nuestra Web*
+    8️⃣ *🔐 Panel Admin* (Solo Dante)
+    0️⃣ *❌ SALIR*
+
+    Para seleccionar, solo envía el número (ej: "1" o "0")"""   
+    
+    return send_whatsapp_message(user_id, welcome_message)
 
 # ========== RUTAS PRINCIPALES ==========
 @app.route("/")
@@ -1388,31 +1183,36 @@ def admin_panel():
         return "⚠️ Acceso No Autorizado. Por favor usa el enlace seguro.", 403
     return send_file("admin.html")
 
-@app.route("/api/leads", methods=["GET"])
+@app.route("/api/leads")
 def api_leads():
-    """Retorna todos los leads desde PostgreSQL"""
+    """Retorna los leads en formato JSON si la llave es correcta"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
     
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"leads": []})
+    leads = []
+    if os.path.exists(LEADS_FILE):
+        try:
+            with open(LEADS_FILE, 'r', encoding='utf-8') as f:
+                leads = json.load(f)
+        except Exception as e:
+            log(f"Error leyendo leads para API: {e}")
+            
+    return jsonify({"leads": leads})
+
+@app.route("/api/leads-file")
+def api_leads_file():
+    """Retorna el archivo Leads.xlsx si la llave es correcta"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
     
-    try:
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
-            SELECT * FROM leads 
-            ORDER BY fecha DESC 
-            LIMIT 100
-        """)
-        leads = [dict(lead) for lead in cursor.fetchall()]
-        return jsonify({"leads": leads})
-    except Exception as e:
-        log(f"❌ Error cargando leads desde DB: {e}")
-        return jsonify({"leads": []})
-    finally:
-        conn.close()
+    filename = "Leads.xlsx"
+    if os.path.exists(filename):
+        return send_file(filename, as_attachment=True)
+    else:
+        log(f"⚠️ Archivo {filename} no encontrado para descarga admin")
+        return jsonify({"error": "File not found"}), 404
 
 # ========== RUTA PARA IMÁGENES LOCALES ==========
 @app.route('/imgs/<path:filename>')
@@ -1528,7 +1328,7 @@ def webhook():
                                         if response_text == "WELCOME_FLOW_TRIGGER":
                                             # Esto es redundante por el block de arriba pero por si acaso
                                             result = send_welcome_flow(from_number)
-                                        elif response_text and response_text.startswith("PHOTOS_TRIGGER|"):
+                                        elif response_text.startswith("PHOTOS_TRIGGER|"):
                                             # Disparar hilo de fotos en segundo plano
                                             prop_id = response_text.split("|")[1]
                                             base_url = request.host_url.rstrip('/')
@@ -1542,7 +1342,7 @@ def webhook():
                                             # Enviar confirmación inmediata de que se están enviando las fotos
                                             confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
                                             result = send_whatsapp_message(from_number, confirmacion)
-                                        elif response_text and response_text != "None":
+                                        elif response_text:
                                             log(f"🤖 RESPUESTA GENERADA ({len(response_text)} caracteres)")
                                             result = send_whatsapp_message(from_number, response_text)
                                         else:
@@ -1580,31 +1380,121 @@ def webhook():
             log(f"🔍 TRAZABILIDAD: {traceback.format_exc()[:500]}")
             return jsonify({"status": "error", "error": str(e)}), 500
 
-# ========== RUTAS API PARA PANEL DE CITAS ==========
-@app.route("/api/citas", methods=["GET"])
-def api_citas():
-    """Retorna todas las citas desde PostgreSQL"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"citas": []})
-    
+# ========== GESTIÓN DE CITAS ==========
+def cargar_citas():
+    """Carga las citas existentes desde el archivo JSON"""
     try:
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
-            SELECT * FROM citas 
-            ORDER BY fecha DESC, hora DESC
-        """)
-        citas = [dict(cita) for cita in cursor.fetchall()]
-        return jsonify({"citas": citas})
+        if os.path.exists(CITAS_FILE):
+            with open(CITAS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return []
     except Exception as e:
-        log(f"❌ Error cargando citas desde DB: {e}")
-        return jsonify({"citas": []})
-    finally:
-        conn.close()
+        log(f"❌ Error cargando citas: {e}")
+        return []
+
+def guardar_citas(citas):
+    """Guarda las citas en el archivo JSON"""
+    try:
+        with open(CITAS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(citas, f, indent=4, ensure_ascii=False)
+        return True
+    except Exception as e:
+        log(f"❌ Error guardando citas: {e}")
+        return False
+
+def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, notas=""):
+    """Crea una nueva cita"""
+    try:
+        citas = cargar_citas()
+        
+        nueva_cita = {
+            'id': f"cita_{len(citas)+1:04d}",
+            'user_id': user_id,
+            'nombre': nombre,
+            'telefono': telefono,
+            'fecha': fecha,
+            'hora': hora,
+            'propiedad_id': propiedad_id,
+            'estado': 'pendiente',  # pendiente | confirmada | cancelada | completada
+            'notas': notas,
+            'creacion': datetime.now().isoformat(),
+            'ultima_actualizacion': datetime.now().isoformat()
+        }
+        
+        citas.append(nueva_cita)
+        
+        if guardar_citas(citas):
+            log(f"✅ Cita creada: {nueva_cita['id']} para {nombre}")
+            # Notificar al admin
+            notificar_cita_admin(nueva_cita)
+            return nueva_cita
+        return None
+    except Exception as e:
+        log(f"❌ Error creando cita: {e}")
+        return None
+
+def notificar_cita_admin(cita):
+    """Envía notificación de nueva cita al admin"""
+    try:
+        mensaje = f"📅 *NUEVA CITA AGENDADA*\n\n"
+        mensaje += f"👤 *Cliente:* {cita['nombre']}\n"
+        mensaje += f"📞 *Teléfono:* +{cita['telefono']}\n"
+        mensaje += f"📅 *Fecha:* {cita['fecha']}\n"
+        mensaje += f"⏰ *Hora:* {cita['hora']}\n"
+        mensaje += f"🏠 *Propiedad ID:* {cita['propiedad_id']}\n"
+        mensaje += f"🆔 *ID Cita:* {cita['id']}\n"
+        mensaje += f"📝 *Notas:* {cita.get('notas', 'Sin notas')}\n\n"
+        mensaje += f"📍 *Estado:* {cita['estado'].upper()}"
+        
+        return send_whatsapp_message(ADMIN_NUMBER, mensaje)
+    except Exception as e:
+        log(f"❌ Error notificando cita al admin: {e}")
+        return False
+
+def obtener_horarios_disponibles(fecha_str):
+    """Obtiene horarios disponibles para una fecha específica"""
+    try:
+        # Convertir fecha string a objeto datetime
+        fecha_deseada = datetime.strptime(fecha_str, "%Y-%m-%d")
+        
+        # Cargar citas existentes
+        citas = cargar_citas()
+        
+        # Obtener horarios ocupados para esa fecha
+        horarios_ocupados = []
+        for cita in citas:
+            if cita['fecha'] == fecha_str and cita['estado'] in ['pendiente', 'confirmada']:
+                horarios_ocupados.append(cita['hora'])
+        
+        # Filtrar horarios disponibles
+        horarios_disponibles = [hora for hora in CITAS_DISPONIBLES if hora not in horarios_ocupados]
+        
+        log(f"📅 Horarios disponibles para {fecha_str}: {len(horarios_disponibles)}/{len(CITAS_DISPONIBLES)}")
+        return horarios_disponibles
+    except Exception as e:
+        log(f"❌ Error obteniendo horarios disponibles: {e}")
+        return CITAS_DISPONIBLES  # Devuelve todos si hay error
+
+def formatear_horarios_disponibles(horarios):
+    """Formatea los horarios disponibles para mostrar en WhatsApp"""
+    if not horarios:
+        return "❌ *No hay horarios disponibles para esta fecha.*\nPor favor, elige otra fecha."
+    
+    mensaje = "⏰ *HORARIOS DISPONIBLES:*\n\n"
+    
+    # Agrupar horarios en grupos de 4 para mejor visualización
+    grupos = [horarios[i:i+4] for i in range(0, len(horarios), 4)]
+    
+    for i, grupo in enumerate(grupos):
+        for hora in grupo:
+            emoji_hora = "🌅" if int(hora.split(':')[0]) < 12 else "🌞" if int(hora.split(':')[0]) < 17 else "🌇"
+            mensaje += f"{emoji_hora} *{hora}*  "
+        mensaje += "\n"
+    
+    mensaje += "\nPara seleccionar un horario, envía la hora (ej: '09:30' o '14:00')"
+    mensaje += "\nPara volver atrás, envía 'Atrás'"
+    
+    return mensaje
 
 @app.route("/test", methods=["GET"])
 def test_send():
@@ -1646,37 +1536,6 @@ def test_propiedades():
         "archivo": PROPIEDADES_FILE,
         "timestamp": datetime.now().isoformat()
     })
-
-@app.route("/test-postgres", methods=["GET"])
-def test_postgres():
-    """Prueba PostgreSQL"""
-    try:
-        conn = get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT version(), current_timestamp")
-            result = cursor.fetchone()
-            
-            # Contar registros
-            cursor.execute("SELECT COUNT(*) FROM citas")
-            citas_count = cursor.fetchone()[0]
-            cursor.execute("SELECT COUNT(*) FROM leads")
-            leads_count = cursor.fetchone()[0]
-            
-            conn.close()
-            
-            return jsonify({
-                "status": "connected",
-                "postgres_version": result[0],
-                "server_time": str(result[1]),
-                "citas_count": citas_count,
-                "leads_count": leads_count,
-                "message": "✅ PostgreSQL funcionando"
-            })
-        else:
-            return jsonify({"status": "error", "message": "❌ No hay conexión"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": f"❌ Error: {str(e)}"})
 
 @app.route("/propiedades-info", methods=["GET"])
 def propiedades_info():
@@ -1875,13 +1734,137 @@ def health_check():
         "alquiler_count": len([p for p in propiedades if p.get('operacion') == 'alquiler'])
     })
 
-# ========== INICIALIZACIÓN ==========
+# ========== RUTAS API PARA PANEL DE CITAS ==========
+@app.route("/api/citas", methods=["GET"])
+def api_citas():
+    """Retorna todas las citas en formato JSON"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    citas = cargar_citas()
+    return jsonify(citas)
+
+@app.route("/api/citas/<cita_id>/estado", methods=["PUT"])
+def actualizar_estado_cita(cita_id):
+    """Actualiza el estado de una cita"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    nuevo_estado = request.args.get('estado')
+    if nuevo_estado not in ['pendiente', 'confirmada', 'cancelada']:
+        return jsonify({"error": "Estado inválido"}), 400
+    
+    try:
+        citas = cargar_citas()
+        cita_encontrada = False
+        
+        for cita in citas:
+            if cita['id'] == cita_id:
+                cita['estado'] = nuevo_estado
+                cita['ultima_actualizacion'] = datetime.now().isoformat()
+                cita_encontrada = True
+                break
+        
+        if not cita_encontrada:
+            return jsonify({"error": "Cita no encontrada"}), 404
+        
+        if guardar_citas(citas):
+            log(f"✅ Estado actualizado: {cita_id} -> {nuevo_estado}")
+            return jsonify({"status": "success", "message": "Estado actualizado"})
+        else:
+            return jsonify({"error": "Error guardando cambios"}), 500
+            
+    except Exception as e:
+        log(f"❌ Error actualizando estado de cita: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/citas/recordatorio/<cita_id>", methods=["POST"])
+def enviar_recordatorio_cita(cita_id):
+    """Envía un recordatorio de cita por WhatsApp"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        citas = cargar_citas()
+        cita = next((c for c in citas if c['id'] == cita_id), None)
+        
+        if not cita:
+            return jsonify({"error": "Cita no encontrada"}), 404
+        
+        # Formatear fecha para el mensaje
+        fecha_obj = datetime.strptime(cita['fecha'], "%Y-%m-%d")
+        fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
+        
+        mensaje = f"🔔 *RECORDATORIO DE CITA - DANTE PROPIEDADES*\n\n"
+        mensaje += f"👤 *Cliente:* {cita['nombre']}\n"
+        mensaje += f"📅 *Fecha:* {fecha_formateada}\n"
+        mensaje += f"⏰ *Hora:* {cita['hora']}\n"
+        mensaje += f"🏠 *Propiedad:* {cita['propiedad_id']}\n\n"
+        mensaje += f"📍 *Instrucciones:*\n"
+        mensaje += f"• Llega 10 minutos antes\n"
+        mensaje += f"• Trae tu documento de identidad\n"
+        mensaje += f"• Contacto: +{ADMIN_NUMBER}\n\n"
+        mensaje += f"¡Te esperamos! 🏠🗝️"
+        
+        # Enviar mensaje al cliente
+        result = send_whatsapp_message(cita['telefono'], mensaje)
+        
+        if result.get('status') == 'success':
+            log(f"✅ Recordatorio enviado a {cita['telefono']}")
+            return jsonify({"status": "success", "message": "Recordatorio enviado"})
+        else:
+            return jsonify({"error": "Error enviando mensaje", "details": result}), 500
+            
+    except Exception as e:
+        log(f"❌ Error enviando recordatorio: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# Agregar también la función para ver el panel de citas
+@app.route("/admin/citas")
+def admin_citas_panel():
+    """Sirve el panel de administración de citas"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return "⚠️ Acceso No Autorizado. Por favor usa el enlace seguro.", 403
+    return send_file("admin_citas.html")
+
+# También modificar la función cargar_citas para mejor manejo de errores
+def cargar_citas():
+    """Carga las citas existentes desde el archivo JSON"""
+    try:
+        if os.path.exists(CITAS_FILE):
+            with open(CITAS_FILE, 'r', encoding='utf-8') as f:
+                citas = json.load(f)
+                # Asegurar que cada cita tenga todos los campos necesarios
+                for cita in citas:
+                    if 'telefono' not in cita and 'user_id' in cita:
+                        cita['telefono'] = cita['user_id']
+                    if 'notas' not in cita:
+                        cita['notas'] = 'Sin notas'
+                return citas
+        return []
+    except Exception as e:
+        log(f"❌ Error cargando citas: {e}")
+        return []
+
+
 if __name__ == "__main__":
     print("\n" + "=" * 60)
-    print("🏠 WHATSAPP BOT - POSTGRESQL (psycopg2)")
+    print("🏠 🏠 🏠 WHATSAPP BOT INMOBILIARIO - VERSIÓN 2.1")
     print("=" * 60)
     
-    # Verificar token
+    propiedades = cargar_propiedades()
+    print(f"📊 Propiedades cargadas: {len(propiedades)}")
+    
+    if propiedades:
+        ventas = len([p for p in propiedades if p.get('operacion') == 'venta'])
+        alquileres = len([p for p in propiedades if p.get('operacion') == 'alquiler'])
+        print(f"💰 En venta: {ventas} propiedades")
+        print(f"🔑 En alquiler: {alquileres} propiedades")
+    
     token_valid, token_info = check_token_validity()
     if token_valid:
         print(f"✅ TOKEN VÁLIDO")
@@ -1892,16 +1875,6 @@ if __name__ == "__main__":
         print(f"   ⚠️  El bot NO PODRÁ ENVIAR MENSAJES")
         print(f"   ℹ️  Visita: https://meta-chat-npbx.onrender.com/token-help")
     
-    # Inicializar PostgreSQL
-    print("🔧 Inicializando PostgreSQL...")
-    if init_postgresql():
-        print("✅ PostgreSQL listo")
-    else:
-        print("❌ ERROR: PostgreSQL no se pudo inicializar")
-        print("   Verifica DATABASE_URL en Render Environment")
-    
-    propiedades = cargar_propiedades()
-    print(f"📊 Propiedades cargadas: {len(propiedades)}")
     print(f"🌐 URL: https://meta-chat-npbx.onrender.com")
     print(f"📁 Propiedades: {PROPIEDADES_FILE}")
     print(f"📅 Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
