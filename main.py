@@ -2,227 +2,22 @@ from flask import Flask, request, jsonify, send_from_directory, send_file
 import requests
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta  # AÑADIDO timedelta
 from collections import deque
 import threading
-import re  # Para expresiones regulares
-# import pandas as pd
-# from openpyxl import Workbook, load_workbook
-import psycopg
-from psycopg.rows import dict_row
-
-
-
-
 
 app = Flask(__name__)
 
-
-
-
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-ACCESS_TOKEN = "EAAJYsGl5pHgBQgFbCsWZBygzrfRZAIGqlIgVZB9mqCpygt6miASefd3Y8C28kqGN5tMEsmsD3lehZBok1sBfrXKJvQ00tVwKR2z1ZBZCZBxP6r8ynzwH7YPDp7P0aeMeTZCkuteZA1vA1hFaBNrGElCB21ATPecuVPfKxCw869YMt9CBe3LpFHFhjxtG8ZBEjGjHf1RyX7yOrPJB3l8vOfMapx4YyWZAsSz7hRXuefbni52SyLQl8PSK2s4IxRmfP4EvvEWhrOGZAlBZCRsVwcBRRrcF63iogGYZCdNGf8bwZDZDEAAJYsGl5pHgBQvMLmjToqZA2CcAlsMMnIAQH2SQ9E2b7ZCVCgSsKkPt5T5m1YuVMrGmZBYf5jH6HYKtISTXsaQDnR0kpvYDcmXKwN7zWR1jAZCZCvZBqdUuZBZBvgZByjI8r8hSIxMRVmxe9bIAESZAZB0cKlXhpklHZCvcqUZCMYhuidwaB6TTLwqBCHX3xamaR3AKlETmnzAk04sglXc86QuC1dW9xtKX3wYJqpXpXvNz4KZBBOnmsELdFxnS0vFiJhQ1Yv4K6IkHMNTuo8bPBZBBqZBizVd7rL8AuFks9b5sZD"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQvMLmjToqZA2CcAlsMMnIAQH2SQ9E2b7ZCVCgSsKkPt5T5m1YuVMrGmZBYf5jH6HYKtISTXsaQDnR0kpvYDcmXKwN7zWR1jAZCZCvZBqdUuZBZBvgZByjI8r8hSIxMRVmxe9bIAESZAZB0cKlXhpklHZCvcqUZCMYhuidwaB6TTLwqBCHX3xamaR3AKlETmnzAk04sglXc86QuC1dW9xtKX3wYJqpXpXvNz4KZBBOnmsELdFxnS0vFiJhQ1Yv4K6IkHMNTuo8bPBZBBqZBizVd7rL8AuFks9b5sZD"
 PHONE_NUMBER_ID = "1000705633118215"
 ADMIN_NUMBER = "5491151511579"  # Número donde llegarán las alertas de leads
+LEADS_FILE = "leads.json"
 ADMIN_ACCESS_KEY = "dante2026"  # Llave para acceder al panel admin
 
-
-# ========== VERIFICACION TOKENS ==========
-token_valid, token_info = check_token_validity()
-if token_valid:
-    print(f"✅ TOKEN VÁLIDO")
-    print(f"   📞 Número: {token_info.get('display_phone_number', 'N/A')}")
-    print(f"   📛 Nombre: {token_info.get('verified_name', 'N/A')}")
-else:
-    print(f"❌❌❌ TOKEN INVÁLIDO O EXPIRADO ❌❌❌")
-    print(f"   ⚠️  El bot NO PODRÁ ENVIAR MENSAJES")
-    print(f"   ℹ️  Visita: https://meta-chat-npbx.onrender.com/token-help")
-    
-print(f"🌐 URL: https://meta-chat-npbx.onrender.com")
-print(f"📁 Propiedades: {PROPIEDADES_FILE}")
-print(f"📅 Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-print("=" * 60 + "\n")
-
-
-DATABASE_URL = os.environ.get('DATABASE_URL')
-if not DATABASE_URL:
-    print("❌ ADVERTENCIA: DATABASE_URL no encontrada")
-    print("   Configúrala en Render -> Environment")
-    DATABASE_URL = "postgresql://localhost/dantepropiedades_db"
-
-
-
-# ========== CONEXIÓN A POSTGRESQL ==========
-def get_db_connection():
-    """Conexión a PostgreSQL con psycopg 3.x"""
-    try:
-        conn = psycopg.connect(DATABASE_URL, autocommit=True)
-        return conn
-    except Exception as e:
-        print(f"❌ Error conectando a PostgreSQL: {e}")
-        return None
-
-# def init_database():
-#     """Inicializa las tablas en PostgreSQL si no existen"""
-#     conn = get_db_connection()
-#     if not conn:
-#         log("❌ No se pudo conectar a la base de datos")
-#         return False
-    
-#     try:
-#         cursor = conn.cursor()
-        
-#         # Tabla de citas
-#         cursor.execute('''
-#             CREATE TABLE IF NOT EXISTS citas (
-#                 id VARCHAR(50) PRIMARY KEY,
-#                 nombre VARCHAR(100) NOT NULL,
-#                 telefono VARCHAR(20) NOT NULL,
-#                 email VARCHAR(100),
-#                 fecha VARCHAR(10) NOT NULL,
-#                 hora VARCHAR(5) NOT NULL,
-#                 propiedad_id VARCHAR(50),
-#                 propiedad_titulo VARCHAR(200),
-#                 estado VARCHAR(20) DEFAULT 'pendiente',
-#                 notas TEXT,
-#                 creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-#                 ultima_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-#                 recordatorio_enviado BOOLEAN DEFAULT FALSE
-#             )
-#         ''')
-        
-#         # Tabla de leads
-#         cursor.execute('''
-#             CREATE TABLE IF NOT EXISTS leads (
-#                 id SERIAL PRIMARY KEY,
-#                 fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-#                 telefono VARCHAR(20),
-#                 nombre VARCHAR(100),
-#                 propiedad_id VARCHAR(50),
-#                 propiedad_titulo VARCHAR(200),
-#                 accion VARCHAR(50),
-#                 detalles TEXT,
-#                 tipo_lead VARCHAR(30),
-#                 interes VARCHAR(20),
-#                 seguimiento TEXT,
-#                 prioridad VARCHAR(20),
-#                 agente_asignado VARCHAR(100)
-#             )
-#         ''')
-        
-#         # Tabla de propiedades (opcional, para cache)
-#         cursor.execute('''
-#             CREATE TABLE IF NOT EXISTS propiedades_cache (
-#                 id_temporal VARCHAR(50) PRIMARY KEY,
-#                 titulo VARCHAR(200),
-#                 operacion VARCHAR(20),
-#                 barrio VARCHAR(100),
-#                 precio DECIMAL(15,2),
-#                 moneda_precio VARCHAR(10),
-#                 ambientes INTEGER,
-#                 metros_cuadrados DECIMAL(10,2),
-#                 tipo VARCHAR(50),
-#                 estado VARCHAR(50),
-#                 expensas DECIMAL(15,2),
-#                 moneda_expensas VARCHAR(10),
-#                 descripcion TEXT,
-#                 fotos TEXT,
-#                 cochera BOOLEAN,
-#                 balcon BOOLEAN,
-#                 pileta BOOLEAN,
-#                 aire_acondicionado BOOLEAN,
-#                 acepta_mascotas BOOLEAN,
-#                 direccion VARCHAR(200),
-#                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-#             )
-#         ''')
-        
-#         conn.commit()
-#         log("✅ Base de datos PostgreSQL inicializada correctamente")
-#         return True
-        
-#     except Exception as e:
-#         log(f"❌ Error inicializando base de datos: {e}")
-#         return False
-#     finally:
-#         if conn:
-#             conn.close()
-
-# ========== POSTGRESQL CONFIGURACIÓN ==========
-import psycopg2
-from psycopg2.extras import RealDictCursor
-import os
-
-DATABASE_URL = os.environ.get('DATABASE_URL')
-if not DATABASE_URL:
-    print("❌ ADVERTENCIA: DATABASE_URL no encontrada")
-    print("   Configúrala en Render -> Environment")
-    DATABASE_URL = "postgresql://localhost/dantepropiedades_db"
-
-def get_db_connection():
-    """Conexión a PostgreSQL"""
-    try:
-        conn = psycopg2.connect(DATABASE_URL, sslmode='require')
-        return conn
-    except Exception as e:
-        print(f"❌ Error conectando a PostgreSQL: {e}")
-        return None
-
-def init_postgresql():
-    """Inicializa tablas PostgreSQL"""
-    print("🔧 Inicializando PostgreSQL...")
-    conn = get_db_connection()
-    if not conn:
-        print("❌ No se pudo conectar a PostgreSQL")
-        return False
-    
-    try:
-        cursor = conn.cursor()
-        
-        # Tabla citas
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS citas (
-                id VARCHAR(50) PRIMARY KEY,
-                nombre VARCHAR(100) NOT NULL,
-                telefono VARCHAR(20) NOT NULL,
-                fecha VARCHAR(10) NOT NULL,
-                hora VARCHAR(5) NOT NULL,
-                propiedad_id VARCHAR(50),
-                propiedad_titulo VARCHAR(200),
-                estado VARCHAR(20) DEFAULT 'pendiente',
-                notas TEXT,
-                creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        # Tabla leads
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS leads (
-                id SERIAL PRIMARY KEY,
-                fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                telefono VARCHAR(20),
-                nombre VARCHAR(100),
-                propiedad_id VARCHAR(50),
-                propiedad_titulo VARCHAR(200),
-                accion VARCHAR(50),
-                detalles TEXT
-            )
-        """)
-        
-        conn.commit()
-        print("✅ Tablas PostgreSQL creadas")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error creando tablas: {e}")
-        return False
-    finally:
-        conn.close()
-
-
 # ========== CONFIGURACIÓN DE CITAS ==========
-# CITAS_FILE = "citas.json"  # Nuevo archivo para almacenar citas
+CITAS_FILE = "citas.json"  # Nuevo archivo para almacenar citas
 CITAS_DISPONIBLES = [  # Horarios disponibles para citas
     "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
     "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
@@ -250,11 +45,6 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
     nuevo_estado['timestamp'] = datetime.now().isoformat()
     estados_usuarios[user_id] = nuevo_estado
     
-    log(f"💾 Guardando estado para {user_id}:")
-    log(f"   Paso: {nuevo_estado.get('paso', 'N/A')}")
-    log(f"   Nombre cliente: {nuevo_estado.get('nombre_cliente', 'N/A')}")
-    log(f"   Fecha cita: {nuevo_estado.get('fecha_cita', 'N/A')}")
-    
     # Limpiar estados antiguos (más de 1 hora)
     ahora = datetime.now()
     usuarios_a_eliminar = [
@@ -263,94 +53,37 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
     ]
     
     for uid in usuarios_a_eliminar:
-        log(f"🗑️  Eliminando estado antiguo para {uid}")
         del estados_usuarios[uid]
 
 # ========== GESTIÓN DE LEADS (CLIENTES INTERESADOS) ==========
-# def registrar_lead(user_id, propiedad_id, accion, detalle=""):
-#     """Registra una interacción de lead en Excel"""
-#     try:
-#         # Buscar propiedad para obtener título
-#         propiedades = cargar_propiedades()
-#         propiedad = next((p for p in propiedades if p.get('id_temporal') == propiedad_id), None)
-#         titulo = propiedad.get('titulo', 'Sin título') if propiedad else 'Propiedad no encontrada'
-        
-#         lead_data = {
-#             'telefono': user_id,
-#             'nombre': '',
-#             'propiedad_id': propiedad_id,
-#             'propiedad_titulo': titulo,
-#             'accion': accion,
-#             'detalles': detalle,
-#             'tipo_lead': 'Interesado',
-#             'interes': 'Alto' if 'caliente' in accion else 'Medio',
-#             'prioridad': 'Alta' if 'completo' in accion else 'Normal'
-#         }
-        
-#         if registrar_lead_db(lead_data):
-#             log(f"📈 Lead registrado en Excel: {user_id} - {accion}")
-#             return True
-#         else:
-#             log(f"❌ Error registrando lead en Excel")
-#             return False
-#     except Exception as e:
-#         log(f"🔥 Error registrando lead: {e}")
-#         return False
-
-
-
 def registrar_lead(user_id, propiedad_id, accion, detalle=""):
-    """Registra lead en PostgreSQL"""
-    print(f"🎯🎯🎯 REGISTRAR_LEAD LLAMADO")
-    print(f"   User: {user_id}")
-    print(f"   Propiedad: {propiedad_id}")
-    print(f"   Acción: {accion}")
-    
+    """Registra una interacción de lead en el archivo leads.json"""
     try:
-        # Buscar propiedad
-        propiedades = cargar_propiedades()
-        propiedad = next((p for p in propiedades if p.get('id_temporal') == propiedad_id), None)
-        titulo = propiedad.get('titulo', 'Sin título') if propiedad else 'Sin título'
+        leads = []
+        if os.path.exists(LEADS_FILE):
+            with open(LEADS_FILE, 'r', encoding='utf-8') as f:
+                leads = json.load(f)
         
-        print(f"   Propiedad título: {titulo}")
+        nuevo_lead = {
+            'timestamp': datetime.now().isoformat(),
+            'user_id': user_id,
+            'propiedad_id': propiedad_id,
+            'accion': accion,
+            'detalle': detalle
+        }
+        leads.append(nuevo_lead)
         
-        # Guardar en PostgreSQL
-        conn = get_db_connection()
-        if not conn:
-            print("❌ No hay conexión a PostgreSQL")
-            return False
-        
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO leads (telefono, propiedad_id, propiedad_titulo, accion, detalles)
-            VALUES (%s, %s, %s, %s, %s)
-            RETURNING id
-        """, (user_id, propiedad_id, titulo, accion, detalle))
-        
-        lead_id = cursor.fetchone()[0]
-        conn.commit()
-        conn.close()
-        
-        print(f"✅✅✅ LEAD GUARDADO EN POSTGRESQL ID: {lead_id}")
-        
-        # Notificar al admin
-        notificar_agente(f"📈 NUEVO LEAD (PostgreSQL ID: {lead_id})\n👤 {user_id}\n🏠 {titulo}\n🔗 {accion}")
-        
-        return True
-        
+        with open(LEADS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(leads, f, indent=4, ensure_ascii=False)
+            
+        log(f"📈 Lead registrado: {user_id} - {accion}")
     except Exception as e:
-        print(f"❌❌❌ ERROR GUARDANDO LEAD: {e}")
-        return False
-
+        log(f"🔥 Error registrando lead: {e}")
 
 def notificar_agente(mensaje):
     """Envía una notificación al número de Dante (ADMIN_NUMBER)"""
     log(f"📢 NOTIFICANDO AL AGENTE: {mensaje[:50]}...")
     return send_whatsapp_message(ADMIN_NUMBER, f"🔔 *ALERTA DANTE-INSIGHTS*\n{mensaje}")
-
-
-
-
 
 # ========== CARGAR PROPIEDADES ==========
 PROPIEDADES_FILE = "propiedades.json"
@@ -405,14 +138,10 @@ def generar_listado_propiedades(propiedades):
     listado = "📋 *LISTADO DE PROPIEDADES*\n\n"
     
     for i, prop in enumerate(propiedades[:10], 1):  # Limitar a 10 propiedades
-        # listado += f"{numero_a_emoji(i)} {prop.get('titulo', 'Sin título')}\n"
-        listado += (
-                f"{numero_a_emoji(i)} {prop.get('titulo', 'Sin título')}\n"
-                f"   🏷️ Operación: {prop.get('operacion', 'Sin operación')}\n"
-        )
-        
+        listado += f"{numero_a_emoji(i)} {prop.get('titulo', 'Sin título')}\n"
         listado += f"   📍 {prop.get('barrio', 'N/A')} | "
         listado += f"💰 "
+        
         precio = prop.get('precio', 0)
         moneda = prop.get('moneda_precio', 'USD')
         if moneda == 'USD':
@@ -498,10 +227,7 @@ def get_bot_response(text, user_id):
     
     # Obtener estado actual del usuario
     estado_usuario = obtener_estado_usuario(user_id)
-    log(f"👤 Estado usuario {user_id}: {estado_usuario['paso']} - Texto recibido: '{text}'")
-    
-    # DEPURACIÓN: Mostrar todo el estado
-    log(f"🔍 DEPURACIÓN Estado completo: {json.dumps(estado_usuario, indent=2)}")
+    log(f"👤 Estado usuario {user_id}: {estado_usuario['paso']}")
     
     # 1. COMANDOS UNIVERSALES (Hola / Salir)
     if text_lower in ["hola", "hi", "hello", "hola bot", "inicio", "menu", "volver", "atras"]:
@@ -519,17 +245,8 @@ def get_bot_response(text, user_id):
         estado_usuario['propiedades_filtradas'] = []
         estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
-        # return "👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌ | 🏠🗝️ DANTE PROPIEDADES"
-        return (
-                "👋 ¡Gracias por contactarnos!\n"
-                "Para volver al menú, envía '1'\n"
-                "Para salir envía '0' ❌\n"
-                "🏠🗝️ DANTE PROPIEDADES"
-        )
-    
-    
-    
-    
+        return f"👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌"
+
     # 2. BOTONES DE NAVEGACIÓN RÁPIDA (Solo en ciertos estados)
     if text_lower == "1" and estado_usuario['paso'] in ['detalle_propiedad', 'vista_fotos', 'vista_web', 'esperando_nombre_lead']:
         estado_usuario['paso'] = 'menu_principal'
@@ -568,20 +285,6 @@ def get_bot_response(text, user_id):
             return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
 
     # 3. LÓGICA POR ESTADO (Máquina de Estados)
-    
-    # ESTADO: menu_principal - Si recibe un horario, es un error
-    if estado_usuario['paso'] == 'menu_principal':
-        # Verificar si es un formato de horario (HH:MM o H:MM)
-        try:
-            if re.match(r'^\d{1,2}:\d{2}$', text):
-                return "❌ *Error de contexto*\n\nParece que intentaste seleccionar un horario, pero primero debes:\n\n1. Seleccionar una propiedad (envía '1' para venta o '2' para alquiler)\n2. Hacer clic en 'Me interesa' (8)\n3. Seguir el proceso de agendamiento de cita\n\nEnvía 'Hola' para comenzar."
-        except NameError:
-            # Si por alguna razón re no está disponible, usar una verificación simple
-            if ':' in text and len(text.split(':')) == 2:
-                parts = text.split(':')
-                if parts[0].isdigit() and parts[1].isdigit():
-                    return "❌ *Error de contexto*\n\nParece que intentaste seleccionar un horario, pero primero debes:\n\n1. Seleccionar una propiedad (envía '1' para venta o '2' para alquiler)\n2. Hacer clic en 'Me interesa' (8)\n3. Seguir el proceso de agendamiento de cita\n\nEnvía 'Hola' para comenzar."
-    
     
     # ESTADO: listado_propiedades
     if estado_usuario['paso'] == 'listado_propiedades':
@@ -632,9 +335,6 @@ def get_bot_response(text, user_id):
                 return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
             else:
                 return f"❌ El número {indice} está fuera de rango. Elige entre 1 y {len(propiedades)} o escribe 'Hola'."
-        # Si recibe un horario en este estado, es un error
-        elif re.match(r'^\d{1,2}:\d{2}$', text):
-            return "❌ *Error de contexto*\n\nPara seleccionar un horario de cita, primero debes hacer clic en 'Me interesa' (8) en esta propiedad y seguir el proceso de agendamiento.\n\nSi quieres agendar cita para esta propiedad, envía '8'"
 
     # ESTADO: vista_fotos / vista_web / vista_comun
     elif estado_usuario['paso'] in ['vista_fotos', 'vista_web']:
@@ -690,15 +390,13 @@ def get_bot_response(text, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             return "❌ Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad enviando 'Hola'."
 
-    # ESTADO: ofrecer_cita
+    # NUEVO ESTADO: ofrecer_cita
     elif estado_usuario['paso'] == 'ofrecer_cita':
         text_lower = text.lower().strip()
-        log(f"📅 Estado ofrecer_cita - Opción seleccionada: '{text_lower}'")
         
         # Opción 1: Sí, agendar cita
-        if text_lower in ["1", "si", "sí", "si quiero", "agendar", "cita", "visita", "sí agendar"]:
+        if text_lower in ["1", "si", "sí", "si quiero", "agendar", "cita", "visita"]:
             estado_usuario['paso'] = 'solicitar_fecha_cita'
-            estado_usuario['ultima_accion'] = 'selecciono_agendar_cita'
             actualizar_estado_usuario(user_id, estado_usuario)
             
             # Mostrar ejemplo de fecha
@@ -768,14 +466,7 @@ def get_bot_response(text, user_id):
             estado_usuario['nombre_cliente'] = None
             actualizar_estado_usuario(user_id, estado_usuario)
             
-            # return "👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌ | 🏠🗝️ DANTE PROPIEDADES"
-            return (
-                "👋 ¡Gracias por contactarnos!\n"
-                "Para volver al menú, envía '1'\n"
-                "Para salir envía '0' ❌\n"
-                "🏠🗝️ DANTE PROPIEDADES"
-            )
-        
+            return f"👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌"
         
         # Respuesta no reconocida
         else:
@@ -785,9 +476,8 @@ def get_bot_response(text, user_id):
                 f"3️⃣ *Ya la vi, quiero ofertar* 💰\n" \
                 f"0️⃣ *Salir* ❌"
 
-    # ESTADO: solicitar_fecha_cita
+    # NUEVO ESTADO: solicitar_fecha_cita
     elif estado_usuario['paso'] == 'solicitar_fecha_cita':
-        log(f"📅 Estado solicitar_fecha_cita - Fecha recibida: '{text}'")
         text_lower = text.lower().strip()
         
         # Comando especial: ver fechas disponibles
@@ -825,7 +515,7 @@ def get_bot_response(text, user_id):
                 return "❌ *Plazo excedido*\nSolo podemos agendar hasta 30 días en el futuro.\n\n" \
                     "Por favor, elige una fecha más cercana."
             
-            # Verificar si es fin de semana (opcional)
+            # Verificar si es fin de semana (opcional, puedes comentar estas líneas si aceptas fines de semana)
             if fecha_ingresada.weekday() >= 5:  # 5 = sábado, 6 = domingo
                 return "⚠️ *Fin de semana*\nLa disponibilidad de fines de semana es limitada.\n\n" \
                     "¿Confirmas que quieres agendar para fin de semana?\n\n" \
@@ -834,7 +524,6 @@ def get_bot_response(text, user_id):
             # Guardar fecha en estado
             fecha_str = fecha_ingresada.strftime("%Y-%m-%d")
             estado_usuario['fecha_cita'] = fecha_str
-            estado_usuario['ultima_accion'] = 'ingreso_fecha_cita'
             
             # Obtener horarios disponibles
             horarios_disponibles = obtener_horarios_disponibles(fecha_str)
@@ -892,7 +581,7 @@ def get_bot_response(text, user_id):
                 "*Ejemplo:* 2024-12-25\n\n" \
                 "También puedes escribir 'Ver fechas' para ver disponibilidad."
 
-    # ESTADO: seleccionar_hora_cita
+    # NUEVO ESTADO: seleccionar_hora_cita
     elif estado_usuario['paso'] == 'seleccionar_hora_cita':
         text_lower = text.lower().strip()
         
@@ -968,7 +657,7 @@ def get_bot_response(text, user_id):
         else:
             return "❌ *Error: No se encontró la propiedad*\n\n" \
                 "Hubo un problema al procesar tu cita. Por favor, inicia el proceso nuevamente enviando 'Hola'."
-
+    
     # 4. OPCIONES GLOBALES (1..7) - Se procesan si no se capturaron arriba
     if text_lower == "1":
         estado_usuario['paso'] = 'listado_propiedades'
@@ -1072,11 +761,6 @@ def get_bot_response(text, user_id):
                    f"📱 *0. Volver al menú principal*"
         else:
             return "⚠️ Acceso restringido. Esta opción es solo para administradores.\n\nEnviá 'Hola' para volver."
-
-    # Si llega aquí sin haber retornado nada, mostrar mensaje de error
-    return "❌ *Opción no reconocida*\n\n" \
-           "Por favor, selecciona una opción del menú o envía 'Hola' para ver las opciones disponibles."
-
 
 # ========== VERIFICACIÓN DE TOKEN ==========
 def check_token_validity():
@@ -1499,36 +1183,6 @@ def admin_panel():
         return "⚠️ Acceso No Autorizado. Por favor usa el enlace seguro.", 403
     return send_file("admin.html")
 
-
-@app.route("/api/leads", methods=["GET"])
-def api_leads():
-    """Retorna todos los leads desde PostgreSQL"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"leads": []})
-    
-    try:
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
-            SELECT * FROM leads 
-            ORDER BY fecha DESC 
-            LIMIT 100
-        """)
-        leads = [dict(lead) for lead in cursor.fetchall()]
-        return jsonify({"leads": leads})
-    except Exception as e:
-        log(f"❌ Error cargando leads desde DB: {e}")
-        return jsonify({"leads": []})
-    finally:
-        conn.close()
-
-
-
-
 @app.route("/api/leads")
 def api_leads():
     """Retorna los leads en formato JSON si la llave es correcta"""
@@ -1674,7 +1328,7 @@ def webhook():
                                         if response_text == "WELCOME_FLOW_TRIGGER":
                                             # Esto es redundante por el block de arriba pero por si acaso
                                             result = send_welcome_flow(from_number)
-                                        elif response_text and response_text.startswith("PHOTOS_TRIGGER|"):
+                                        elif response_text.startswith("PHOTOS_TRIGGER|"):
                                             # Disparar hilo de fotos en segundo plano
                                             prop_id = response_text.split("|")[1]
                                             base_url = request.host_url.rstrip('/')
@@ -1688,7 +1342,7 @@ def webhook():
                                             # Enviar confirmación inmediata de que se están enviando las fotos
                                             confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
                                             result = send_whatsapp_message(from_number, confirmacion)
-                                        elif response_text and response_text != "None":
+                                        elif response_text:
                                             log(f"🤖 RESPUESTA GENERADA ({len(response_text)} caracteres)")
                                             result = send_whatsapp_message(from_number, response_text)
                                         else:
@@ -1728,134 +1382,69 @@ def webhook():
 
 # ========== GESTIÓN DE CITAS ==========
 def cargar_citas():
-    """Carga todas las citas desde Excel (REEMPLAZA la función JSON)"""
-    return cargar_citas_db()
-
-def guardar_cita(citas_lista):
-    """Guarda una lista de citas en Excel (REEMPLAZA la función JSON)"""
+    """Carga las citas existentes desde el archivo JSON"""
     try:
-        for cita in citas_lista:
-            guardar_cita_db(cita)
+        if os.path.exists(CITAS_FILE):
+            with open(CITAS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return []
+    except Exception as e:
+        log(f"❌ Error cargando citas: {e}")
+        return []
+
+def guardar_citas(citas):
+    """Guarda las citas en el archivo JSON"""
+    try:
+        with open(CITAS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(citas, f, indent=4, ensure_ascii=False)
         return True
     except Exception as e:
-        log(f"❌ Error guardando lista de citas: {e}")
+        log(f"❌ Error guardando citas: {e}")
         return False
-    
-# def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo="", notas=""):
-#     """Crea una nueva cita en Excel"""
-#     try:
-#         log(f"📝 Creando cita para {nombre} en Excel...")
-        
-#         # Cargar citas existentes
-#         citas = cargar_citas_db()
-#         cita_id = f"C{len(citas) + 1:04d}"
-        
-#         cita_data = {
-#             'id': cita_id,
-#             'nombre': nombre.strip(),
-#             'telefono': str(telefono).strip(),
-#             'email': '',
-#             'fecha': fecha,
-#             'hora': hora,
-#             'propiedad_id': propiedad_id,
-#             'propiedad_titulo': propiedad_titulo[:100],
-#             'estado': 'pendiente',
-#             'notas': str(notas)[:500],
-#             'creacion': datetime.now().isoformat(),
-#             'ultima_actualizacion': datetime.now().isoformat(),
-#             'recordatorio_enviado': False
-#         }
-        
-#         # Guardar en Excel
-#         if guardar_cita_db(cita_data):
-#             log(f"✅ CITA CREADA EN EXCEL: {cita_id}")
-            
-#             # Registrar también como lead
-#             lead_data = {
-#                 'telefono': telefono,
-#                 'nombre': nombre,
-#                 'propiedad_id': propiedad_id,
-#                 'propiedad_titulo': propiedad_titulo,
-#                 'accion': 'agendo_cita',
-#                 'detalles': f"Cita agendada: {fecha} {hora}",
-#                 'tipo_lead': 'Con Cita',
-#                 'interes': 'Alto',
-#                 'prioridad': 'Alta'
-#             }
-#             registrar_lead_db(lead_data)
-            
-#             # Notificar al admin
-#             notificar_cita_admin(cita_data)
-            
-#             return cita_data
-#         else:
-#             log(f"❌ Error guardando cita en Excel")
-#             return None
-            
-#     except Exception as e:
-#         log(f"🔥 ERROR creando cita: {str(e)}")
-#         return None    
-    
-    
-def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo="", notas=""):
-    """Crea cita en PostgreSQL"""
-    print(f"🎯🎯🎯 CREAR_CITA LLAMADO")
-    print(f"   Nombre: {nombre}")
-    print(f"   Fecha: {fecha} {hora}")
-    
+
+def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, notas=""):
+    """Crea una nueva cita"""
     try:
-        # Generar ID
-        cita_id = f"cita_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        citas = cargar_citas()
         
-        # Guardar en PostgreSQL
-        conn = get_db_connection()
-        if not conn:
-            print("❌ No hay conexión a PostgreSQL")
-            return None
-        
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO citas (id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo, estado, notas)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """, (cita_id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo, 'pendiente', notas))
-        
-        inserted_id = cursor.fetchone()[0]
-        conn.commit()
-        conn.close()
-        
-        print(f"✅✅✅ CITA GUARDADA EN POSTGRESQL ID: {inserted_id}")
-        
-        return {
-            'id': cita_id,
+        nueva_cita = {
+            'id': f"cita_{len(citas)+1:04d}",
+            'user_id': user_id,
             'nombre': nombre,
             'telefono': telefono,
             'fecha': fecha,
             'hora': hora,
             'propiedad_id': propiedad_id,
-            'propiedad_titulo': propiedad_titulo,
-            'estado': 'pendiente'
+            'estado': 'pendiente',  # pendiente | confirmada | cancelada | completada
+            'notas': notas,
+            'creacion': datetime.now().isoformat(),
+            'ultima_actualizacion': datetime.now().isoformat()
         }
         
+        citas.append(nueva_cita)
+        
+        if guardar_citas(citas):
+            log(f"✅ Cita creada: {nueva_cita['id']} para {nombre}")
+            # Notificar al admin
+            notificar_cita_admin(nueva_cita)
+            return nueva_cita
+        return None
     except Exception as e:
-        print(f"❌❌❌ ERROR GUARDANDO CITA: {e}")
-        return None    
-    
-    
-    
-    
+        log(f"❌ Error creando cita: {e}")
+        return None
+
 def notificar_cita_admin(cita):
     """Envía notificación de nueva cita al admin"""
     try:
-        mensaje = f"📅 *NUEVA CITA AGENDADA - EXCEL*\n\n"
+        mensaje = f"📅 *NUEVA CITA AGENDADA*\n\n"
         mensaje += f"👤 *Cliente:* {cita['nombre']}\n"
         mensaje += f"📞 *Teléfono:* +{cita['telefono']}\n"
         mensaje += f"📅 *Fecha:* {cita['fecha']}\n"
-        mensaje += f"⏰ *Hora:* {cita['hora']} hs\n"
-        mensaje += f"🏠 *Propiedad:* {cita.get('propiedad_titulo', cita['propiedad_id'])}\n"
+        mensaje += f"⏰ *Hora:* {cita['hora']}\n"
+        mensaje += f"🏠 *Propiedad ID:* {cita['propiedad_id']}\n"
         mensaje += f"🆔 *ID Cita:* {cita['id']}\n"
-        mensaje += f"📊 *Estado:* {cita['estado'].upper()}\n\n"
-        mensaje += f"📍 *Acción requerida:* Verificar en panel de citas"
+        mensaje += f"📝 *Notas:* {cita.get('notas', 'Sin notas')}\n\n"
+        mensaje += f"📍 *Estado:* {cita['estado'].upper()}"
         
         return send_whatsapp_message(ADMIN_NUMBER, mensaje)
     except Exception as e:
@@ -1907,622 +1496,6 @@ def formatear_horarios_disponibles(horarios):
     
     return mensaje
 
-
-@app.route("/info-archivos", methods=["GET"])
-def info_archivos():
-    """Muestra información sobre los archivos del sistema"""
-    info = {
-        "directorio_actual": os.getcwd(),
-        "archivos_en_directorio": os.listdir('.'),
-        "citas_json": {
-            "ruta_absoluta": os.path.abspath(CITAS_FILE),
-            "existe": os.path.exists(CITAS_FILE),
-            "tamano": os.path.getsize(CITAS_FILE) if os.path.exists(CITAS_FILE) else 0,
-            "permisos": oct(os.stat(CITAS_FILE).st_mode)[-3:] if os.path.exists(CITAS_FILE) else "N/A",
-            "modificacion": datetime.fromtimestamp(os.path.getmtime(CITAS_FILE)).isoformat() if os.path.exists(CITAS_FILE) else "N/A"
-        },
-        "otros_archivos": {
-            "propiedades_json": os.path.exists(PROPIEDADES_FILE),
-            "leads_json": os.path.exists(LEADS_FILE),
-            "main_py": os.path.exists("main.py")
-        }
-    }
-    
-    return jsonify(info)
-
-
-@app.route("/db-info", methods=["GET"])
-def db_info():
-    """Muestra información de la conexión a BD"""
-    try:
-        conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "No connection"})
-        
-        cursor = conn.cursor()
-        
-        # 1. Info de la conexión
-        cursor.execute("SELECT current_database(), current_user, version()")
-        db_info = cursor.fetchone()
-        
-        # 2. Tablas existentes
-        cursor.execute("""
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public'
-        """)
-        tables = [row[0] for row in cursor.fetchall()]
-        
-        # 3. Conteo de registros
-        counts = {}
-        if 'citas' in tables:
-            cursor.execute("SELECT COUNT(*) FROM citas")
-            counts['citas'] = cursor.fetchone()[0]
-        if 'leads' in tables:
-            cursor.execute("SELECT COUNT(*) FROM leads")
-            counts['leads'] = cursor.fetchone()[0]
-        
-        conn.close()
-        
-        return jsonify({
-            "status": "connected",
-            "database": db_info[0],  # Debe ser dantepropiedades_db
-            "user": db_info[1],
-            "postgres_version": db_info[2],
-            "tables": tables,
-            "counts": counts,
-            "database_url_start": DATABASE_URL[:50] + "..." if DATABASE_URL else "No URL"
-        })
-        
-    except Exception as e:
-        return jsonify({"error": str(e)})
-
-
-# @app.route("/admin/db-dashboard", methods=["GET"])
-# def db_dashboard():
-#     """Dashboard completo de la base de datos"""
-#     key = request.args.get('key')
-#     if key != ADMIN_ACCESS_KEY:
-#         return "⚠️ Acceso No Autorizado", 403
-    
-#     try:
-#         conn = get_db_connection()
-#         if not conn:
-#             return "❌ No se pudo conectar a PostgreSQL"
-        
-#         cursor = conn.cursor()
-        
-#         # Estadísticas generales
-#         cursor.execute("""
-#             SELECT 
-#                 (SELECT COUNT(*) FROM citas) as total_citas,
-#                 (SELECT COUNT(*) FROM leads) as total_leads,
-#                 (SELECT COUNT(*) FROM citas WHERE estado = 'pendiente') as citas_pendientes,
-#                 (SELECT COUNT(*) FROM citas WHERE estado = 'confirmada') as citas_confirmadas,
-#                 (SELECT COUNT(*) FROM citas WHERE fecha = CURRENT_DATE::varchar) as citas_hoy
-#         """)
-#         stats = cursor.fetchone()
-        
-#         # Últimas 10 citas
-#         cursor.execute("""
-#             SELECT id, nombre, telefono, fecha, hora, estado, propiedad_titulo
-#             FROM citas 
-#             ORDER BY creacion DESC 
-#             LIMIT 10
-#         """)
-#         ultimas_citas = cursor.fetchall()
-        
-#         # Últimos 10 leads
-#         cursor.execute("""
-#             SELECT id, telefono, accion, propiedad_titulo, fecha::varchar
-#             FROM leads 
-#             ORDER BY fecha DESC 
-#             LIMIT 10
-#         """)
-#         ultimos_leads = cursor.fetchall()
-        
-#         conn.close()
-        
-#         # Generar HTML
-#         html = f"""
-#         <!DOCTYPE html>
-#         <html>
-#         <head>
-#             <title>📊 Dashboard PostgreSQL - Dante Propiedades</title>
-#             <style>
-#                 body {{ font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }}
-#                 .stats-container {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 30px 0; }}
-#                 .stat-card {{ background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }}
-#                 .stat-number {{ font-size: 36px; font-weight: bold; margin: 10px 0; }}
-#                 .table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-#                 .table th, .table td {{ padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }}
-#                 .table th {{ background-color: #f4f4f4; }}
-#                 .success {{ color: #28a745; }}
-#                 .warning {{ color: #ffc107; }}
-#                 .danger {{ color: #dc3545; }}
-#                 .refresh-btn {{ background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 10px 0; }}
-#             </style>
-#         </head>
-#         <body>
-#             <h1>📊 Dashboard PostgreSQL</h1>
-#             <p><strong>Base de datos:</strong> dantepropiedades_db</p>
-#             <p><strong>Estado:</strong> <span style="color: green;">✅ Conectado</span></p>
-            
-#             <button class="refresh-btn" onclick="location.reload()">🔄 Actualizar</button>
-            
-#             <div class="stats-container">
-#                 <div class="stat-card">
-#                     <h3>📅 Total Citas</h3>
-#                     <div class="stat-number">{stats[0]}</div>
-#                 </div>
-#                 <div class="stat-card">
-#                     <h3>👥 Total Leads</h3>
-#                     <div class="stat-number">{stats[1]}</div>
-#                 </div>
-#                 <div class="stat-card">
-#                     <h3>⏳ Citas Pendientes</h3>
-#                     <div class="stat-number {'warning' if stats[2] > 0 else 'success'}">{stats[2]}</div>
-#                 </div>
-#                 <div class="stat-card">
-#                     <h3>✅ Citas Confirmadas</h3>
-#                     <div class="stat-number">{stats[3]}</div>
-#                 </div>
-#                 <div class="stat-card">
-#                     <h3>📌 Citas Hoy</h3>
-#                     <div class="stat-number">{stats[4]}</div>
-#                 </div>
-#             </div>
-            
-#             <h2>📋 Últimas Citas</h2>
-#             <table class="table">
-#                 <tr>
-#                     <th>ID</th><th>Nombre</th><th>Teléfono</th><th>Fecha</th><th>Hora</th><th>Estado</th><th>Propiedad</th>
-#                 </tr>
-#         """
-        
-#         for cita in ultimas_citas:
-#             estado_color = "green" if cita[5] == 'confirmada' else "orange" if cita[5] == 'pendiente' else "red"
-#             html += f"""
-#                 <tr>
-#                     <td><strong>{cita[0]}</strong></td>
-#                     <td>{cita[1]}</td>
-#                     <td>{cita[2]}</td>
-#                     <td>{cita[3]}</td>
-#                     <td>{cita[4]}</td>
-#                     <td><span style="color:{estado_color}">●</span> {cita[5]}</td>
-#                     <td>{cita[6][:30]}...</td>
-#                 </tr>
-#             """
-        
-#         html += """
-#             </table>
-            
-#             <h2>👥 Últimos Leads</h2>
-#             <table class="table">
-#                 <tr><th>ID</th><th>Teléfono</th><th>Acción</th><th>Propiedad</th><th>Fecha</th></tr>
-#         """
-        
-#         for lead in ultimos_leads:
-#             html += f"""
-#                 <tr>
-#                     <td>{lead[0]}</td>
-#                     <td>{lead[1]}</td>
-#                     <td>{lead[2]}</td>
-#                     <td>{lead[3][:40]}...</td>
-#                     <td>{lead[4]}</td>
-#                 </tr>
-#             """
-        
-#         html += """
-#             </table>
-            
-#             <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
-#                 <h3>🔍 Pruebas Rápidas</h3>
-#                 <p><a href="/test-db-insert">Probar inserción de datos de prueba</a></p>
-#                 <p><a href="/api/citas?key=dante2026">Ver todas las citas (JSON)</a></p>
-#                 <p><a href="/api/leads?key=dante2026">Ver todos los leads (JSON)</a></p>
-#             </div>
-            
-#             <script>
-#                 // Auto-refresh cada 30 segundos
-#                 setTimeout(() => location.reload(), 30000);
-#             </script>
-#         </body>
-#         </html>
-#         """
-        
-#         return html
-        
-#     except Exception as e:
-#         return f"❌ Error: {str(e)}"
-
-
-# @app.route("/test-db-insert", methods=["GET"])
-# def test_db_insert():
-#     """Inserta datos de prueba en la base de datos"""
-#     key = request.args.get('key')
-#     if key != ADMIN_ACCESS_KEY:
-#         return "⚠️ Acceso No Autorizado", 403
-    
-#     try:
-#         conn = get_db_connection()
-#         if not conn:
-#             return "❌ No se pudo conectar a PostgreSQL"
-        
-#         cursor = conn.cursor()
-        
-#         # Insertar cita de prueba
-#         cursor.execute("""
-#             INSERT INTO citas (id, nombre, telefono, fecha, hora, propiedad_titulo, estado, notas)
-#             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-#             ON CONFLICT (id) DO NOTHING
-#         """, (
-#             f"C-TEST-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-#             "Cliente de Prueba",
-#             "5491151511579",
-#             datetime.now().strftime("%Y-%m-%d"),
-#             "14:30",
-#             "Propiedad de Prueba",
-#             "pendiente",
-#             "Cita creada automáticamente para pruebas"
-#         ))
-        
-#         # Insertar lead de prueba
-#         cursor.execute("""
-#             INSERT INTO leads (telefono, propiedad_titulo, accion, detalles)
-#             VALUES (%s, %s, %s, %s)
-#         """, (
-#             "5491151511579",
-#             "Propiedad de Prueba",
-#             "test_insert",
-#             "Lead creado automáticamente para pruebas"
-#         ))
-        
-#         conn.commit()
-        
-#         # Verificar
-#         cursor.execute("SELECT COUNT(*) FROM citas")
-#         citas_count = cursor.fetchone()[0]
-#         cursor.execute("SELECT COUNT(*) FROM leads")
-#         leads_count = cursor.fetchone()[0]
-        
-#         conn.close()
-        
-#         return f"""
-#         <h1>✅ Datos de Prueba Insertados</h1>
-#         <p>Se insertaron datos de prueba correctamente.</p>
-#         <p><strong>Citas totales:</strong> {citas_count}</p>
-#         <p><strong>Leads totales:</strong> {leads_count}</p>
-#         <p><a href="/admin/db-dashboard?key={key}">← Volver al Dashboard</a></p>
-#         """
-        
-#     except Exception as e:
-#         return f"❌ Error insertando datos: {str(e)}"
-
-
-
-def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo="", notas=""):
-    """Crea nueva cita en PostgreSQL"""
-    try:
-        # Generar ID único
-        citas = cargar_citas()
-        cita_id = f"C{len(citas) + 1:04d}"
-        
-        log(f"🎯 INTENTANDO CREAR CITA EN POSTGRESQL:")
-        log(f"   ID: {cita_id}")
-        log(f"   Cliente: {nombre}")
-        log(f"   Teléfono: {telefono}")
-        log(f"   Fecha: {fecha} {hora}")
-        log(f"   Propiedad: {propiedad_titulo}")
-        
-        conn = get_db_connection()
-        if not conn:
-            log("❌ ERROR: No hay conexión a PostgreSQL")
-            return None
-        
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO citas (id, nombre, telefono, fecha, hora, 
-                             propiedad_id, propiedad_titulo, estado, notas)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """, (
-            cita_id, nombre, telefono, fecha, hora,
-            propiedad_id, propiedad_titulo, 'pendiente', notas
-        ))
-        
-        inserted_id = cursor.fetchone()[0]
-        conn.commit()
-        conn.close()
-        
-        log(f"✅✅✅ CITA CREADA EXITOSAMENTE EN POSTGRESQL")
-        log(f"   ID Confirmado: {inserted_id}")
-        
-        # Notificar también por email o webhook
-        send_db_notification(f"Nueva cita creada: {cita_id} - {nombre}")
-        
-        return {
-            'id': cita_id,
-            'nombre': nombre,
-            'telefono': telefono,
-            'fecha': fecha,
-            'hora': hora,
-            'propiedad_id': propiedad_id,
-            'estado': 'pendiente',
-            'notas': notas
-        }
-        
-    except Exception as e:
-        log(f"🔥🔥🔥 ERROR CRÍTICO CREANDO CITA: {str(e)}")
-        log(f"   Datos fallidos: {cita_id}, {nombre}, {telefono}")
-        return None
-
-# @app.route("/diagnostico-excel", methods=["GET"])
-# def diagnostico_excel():
-#     """Muestra estado del archivo Excel"""
-#     info = {
-#         "excel": {
-#             "existe": os.path.exists(LEADS_EXCEL_FILE),
-#             "tamano": os.path.getsize(LEADS_EXCEL_FILE) if os.path.exists(LEADS_EXCEL_FILE) else 0,
-#             "hojas": obtener_hojas_excel() if os.path.exists(LEADS_EXCEL_FILE) else []
-#         },
-#         "citas_en_memoria": len(cargar_citas_db()),
-#         "directorio": os.listdir('.')
-#     }
-#     return jsonify(info)
-
-# def obtener_hojas_excel():
-#     """Obtiene las hojas del archivo Excel"""
-#     try:
-#         wb = load_workbook(LEADS_EXCEL_FILE, read_only=True)
-#         return wb.sheetnames
-#     except:
-#         return []
-
-
-# def inicializar_excel():
-#     """Inicializa el archivo Excel con las hojas necesarias"""
-#     try:
-#         if not os.path.exists(LEADS_EXCEL_FILE):
-#             log(f"📄 Creando archivo Excel unificado: {LEADS_EXCEL_FILE}")
-            
-#             wb = Workbook()
-            
-#             # Hoja para Citas
-#             ws_citas = wb.active
-#             ws_citas.title = CITAS_SHEET_NAME
-#             ws_citas.append([
-#                 "ID", "Fecha Creación", "Nombre", "Teléfono", "Email", 
-#                 "Fecha Cita", "Hora Cita", "Propiedad ID", "Título Propiedad",
-#                 "Estado", "Notas", "Última Actualización", "Recordatorio Enviado"
-#             ])
-            
-#             # Hoja para Leads
-#             ws_leads = wb.create_sheet(title=LEADS_SHEET_NAME)
-#             ws_leads.append([
-#                 "ID", "Fecha", "Teléfono", "Nombre", "Propiedad ID", 
-#                 "Título Propiedad", "Acción", "Detalles", "Tipo Lead",
-#                 "Interés", "Seguimiento", "Prioridad", "Agente Asignado"
-#             ])
-            
-#             # Ajustar anchos
-#             for i, width in enumerate([15, 20, 25, 15, 25, 15, 10, 20, 40, 12, 50, 20, 20], 1):
-#                 ws_citas.column_dimensions[chr(64 + i)].width = width
-            
-#             for i, width in enumerate([15, 20, 15, 25, 20, 40, 20, 50, 15, 15, 30, 12, 20], 1):
-#                 ws_leads.column_dimensions[chr(64 + i)].width = width
-            
-#             wb.save(LEADS_EXCEL_FILE)
-#             log(f"✅ Archivo Excel creado con hojas: {CITAS_SHEET_NAME}, {LEADS_SHEET_NAME}")
-            
-#             # Crear algunas citas de prueba (solo desarrollo)
-#             if os.environ.get("RENDER") != "true":  # No en producción
-#                 crear_citas_prueba()
-                
-#         else:
-#             log(f"📄 Archivo Excel ya existe: {LEADS_EXCEL_FILE}")
-            
-#     except Exception as e:
-#         log(f"🔥 Error inicializando Excel: {e}")
-
-
-def crear_citas_prueba():
-    """Crea citas de prueba para desarrollo"""
-    try:
-        citas_prueba = [
-            {
-                'id': 'C0001',
-                'nombre': 'Juan Pérez',
-                'telefono': '5491151511579',
-                'fecha': '2024-12-15',
-                'hora': '14:30',
-                'propiedad_id': 'PROP001',
-                'propiedad_titulo': 'Casa en Palermo',
-                'estado': 'confirmada',
-                'notas': 'Cliente muy interesado'
-            },
-            {
-                'id': 'C0002',
-                'nombre': 'María López',
-                'telefono': '549116543210',
-                'fecha': '2024-12-16',
-                'hora': '11:00',
-                'propiedad_id': 'PROP002',
-                'propiedad_titulo': 'Departamento en Recoleta',
-                'estado': 'pendiente',
-                'notas': 'Primera visita'
-            }
-        ]
-        
-        for cita in citas_prueba:
-            cita.update({
-                'email': '',
-                'creacion': datetime.now().isoformat(),
-                'ultima_actualizacion': datetime.now().isoformat(),
-                'recordatorio_enviado': False
-            })
-            guardar_cita_db(cita)
-        
-        log("✅ Citas de prueba creadas")
-    except Exception as e:
-        log(f"⚠️  No se pudieron crear citas de prueba: {e}")
-
-
-
-def cargar_citas_db():
-    """Carga todas las citas desde PostgreSQL"""
-    conn = get_db_connection()
-    if not conn:
-        return []
-    
-    try:
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
-            SELECT id, nombre, telefono, email, fecha, hora, 
-                   propiedad_id, propiedad_titulo, estado, notas,
-                   TO_CHAR(creacion, 'YYYY-MM-DD HH24:MI:SS') as creacion,
-                   TO_CHAR(ultima_actualizacion, 'YYYY-MM-DD HH24:MI:SS') as ultima_actualizacion,
-                   recordatorio_enviado
-            FROM citas 
-            ORDER BY fecha DESC, hora DESC
-        """)
-        citas = cursor.fetchall()
-        # Convertir a diccionario regular
-        citas_list = [dict(cita) for cita in citas]
-        log(f"✅ Cargadas {len(citas_list)} citas desde PostgreSQL")
-        return citas_list
-    except Exception as e:
-        log(f"❌ Error cargando citas desde DB: {e}")
-        return []
-    finally:
-        conn.close()
-
-def guardar_cita_db(cita_data):
-    """Guarda o actualiza una cita en PostgreSQL"""
-    conn = get_db_connection()
-    if not conn:
-        return False
-    
-    try:
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            INSERT INTO citas (id, nombre, telefono, email, fecha, hora, 
-                              propiedad_id, propiedad_titulo, estado, notas,
-                              creacion, ultima_actualizacion, recordatorio_enviado)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (id) DO UPDATE SET
-                nombre = EXCLUDED.nombre,
-                telefono = EXCLUDED.telefono,
-                email = EXCLUDED.email,
-                fecha = EXCLUDED.fecha,
-                hora = EXCLUDED.hora,
-                propiedad_id = EXCLUDED.propiedad_id,
-                propiedad_titulo = EXCLUDED.propiedad_titulo,
-                estado = EXCLUDED.estado,
-                notas = EXCLUDED.notas,
-                ultima_actualizacion = EXCLUDED.ultima_actualizacion,
-                recordatorio_enviado = EXCLUDED.recordatorio_enviado
-        """, (
-            cita_data.get('id'),
-            cita_data.get('nombre', ''),
-            cita_data.get('telefono', ''),
-            cita_data.get('email', ''),
-            cita_data.get('fecha', ''),
-            cita_data.get('hora', ''),
-            cita_data.get('propiedad_id', ''),
-            cita_data.get('propiedad_titulo', ''),
-            cita_data.get('estado', 'pendiente'),
-            cita_data.get('notas', ''),
-            cita_data.get('creacion', datetime.now().isoformat()),
-            datetime.now().isoformat(),
-            cita_data.get('recordatorio_enviado', False)
-        ))
-        
-        conn.commit()
-        log(f"✅ Cita guardada en PostgreSQL: {cita_data.get('id')}")
-        return True
-    except Exception as e:
-        log(f"❌ Error guardando cita en DB: {e}")
-        return False
-    finally:
-        conn.close()
-        
-
-def registrar_lead_db(lead_data):
-    """Registra un lead en PostgreSQL"""
-    conn = get_db_connection()
-    if not conn:
-        return False
-    
-    try:
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            INSERT INTO leads (telefono, nombre, propiedad_id, propiedad_titulo, 
-                              accion, detalles, tipo_lead, interes, seguimiento, 
-                              prioridad, agente_asignado)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """, (
-            lead_data.get('telefono', ''),
-            lead_data.get('nombre', ''),
-            lead_data.get('propiedad_id', ''),
-            lead_data.get('propiedad_titulo', ''),
-            lead_data.get('accion', ''),
-            lead_data.get('detalles', ''),
-            lead_data.get('tipo_lead', 'Interesado'),
-            lead_data.get('interes', 'Medio'),
-            lead_data.get('seguimiento', ''),
-            lead_data.get('prioridad', 'Normal'),
-            lead_data.get('agente', '')
-        ))
-        
-        lead_id = cursor.fetchone()[0]
-        conn.commit()
-        log(f"✅ Lead registrado en PostgreSQL con ID: {lead_id}")
-        return True
-    except Exception as e:
-        log(f"❌ Error registrando lead en DB: {e}")
-        return False
-    finally:
-        conn.close()
-
-
-
-def registrar_lead(user_id, propiedad_id, accion, detalle=""):
-    """Registra una interacción de lead en PostgreSQL"""
-    """Registra una interacción de lead"""
-    log(f"🎯🎯🎯 FUNCIÓN REGISTRAR_LEAD LLAMADA")
-    log(f"   User: {user_id}, Propiedad: {propiedad_id}, Acción: {accion}")
-    
-    try:
-        # ... mismo código para buscar propiedad ...
-        
-        lead_data = {
-            'telefono': user_id,
-            'nombre': '',
-            'propiedad_id': propiedad_id,
-            'propiedad_titulo': titulo,
-            'accion': accion,
-            'detalles': detalle,
-            'tipo_lead': 'Interesado',
-            'interes': 'Alto' if 'caliente' in accion else 'Medio',
-            'prioridad': 'Alta' if 'completo' in accion else 'Normal',
-            'agente': ''
-        }
-        
-        if registrar_lead_db(lead_data):  # ← Cambiado
-            log(f"📈 Lead registrado en PostgreSQL: {user_id} - {accion}")
-            return True
-        else:
-            log(f"❌ Error registrando lead en PostgreSQL")
-            return False
-    except Exception as e:
-        log(f"🔥 Error registrando lead: {e}")
-        return False
-
-
 @app.route("/test", methods=["GET"])
 def test_send():
     """Endpoint de prueba manual"""
@@ -2563,175 +1536,6 @@ def test_propiedades():
         "archivo": PROPIEDADES_FILE,
         "timestamp": datetime.now().isoformat()
     })
-
-
-@app.route("/test-postgres", methods=["GET"])
-def test_postgres():
-    """Prueba PostgreSQL con psycopg 3.x"""
-    try:
-        conn = get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT version(), current_timestamp")
-            result = cursor.fetchone()
-            
-            # Contar registros
-            cursor.execute("SELECT COUNT(*) FROM citas")
-            citas_count = cursor.fetchone()[0]
-            cursor.execute("SELECT COUNT(*) FROM leads")
-            leads_count = cursor.fetchone()[0]
-            
-            conn.close()
-            
-            return jsonify({
-                "status": "connected",
-                "postgres_version": result[0],
-                "server_time": str(result[1]),
-                "citas_count": citas_count,
-                "leads_count": leads_count,
-                "message": "✅ PostgreSQL funcionando con psycopg 3.x"
-            })
-        else:
-            return jsonify({"status": "error", "message": "❌ No hay conexión"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": f"❌ Error: {str(e)}"})
-    
-# @app.route("/db-tables", methods=["GET"])
-# def db_tables():
-#     """Muestra las tablas existentes en PostgreSQL"""
-#     try:
-#         conn = get_db_connection()
-#         if not conn:
-#             return "❌ No hay conexión a PostgreSQL"
-        
-#         cursor = conn.cursor()
-        
-#         # Ver tablas
-#         cursor.execute("""
-#             SELECT table_name, table_type 
-#             FROM information_schema.tables 
-#             WHERE table_schema = 'public'
-#             ORDER BY table_name
-#         """)
-        
-#         tables = cursor.fetchall()
-        
-#         html = "<h1>📊 Tablas en PostgreSQL</h1>"
-#         if tables:
-#             html += "<table border='1'><tr><th>Tabla</th><th>Tipo</th></tr>"
-#             for table in tables:
-#                 html += f"<tr><td>{table[0]}</td><td>{table[1]}</td></tr>"
-#             html += "</table>"
-#         else:
-#             html += "<p>❌ No hay tablas en la base de datos</p>"
-        
-#         # Ver conteos
-#         if tables:
-#             for table in tables:
-#                 table_name = table[0]
-#                 try:
-#                     cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
-#                     count = cursor.fetchone()[0]
-#                     html += f"<p>📈 {table_name}: {count} registros</p>"
-#                 except:
-#                     html += f"<p>⚠️ No se pudo contar {table_name}</p>"
-        
-#         conn.close()
-#         return html
-        
-#     except Exception as e:
-#         return f"❌ Error: {str(e)}"
-
-
-@app.route("/test-postgres", methods=["GET"])
-def test_postgres():
-    """Prueba simple de PostgreSQL"""
-    try:
-        conn = get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT 1 as test, current_timestamp, version()")
-            result = cursor.fetchone()
-            
-            # Ver tablas
-            cursor.execute("""
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_schema = 'public'
-            """)
-            tables = [row[0] for row in cursor.fetchall()]
-            
-            conn.close()
-            
-            return jsonify({
-                "status": "connected",
-                "test": result[0],
-                "timestamp": str(result[1]),
-                "version": result[2],
-                "tables": tables,
-                "message": f"Conectado a PostgreSQL. Tablas: {', '.join(tables) if tables else 'Ninguna'}"
-            })
-        else:
-            return jsonify({"status": "no_connection", "message": "No hay conexión"})
-    except Exception as e:
-        return jsonify({"status": "error", "error": str(e)})
-
-def registrar_lead(user_id, propiedad_id, accion, detalle=""):
-    """Registra una interacción de lead"""
-    log(f"🔥🔥🔥🔥🔥 REGISTRAR_LEAD INICIADO")
-    log(f"🔥 User: {user_id}")
-    log(f"🔥 Propiedad ID: {propiedad_id}")
-    log(f"🔥 Acción: {accion}")
-    log(f"🔥 Detalle: {detalle}")
-    
-    try:
-        # Buscar propiedad para obtener título
-        propiedades = cargar_propiedades()
-        log(f"🔥 Propiedades cargadas: {len(propiedades)}")
-        
-        propiedad = next((p for p in propiedades if p.get('id_temporal') == propiedad_id), None)
-        log(f"🔥 Propiedad encontrada: {propiedad is not None}")
-        
-        titulo = propiedad.get('titulo', 'Sin título') if propiedad else 'Propiedad no encontrada'
-        log(f"🔥 Título propiedad: {titulo}")
-        
-        # ==== INTENTAR POSTGRESQL PRIMERO ====
-        log(f"🔥 Intentando PostgreSQL...")
-        conn = get_db_connection()
-        if conn:
-            try:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO leads (telefono, nombre, propiedad_id, propiedad_titulo, accion, detalles)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                """, (user_id, '', propiedad_id, titulo, accion, detalle))
-                
-                lead_id = cursor.fetchone()[0]
-                conn.commit()
-                conn.close()
-                
-                log(f"✅✅✅ Lead registrado en PostgreSQL ID: {lead_id}")
-                
-                # Notificar al admin
-                notificar_agente(f"📈 NUEVO LEAD (PostgreSQL)\n👤 {user_id}\n🏠 {titulo[:50]}\n🔗 Acción: {accion}")
-                
-                return True
-                
-            except Exception as e:
-                log(f"❌❌❌ ERROR PostgreSQL: {e}")
-                conn.close()
-                return False
-        else:
-            log(f"❌ No hay conexión a PostgreSQL")
-            return False
-            
-    except Exception as e:
-        log(f"🔥🔥🔥 ERROR CRÍTICO: {e}")
-        import traceback
-        log(f"🔥 Traceback: {traceback.format_exc()[:300]}")
-        return False
-
 
 @app.route("/propiedades-info", methods=["GET"])
 def propiedades_info():
@@ -2933,239 +1737,47 @@ def health_check():
 # ========== RUTAS API PARA PANEL DE CITAS ==========
 @app.route("/api/citas", methods=["GET"])
 def api_citas():
-    """Retorna todas las citas desde PostgreSQL"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    citas = cargar_citas_db()  # ← Cambiado
-    return jsonify(citas)
-
-
-
-@app.route("/ver-citas-contenido", methods=["GET"])
-def ver_citas_contenido():
-    """Muestra el contenido COMPLETO del archivo citas.json"""
-    try:
-        if not os.path.exists(CITAS_FILE):
-            return jsonify({"error": f"Archivo {CITAS_FILE} no existe"})
-        
-        with open(CITAS_FILE, 'r', encoding='utf-8') as f:
-            contenido = f.read()
-        
-        # Intentar mostrar como JSON o texto
-        try:
-            datos = json.loads(contenido)
-            formato = "JSON válido"
-        except:
-            datos = contenido
-            formato = "Texto plano (JSON inválido)"
-        
-        return jsonify({
-            "archivo": CITAS_FILE,
-            "tamano_bytes": len(contenido),
-            "formato": formato,
-            "contenido": datos if isinstance(datos, (list, dict)) else str(datos)[:1000],
-            "primeros_500_caracteres": contenido[:500] if len(contenido) > 500 else contenido
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)})
-
-# @app.route("/debug/citas", methods=["GET"])
-# def debug_citas():
-#     """Ruta de depuración para ver todas las citas en detalle"""
-#     try:
-#         citas = cargar_citas()
-        
-#         # Formatear fechas para mejor visualización
-#         citas_formateadas = []
-#         for cita in citas:
-#             cita_copy = cita.copy()
-#             # Intentar formatear fecha
-#             try:
-#                 fecha_obj = datetime.strptime(cita['fecha'], "%Y-%m-%d")
-#                 cita_copy['fecha_formateada'] = fecha_obj.strftime("%d/%m/%Y")
-#             except:
-#                 cita_copy['fecha_formateada'] = cita['fecha']
-            
-#             citas_formateadas.append(cita_copy)
-        
-#         return jsonify({
-#             "status": "success",
-#             "total_citas": len(citas),
-#             "archivo": CITAS_FILE,
-#             "existe_archivo": os.path.exists(CITAS_FILE),
-#             "tamano_bytes": os.path.getsize(CITAS_FILE) if os.path.exists(CITAS_FILE) else 0,
-#             "detalles": {
-#                 "pendientes": len([c for c in citas if c.get('estado') == 'pendiente']),
-#                 "confirmadas": len([c for c in citas if c.get('estado') == 'confirmada']),
-#                 "canceladas": len([c for c in citas if c.get('estado') == 'cancelada']),
-#                 "hoy": len([c for c in citas if c.get('fecha') == datetime.now().strftime("%Y-%m-%d")])
-#             },
-#             "citas": citas_formateadas
-#         })
-#     except Exception as e:
-#         return jsonify({
-#             "status": "error",
-#             "error": str(e)
-#         }), 500
-
-@app.route("/test-api-citas", methods=["GET"])
-def test_api_citas():
-    """Prueba la API que usa el panel admin"""
+    """Retorna todas las citas en formato JSON"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
     
     citas = cargar_citas()
     return jsonify(citas)
-
-@app.route("/estado-sistema", methods=["GET"])
-def estado_sistema():
-    """Muestra el estado del sistema de citas"""
-    citas = cargar_citas()
-    
-    return jsonify({
-        "sistema_citas": {
-            "archivo": CITAS_FILE,
-            "existe": os.path.exists(CITAS_FILE),
-            "tamano": os.path.getsize(CITAS_FILE) if os.path.exists(CITAS_FILE) else 0,
-            "total_citas": len(citas),
-            "pendientes": len([c for c in citas if c.get('estado') == 'pendiente']),
-            "confirmadas": len([c for c in citas if c.get('estado') == 'confirmada']),
-            "canceladas": len([c for c in citas if c.get('estado') == 'cancelada']),
-            "ruta_absoluta": os.path.abspath(CITAS_FILE) if os.path.exists(CITAS_FILE) else "N/A"
-        }
-    })
-
-
-
-@app.route("/api/panel/citas/nueva", methods=["POST"])
-def crear_cita_desde_panel():
-    """Crea una nueva cita desde el panel admin"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    datos = request.get_json()
-    
-    # Validar campos
-    required = ['nombre', 'telefono', 'fecha', 'hora']
-    for campo in required:
-        if campo not in datos or not str(datos[campo]).strip():
-            return jsonify({'error': f'Campo {campo} es requerido'}), 400
-    
-    # Crear cita
-    cita = crear_cita(
-        user_id=datos['telefono'],
-        nombre=datos['nombre'],
-        telefono=datos['telefono'],
-        fecha=datos['fecha'],
-        hora=datos['hora'],
-        propiedad_id=datos.get('propiedad', ''),
-        propiedad_titulo=datos.get('propiedad', ''),
-        notas=datos.get('notas', '')
-    )
-    
-    if cita:
-        return jsonify({
-            'status': 'success',
-            'cita_id': cita['id'],
-            'message': 'Cita creada exitosamente'
-        })
-    else:
-        return jsonify({'error': 'Error al crear la cita'}), 500
 
 @app.route("/api/citas/<cita_id>/estado", methods=["PUT"])
 def actualizar_estado_cita(cita_id):
-    """Actualiza el estado de una cita en Excel"""
+    """Actualiza el estado de una cita"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
     
     nuevo_estado = request.args.get('estado')
-    if nuevo_estado not in ['pendiente', 'confirmada', 'cancelada', 'completada']:
+    if nuevo_estado not in ['pendiente', 'confirmada', 'cancelada']:
         return jsonify({"error": "Estado inválido"}), 400
     
     try:
-        # Cargar citas desde Excel
-        citas = cargar_citas_db()
-        cita_encontrada = None
+        citas = cargar_citas()
+        cita_encontrada = False
         
         for cita in citas:
             if cita['id'] == cita_id:
                 cita['estado'] = nuevo_estado
                 cita['ultima_actualizacion'] = datetime.now().isoformat()
-                cita_encontrada = cita
+                cita_encontrada = True
                 break
         
         if not cita_encontrada:
             return jsonify({"error": "Cita no encontrada"}), 404
         
-        # Guardar el cambio en Excel
-        if guardar_cita_db(cita_encontrada):
-            log(f"✅ Estado actualizado en Excel: {cita_id} -> {nuevo_estado}")
+        if guardar_citas(citas):
+            log(f"✅ Estado actualizado: {cita_id} -> {nuevo_estado}")
             return jsonify({"status": "success", "message": "Estado actualizado"})
         else:
-            return jsonify({"error": "Error guardando en Excel"}), 500
+            return jsonify({"error": "Error guardando cambios"}), 500
             
     except Exception as e:
         log(f"❌ Error actualizando estado de cita: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-# @app.route("/api/citas-excel", methods=["GET"])
-# def api_citas_excel():
-#     """Retorna todas las citas desde Excel"""
-#     key = request.args.get('key')
-#     if key != ADMIN_ACCESS_KEY:
-#         return jsonify({"error": "Unauthorized"}), 403
-    
-#     citas = cargar_citas_db()
-#     return jsonify(citas)
-
-@app.route("/api/actualizar-estado-cita", methods=["PUT"])
-def api_actualizar_estado_cita():
-    """Actualiza el estado de una cita en Excel"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    try:
-        data = request.get_json()
-        cita_id = data.get('id')
-        nuevo_estado = data.get('estado')
-        
-        if not cita_id or not nuevo_estado:
-            return jsonify({"error": "Faltan datos"}), 400
-        
-        if nuevo_estado not in ['pendiente', 'confirmada', 'cancelada', 'completada']:
-            return jsonify({"error": "Estado inválido"}), 400
-        
-        # Cargar todas las citas
-        citas = cargar_citas_db()
-        
-        # Encontrar y actualizar la cita
-        cita_actualizada = None
-        for cita in citas:
-            if cita['id'] == cita_id:
-                cita['estado'] = nuevo_estado
-                cita['ultima_actualizacion'] = datetime.now().isoformat()
-                cita_actualizada = cita
-                break
-        
-        if not cita_actualizada:
-            return jsonify({"error": "Cita no encontrada"}), 404
-        
-        # Guardar cambios en Excel
-        if guardar_cita_db(cita_actualizada):
-            log(f"✅ Estado actualizado en Excel: {cita_id} -> {nuevo_estado}")
-            return jsonify({"status": "success", "cita": cita_actualizada})
-        else:
-            return jsonify({"error": "Error guardando en Excel"}), 500
-            
-    except Exception as e:
-        log(f"❌ Error actualizando estado: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/citas/recordatorio/<cita_id>", methods=["POST"])
@@ -3238,230 +1850,35 @@ def cargar_citas():
         log(f"❌ Error cargando citas: {e}")
         return []
 
-def guardar_cita(citas):
-    """Guarda las citas en el archivo JSON, creando el archivo si no existe"""
-    try:
-        log(f"💾 Intentando guardar {len(citas)} citas en {CITAS_FILE}")
-        
-        # Crear directorio si no existe
-        directory = os.path.dirname(CITAS_FILE)
-        if directory and not os.path.exists(directory):
-            os.makedirs(directory, exist_ok=True)
-            log(f"📁 Directorio creado: {directory}")
-        
-        # Guardar citas
-        with open(CITAS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(citas, f, indent=4, ensure_ascii=False)
-        
-        log(f"✅ Citas guardadas exitosamente en {CITAS_FILE}")
-        
-        # Verificar que el archivo se creó
-        if os.path.exists(CITAS_FILE):
-            log(f"📄 Archivo verificado: {CITAS_FILE} ({os.path.getsize(CITAS_FILE)} bytes)")
-        else:
-            log("❌ ERROR: Archivo no se creó después de guardar")
-        
-        return True
-    except Exception as e:
-        log(f"🔥 ERROR guardando citas: {str(e)}")
-        import traceback
-        log(f"🔍 TRAZA: {traceback.format_exc()[:500]}")
-        return False
-
-def inicializar_archivo_citas():
-    """Inicializa el archivo de citas si no existe"""
-    try:
-        if not os.path.exists(CITAS_FILE):
-            log(f"📄 Inicializando archivo {CITAS_FILE}...")
-            with open(CITAS_FILE, 'w', encoding='utf-8') as f:
-                json.dump([], f, indent=4, ensure_ascii=False)
-            log(f"✅ Archivo {CITAS_FILE} creado exitosamente")
-            return True
-        else:
-            log(f"📄 Archivo {CITAS_FILE} ya existe")
-            return True
-    except Exception as e:
-        log(f"🔥 ERROR inicializando archivo de citas: {e}")
-        return False
-
-
-
-# @app.route("/ver-citas-raw", methods=["GET"])
-# def ver_citas_raw():
-#     """Muestra el contenido RAW del archivo citas.json"""
-#     try:
-#         if os.path.exists(CITAS_FILE):
-#             with open(CITAS_FILE, 'r', encoding='utf-8') as f:
-#                 contenido = f.read()
-#             return f"<pre>{contenido}</pre>"
-#         else:
-#             return f"❌ Archivo {CITAS_FILE} no existe"
-#     except Exception as e:
-#         return f"❌ Error: {str(e)}"
-
-def monitor_db_changes():
-    """Monitorea cambios en la base de datos"""
-    import time
-    
-    last_citas_count = 0
-    last_leads_count = 0
-    
-    while True:
-        try:
-            conn = get_db_connection()
-            if conn:
-                cursor = conn.cursor()
-                
-                cursor.execute("SELECT COUNT(*) FROM citas")
-                current_citas = cursor.fetchone()[0]
-                
-                cursor.execute("SELECT COUNT(*) FROM leads")
-                current_leads = cursor.fetchone()[0]
-                
-                conn.close()
-                
-                # Detectar cambios
-                if current_citas > last_citas_count:
-                    log(f"📈 NUEVA CITA DETECTADA! Total: {current_citas}")
-                    last_citas_count = current_citas
-                
-                if current_leads > last_leads_count:
-                    log(f"📈 NUEVO LEAD DETECTADO! Total: {current_leads}")
-                    last_leads_count = current_leads
-                
-                if current_citas < last_citas_count or current_leads < last_leads_count:
-                    log(f"⚠️  DATOS ELIMINADOS: Citas={current_citas}, Leads={current_leads}")
-                    
-        except Exception as e:
-            log(f"❌ Error en monitor: {e}")
-        
-        time.sleep(60)  # Verificar cada minuto
-
-# Iniciar monitor en segundo plano
-def start_monitor():
-    """Inicia el monitor de base de datos en segundo plano"""
-    monitor_thread = threading.Thread(target=monitor_db_changes, daemon=True)
-    monitor_thread.start()
-    log("🔍 Monitor de PostgreSQL iniciado")
-
-
-@app.route("/test-postgres", methods=["GET"])
-def test_postgres():
-    """Prueba PostgreSQL"""
-    try:
-        conn = get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT version(), current_timestamp")
-            result = cursor.fetchone()
-            
-            # Contar registros
-            cursor.execute("SELECT COUNT(*) FROM citas")
-            citas_count = cursor.fetchone()[0]
-            cursor.execute("SELECT COUNT(*) FROM leads")
-            leads_count = cursor.fetchone()[0]
-            
-            conn.close()
-            
-            return jsonify({
-                "status": "connected",
-                "postgres_version": result[0],
-                "server_time": str(result[1]),
-                "citas_count": citas_count,
-                "leads_count": leads_count,
-                "message": "✅ PostgreSQL funcionando"
-            })
-        else:
-            return jsonify({"status": "error", "message": "❌ No hay conexión"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": f"❌ Error: {str(e)}"})
 
 if __name__ == "__main__":
     print("\n" + "=" * 60)
-    print("🏠 WHATSAPP BOT - POSTGRESQL (psycopg 3.x)")
+    print("🏠 🏠 🏠 WHATSAPP BOT INMOBILIARIO - VERSIÓN 2.1")
     print("=" * 60)
     
-    # Inicializar PostgreSQL
-    print("🔧 Inicializando PostgreSQL...")
-    if init_postgresql():
-        print("✅ PostgreSQL listo")
+    propiedades = cargar_propiedades()
+    print(f"📊 Propiedades cargadas: {len(propiedades)}")
+    
+    if propiedades:
+        ventas = len([p for p in propiedades if p.get('operacion') == 'venta'])
+        alquileres = len([p for p in propiedades if p.get('operacion') == 'alquiler'])
+        print(f"💰 En venta: {ventas} propiedades")
+        print(f"🔑 En alquiler: {alquileres} propiedades")
+    
+    token_valid, token_info = check_token_validity()
+    if token_valid:
+        print(f"✅ TOKEN VÁLIDO")
+        print(f"   📞 Número: {token_info.get('display_phone_number', 'N/A')}")
+        print(f"   📛 Nombre: {token_info.get('verified_name', 'N/A')}")
     else:
-        print("❌ ERROR: PostgreSQL no se pudo inicializar")
-        print("   Verifica DATABASE_URL en Render Environment")
+        print(f"❌❌❌ TOKEN INVÁLIDO O EXPIRADO ❌❌❌")
+        print(f"   ⚠️  El bot NO PODRÁ ENVIAR MENSAJES")
+        print(f"   ℹ️  Visita: https://meta-chat-npbx.onrender.com/token-help")
+    
+    print(f"🌐 URL: https://meta-chat-npbx.onrender.com")
+    print(f"📁 Propiedades: {PROPIEDADES_FILE}")
+    print(f"📅 Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 60 + "\n")
     
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
-    
-    
-    
-# if __name__ == "__main__":
-#     print("\n" + "=" * 60)
-#     print("🏠 WHATSAPP BOT - POSTGRESQL VERSION")
-#     print("=" * 60)
-    
-#     # 1. Inicializar PostgreSQL
-#     if init_postgresql():
-#         print("✅ PostgreSQL inicializado")
-        
-#         # Verificar datos
-#         conn = get_db_connection()
-#         if conn:
-#             cursor = conn.cursor()
-#             cursor.execute("SELECT COUNT(*) FROM citas")
-#             citas_count = cursor.fetchone()[0]
-#             cursor.execute("SELECT COUNT(*) FROM leads")
-#             leads_count = cursor.fetchone()[0]
-#             conn.close()
-#             print(f"📊 Datos iniciales: {citas_count} citas, {leads_count} leads")
-#     else:
-#         print("❌ ERROR: PostgreSQL no se pudo inicializar")
-    
-#     # Resto del código normal...
-#     port = int(os.environ.get("PORT", 10000))
-#     app.run(host="0.0.0.0", port=port, debug=False)
-
-
-# if __name__ == "__main__":
-#     print("\n" + "=" * 60)
-#     print("🏠 WHATSAPP BOT - DIAGNÓSTICO POSTGRESQL")
-#     print("=" * 60)
-    
-#     # ========== DIAGNÓSTICO POSTGRESQL ==========
-#     print("🔍 Diagnosticando PostgreSQL...")
-    
-#     # 1. Verificar DATABASE_URL
-#     if DATABASE_URL:
-#         print(f"✅ DATABASE_URL encontrada: {DATABASE_URL[:50]}...")
-#     else:
-#         print("❌ DATABASE_URL NO encontrada")
-#         print("   Asegúrate de configurarla en Render Environment")
-    
-#     # 2. Inicializar base de datos
-#     print("📊 Inicializando tablas PostgreSQL...")
-#     if init_database():
-#         print("✅ Tablas PostgreSQL inicializadas")
-#     else:
-#         print("❌ Error inicializando PostgreSQL")
-    
-#     # 3. Probar conexión
-#     print("🔌 Probando conexión a PostgreSQL...")
-#     conn = get_db_connection()
-#     if conn:
-#         print("✅ Conexión PostgreSQL exitosa")
-#         cursor = conn.cursor()
-#         cursor.execute("SELECT COUNT(*) FROM citas")
-#         citas_count = cursor.fetchone()[0]
-#         cursor.execute("SELECT COUNT(*) FROM leads")
-#         leads_count = cursor.fetchone()[0]
-#         conn.close()
-#         print(f"   📅 Citas: {citas_count}")
-#         print(f"   👥 Leads: {leads_count}")
-#     else:
-#         print("❌ No se pudo conectar a PostgreSQL")
-    
-#     # Resto del código normal...
-#     propiedades = cargar_propiedades()
-#     print(f"📊 Propiedades cargadas: {len(propiedades)}")
-    
-#     port = int(os.environ.get("PORT", 10000))
-#     app.run(host="0.0.0.0", port=port, debug=False)
