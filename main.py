@@ -2,12 +2,9 @@ from flask import Flask, request, jsonify, send_from_directory, send_file
 import requests
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta  # AÑADIDO timedelta
 from collections import deque
 import threading
-import re  # Para expresiones regulares
-import pandas as pd
-from openpyxl import Workbook, load_workbook
 
 app = Flask(__name__)
 
@@ -16,14 +13,11 @@ VERIFY_TOKEN = "mi_token_secreto_123"
 ACCESS_TOKEN = "EAAJYsGl5pHgBQtLY4aZC0UcrvOgZBqwTiMvFVR4ivtdA7VOdzoe69veL45RPaacOOZA63Tt2zFTaDr4HaENmuOZBd7bGZBZCWyFsvaDZCMk8NdPfTOLDqfqL495I2hdsTSp5ffkf7SkZBCQ2ZCiZBoQZB2g907JDNUY255ZCZCWUEAZBfZCBLyH1wLVZCl23OF6AGjOXZALrZCpYlrT6nTCsWg9UrINBzITDWbd7Ri6bZCZCqgcIDZCEDH7AdWAkQTZA8OkVB7ZBF2woNJC2sqesm2ld51zRZBl509te9IMcXuZCSFh9EHDgZD"
 PHONE_NUMBER_ID = "1000705633118215"
 ADMIN_NUMBER = "5491151511579"  # Número donde llegarán las alertas de leads
-# LEADS_FILE = "leads.json"
-LEADS_EXCEL_FILE = "leads.xlsx"  # Único archivo para todo
-CITAS_SHEET_NAME = "Citas"       # Hoja para citas
-LEADS_SHEET_NAME = "Leads"       # Hoja para leads generales
+LEADS_FILE = "leads.json"
 ADMIN_ACCESS_KEY = "dante2026"  # Llave para acceder al panel admin
 
 # ========== CONFIGURACIÓN DE CITAS ==========
-# CITAS_FILE = "citas.json"  # Nuevo archivo para almacenar citas
+CITAS_FILE = "citas.json"  # Nuevo archivo para almacenar citas
 CITAS_DISPONIBLES = [  # Horarios disponibles para citas
     "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
     "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
@@ -51,11 +45,6 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
     nuevo_estado['timestamp'] = datetime.now().isoformat()
     estados_usuarios[user_id] = nuevo_estado
     
-    log(f"💾 Guardando estado para {user_id}:")
-    log(f"   Paso: {nuevo_estado.get('paso', 'N/A')}")
-    log(f"   Nombre cliente: {nuevo_estado.get('nombre_cliente', 'N/A')}")
-    log(f"   Fecha cita: {nuevo_estado.get('fecha_cita', 'N/A')}")
-    
     # Limpiar estados antiguos (más de 1 hora)
     ahora = datetime.now()
     usuarios_a_eliminar = [
@@ -64,48 +53,37 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
     ]
     
     for uid in usuarios_a_eliminar:
-        log(f"🗑️  Eliminando estado antiguo para {uid}")
         del estados_usuarios[uid]
 
 # ========== GESTIÓN DE LEADS (CLIENTES INTERESADOS) ==========
 def registrar_lead(user_id, propiedad_id, accion, detalle=""):
-    """Registra una interacción de lead en Excel"""
+    """Registra una interacción de lead en el archivo leads.json"""
     try:
-        # Buscar propiedad para obtener título
-        propiedades = cargar_propiedades()
-        propiedad = next((p for p in propiedades if p.get('id_temporal') == propiedad_id), None)
-        titulo = propiedad.get('titulo', 'Sin título') if propiedad else 'Propiedad no encontrada'
+        leads = []
+        if os.path.exists(LEADS_FILE):
+            with open(LEADS_FILE, 'r', encoding='utf-8') as f:
+                leads = json.load(f)
         
-        lead_data = {
-            'telefono': user_id,
-            'nombre': '',
+        nuevo_lead = {
+            'timestamp': datetime.now().isoformat(),
+            'user_id': user_id,
             'propiedad_id': propiedad_id,
-            'propiedad_titulo': titulo,
             'accion': accion,
-            'detalles': detalle,
-            'tipo_lead': 'Interesado',
-            'interes': 'Alto' if 'caliente' in accion else 'Medio',
-            'prioridad': 'Alta' if 'completo' in accion else 'Normal'
+            'detalle': detalle
         }
+        leads.append(nuevo_lead)
         
-        if registrar_lead_excel(lead_data):
-            log(f"📈 Lead registrado en Excel: {user_id} - {accion}")
-            return True
-        else:
-            log(f"❌ Error registrando lead en Excel")
-            return False
+        with open(LEADS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(leads, f, indent=4, ensure_ascii=False)
+            
+        log(f"📈 Lead registrado: {user_id} - {accion}")
     except Exception as e:
         log(f"🔥 Error registrando lead: {e}")
-        return False
 
 def notificar_agente(mensaje):
     """Envía una notificación al número de Dante (ADMIN_NUMBER)"""
     log(f"📢 NOTIFICANDO AL AGENTE: {mensaje[:50]}...")
     return send_whatsapp_message(ADMIN_NUMBER, f"🔔 *ALERTA DANTE-INSIGHTS*\n{mensaje}")
-
-
-
-
 
 # ========== CARGAR PROPIEDADES ==========
 PROPIEDADES_FILE = "propiedades.json"
@@ -160,11 +138,10 @@ def generar_listado_propiedades(propiedades):
     listado = "📋 *LISTADO DE PROPIEDADES*\n\n"
     
     for i, prop in enumerate(propiedades[:10], 1):  # Limitar a 10 propiedades
-        # listado += f"{numero_a_emoji(i)} {prop.get('titulo', 'Sin título')}\n"
-        listado += f"   🏷️ Operación: {prop.get('operacion', 'N/A')}\n"
         listado += f"{numero_a_emoji(i)} {prop.get('titulo', 'Sin título')}\n"
         listado += f"   📍 {prop.get('barrio', 'N/A')} | "
         listado += f"💰 "
+        
         precio = prop.get('precio', 0)
         moneda = prop.get('moneda_precio', 'USD')
         if moneda == 'USD':
@@ -250,10 +227,7 @@ def get_bot_response(text, user_id):
     
     # Obtener estado actual del usuario
     estado_usuario = obtener_estado_usuario(user_id)
-    log(f"👤 Estado usuario {user_id}: {estado_usuario['paso']} - Texto recibido: '{text}'")
-    
-    # DEPURACIÓN: Mostrar todo el estado
-    log(f"🔍 DEPURACIÓN Estado completo: {json.dumps(estado_usuario, indent=2)}")
+    log(f"👤 Estado usuario {user_id}: {estado_usuario['paso']}")
     
     # 1. COMANDOS UNIVERSALES (Hola / Salir)
     if text_lower in ["hola", "hi", "hello", "hola bot", "inicio", "menu", "volver", "atras"]:
@@ -271,17 +245,8 @@ def get_bot_response(text, user_id):
         estado_usuario['propiedades_filtradas'] = []
         estado_usuario['timestamp'] = datetime.now().isoformat()
         actualizar_estado_usuario(user_id, estado_usuario)
-        # return "👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌ | 🏠🗝️ DANTE PROPIEDADES"
-        return (
-                "👋 ¡Gracias por contactarnos!\n"
-                "Para volver al menú, envía '1'\n"
-                "Para salir envía '0' ❌\n"
-                "🏠🗝️ DANTE PROPIEDADES"
-        )
-    
-    
-    
-    
+        return f"👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌"
+
     # 2. BOTONES DE NAVEGACIÓN RÁPIDA (Solo en ciertos estados)
     if text_lower == "1" and estado_usuario['paso'] in ['detalle_propiedad', 'vista_fotos', 'vista_web', 'esperando_nombre_lead']:
         estado_usuario['paso'] = 'menu_principal'
@@ -320,20 +285,6 @@ def get_bot_response(text, user_id):
             return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
 
     # 3. LÓGICA POR ESTADO (Máquina de Estados)
-    
-    # ESTADO: menu_principal - Si recibe un horario, es un error
-    if estado_usuario['paso'] == 'menu_principal':
-        # Verificar si es un formato de horario (HH:MM o H:MM)
-        try:
-            if re.match(r'^\d{1,2}:\d{2}$', text):
-                return "❌ *Error de contexto*\n\nParece que intentaste seleccionar un horario, pero primero debes:\n\n1. Seleccionar una propiedad (envía '1' para venta o '2' para alquiler)\n2. Hacer clic en 'Me interesa' (8)\n3. Seguir el proceso de agendamiento de cita\n\nEnvía 'Hola' para comenzar."
-        except NameError:
-            # Si por alguna razón re no está disponible, usar una verificación simple
-            if ':' in text and len(text.split(':')) == 2:
-                parts = text.split(':')
-                if parts[0].isdigit() and parts[1].isdigit():
-                    return "❌ *Error de contexto*\n\nParece que intentaste seleccionar un horario, pero primero debes:\n\n1. Seleccionar una propiedad (envía '1' para venta o '2' para alquiler)\n2. Hacer clic en 'Me interesa' (8)\n3. Seguir el proceso de agendamiento de cita\n\nEnvía 'Hola' para comenzar."
-    
     
     # ESTADO: listado_propiedades
     if estado_usuario['paso'] == 'listado_propiedades':
@@ -384,9 +335,6 @@ def get_bot_response(text, user_id):
                 return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
             else:
                 return f"❌ El número {indice} está fuera de rango. Elige entre 1 y {len(propiedades)} o escribe 'Hola'."
-        # Si recibe un horario en este estado, es un error
-        elif re.match(r'^\d{1,2}:\d{2}$', text):
-            return "❌ *Error de contexto*\n\nPara seleccionar un horario de cita, primero debes hacer clic en 'Me interesa' (8) en esta propiedad y seguir el proceso de agendamiento.\n\nSi quieres agendar cita para esta propiedad, envía '8'"
 
     # ESTADO: vista_fotos / vista_web / vista_comun
     elif estado_usuario['paso'] in ['vista_fotos', 'vista_web']:
@@ -442,15 +390,13 @@ def get_bot_response(text, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             return "❌ Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad enviando 'Hola'."
 
-    # ESTADO: ofrecer_cita
+    # NUEVO ESTADO: ofrecer_cita
     elif estado_usuario['paso'] == 'ofrecer_cita':
         text_lower = text.lower().strip()
-        log(f"📅 Estado ofrecer_cita - Opción seleccionada: '{text_lower}'")
         
         # Opción 1: Sí, agendar cita
-        if text_lower in ["1", "si", "sí", "si quiero", "agendar", "cita", "visita", "sí agendar"]:
+        if text_lower in ["1", "si", "sí", "si quiero", "agendar", "cita", "visita"]:
             estado_usuario['paso'] = 'solicitar_fecha_cita'
-            estado_usuario['ultima_accion'] = 'selecciono_agendar_cita'
             actualizar_estado_usuario(user_id, estado_usuario)
             
             # Mostrar ejemplo de fecha
@@ -520,14 +466,7 @@ def get_bot_response(text, user_id):
             estado_usuario['nombre_cliente'] = None
             actualizar_estado_usuario(user_id, estado_usuario)
             
-            # return "👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌ | 🏠🗝️ DANTE PROPIEDADES"
-            return (
-                "👋 ¡Gracias por contactarnos!\n"
-                "Para volver al menú, envía '1'\n"
-                "Para salir envía '0' ❌\n"
-                "🏠🗝️ DANTE PROPIEDADES"
-            )
-        
+            return f"👋 ¡Gracias por contactarnos! Para volver al menú, envía '1' | Para salir envía '0' ❌"
         
         # Respuesta no reconocida
         else:
@@ -537,9 +476,8 @@ def get_bot_response(text, user_id):
                 f"3️⃣ *Ya la vi, quiero ofertar* 💰\n" \
                 f"0️⃣ *Salir* ❌"
 
-    # ESTADO: solicitar_fecha_cita
+    # NUEVO ESTADO: solicitar_fecha_cita
     elif estado_usuario['paso'] == 'solicitar_fecha_cita':
-        log(f"📅 Estado solicitar_fecha_cita - Fecha recibida: '{text}'")
         text_lower = text.lower().strip()
         
         # Comando especial: ver fechas disponibles
@@ -577,7 +515,7 @@ def get_bot_response(text, user_id):
                 return "❌ *Plazo excedido*\nSolo podemos agendar hasta 30 días en el futuro.\n\n" \
                     "Por favor, elige una fecha más cercana."
             
-            # Verificar si es fin de semana (opcional)
+            # Verificar si es fin de semana (opcional, puedes comentar estas líneas si aceptas fines de semana)
             if fecha_ingresada.weekday() >= 5:  # 5 = sábado, 6 = domingo
                 return "⚠️ *Fin de semana*\nLa disponibilidad de fines de semana es limitada.\n\n" \
                     "¿Confirmas que quieres agendar para fin de semana?\n\n" \
@@ -586,7 +524,6 @@ def get_bot_response(text, user_id):
             # Guardar fecha en estado
             fecha_str = fecha_ingresada.strftime("%Y-%m-%d")
             estado_usuario['fecha_cita'] = fecha_str
-            estado_usuario['ultima_accion'] = 'ingreso_fecha_cita'
             
             # Obtener horarios disponibles
             horarios_disponibles = obtener_horarios_disponibles(fecha_str)
@@ -644,7 +581,7 @@ def get_bot_response(text, user_id):
                 "*Ejemplo:* 2024-12-25\n\n" \
                 "También puedes escribir 'Ver fechas' para ver disponibilidad."
 
-    # ESTADO: seleccionar_hora_cita
+    # NUEVO ESTADO: seleccionar_hora_cita
     elif estado_usuario['paso'] == 'seleccionar_hora_cita':
         text_lower = text.lower().strip()
         
@@ -720,7 +657,7 @@ def get_bot_response(text, user_id):
         else:
             return "❌ *Error: No se encontró la propiedad*\n\n" \
                 "Hubo un problema al procesar tu cita. Por favor, inicia el proceso nuevamente enviando 'Hola'."
-
+    
     # 4. OPCIONES GLOBALES (1..7) - Se procesan si no se capturaron arriba
     if text_lower == "1":
         estado_usuario['paso'] = 'listado_propiedades'
@@ -824,11 +761,6 @@ def get_bot_response(text, user_id):
                    f"📱 *0. Volver al menú principal*"
         else:
             return "⚠️ Acceso restringido. Esta opción es solo para administradores.\n\nEnviá 'Hola' para volver."
-
-    # Si llega aquí sin haber retornado nada, mostrar mensaje de error
-    return "❌ *Opción no reconocida*\n\n" \
-           "Por favor, selecciona una opción del menú o envía 'Hola' para ver las opciones disponibles."
-
 
 # ========== VERIFICACIÓN DE TOKEN ==========
 def check_token_validity():
@@ -1251,42 +1183,6 @@ def admin_panel():
         return "⚠️ Acceso No Autorizado. Por favor usa el enlace seguro.", 403
     return send_file("admin.html")
 
-
-@app.route("/api/leads", methods=["GET"])
-def api_leads():
-    """Retorna todos los leads desde Excel"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    try:
-        if not os.path.exists(LEADS_EXCEL_FILE):
-            inicializar_excel()
-            return jsonify({"leads": []})
-        
-        df = pd.read_excel(LEADS_EXCEL_FILE, sheet_name=LEADS_SHEET_NAME)
-        
-        if df.empty:
-            return jsonify({"leads": []})
-        
-        leads = []
-        for _, row in df.iterrows():
-            leads.append({
-                'user_id': str(row.get('Teléfono', '')),
-                'accion': row.get('Acción', ''),
-                'detalle': row.get('Detalles', ''),
-                'timestamp': str(row.get('Fecha', ''))
-            })
-        
-        return jsonify({"leads": leads})
-        
-    except Exception as e:
-        log(f"❌ Error cargando leads desde Excel: {e}")
-        return jsonify({"leads": []})
-
-
-
-
 @app.route("/api/leads")
 def api_leads():
     """Retorna los leads en formato JSON si la llave es correcta"""
@@ -1432,7 +1328,7 @@ def webhook():
                                         if response_text == "WELCOME_FLOW_TRIGGER":
                                             # Esto es redundante por el block de arriba pero por si acaso
                                             result = send_welcome_flow(from_number)
-                                        elif response_text and response_text.startswith("PHOTOS_TRIGGER|"):
+                                        elif response_text.startswith("PHOTOS_TRIGGER|"):
                                             # Disparar hilo de fotos en segundo plano
                                             prop_id = response_text.split("|")[1]
                                             base_url = request.host_url.rstrip('/')
@@ -1446,7 +1342,7 @@ def webhook():
                                             # Enviar confirmación inmediata de que se están enviando las fotos
                                             confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nPara volver al menú, envía '1' | Para salir envía '0' ❌"
                                             result = send_whatsapp_message(from_number, confirmacion)
-                                        elif response_text and response_text != "None":
+                                        elif response_text:
                                             log(f"🤖 RESPUESTA GENERADA ({len(response_text)} caracteres)")
                                             result = send_whatsapp_message(from_number, response_text)
                                         else:
@@ -1486,86 +1382,69 @@ def webhook():
 
 # ========== GESTIÓN DE CITAS ==========
 def cargar_citas():
-    """Carga todas las citas desde Excel (REEMPLAZA la función JSON)"""
-    return cargar_citas_excel()
-
-def guardar_citas(citas_lista):
-    """Guarda una lista de citas en Excel (REEMPLAZA la función JSON)"""
+    """Carga las citas existentes desde el archivo JSON"""
     try:
-        for cita in citas_lista:
-            guardar_cita_excel(cita)
+        if os.path.exists(CITAS_FILE):
+            with open(CITAS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return []
+    except Exception as e:
+        log(f"❌ Error cargando citas: {e}")
+        return []
+
+def guardar_citas(citas):
+    """Guarda las citas en el archivo JSON"""
+    try:
+        with open(CITAS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(citas, f, indent=4, ensure_ascii=False)
         return True
     except Exception as e:
-        log(f"❌ Error guardando lista de citas: {e}")
+        log(f"❌ Error guardando citas: {e}")
         return False
-    
-def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo="", notas=""):
-    """Crea una nueva cita en Excel"""
+
+def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, notas=""):
+    """Crea una nueva cita"""
     try:
-        log(f"📝 Creando cita para {nombre} en Excel...")
+        citas = cargar_citas()
         
-        # Cargar citas existentes
-        citas = cargar_citas_excel()
-        cita_id = f"C{len(citas) + 1:04d}"
-        
-        cita_data = {
-            'id': cita_id,
-            'nombre': nombre.strip(),
-            'telefono': str(telefono).strip(),
-            'email': '',
+        nueva_cita = {
+            'id': f"cita_{len(citas)+1:04d}",
+            'user_id': user_id,
+            'nombre': nombre,
+            'telefono': telefono,
             'fecha': fecha,
             'hora': hora,
             'propiedad_id': propiedad_id,
-            'propiedad_titulo': propiedad_titulo[:100],
-            'estado': 'pendiente',
-            'notas': str(notas)[:500],
+            'estado': 'pendiente',  # pendiente | confirmada | cancelada | completada
+            'notas': notas,
             'creacion': datetime.now().isoformat(),
-            'ultima_actualizacion': datetime.now().isoformat(),
-            'recordatorio_enviado': False
+            'ultima_actualizacion': datetime.now().isoformat()
         }
         
-        # Guardar en Excel
-        if guardar_cita_excel(cita_data):
-            log(f"✅ CITA CREADA EN EXCEL: {cita_id}")
-            
-            # Registrar también como lead
-            lead_data = {
-                'telefono': telefono,
-                'nombre': nombre,
-                'propiedad_id': propiedad_id,
-                'propiedad_titulo': propiedad_titulo,
-                'accion': 'agendo_cita',
-                'detalles': f"Cita agendada: {fecha} {hora}",
-                'tipo_lead': 'Con Cita',
-                'interes': 'Alto',
-                'prioridad': 'Alta'
-            }
-            registrar_lead_excel(lead_data)
-            
+        citas.append(nueva_cita)
+        
+        if guardar_citas(citas):
+            log(f"✅ Cita creada: {nueva_cita['id']} para {nombre}")
             # Notificar al admin
-            notificar_cita_admin(cita_data)
-            
-            return cita_data
-        else:
-            log(f"❌ Error guardando cita en Excel")
-            return None
-            
+            notificar_cita_admin(nueva_cita)
+            return nueva_cita
+        return None
     except Exception as e:
-        log(f"🔥 ERROR creando cita: {str(e)}")
-        return None    
-    
+        log(f"❌ Error creando cita: {e}")
+        return None
+
 def notificar_cita_admin(cita):
     """Envía notificación de nueva cita al admin"""
     try:
-        mensaje = f"📅 *NUEVA CITA AGENDADA - EXCEL*\n\n"
+        mensaje = f"📅 *NUEVA CITA AGENDADA*\n\n"
         mensaje += f"👤 *Cliente:* {cita['nombre']}\n"
         mensaje += f"📞 *Teléfono:* +{cita['telefono']}\n"
         mensaje += f"📅 *Fecha:* {cita['fecha']}\n"
-        mensaje += f"⏰ *Hora:* {cita['hora']} hs\n"
-        mensaje += f"🏠 *Propiedad:* {cita.get('propiedad_titulo', cita['propiedad_id'])}\n"
+        mensaje += f"⏰ *Hora:* {cita['hora']}\n"
+        mensaje += f"🏠 *Propiedad ID:* {cita['propiedad_id']}\n"
         mensaje += f"🆔 *ID Cita:* {cita['id']}\n"
-        mensaje += f"📊 *Estado:* {cita['estado'].upper()}\n\n"
-        mensaje += f"📍 *Acción requerida:* Verificar en panel de citas"
+        mensaje += f"📝 *Notas:* {cita.get('notas', 'Sin notas')}\n\n"
+        mensaje += f"📍 *Estado:* {cita['estado'].upper()}"
         
         return send_whatsapp_message(ADMIN_NUMBER, mensaje)
     except Exception as e:
@@ -1616,280 +1495,6 @@ def formatear_horarios_disponibles(horarios):
     mensaje += "\nPara volver atrás, envía 'Atrás'"
     
     return mensaje
-
-
-@app.route("/info-archivos", methods=["GET"])
-def info_archivos():
-    """Muestra información sobre los archivos del sistema"""
-    info = {
-        "directorio_actual": os.getcwd(),
-        "archivos_en_directorio": os.listdir('.'),
-        "citas_json": {
-            "ruta_absoluta": os.path.abspath(CITAS_FILE),
-            "existe": os.path.exists(CITAS_FILE),
-            "tamano": os.path.getsize(CITAS_FILE) if os.path.exists(CITAS_FILE) else 0,
-            "permisos": oct(os.stat(CITAS_FILE).st_mode)[-3:] if os.path.exists(CITAS_FILE) else "N/A",
-            "modificacion": datetime.fromtimestamp(os.path.getmtime(CITAS_FILE)).isoformat() if os.path.exists(CITAS_FILE) else "N/A"
-        },
-        "otros_archivos": {
-            "propiedades_json": os.path.exists(PROPIEDADES_FILE),
-            "leads_json": os.path.exists(LEADS_FILE),
-            "main_py": os.path.exists("main.py")
-        }
-    }
-    
-    return jsonify(info)
-
-
-@app.route("/diagnostico-excel", methods=["GET"])
-def diagnostico_excel():
-    """Muestra estado del archivo Excel"""
-    info = {
-        "excel": {
-            "existe": os.path.exists(LEADS_EXCEL_FILE),
-            "tamano": os.path.getsize(LEADS_EXCEL_FILE) if os.path.exists(LEADS_EXCEL_FILE) else 0,
-            "hojas": obtener_hojas_excel() if os.path.exists(LEADS_EXCEL_FILE) else []
-        },
-        "citas_en_memoria": len(cargar_citas_excel()),
-        "directorio": os.listdir('.')
-    }
-    return jsonify(info)
-
-def obtener_hojas_excel():
-    """Obtiene las hojas del archivo Excel"""
-    try:
-        wb = load_workbook(LEADS_EXCEL_FILE, read_only=True)
-        return wb.sheetnames
-    except:
-        return []
-
-
-def inicializar_excel():
-    """Inicializa el archivo Excel con las hojas necesarias"""
-    try:
-        if not os.path.exists(LEADS_EXCEL_FILE):
-            log(f"📄 Creando archivo Excel unificado: {LEADS_EXCEL_FILE}")
-            
-            wb = Workbook()
-            
-            # Hoja para Citas
-            ws_citas = wb.active
-            ws_citas.title = CITAS_SHEET_NAME
-            ws_citas.append([
-                "ID", "Fecha Creación", "Nombre", "Teléfono", "Email", 
-                "Fecha Cita", "Hora Cita", "Propiedad ID", "Título Propiedad",
-                "Estado", "Notas", "Última Actualización", "Recordatorio Enviado"
-            ])
-            
-            # Hoja para Leads
-            ws_leads = wb.create_sheet(title=LEADS_SHEET_NAME)
-            ws_leads.append([
-                "ID", "Fecha", "Teléfono", "Nombre", "Propiedad ID", 
-                "Título Propiedad", "Acción", "Detalles", "Tipo Lead",
-                "Interés", "Seguimiento", "Prioridad", "Agente Asignado"
-            ])
-            
-            # Ajustar anchos
-            for i, width in enumerate([15, 20, 25, 15, 25, 15, 10, 20, 40, 12, 50, 20, 20], 1):
-                ws_citas.column_dimensions[chr(64 + i)].width = width
-            
-            for i, width in enumerate([15, 20, 15, 25, 20, 40, 20, 50, 15, 15, 30, 12, 20], 1):
-                ws_leads.column_dimensions[chr(64 + i)].width = width
-            
-            wb.save(LEADS_EXCEL_FILE)
-            log(f"✅ Archivo Excel creado con hojas: {CITAS_SHEET_NAME}, {LEADS_SHEET_NAME}")
-            
-            # Crear algunas citas de prueba (solo desarrollo)
-            if os.environ.get("RENDER") != "true":  # No en producción
-                crear_citas_prueba()
-                
-        else:
-            log(f"📄 Archivo Excel ya existe: {LEADS_EXCEL_FILE}")
-            
-    except Exception as e:
-        log(f"🔥 Error inicializando Excel: {e}")
-
-
-def crear_citas_prueba():
-    """Crea citas de prueba para desarrollo"""
-    try:
-        citas_prueba = [
-            {
-                'id': 'C0001',
-                'nombre': 'Juan Pérez',
-                'telefono': '5491151511579',
-                'fecha': '2024-12-15',
-                'hora': '14:30',
-                'propiedad_id': 'PROP001',
-                'propiedad_titulo': 'Casa en Palermo',
-                'estado': 'confirmada',
-                'notas': 'Cliente muy interesado'
-            },
-            {
-                'id': 'C0002',
-                'nombre': 'María López',
-                'telefono': '549116543210',
-                'fecha': '2024-12-16',
-                'hora': '11:00',
-                'propiedad_id': 'PROP002',
-                'propiedad_titulo': 'Departamento en Recoleta',
-                'estado': 'pendiente',
-                'notas': 'Primera visita'
-            }
-        ]
-        
-        for cita in citas_prueba:
-            cita.update({
-                'email': '',
-                'creacion': datetime.now().isoformat(),
-                'ultima_actualizacion': datetime.now().isoformat(),
-                'recordatorio_enviado': False
-            })
-            guardar_cita_excel(cita)
-        
-        log("✅ Citas de prueba creadas")
-    except Exception as e:
-        log(f"⚠️  No se pudieron crear citas de prueba: {e}")
-
-
-
-def cargar_citas_excel():
-    """Carga todas las citas desde Excel"""
-    try:
-        if not os.path.exists(LEADS_EXCEL_FILE):
-            inicializar_excel()
-            return []
-        
-        df = pd.read_excel(LEADS_EXCEL_FILE, sheet_name=CITAS_SHEET_NAME)
-        
-        if df.empty:
-            return []
-        
-        # Convertir DataFrame a lista de diccionarios
-        citas = []
-        for _, row in df.iterrows():
-            cita = {
-                'id': str(row.get('ID', '')),
-                'nombre': str(row.get('Nombre', '')),
-                'telefono': str(row.get('Teléfono', '')),
-                'email': str(row.get('Email', '')),
-                'fecha': str(row.get('Fecha Cita', '')),
-                'hora': str(row.get('Hora Cita', '')),
-                'propiedad_id': str(row.get('Propiedad ID', '')),
-                'propiedad_titulo': str(row.get('Título Propiedad', '')),
-                'estado': str(row.get('Estado', 'pendiente')).lower(),
-                'notas': str(row.get('Notas', '')),
-                'creacion': str(row.get('Fecha Creación', '')),
-                'ultima_actualizacion': str(row.get('Última Actualización', '')),
-                'recordatorio_enviado': bool(row.get('Recordatorio Enviado', False))
-            }
-            citas.append(cita)
-        
-        log(f"✅ Cargadas {len(citas)} citas desde Excel")
-        return citas
-        
-    except Exception as e:
-        log(f"❌ Error cargando citas desde Excel: {e}")
-        return []
-
-def guardar_cita_excel(cita_data):
-    """Guarda o actualiza una cita en Excel"""
-    try:
-        if not os.path.exists(LEADS_EXCEL_FILE):
-            inicializar_excel()
-        
-        # Cargar citas existentes
-        wb = load_workbook(LEADS_EXCEL_FILE)
-        ws = wb[CITAS_SHEET_NAME]
-        
-        # Verificar si la cita ya existe (por ID)
-        cita_id = cita_data.get('id')
-        fila_existente = None
-        
-        for row in range(2, ws.max_row + 1):
-            if ws.cell(row=row, column=1).value == cita_id:
-                fila_existente = row
-                break
-        
-        if fila_existente:
-            # Actualizar cita existente
-            log(f"🔄 Actualizando cita existente: {cita_id}")
-            ws.cell(row=fila_existente, column=2, value=cita_data.get('creacion', ''))
-            ws.cell(row=fila_existente, column=3, value=cita_data.get('nombre', ''))
-            ws.cell(row=fila_existente, column=4, value=cita_data.get('telefono', ''))
-            ws.cell(row=fila_existente, column=5, value=cita_data.get('email', ''))
-            ws.cell(row=fila_existente, column=6, value=cita_data.get('fecha', ''))
-            ws.cell(row=fila_existente, column=7, value=cita_data.get('hora', ''))
-            ws.cell(row=fila_existente, column=8, value=cita_data.get('propiedad_id', ''))
-            ws.cell(row=fila_existente, column=9, value=cita_data.get('propiedad_titulo', ''))
-            ws.cell(row=fila_existente, column=10, value=cita_data.get('estado', 'pendiente'))
-            ws.cell(row=fila_existente, column=11, value=cita_data.get('notas', ''))
-            ws.cell(row=fila_existente, column=12, value=cita_data.get('ultima_actualizacion', ''))
-            ws.cell(row=fila_existente, column=13, value=cita_data.get('recordatorio_enviado', False))
-        else:
-            # Nueva cita
-            log(f"➕ Agregando nueva cita: {cita_id}")
-            nueva_fila = ws.max_row + 1
-            ws.cell(row=nueva_fila, column=1, value=cita_data.get('id', ''))
-            ws.cell(row=nueva_fila, column=2, value=cita_data.get('creacion', ''))
-            ws.cell(row=nueva_fila, column=3, value=cita_data.get('nombre', ''))
-            ws.cell(row=nueva_fila, column=4, value=cita_data.get('telefono', ''))
-            ws.cell(row=nueva_fila, column=5, value=cita_data.get('email', ''))
-            ws.cell(row=nueva_fila, column=6, value=cita_data.get('fecha', ''))
-            ws.cell(row=nueva_fila, column=7, value=cita_data.get('hora', ''))
-            ws.cell(row=nueva_fila, column=8, value=cita_data.get('propiedad_id', ''))
-            ws.cell(row=nueva_fila, column=9, value=cita_data.get('propiedad_titulo', ''))
-            ws.cell(row=nueva_fila, column=10, value=cita_data.get('estado', 'pendiente'))
-            ws.cell(row=nueva_fila, column=11, value=cita_data.get('notas', ''))
-            ws.cell(row=nueva_fila, column=12, value=cita_data.get('ultima_actualizacion', ''))
-            ws.cell(row=nueva_fila, column=13, value=cita_data.get('recordatorio_enviado', False))
-        
-        wb.save(LEADS_EXCEL_FILE)
-        log(f"✅ Cita guardada en Excel: {cita_id}")
-        return True
-        
-    except Exception as e:
-        log(f"🔥 Error guardando cita en Excel: {e}")
-        return False
-
-def registrar_lead_excel(lead_data):
-    """Registra un lead en la hoja Leads"""
-    try:
-        if not os.path.exists(LEADS_EXCEL_FILE):
-            inicializar_excel()
-        
-        wb = load_workbook(LEADS_EXCEL_FILE)
-        ws = wb[LEADS_SHEET_NAME]
-        
-        # Generar ID único
-        lead_id = f"L{ws.max_row:05d}"
-        
-        # Agregar nueva fila
-        nueva_fila = ws.max_row + 1
-        ws.cell(row=nueva_fila, column=1, value=lead_id)
-        ws.cell(row=nueva_fila, column=2, value=datetime.now().isoformat())
-        ws.cell(row=nueva_fila, column=3, value=lead_data.get('telefono', ''))
-        ws.cell(row=nueva_fila, column=4, value=lead_data.get('nombre', ''))
-        ws.cell(row=nueva_fila, column=5, value=lead_data.get('propiedad_id', ''))
-        ws.cell(row=nueva_fila, column=6, value=lead_data.get('propiedad_titulo', ''))
-        ws.cell(row=nueva_fila, column=7, value=lead_data.get('accion', ''))
-        ws.cell(row=nueva_fila, column=8, value=lead_data.get('detalles', ''))
-        ws.cell(row=nueva_fila, column=9, value=lead_data.get('tipo_lead', 'Interesado'))
-        ws.cell(row=nueva_fila, column=10, value=lead_data.get('interes', 'Medio'))
-        ws.cell(row=nueva_fila, column=11, value=lead_data.get('seguimiento', ''))
-        ws.cell(row=nueva_fila, column=12, value=lead_data.get('prioridad', 'Normal'))
-        ws.cell(row=nueva_fila, column=13, value=lead_data.get('agente', ''))
-        
-        wb.save(LEADS_EXCEL_FILE)
-        log(f"✅ Lead registrado en Excel: {lead_id}")
-        return True
-        
-    except Exception as e:
-        log(f"🔥 Error registrando lead en Excel: {e}")
-        return False
-
-
-
 
 @app.route("/test", methods=["GET"])
 def test_send():
@@ -2132,352 +1737,47 @@ def health_check():
 # ========== RUTAS API PARA PANEL DE CITAS ==========
 @app.route("/api/citas", methods=["GET"])
 def api_citas():
-    """Retorna todas las citas desde Excel"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    citas = cargar_citas_excel()  # ← Cambiado a Excel
-    return jsonify(citas)
-
-
-# @app.route("/forzar-cita-test", methods=["GET"])
-# def forzar_cita_test():
-#     """Crea una cita de prueba FORZADA"""
-#     try:
-#         # Primero, asegurar que el archivo existe
-#         inicializar_archivo_citas()
-        
-#         # Crear cita de prueba
-#         cita_prueba = {
-#             'id': 'cita_0001',
-#             'user_id': '5491151511579',
-#             'nombre': 'MARTIN HERNANDEZ (TEST)',
-#             'telefono': '5491151511579',
-#             'fecha': '2026-02-12',
-#             'hora': '17:00',
-#             'propiedad_id': 'Oficina en Microcentro Superluminoso...',
-#             'estado': 'pendiente',
-#             'notas': 'CITA DE PRUEBA - Propiedad: Oficina en Microcentro...',
-#             'creacion': datetime.now().isoformat(),
-#             'ultima_actualizacion': datetime.now().isoformat()
-#         }
-        
-#         # Cargar citas existentes
-#         citas = cargar_citas()
-        
-#         # Agregar cita de prueba
-#         citas.append(cita_prueba)
-        
-#         # Guardar
-#         if guardar_citas(citas):
-#             return jsonify({
-#                 "status": "success",
-#                 "message": "Cita de prueba creada",
-#                 "cita": cita_prueba,
-#                 "total_citas": len(citas),
-#                 "archivo": CITAS_FILE,
-#                 "existe": os.path.exists(CITAS_FILE)
-#             })
-#         else:
-#             return jsonify({
-#                 "status": "error",
-#                 "message": "Error guardando cita"
-#             }), 500
-            
-#     except Exception as e:
-#         return jsonify({
-#             "status": "error",
-#             "message": str(e)
-#         }), 500
-
-
-# @app.route("/reparar-citas", methods=["GET"])
-# def reparar_citas():
-#     """Repara el archivo de citas"""
-#     try:
-#         log("🔧 Iniciando reparación de archivo de citas...")
-        
-#         # 1. Verificar estado actual
-#         estado_inicial = {
-#             "existe": os.path.exists(CITAS_FILE),
-#             "tamano": os.path.getsize(CITAS_FILE) if os.path.exists(CITAS_FILE) else 0,
-#             "citas_cargadas": len(cargar_citas())
-#         }
-        
-#         # 2. Crear archivo nuevo si está corrupto
-#         if estado_inicial["existe"] and estado_inicial["tamano"] < 10:  # Menos de 10 bytes = vacío/corrupto
-#             log("📄 Archivo parece corrupto, creando nuevo...")
-#             with open(CITAS_FILE, 'w', encoding='utf-8') as f:
-#                 json.dump([], f, indent=4)
-        
-#         # 3. Cargar y guardar para reparar formato
-#         citas = cargar_citas()
-        
-#         # 4. Si no hay citas, agregar una de prueba
-#         if len(citas) == 0:
-#             log("📝 Agregando cita de prueba...")
-#             citas = [{
-#                 'id': 'cita_0001',
-#                 'user_id': '5491151511579',
-#                 'nombre': 'MARTIN HERNANDEZ (REPARADO)',
-#                 'telefono': '5491151511579',
-#                 'fecha': datetime.now().strftime('%Y-%m-%d'),
-#                 'hora': '17:00',
-#                 'propiedad_id': 'Oficina de prueba',
-#                 'estado': 'pendiente',
-#                 'notas': 'Cita creada durante reparación',
-#                 'creacion': datetime.now().isoformat(),
-#                 'ultima_actualizacion': datetime.now().isoformat()
-#             }]
-        
-#         # 5. Guardar reparado
-#         guardar_citas(citas)
-        
-#         # 6. Verificar resultado
-#         estado_final = {
-#             "existe": os.path.exists(CITAS_FILE),
-#             "tamano": os.path.getsize(CITAS_FILE) if os.path.exists(CITAS_FILE) else 0,
-#             "citas_cargadas": len(cargar_citas()),
-#             "contenido": cargar_citas()[:3]  # Primeras 3 citas
-#         }
-        
-#         return jsonify({
-#             "status": "success",
-#             "message": "Archivo de citas reparado",
-#             "antes": estado_inicial,
-#             "despues": estado_final
-#         })
-        
-#     except Exception as e:
-#         return jsonify({
-#             "status": "error",
-#             "message": str(e)
-#         }), 500
-
-@app.route("/ver-citas-contenido", methods=["GET"])
-def ver_citas_contenido():
-    """Muestra el contenido COMPLETO del archivo citas.json"""
-    try:
-        if not os.path.exists(CITAS_FILE):
-            return jsonify({"error": f"Archivo {CITAS_FILE} no existe"})
-        
-        with open(CITAS_FILE, 'r', encoding='utf-8') as f:
-            contenido = f.read()
-        
-        # Intentar mostrar como JSON o texto
-        try:
-            datos = json.loads(contenido)
-            formato = "JSON válido"
-        except:
-            datos = contenido
-            formato = "Texto plano (JSON inválido)"
-        
-        return jsonify({
-            "archivo": CITAS_FILE,
-            "tamano_bytes": len(contenido),
-            "formato": formato,
-            "contenido": datos if isinstance(datos, (list, dict)) else str(datos)[:1000],
-            "primeros_500_caracteres": contenido[:500] if len(contenido) > 500 else contenido
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)})
-
-# @app.route("/debug/citas", methods=["GET"])
-# def debug_citas():
-#     """Ruta de depuración para ver todas las citas en detalle"""
-#     try:
-#         citas = cargar_citas()
-        
-#         # Formatear fechas para mejor visualización
-#         citas_formateadas = []
-#         for cita in citas:
-#             cita_copy = cita.copy()
-#             # Intentar formatear fecha
-#             try:
-#                 fecha_obj = datetime.strptime(cita['fecha'], "%Y-%m-%d")
-#                 cita_copy['fecha_formateada'] = fecha_obj.strftime("%d/%m/%Y")
-#             except:
-#                 cita_copy['fecha_formateada'] = cita['fecha']
-            
-#             citas_formateadas.append(cita_copy)
-        
-#         return jsonify({
-#             "status": "success",
-#             "total_citas": len(citas),
-#             "archivo": CITAS_FILE,
-#             "existe_archivo": os.path.exists(CITAS_FILE),
-#             "tamano_bytes": os.path.getsize(CITAS_FILE) if os.path.exists(CITAS_FILE) else 0,
-#             "detalles": {
-#                 "pendientes": len([c for c in citas if c.get('estado') == 'pendiente']),
-#                 "confirmadas": len([c for c in citas if c.get('estado') == 'confirmada']),
-#                 "canceladas": len([c for c in citas if c.get('estado') == 'cancelada']),
-#                 "hoy": len([c for c in citas if c.get('fecha') == datetime.now().strftime("%Y-%m-%d")])
-#             },
-#             "citas": citas_formateadas
-#         })
-#     except Exception as e:
-#         return jsonify({
-#             "status": "error",
-#             "error": str(e)
-#         }), 500
-
-@app.route("/test-api-citas", methods=["GET"])
-def test_api_citas():
-    """Prueba la API que usa el panel admin"""
+    """Retorna todas las citas en formato JSON"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
     
     citas = cargar_citas()
     return jsonify(citas)
-
-@app.route("/estado-sistema", methods=["GET"])
-def estado_sistema():
-    """Muestra el estado del sistema de citas"""
-    citas = cargar_citas()
-    
-    return jsonify({
-        "sistema_citas": {
-            "archivo": CITAS_FILE,
-            "existe": os.path.exists(CITAS_FILE),
-            "tamano": os.path.getsize(CITAS_FILE) if os.path.exists(CITAS_FILE) else 0,
-            "total_citas": len(citas),
-            "pendientes": len([c for c in citas if c.get('estado') == 'pendiente']),
-            "confirmadas": len([c for c in citas if c.get('estado') == 'confirmada']),
-            "canceladas": len([c for c in citas if c.get('estado') == 'cancelada']),
-            "ruta_absoluta": os.path.abspath(CITAS_FILE) if os.path.exists(CITAS_FILE) else "N/A"
-        }
-    })
-
-
-
-@app.route("/api/panel/citas/nueva", methods=["POST"])
-def crear_cita_desde_panel():
-    """Crea una nueva cita desde el panel admin"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    datos = request.get_json()
-    
-    # Validar campos
-    required = ['nombre', 'telefono', 'fecha', 'hora']
-    for campo in required:
-        if campo not in datos or not str(datos[campo]).strip():
-            return jsonify({'error': f'Campo {campo} es requerido'}), 400
-    
-    # Crear cita
-    cita = crear_cita(
-        user_id=datos['telefono'],
-        nombre=datos['nombre'],
-        telefono=datos['telefono'],
-        fecha=datos['fecha'],
-        hora=datos['hora'],
-        propiedad_id=datos.get('propiedad', ''),
-        propiedad_titulo=datos.get('propiedad', ''),
-        notas=datos.get('notas', '')
-    )
-    
-    if cita:
-        return jsonify({
-            'status': 'success',
-            'cita_id': cita['id'],
-            'message': 'Cita creada exitosamente'
-        })
-    else:
-        return jsonify({'error': 'Error al crear la cita'}), 500
 
 @app.route("/api/citas/<cita_id>/estado", methods=["PUT"])
 def actualizar_estado_cita(cita_id):
-    """Actualiza el estado de una cita en Excel"""
+    """Actualiza el estado de una cita"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
     
     nuevo_estado = request.args.get('estado')
-    if nuevo_estado not in ['pendiente', 'confirmada', 'cancelada', 'completada']:
+    if nuevo_estado not in ['pendiente', 'confirmada', 'cancelada']:
         return jsonify({"error": "Estado inválido"}), 400
     
     try:
-        # Cargar citas desde Excel
-        citas = cargar_citas_excel()
-        cita_encontrada = None
+        citas = cargar_citas()
+        cita_encontrada = False
         
         for cita in citas:
             if cita['id'] == cita_id:
                 cita['estado'] = nuevo_estado
                 cita['ultima_actualizacion'] = datetime.now().isoformat()
-                cita_encontrada = cita
+                cita_encontrada = True
                 break
         
         if not cita_encontrada:
             return jsonify({"error": "Cita no encontrada"}), 404
         
-        # Guardar el cambio en Excel
-        if guardar_cita_excel(cita_encontrada):
-            log(f"✅ Estado actualizado en Excel: {cita_id} -> {nuevo_estado}")
+        if guardar_citas(citas):
+            log(f"✅ Estado actualizado: {cita_id} -> {nuevo_estado}")
             return jsonify({"status": "success", "message": "Estado actualizado"})
         else:
-            return jsonify({"error": "Error guardando en Excel"}), 500
+            return jsonify({"error": "Error guardando cambios"}), 500
             
     except Exception as e:
         log(f"❌ Error actualizando estado de cita: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/api/citas-excel", methods=["GET"])
-def api_citas_excel():
-    """Retorna todas las citas desde Excel"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    citas = cargar_citas_excel()
-    return jsonify(citas)
-
-@app.route("/api/actualizar-estado-cita", methods=["PUT"])
-def api_actualizar_estado_cita():
-    """Actualiza el estado de una cita en Excel"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    try:
-        data = request.get_json()
-        cita_id = data.get('id')
-        nuevo_estado = data.get('estado')
-        
-        if not cita_id or not nuevo_estado:
-            return jsonify({"error": "Faltan datos"}), 400
-        
-        if nuevo_estado not in ['pendiente', 'confirmada', 'cancelada', 'completada']:
-            return jsonify({"error": "Estado inválido"}), 400
-        
-        # Cargar todas las citas
-        citas = cargar_citas_excel()
-        
-        # Encontrar y actualizar la cita
-        cita_actualizada = None
-        for cita in citas:
-            if cita['id'] == cita_id:
-                cita['estado'] = nuevo_estado
-                cita['ultima_actualizacion'] = datetime.now().isoformat()
-                cita_actualizada = cita
-                break
-        
-        if not cita_actualizada:
-            return jsonify({"error": "Cita no encontrada"}), 404
-        
-        # Guardar cambios en Excel
-        if guardar_cita_excel(cita_actualizada):
-            log(f"✅ Estado actualizado en Excel: {cita_id} -> {nuevo_estado}")
-            return jsonify({"status": "success", "cita": cita_actualizada})
-        else:
-            return jsonify({"error": "Error guardando en Excel"}), 500
-            
-    except Exception as e:
-        log(f"❌ Error actualizando estado: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/citas/recordatorio/<cita_id>", methods=["POST"])
@@ -2550,85 +1850,14 @@ def cargar_citas():
         log(f"❌ Error cargando citas: {e}")
         return []
 
-def guardar_citas(citas):
-    """Guarda las citas en el archivo JSON, creando el archivo si no existe"""
-    try:
-        log(f"💾 Intentando guardar {len(citas)} citas en {CITAS_FILE}")
-        
-        # Crear directorio si no existe
-        directory = os.path.dirname(CITAS_FILE)
-        if directory and not os.path.exists(directory):
-            os.makedirs(directory, exist_ok=True)
-            log(f"📁 Directorio creado: {directory}")
-        
-        # Guardar citas
-        with open(CITAS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(citas, f, indent=4, ensure_ascii=False)
-        
-        log(f"✅ Citas guardadas exitosamente en {CITAS_FILE}")
-        
-        # Verificar que el archivo se creó
-        if os.path.exists(CITAS_FILE):
-            log(f"📄 Archivo verificado: {CITAS_FILE} ({os.path.getsize(CITAS_FILE)} bytes)")
-        else:
-            log("❌ ERROR: Archivo no se creó después de guardar")
-        
-        return True
-    except Exception as e:
-        log(f"🔥 ERROR guardando citas: {str(e)}")
-        import traceback
-        log(f"🔍 TRAZA: {traceback.format_exc()[:500]}")
-        return False
-
-def inicializar_archivo_citas():
-    """Inicializa el archivo de citas si no existe"""
-    try:
-        if not os.path.exists(CITAS_FILE):
-            log(f"📄 Inicializando archivo {CITAS_FILE}...")
-            with open(CITAS_FILE, 'w', encoding='utf-8') as f:
-                json.dump([], f, indent=4, ensure_ascii=False)
-            log(f"✅ Archivo {CITAS_FILE} creado exitosamente")
-            return True
-        else:
-            log(f"📄 Archivo {CITAS_FILE} ya existe")
-            return True
-    except Exception as e:
-        log(f"🔥 ERROR inicializando archivo de citas: {e}")
-        return False
-
-
-
-# @app.route("/ver-citas-raw", methods=["GET"])
-# def ver_citas_raw():
-#     """Muestra el contenido RAW del archivo citas.json"""
-#     try:
-#         if os.path.exists(CITAS_FILE):
-#             with open(CITAS_FILE, 'r', encoding='utf-8') as f:
-#                 contenido = f.read()
-#             return f"<pre>{contenido}</pre>"
-#         else:
-#             return f"❌ Archivo {CITAS_FILE} no existe"
-#     except Exception as e:
-#         return f"❌ Error: {str(e)}"
 
 if __name__ == "__main__":
-    
-
     print("\n" + "=" * 60)
     print("🏠 🏠 🏠 WHATSAPP BOT INMOBILIARIO - VERSIÓN 2.1")
     print("=" * 60)
     
-    # Inicializar archivos necesarios
-    print("📄 Inicializando archivos del sistema...")
-    inicializar_archivo_citas()
-    
     propiedades = cargar_propiedades()
     print(f"📊 Propiedades cargadas: {len(propiedades)}")
-    
-    # Mostrar estado de citas
-    citas = cargar_citas()
-    print(f"📅 Citas cargadas: {len(citas)}")
-    
     
     if propiedades:
         ventas = len([p for p in propiedades if p.get('operacion') == 'venta'])
