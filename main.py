@@ -8,6 +8,7 @@ import threading
 import re  # Para expresiones regulares
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import atexit
 
 app = Flask(__name__)
 
@@ -39,8 +40,13 @@ processed_message_ids = deque(maxlen=100)
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 if not DATABASE_URL:
-    print("⚠️ ADVERTENCIA: DATABASE_URL no encontrada en variables de entorno")
-    print("   En Render, configúrala en Environment Variables")
+    log("⚠️ ADVERTENCIA: DATABASE_URL no encontrada en variables de entorno")
+    log("   En Render, configúrala en Environment Variables")
+    log("   Para crear la base de datos en Render:")
+    log("   1. Ve a Dashboard > New > PostgreSQL")
+    log("   2. Elige un nombre (ej: dante-properties-db)")
+    log("   3. Copia la DATABASE_URL externa")
+    log("   4. Configúrala en Environment Variables de tu web service")
     DATABASE_URL = None
 
 # Almacenamiento en memoria para desarrollo/fallback
@@ -82,12 +88,14 @@ def init_postgresql():
     if not conn:
         log("❌ No se pudo conectar a PostgreSQL")
         log("   Usando almacenamiento en memoria para desarrollo...")
+        log("   ⚠️  LAS CITAS SE PERDERÁN AL REINICIAR")
+        log("   🔧 Configura DATABASE_URL en Render para persistencia")
         return False
     
     try:
         cursor = conn.cursor()
         
-        # Tabla de citas (versión simplificada)
+        # Tabla de citas (versión mejorada)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS citas (
                 id VARCHAR(50) PRIMARY KEY,
@@ -99,11 +107,12 @@ def init_postgresql():
                 propiedad_titulo VARCHAR(200),
                 estado VARCHAR(20) DEFAULT 'pendiente',
                 notas TEXT,
-                creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                modificacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         
-        # Tabla de leads (versión simplificada)
+        # Tabla de leads
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS leads (
                 id SERIAL PRIMARY KEY,
@@ -117,6 +126,11 @@ def init_postgresql():
             )
         ''')
         
+        # Crear índice para búsquedas rápidas
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_citas_fecha ON citas(fecha, hora)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_citas_telefono ON citas(telefono)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_leads_fecha ON leads(fecha DESC)')
+        
         conn.commit()
         log("✅ Tablas PostgreSQL creadas/verificadas")
         
@@ -128,6 +142,32 @@ def init_postgresql():
         
         log(f"   📊 Citas existentes: {citas_count}")
         log(f"   📊 Leads existentes: {leads_count}")
+        
+        # Si hay citas en memoria, migrarlas a PostgreSQL
+        if citas_memoria and citas_count == 0:
+            log(f"   🔄 Migrando {len(citas_memoria)} citas desde memoria a PostgreSQL...")
+            for cita in citas_memoria:
+                try:
+                    cursor.execute("""
+                        INSERT INTO citas (id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo, estado, notas)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO NOTHING
+                    """, (
+                        cita['id'],
+                        cita.get('nombre', ''),
+                        cita.get('telefono', ''),
+                        cita.get('fecha', ''),
+                        cita.get('hora', ''),
+                        cita.get('propiedad_id', ''),
+                        cita.get('propiedad_titulo', ''),
+                        cita.get('estado', 'pendiente'),
+                        cita.get('notas', '')
+                    ))
+                except Exception as e:
+                    log(f"   ⚠️ Error migrando cita {cita.get('id')}: {e}")
+            
+            conn.commit()
+            log(f"   ✅ Citas migradas exitosamente")
         
         conn.close()
         return True
@@ -141,13 +181,14 @@ def init_postgresql():
 
 # ========== FUNCIONES UNIFICADAS DE ALMACENAMIENTO ==========
 def crear_cita_db(user_id, nombre, telefono, fecha, hora, propiedad_id, propiedad_titulo="", notas=""):
-    """Crea cita en PostgreSQL o memoria"""
+    """Crea cita en PostgreSQL o memoria con mejor manejo de errores"""
     try:
         # Primero intentar PostgreSQL
         conn = get_db_connection()
         if conn:
-            # Generar ID
-            cita_id = f"pg_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            # Generar ID único
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')[:-3]
+            cita_id = f"pg_{timestamp}"
             
             cursor = conn.cursor()
             cursor.execute("""
@@ -162,14 +203,15 @@ def crear_cita_db(user_id, nombre, telefono, fecha, hora, propiedad_id, propieda
             
             log(f"✅✅✅ CITA GUARDADA EN POSTGRESQL ID: {inserted_id}")
             
-            # Notificar al admin
-            mensaje = f"📅 *NUEVA CITA AGENDADA (PostgreSQL)*\n\n"
+            # Notificar al admin con más detalles
+            mensaje = f"📅 *NUEVA CITA AGENDADA*\n\n"
             mensaje += f"👤 *Cliente:* {nombre}\n"
             mensaje += f"📞 *Teléfono:* +{telefono}\n"
             mensaje += f"📅 *Fecha:* {fecha}\n"
             mensaje += f"⏰ *Hora:* {hora}\n"
             mensaje += f"🏠 *Propiedad:* {propiedad_titulo[:50]}...\n"
-            mensaje += f"🆔 *ID Cita:* {cita_id}"
+            mensaje += f"🆔 *ID Cita:* {cita_id}\n"
+            mensaje += f"💾 *Almacenamiento:* PostgreSQL"
             notificar_agente(mensaje)
             
             return {
@@ -181,11 +223,14 @@ def crear_cita_db(user_id, nombre, telefono, fecha, hora, propiedad_id, propieda
                 'propiedad_id': propiedad_id,
                 'propiedad_titulo': propiedad_titulo,
                 'estado': 'pendiente',
+                'notas': notas,
                 'storage': 'postgresql'
             }
         
         # Fallback a memoria
         log("⚠️  PostgreSQL no disponible, usando almacenamiento en memoria")
+        log("   ⚠️  Esta cita se perderá al reiniciar el servidor")
+        
         cita_id = f"mem_{datetime.now().strftime('%Y%m%d%H%M%S')}"
         
         cita_data = {
@@ -204,22 +249,86 @@ def crear_cita_db(user_id, nombre, telefono, fecha, hora, propiedad_id, propieda
         citas_memoria.append(cita_data)
         log(f"✅✅✅ CITA GUARDADA EN MEMORIA ID: {cita_id}")
         
-        # Notificar al admin
-        mensaje = f"📅 *NUEVA CITA AGENDADA (Memoria)*\n\n"
+        # Notificar al admin con advertencia
+        mensaje = f"📅 *NUEVA CITA AGENDADA (TEMPORAL)*\n\n"
         mensaje += f"👤 *Cliente:* {nombre}\n"
         mensaje += f"📞 *Teléfono:* +{telefono}\n"
         mensaje += f"📅 *Fecha:* {fecha}\n"
         mensaje += f"⏰ *Hora:* {hora}\n"
         mensaje += f"🏠 *Propiedad:* {propiedad_titulo[:50]}...\n"
         mensaje += f"🆔 *ID Cita:* {cita_id}\n"
-        mensaje += f"⚠️  *ALERTA:* Usando almacenamiento temporal"
+        mensaje += f"⚠️  *ALERTA:* Usando almacenamiento temporal\n"
+        mensaje += f"❌ *SE PERDERÁ AL REINICIAR*\n"
+        mensaje += f"🔧 Configura DATABASE_URL para persistencia"
         notificar_agente(mensaje)
         
         return cita_data
         
     except Exception as e:
-        log(f"❌❌❌ ERROR GUARDANDO CITA: {e}")
-        return None
+        log(f"❌❌❌ ERROR CRÍTICO GUARDANDO CITA: {e}")
+        
+        # Intentar guardar en memoria como último recurso
+        try:
+            cita_id = f"error_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            cita_data = {
+                'id': cita_id,
+                'nombre': nombre,
+                'telefono': telefono,
+                'fecha': fecha,
+                'hora': hora,
+                'propiedad_id': propiedad_id,
+                'propiedad_titulo': propiedad_titulo,
+                'estado': 'error',
+                'storage': 'error'
+            }
+            
+            citas_memoria.append(cita_data)
+            log(f"⚠️  Cita guardada en memoria como backup por error")
+            
+            # Notificar error al admin
+            notificar_agente(f"🚨 ERROR CRÍTICO EN CITA\n👤 {nombre}\n📅 {fecha} {hora}\n❌ Error: {str(e)[:100]}")
+            
+            return cita_data
+        except:
+            return None
+
+
+# Función para guardar citas en archivo al salir
+def guardar_citas_backup():
+    """Guarda las citas en memoria a un archivo JSON al salir"""
+    try:
+        if citas_memoria:
+            backup_file = "citas_backup.json"
+            with open(backup_file, 'w', encoding='utf-8') as f:
+                json.dump({
+                    'timestamp': datetime.now().isoformat(),
+                    'citas': citas_memoria,
+                    'total': len(citas_memoria)
+                }, f, indent=2, ensure_ascii=False)
+            log(f"💾 Backup guardado: {backup_file} ({len(citas_memoria)} citas)")
+    except Exception as e:
+        log(f"❌ Error guardando backup: {e}")
+
+def cargar_citas_backup():
+    """Carga citas desde backup si existen"""
+    global citas_memoria
+    try:
+        backup_file = "citas_backup.json"
+        if os.path.exists(backup_file):
+            with open(backup_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                citas_memoria = data.get('citas', [])
+                log(f"💾 Backup cargado: {len(citas_memoria)} citas desde {backup_file}")
+                return True
+    except Exception as e:
+        log(f"❌ Error cargando backup: {e}")
+    return False
+
+# Registrar función de backup al salir
+atexit.register(guardar_citas_backup)
+
+
+
 
 def registrar_lead_db(user_id, propiedad_id, accion, detalle=""):
     """Registra lead en PostgreSQL o memoria"""
@@ -1509,6 +1618,65 @@ def admin_panel():
         return "⚠️ Acceso No Autorizado. Por favor usa el enlace seguro.", 403
     return send_file("admin.html")
 
+@app.route("/database-status", methods=["GET"])
+def database_status():
+    """Muestra el estado de la base de datos"""
+    try:
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            
+            # Obtener información de la base de datos
+            cursor.execute("SELECT version()")
+            version = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM citas")
+            citas_count = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM leads")
+            leads_count = cursor.fetchone()[0]
+            
+            # Obtener las últimas citas
+            cursor.execute("SELECT nombre, fecha, hora, estado FROM citas ORDER BY creacion DESC LIMIT 5")
+            ultimas_citas = cursor.fetchall()
+            
+            conn.close()
+            
+            return jsonify({
+                "status": "connected",
+                "database": "PostgreSQL",
+                "version": version.split(',')[0],
+                "citas_count": citas_count,
+                "leads_count": leads_count,
+                "ultimas_citas": [
+                    {
+                        "nombre": c[0],
+                        "fecha": c[1],
+                        "hora": c[2],
+                        "estado": c[3]
+                    } for c in ultimas_citas
+                ]
+            })
+        else:
+            return jsonify({
+                "status": "memory",
+                "database": "Memory (no PostgreSQL)",
+                "warning": "Las citas se perderán al reiniciar",
+                "citas_in_memory": len(citas_memoria),
+                "leads_in_memory": len(leads_memoria),
+                "configuration_required": True,
+                "setup_instructions": "Configura DATABASE_URL en Render Environment Variables"
+            })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error": str(e),
+            "citas_in_memory": len(citas_memoria)
+        })
+
+
+
+
 @app.route("/api/leads", methods=["GET"])
 def api_leads():
     """Retorna todos los leads desde PostgreSQL o memoria"""
@@ -2024,10 +2192,14 @@ def health_check():
     })
 
 # ========== INICIALIZACIÓN ==========
+# ========== INICIALIZACIÓN ==========
 if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("🏠 WHATSAPP BOT - DANTE PROPIEDADES")
     print("=" * 60)
+    
+    # Cargar backup si existe
+    cargar_citas_backup()
     
     # Verificar token
     token_valid, token_info = check_token_validity()
@@ -2038,20 +2210,24 @@ if __name__ == "__main__":
     else:
         print(f"❌❌❌ TOKEN INVÁLIDO O EXPIRADO ❌❌❌")
         print(f"   ⚠️  El bot NO PODRÁ ENVIAR MENSAJES")
-        print(f"   ℹ️  Visita: https://meta-chat-npbx.onrender.com/token-help")
-        print(f"   ℹ️  El token expiró el 05-Feb-26 08:00:00 PST")
-        print(f"   ℹ️  Necesitas generar uno nuevo en Meta Developers")
     
     # Inicializar PostgreSQL (si está disponible)
     print("🔧 Inicializando base de datos...")
     if init_postgresql():
-        print("✅ PostgreSQL listo")
+        print("✅ PostgreSQL conectado y listo")
+        print(f"   💾 Persistencia: ACTIVADA")
+        print(f"   ⚠️  Las citas NO se perderán al reiniciar")
     else:
         print("⚠️  PostgreSQL no disponible")
-        print("   Usando almacenamiento en memoria para desarrollo")
-        print("   Para producción, configura DATABASE_URL en Render")
+        print("   💾 Persistencia: DESACTIVADA")
+        print(f"   ⚠️  LAS CITAS SE PERDERÁN AL REINICIAR")
         print(f"   Citas en memoria: {len(citas_memoria)}")
         print(f"   Leads en memoria: {len(leads_memoria)}")
+        print(f"   🔧 Para activar persistencia:")
+        print(f"   1. Ve a Render Dashboard")
+        print(f"   2. Crea una nueva base de datos PostgreSQL")
+        print(f"   3. Copia la DATABASE_URL")
+        print(f"   4. Configúrala en Environment Variables")
     
     propiedades = cargar_propiedades()
     print(f"📊 Propiedades cargadas: {len(propiedades)}")
