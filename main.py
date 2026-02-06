@@ -61,6 +61,8 @@ def init_db(conn):
     try:
         cursor = conn.cursor()
         log("🔄 Verificando esquema de base de datos...")
+        
+        # 1. Crear tablas si no existen
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS leads (
                 id SERIAL PRIMARY KEY,
@@ -70,9 +72,6 @@ def init_db(conn):
                 accion VARCHAR(50),
                 detalles TEXT
             );
-            
-            ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
-            ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_titulo VARCHAR(200);
             
             CREATE TABLE IF NOT EXISTS citas (
                 id SERIAL PRIMARY KEY,
@@ -86,6 +85,12 @@ def init_db(conn):
                 estado VARCHAR(20) DEFAULT 'pendiente',
                 notas TEXT
             );
+        """)
+        
+        # 2. Asegurar columnas (Migraciones)
+        cursor.execute("""
+            ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
+            ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_titulo VARCHAR(200);
             
             ALTER TABLE citas ADD COLUMN IF NOT EXISTS user_id VARCHAR(50);
             ALTER TABLE citas ADD COLUMN IF NOT EXISTS nombre VARCHAR(100);
@@ -96,12 +101,37 @@ def init_db(conn):
             ALTER TABLE citas ADD COLUMN IF NOT EXISTS estado VARCHAR(20);
             ALTER TABLE citas ADD COLUMN IF NOT EXISTS notas TEXT;
         """)
+        
+        # 3. FIX CRÍTICO: Asegurar que 'id' sea auto-incremental (SERIAL)
+        # Esto soluciona el NotNullViolation si la tabla existía sin secuencia
+        cursor.execute("""
+            DO $$ 
+            BEGIN 
+                -- Para la tabla leads
+                IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'leads_id_seq') THEN
+                    CREATE SEQUENCE leads_id_seq;
+                    ALTER TABLE leads ALTER COLUMN id SET DEFAULT nextval('leads_id_seq');
+                    ALTER SEQUENCE leads_id_seq OWNED BY leads.id;
+                    PERFORM setval('leads_id_seq', COALESCE((SELECT MAX(id) FROM leads), 0) + 1, false);
+                END IF;
+                
+                -- Para la tabla citas
+                IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'citas_id_seq') THEN
+                    CREATE SEQUENCE citas_id_seq;
+                    ALTER TABLE citas ALTER COLUMN id SET DEFAULT nextval('citas_id_seq');
+                    ALTER SEQUENCE citas_id_seq OWNED BY citas.id;
+                    PERFORM setval('citas_id_seq', COALESCE((SELECT MAX(id) FROM citas), 0) + 1, false);
+                END IF;
+            END $$;
+        """)
+        
         conn.commit()
         log("✅ Esquema de base de datos verificado y actualizado")
         return True
     except Exception as e:
         log(f"❌ Error inicializando base de datos: {e}", "ERROR")
-        conn.rollback()
+        if conn:
+            conn.rollback()
         return False
 
 def guardar_en_postgresql(telefono, nombre, accion, detalles=""):
