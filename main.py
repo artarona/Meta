@@ -56,6 +56,39 @@ def get_db_connection():
         log(f"❌ Error conectando a PostgreSQL: {e}", "ERROR")
         return None
 
+def analizar_fecha(texto):
+    """Parsea fecha en formatos naturales (hoy, mañana, lunes) o DD-MM-AAAA"""
+    texto = texto.lower().strip()
+    ahora = datetime.now()
+    
+    # 1. Fechas relativas
+    if texto == "hoy":
+        return ahora
+    if texto == "mañana":
+        return ahora + timedelta(days=1)
+    
+    # 2. Días de la semana
+    dias = {
+        "lunes": 0, "martes": 1, "miércoles": 2, "miercoles": 2,
+        "jueves": 3, "viernes": 4, "sábado": 5, "sabado": 5, "domingo": 6
+    }
+    if texto in dias:
+        target_weekday = dias[texto]
+        days_ahead = target_weekday - ahora.weekday()
+        if days_ahead <= 0: # Si ya pasó, asumimos la próxima semana
+            days_ahead += 7
+        return ahora + timedelta(days=days_ahead)
+    
+    # 3. Formatos numéricos
+    formatos = ["%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"]
+    for fmt in formatos:
+        try:
+            return datetime.strptime(texto, fmt)
+        except ValueError:
+            continue
+            
+    return None
+
 def init_db(conn):
     """Inicializa y migra el esquema de la base de datos"""
     try:
@@ -544,12 +577,21 @@ def get_bot_response(text, user_id):
     elif paso == 'vista_fotos':
         return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
     
-    # 4. OPCIONES DEL MENÚ PRINCIPAL
+    # 4. BUSCADOR POR TEXTO (Nuevo)
+    if text_lower.startswith("buscar ") or (len(text_lower) > 3 and paso == 'menu_principal' and not text_lower.isdigit()):
+        termino = text_lower.replace("buscar ", "").strip()
+        return manejar_busqueda_keywords(termino, estado_usuario, user_id)
+
+    # 5. OPCIONES DEL MENÚ PRINCIPAL
     if paso == 'menu_principal':
         return manejar_menu_principal(text_lower, estado_usuario, user_id)
     
     # Respuesta por defecto
-    return "⚠️ No entendí tu mensaje. Envía 'Hola' para ver el menú o '0' para salir."
+    return """⚠️ No entendí tu mensaje. 
+
+🏠 Envía 'Hola' para ver el menú.
+🔍 Puedes escribir 'buscar [casa/departamento/...]' para encontrar propiedades.
+0️⃣ Envía '0' para salir."""
 
 # ========== MANEJADORES DE ESTADO ==========
 def manejar_menu_principal(text_lower, estado_usuario, user_id):
@@ -863,11 +905,21 @@ def manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id):
             else:
                 mensaje += f"{dia_emoji} {fecha_str} ({dia_semana.capitalize()}) ❌ AGOTADO\n"
         
-        mensaje += "\n📌 *Envía la fecha en formato AAAA-MM-DD*"
+        mensaje += \"\\n📌 *Escribí una fecha* (ej: 'hoy', 'mañana', 'lunes' o '25-12-2026')\"
         return mensaje
     
+    fecha_ingresada = analizar_fecha(text_lower)
+    if not fecha_ingresada:
+        return \"\"\"❌ *Fecha no reconocida*
+
+Por favor, usá un formato claro como:
+✅ 'hoy' o 'mañana'
+✅ 'lunes', 'martes', etc.
+✅ 'DD-MM-AAAA' (ej: 15-05-2026)
+
+Escribí 'Ver fechas' para ver disponibilidad.\"\"\"
+
     try:
-        fecha_ingresada = datetime.strptime(text_lower, "%Y-%m-%d")
         hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         
         if fecha_ingresada < hoy:
@@ -927,13 +979,49 @@ No hay horarios disponibles para el *{fecha_str}*.
         
         return mensaje
         
-    except ValueError:
-        return """❌ *Formato incorrecto*
+    except Exception as e:
+        log(f"⚠️ Error en manejar_solicitar_fecha_cita: {e}")
+        return "❌ Ocurrió un error al procesar la fecha. Por favor, intenta de nuevo con el formato DD-MM-AAAA."
 
-Por favor, usa el formato **AAAA-MM-DD**
-*Ejemplo:* 2024-12-25
-
-También puedes escribir 'Ver fechas' para ver disponibilidad."""
+def manejar_busqueda_keywords(termino, estado_usuario, user_id):
+    """Busca propiedades por palabras clave y actualiza el estado"""
+    global propiedades
+    if not propiedades:
+        propiedades = cargar_propiedades()
+        
+    terminos = termino.lower().split()
+    resultados = []
+    
+    for p in propiedades:
+        match_score = 0
+        texto_busqueda = f"{p.get('titulo', '')} {p.get('descripcion', '')} {p.get('barrio', '')} {p.get('tipo', '')}".lower()
+        
+        for t in terminos:
+            if t in texto_busqueda:
+                match_score += 1
+        
+        if match_score >= len(terminos): # Deben coincidir todas las palabras clave
+            resultados.append(p)
+            
+    if not resultados:
+        return f"🔍 No encontré propiedades que coincidan con *'{termino}'*. \n\nIntentá con otras palabras (ej: 'casa parque') o enviá 'Hola' para ver todo."
+        
+    estado_usuario.update({
+        'paso': 'listado_propiedades',
+        'propiedades_filtradas': resultados,
+        'operacion_seleccionada': 'busqueda'
+    })
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    mensaje = f"🔎 *Resultados para: {termino}* ({len(resultados)})\n\n"
+    for i, p in enumerate(resultados[:5]):
+        mensaje += f"*{i+1}️⃣ {p.get('titulo')}*\n📍 {p.get('barrio', 'S/D')} - ${p.get('precio', 'S/D')}\n\n"
+    
+    if len(resultados) > 5:
+        mensaje += "📝 _Mostrando los primeros 5 resultados..._\n"
+        
+    mensaje += "\n👉 *Respondé con el número* (1, 2, 3...) para ver más detalle."
+    return mensaje
 
 def manejar_seleccionar_hora_cita(text, estado_usuario, user_id):
     """Maneja la selección de hora para la cita"""
