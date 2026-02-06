@@ -49,21 +49,44 @@ def get_postgres_connection():
 # EN main.py, REEMPLAZA COMPLETAMENTE LA FUNCIÓN guardar_en_postgresql:
 
 def guardar_en_postgresql(telefono, nombre, accion, detalles=""):
-    """Guardar lead/cita en PostgreSQL de Render - VERSIÓN SIMPLIFICADA"""
+    """Guardar lead/cita en PostgreSQL de Render - VERSIÓN SIMPLIFICADA Y ROBUSTA"""
     try:
-        log(f"🔄 INTENTANDO GUARDAR EN POSTGRESQL: {telefono}, {nombre}, {accion}")
+        log(f"🔄 🚀 INICIANDO guardar_en_postgresql: Tel: {telefono}, Nombre: {nombre}, Acción: {accion}")
         
-        # URL de conexión DIRECTA
         DATABASE_URL = "postgresql://dantepropiedadesdb_user:wiBPwMvLzG01zHkHKyqEsTfHEhcZzfKi@dpg-d62aqenpm1nc73fqi3m0-a.oregon-postgres.render.com:5432/dantepropiedadesdb"
         
-        # Conexión simple
+        log("🔍 Conectando a PostgreSQL...")
         conn = psycopg2.connect(DATABASE_URL)
+        log("✅ Conexión PostgreSQL establecida")
+        
         cursor = conn.cursor()
         
-        # Insertar directamente SIN validaciones complejas
+        # Verificar si la tabla existe
+        cursor.execute("SELECT to_regclass('public.leads')")
+        tabla_existe = cursor.fetchone()[0]
+        
+        if tabla_existe:
+            log("✅ Tabla 'leads' existe en PostgreSQL")
+        else:
+            log("⚠️ Tabla 'leads' NO existe, creando...")
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS leads (
+                    id SERIAL PRIMARY KEY,
+                    fecha TIMESTAMP DEFAULT NOW(),
+                    telefono VARCHAR(20),
+                    nombre VARCHAR(100),
+                    accion VARCHAR(50),
+                    detalles TEXT
+                )
+            """)
+            conn.commit()
+            log("✅ Tabla 'leads' creada en PostgreSQL")
+        
+        # Insertar datos
+        log(f"📝 Insertando en PostgreSQL: {telefono}, {nombre}, {accion}")
         cursor.execute("""
-            INSERT INTO leads (telefono, nombre, accion, detalles, fecha)
-            VALUES (%s, %s, %s, %s, NOW())
+            INSERT INTO leads (telefono, nombre, accion, detalles)
+            VALUES (%s, %s, %s, %s)
             RETURNING id
         """, (telefono, nombre, accion, detalles))
         
@@ -73,51 +96,18 @@ def guardar_en_postgresql(telefono, nombre, accion, detalles=""):
         cursor.close()
         conn.close()
         
-        log(f"✅ ✅ ✅ POSTGRESQL: Lead guardado EXITOSAMENTE - ID: {lead_id}")
+        log(f"✅ ✅ ✅ guardar_en_postgresql EXITOSO - ID: {lead_id}")
         return lead_id
         
     except psycopg2.Error as e:
-        log(f"❌ ERROR PostgreSQL: {e.pgerror if e.pgerror else e}")
+        log(f"❌ ERROR PostgreSQL: {e.pgerror}")
         log(f"🔍 Código error: {e.pgcode}")
-        
-        # Si es error de tabla no existe, crearla
-        if e.pgcode == '42P01':  # Tabla no existe
-            log("⚠️ Tabla 'leads' no existe, intentando crear...")
-            try:
-                conn = psycopg2.connect(DATABASE_URL)
-                cursor = conn.cursor()
-                
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS leads (
-                        id SERIAL PRIMARY KEY,
-                        fecha TIMESTAMP DEFAULT NOW(),
-                        telefono VARCHAR(20),
-                        nombre VARCHAR(100),
-                        accion VARCHAR(50),
-                        detalles TEXT,
-                        propiedad_id VARCHAR(50),
-                        propiedad_titulo VARCHAR(200)
-                    )
-                """)
-                
-                conn.commit()
-                cursor.close()
-                conn.close()
-                
-                log("✅ Tabla 'leads' creada exitosamente")
-                # Intentar de nuevo
-                return guardar_en_postgresql(telefono, nombre, accion, detalles)
-                
-            except Exception as e2:
-                log(f"❌ Error creando tabla: {e2}")
-                return None
-                
         return None
         
     except Exception as e:
-        log(f"❌ ERROR GENERAL PostgreSQL: {e}")
+        log(f"❌ ERROR GENERAL en guardar_en_postgresql: {str(e)}")
         import traceback
-        log(f"🔍 TRACEBACK: {traceback.format_exc()}")
+        log(f"🔍 TRACEBACK COMPLETO:\n{traceback.format_exc()}")
         return None
     
 # ========== FUNCIONES MEJORADAS CON CACHÉ ==========
@@ -166,8 +156,10 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
 # EN main.py, MODIFICA registrar_lead:
 
 def registrar_lead(user_id, propiedad_id, accion, detalle=""):
-    """Registra una interacción de lead en archivo JSON y PostgreSQL"""
+    """Registra una interacción de lead en archivo JSON y PostgreSQL - VERSIÓN FIX"""
     try:
+        log(f"📝 INICIANDO registrar_lead: {user_id}, {propiedad_id}, {accion}")
+        
         # Obtener nombre de propiedad
         nombre_propiedad = "Propiedad desconocida"
         propiedades = cargar_propiedades_cached()
@@ -194,10 +186,10 @@ def registrar_lead(user_id, propiedad_id, accion, detalle=""):
         with open(LEADS_FILE, 'w', encoding='utf-8') as f:
             json.dump(leads, f, indent=4, ensure_ascii=False)
         
-        log(f"📈 Lead registrado en JSON: {user_id} - {accion}")
+        log(f"✅ Lead registrado en JSON: {user_id} - {accion}")
         
-        # 2. GUARDAR EN POSTGRESQL - FORZAR LLAMADA
-        log("🔄 FORZANDO GUARDADO EN POSTGRESQL...")
+        # 2. GUARDAR EN POSTGRESQL - FIX CRÍTICO
+        log("🔄 INICIANDO GUARDADO EN POSTGRESQL...")
         
         # Extraer nombre del cliente si está en el detalle
         nombre_cliente = "Cliente WhatsApp"
@@ -213,7 +205,9 @@ def registrar_lead(user_id, propiedad_id, accion, detalle=""):
         
         detalles_completos = f"{detalle} | Propiedad: {nombre_propiedad} (ID: {propiedad_id})"
         
-        # LLAMAR DIRECTAMENTE - SIN TRY/EXCEPT INTERNO
+        # Llamar a guardar_en_postgresql DIRECTAMENTE
+        log(f"📤 Enviando a PostgreSQL: {user_id}, {nombre_cliente}, {accion}")
+        
         lead_id_pg = guardar_en_postgresql(
             telefono=user_id,
             nombre=nombre_cliente,
@@ -227,7 +221,9 @@ def registrar_lead(user_id, propiedad_id, accion, detalle=""):
             log("⚠️ Lead NO guardado en PostgreSQL (pero sí en JSON)")
             
     except Exception as e:
-        log(f"🔥 ERROR en registrar_lead: {e}")
+        log(f"🔥 ERROR CRÍTICO en registrar_lead: {e}")
+        import traceback
+        log(f"🔍 TRACEBACK COMPLETO:\n{traceback.format_exc()}")
         # NO fallar completamente, solo loguear error
 
 # ========== CARGAR PROPIEDADES CON VALIDACIÓN ==========
@@ -420,7 +416,14 @@ def get_bot_response(text, user_id):
             log(f"🎯 ACCIÓN: Me interesa (Prop ID: {propiedad.get('id_temporal')})")
             estado_usuario['paso'] = 'esperando_nombre_lead'
             actualizar_estado_usuario(user_id, estado_usuario)
-            registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "click_me_interesa")
+            
+            # REGISTRAR LEAD INMEDIATAMENTE - FIX PostgreSQL
+            try:
+                log(f"📝 REGISTRANDO LEAD: click_me_interesa para {user_id}")
+                registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "click_me_interesa")
+            except Exception as e:
+                log(f"⚠️ Error registrando lead click_me_interesa: {e}")
+            
             return "🙌 ¡Excelente elección! Para que un asesor pueda contactarte, por favor decime tu *Nombre y Apellido*:"
         else:
             return "⚠️ Por favor, primero selecciona una propiedad del listado para indicar tu interés."
@@ -469,6 +472,72 @@ def get_bot_response(text, user_id):
     # Respuesta por defecto
     return "⚠️ No entendí tu mensaje. Envía 'Hola' para ver el menú o '0' para salir."
 
+def manejar_nombre_lead(text, estado_usuario, user_id):
+    """Maneja la captura del nombre del lead - VERSIÓN CON FIX PostgreSQL"""
+    nombre_cliente = text.strip()
+    
+    log(f"🔄 ESTADO: esperando_nombre_lead - Nombre recibido: {nombre_cliente}")
+    
+    # Validar que el nombre tenga al menos 2 caracteres
+    if len(nombre_cliente) < 2:
+        return "❌ Por favor, ingresa tu nombre completo (mínimo 2 caracteres)."
+    
+    # Guardar el nombre en el estado del usuario
+    estado_usuario['nombre_cliente'] = nombre_cliente
+    
+    # Obtener datos de la propiedad
+    indice = estado_usuario.get('ultimo_indice_preguntado')
+    propiedades = estado_usuario.get('propiedades_filtradas', [])
+    
+    log(f"🔍 DEBUG: indice={indice}, propiedades={len(propiedades)}")
+    
+    if indice and 1 <= indice <= len(propiedades):
+        propiedad = propiedades[indice - 1]
+        propiedad_id = propiedad.get('id_temporal', 'N/A')
+        propiedad_titulo = propiedad.get('titulo', 'Propiedad sin título')
+        
+        log(f"✅ Propiedad encontrada: {propiedad_titulo} (ID: {propiedad_id})")
+        
+        # FORZAR LLAMADA A registrar_lead - FIX PostgreSQL
+        log("🔄 FORZANDO LLAMADA A registrar_lead...")
+        
+        try:
+            # Llamar directamente a registrar_lead - SIN import
+            registrar_lead(user_id, propiedad_id, "lead_completo", f"Nombre: {nombre_cliente}")
+            log("✅ registrar_lead llamado exitosamente")
+        except Exception as e:
+            log(f"❌ ERROR llamando registrar_lead: {e}")
+            import traceback
+            log(f"🔍 TRACEBACK: {traceback.format_exc()}")
+        
+        # Notificar al agente (versión breve)
+        notificar_agente(f"🔥 *NUEVO INTERESADO*\n👤 Cliente: {nombre_cliente}\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad_titulo}")
+        
+        # Cambiar estado para ofrecer cita
+        estado_usuario['paso'] = 'ofrecer_cita'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        log(f"✅ Estado cambiado a: ofrecer_cita")
+        
+        # Mensaje mejorado con emojis
+        return f"✅ *¡Perfecto {nombre_cliente}!*\n\n" \
+            f"Hemos registrado tu interés en:\n" \
+            f"🏠 *{propiedad_titulo}*\n\n" \
+            f"📅 *¿Te gustaría agendar una cita para visitar la propiedad?*\n\n" \
+            f"1️⃣ *SÍ, AGENDAR CITA* 📅 (Recomendado)\n" \
+            f"2️⃣ *No por ahora, solo información* 📋\n" \
+            f"3️⃣ *Ya la vi, quiero ofertar* 💰\n" \
+            f"0️⃣ *Salir* ❌"
+    
+    else:
+        # Error: no se encontró la propiedad
+        log(f"❌ ERROR: No se encontró propiedad (indice={indice}, propiedades={len(propiedades)})")
+        estado_usuario['paso'] = 'menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "❌ Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad enviando 'Hola'."
+    
+    
+    
 # ========== MANEJADORES DE ESTADO ==========
 def manejar_menu_principal(text_lower, estado_usuario, user_id):
     """Maneja las opciones del menú principal"""
@@ -1795,6 +1864,54 @@ def probar_conexion_postgresql():
     except Exception as e:
         log(f"❌ Error conectando a PostgreSQL: {e}")
         return False
+
+
+@app.route("/test-pg-now", methods=["GET"])
+def test_pg_now():
+    """Probar PostgreSQL inmediatamente"""
+    try:
+        # Probar conexión básica
+        DATABASE_URL = "postgresql://dantepropiedadesdb_user:wiBPwMvLzG01zHkHKyqEsTfHEhcZzfKi@dpg-d62aqenpm1nc73fqi3m0-a.oregon-postgres.render.com:5432/dantepropiedadesdb"
+        
+        conn = psycopg2.connect(DATABASE_URL)
+        cursor = conn.cursor()
+        
+        # Insertar registro de prueba
+        cursor.execute("""
+            INSERT INTO leads (telefono, nombre, accion, detalles)
+            VALUES ('test_5491151511579', 'TEST INMEDIATO', 'test_inmediato', 'Prueba desde endpoint /test-pg-now')
+            RETURNING id, fecha
+        """)
+        
+        result = cursor.fetchone()
+        lead_id = result[0]
+        fecha = result[1]
+        
+        conn.commit()
+        
+        # Contar total
+        cursor.execute("SELECT COUNT(*) FROM leads")
+        total = cursor.fetchone()[0]
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            "status": "success",
+            "message": "✅ PostgreSQL funcionando correctamente",
+            "lead_id": lead_id,
+            "fecha": fecha.isoformat(),
+            "total_leads": total,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"❌ PostgreSQL error: {str(e)}",
+            "timestamp": datetime.now().isoformat()
+        }), 500
+
 
 @app.route("/debug/leads", methods=["GET"])
 def debug_leads():
