@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timedelta  # AÑADIDO timedelta
 from collections import deque
 import threading
+import psycopg2
 
 app = Flask(__name__)
 
@@ -1495,6 +1496,43 @@ def formatear_horarios_disponibles(horarios):
     mensaje += "\nPara volver atrás, envía 'Atrás'"
     
     return mensaje
+
+# En tu archivo del bot, agregar:
+
+import psycopg2
+
+def guardar_en_postgresql(telefono, nombre, accion, detalles=""):
+    """Guardar lead/cita en PostgreSQL de Render"""
+    try:
+        DATABASE_URL = "postgresql://dantepropiedadesdb_user:wiBPwMvLzG01zHkHKyqEsTfHEhcZzfKi@dpg-d62aqenpm1nc73fqi3m0-a.oregon-postgres.render.com:5432/dantepropiedadesdb"
+        
+        conn = psycopg2.connect(DATABASE_URL)
+        cursor = conn.cursor()
+        
+        # Guardar como lead
+        cursor.execute("""
+            INSERT INTO leads (fecha, telefono, nombre, accion, detalles)
+            VALUES (NOW(), %s, %s, %s, %s)
+            RETURNING id
+        """, (telefono, nombre, accion, detalles))
+        
+        lead_id = cursor.fetchone()[0]
+        conn.commit()
+        
+        cursor.close()
+        conn.close()
+        
+        print(f"✅ Lead guardado en PostgreSQL: ID {lead_id}")
+        return lead_id
+        
+    except Exception as e:
+        print(f"❌ Error guardando en PostgreSQL: {e}")
+        return None
+
+# Llamar esta función cuando el bot capture datos
+# Ejemplo: después de recibir nombre
+guardar_en_postgresql("5491151511579", "antonio laje", "lead_completo", "WhatsApp bot")
+
 
 @app.route("/test", methods=["GET"])
 def test_send():
