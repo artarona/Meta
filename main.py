@@ -112,7 +112,8 @@ def init_db(conn):
                     CREATE SEQUENCE leads_id_seq;
                     ALTER TABLE leads ALTER COLUMN id SET DEFAULT nextval('leads_id_seq');
                     ALTER SEQUENCE leads_id_seq OWNED BY leads.id;
-                    PERFORM setval('leads_id_seq', COALESCE((SELECT MAX(id) FROM leads), 0) + 1, false);
+                    -- Usar casting explícito a integer para evitar conflictos de tipos
+                    EXECUTE 'SELECT setval(''leads_id_seq'', COALESCE((SELECT MAX(id)::integer FROM leads), 0) + 1, false)';
                 END IF;
                 
                 -- Para la tabla citas
@@ -120,7 +121,8 @@ def init_db(conn):
                     CREATE SEQUENCE citas_id_seq;
                     ALTER TABLE citas ALTER COLUMN id SET DEFAULT nextval('citas_id_seq');
                     ALTER SEQUENCE citas_id_seq OWNED BY citas.id;
-                    PERFORM setval('citas_id_seq', COALESCE((SELECT MAX(id) FROM citas), 0) + 1, false);
+                    -- Usar casting explícito a integer para evitar conflictos de tipos
+                    EXECUTE 'SELECT setval(''citas_id_seq'', COALESCE((SELECT MAX(id)::integer FROM citas), 0) + 1, false)';
                 END IF;
             END $$;
         """)
