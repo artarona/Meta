@@ -56,18 +56,11 @@ def get_db_connection():
         log(f"❌ Error conectando a PostgreSQL: {e}", "ERROR")
         return None
 
-def guardar_en_postgresql(telefono, nombre, accion, detalles=""):
-    """Guardar lead/cita en PostgreSQL de Render"""
-    conn = None
+def init_db(conn):
+    """Inicializa y migra el esquema de la base de datos"""
     try:
-        log(f"🔄 Iniciando guardado en DB: Tel: {telefono}, Acción: {accion}")
-        conn = get_db_connection()
-        if not conn:
-            return None
-            
         cursor = conn.cursor()
-        
-        # Asegurar que las tablas existen
+        log("🔄 Verificando esquema de base de datos...")
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS leads (
                 id SERIAL PRIMARY KEY,
@@ -77,6 +70,10 @@ def guardar_en_postgresql(telefono, nombre, accion, detalles=""):
                 accion VARCHAR(50),
                 detalles TEXT
             );
+            
+            ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
+            ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_titulo VARCHAR(200);
+            
             CREATE TABLE IF NOT EXISTS citas (
                 id SERIAL PRIMARY KEY,
                 fecha_creacion TIMESTAMP DEFAULT NOW(),
@@ -89,8 +86,37 @@ def guardar_en_postgresql(telefono, nombre, accion, detalles=""):
                 estado VARCHAR(20) DEFAULT 'pendiente',
                 notas TEXT
             );
+            
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS user_id VARCHAR(50);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS nombre VARCHAR(100);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS telefono VARCHAR(20);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS fecha_cita DATE;
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS hora_cita VARCHAR(10);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS estado VARCHAR(20);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS notas TEXT;
         """)
         conn.commit()
+        log("✅ Esquema de base de datos verificado y actualizado")
+        return True
+    except Exception as e:
+        log(f"❌ Error inicializando base de datos: {e}", "ERROR")
+        conn.rollback()
+        return False
+
+def guardar_en_postgresql(telefono, nombre, accion, detalles=""):
+    """Guardar lead/cita en PostgreSQL de Render"""
+    conn = None
+    try:
+        log(f"🔄 Iniciando guardado en DB: Tel: {telefono}, Acción: {accion}")
+        conn = get_db_connection()
+        if not conn:
+            return None
+            
+        # Asegurar esquema
+        init_db(conn)
+        
+        cursor = conn.cursor()
         
         # Insertar en leads (log general de actividad)
         cursor.execute("""
@@ -1291,10 +1317,10 @@ def home():
 def debug_pg():
     """Depurar conexión a PostgreSQL"""
     try:
-        # 1. Probar conexión básica
-        DATABASE_URL = "postgresql://dantepropiedadesdb_user:wiBPwMvLzG01zHkHKyqEsTfHEhcZzfKi@dpg-d62aqenpm1nc73fqi3m0-a.oregon-postgres.render.com:5432/dantepropiedadesdb"
-        
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"conexion": "fallida", "error": "No se pudo conectar"}), 500
+            
         cursor = conn.cursor()
         
         # 2. Ver tablas
@@ -1552,6 +1578,9 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, notas=""):
         # 2. Guardar en PostgreSQL
         conn = get_db_connection()
         if conn:
+            # Asegurar esquema antes del INSERT
+            init_db(conn)
+            
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO citas (user_id, nombre, telefono, fecha_cita, hora_cita, propiedad_id, estado, notas)
@@ -1727,10 +1756,11 @@ def health_check():
 def debug_postgresql():
     """Debug detallado de PostgreSQL"""
     try:
-        DATABASE_URL = "postgresql://dantepropiedadesdb_user:wiBPwMvLzG01zHkHKyqEsTfHEhcZzfKi@dpg-d62aqenpm1nc73fqi3m0-a.oregon-postgres.render.com:5432/dantepropiedadesdb"
-        
-        log("🔍 DEBUG: Intentando conectar a PostgreSQL...")
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = get_db_connection()
+        if not conn:
+            return False
+            
+        log("🔍 DEBUG: Conectado a PostgreSQL...")
         cursor = conn.cursor()
         
         # Verificar tablas
@@ -1775,9 +1805,13 @@ def debug_postgresql():
 def probar_conexion_postgresql():
     """Probar conexión a PostgreSQL"""
     try:
-        DATABASE_URL = "postgresql://dantepropiedadesdb_user:wiBPwMvLzG01zHkHKyqEsTfHEhcZzfKi@dpg-d62aqenpm1nc73fqi3m0-a.oregon-postgres.render.com:5432/dantepropiedadesdb"
+        conn = get_db_connection()
+        if not conn:
+            return False
+            
+        # Asegurar esquema al inicio
+        init_db(conn)
         
-        conn = psycopg2.connect(DATABASE_URL)
         cursor = conn.cursor()
         
         # Verificar si la tabla leads existe
@@ -1811,10 +1845,10 @@ def probar_conexion_postgresql():
 def test_pg_now():
     """Probar PostgreSQL inmediatamente"""
     try:
-        # Probar conexión básica
-        DATABASE_URL = "postgresql://dantepropiedadesdb_user:wiBPwMvLzG01zHkHKyqEsTfHEhcZzfKi@dpg-d62aqenpm1nc73fqi3m0-a.oregon-postgres.render.com:5432/dantepropiedadesdb"
-        
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"status": "error", "message": "No se pudo conectar"}), 500
+            
         cursor = conn.cursor()
         
         # Insertar registro de prueba
@@ -1864,9 +1898,11 @@ def debug_leads():
     
     # Probar conexión PostgreSQL
     try:
-        DATABASE_URL = "postgresql://dantepropiedadesdb_user:wiBPwMvLzG01zHkHKyqEsTfHEhcZzfKi@dpg-d62aqenpm1nc73fqi3m0-a.oregon-postgres.render.com:5432/dantepropiedadesdb"
-        conn = psycopg2.connect(DATABASE_URL)
-        cursor = conn.cursor()
+        conn = get_db_connection()
+        if not conn:
+            total_pg = "Error de conexión"
+        else:
+            cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM leads")
         total_pg = cursor.fetchone()[0]
         cursor.close()
