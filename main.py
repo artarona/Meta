@@ -5,7 +5,14 @@ import json
 from datetime import datetime, timedelta
 from collections import deque
 import threading
-import psycopg2
+try:
+    import psycopg2
+except ImportError:
+    print("❌ ERROR: No se encontró 'psycopg2'. Asegúrate de que 'psycopg2-binary' esté en requirements.txt")
+    # En algunos entornos locales podría ser necesario instalarlo manualmente
+    # o usar un fallback si fuera crítico, pero en Render debe venir de requirements.txt
+    psycopg2 = None
+
 from functools import lru_cache
 import time
 
