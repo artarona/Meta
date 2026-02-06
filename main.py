@@ -41,6 +41,10 @@ processed_message_ids = deque(maxlen=1000)  # Aumentado para manejar más mensaj
 # ========== CONEXIÓN A POSTGRESQL (Render) ==========
 def get_db_connection():
     """Obtiene conexión a PostgreSQL usando variable de entorno"""
+    if psycopg2 is None:
+        log("❌ No se puede conectar: el módulo 'psycopg2' no está cargado", "ERROR")
+        return None
+        
     try:
         database_url = os.getenv("DATABASE_URL")
         if not database_url:
