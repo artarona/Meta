@@ -905,19 +905,19 @@ def manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id):
             else:
                 mensaje += f"{dia_emoji} {fecha_str} ({dia_semana.capitalize()}) ❌ AGOTADO\n"
         
-        mensaje += \"\\n📌 *Escribí una fecha* (ej: 'hoy', 'mañana', 'lunes' o '25-12-2026')\"
+        mensaje += "\n📌 *Escribí una fecha* (ej: 'hoy', 'mañana', 'lunes' o '25-12-2026')"
         return mensaje
     
     fecha_ingresada = analizar_fecha(text_lower)
     if not fecha_ingresada:
-        return \"\"\"❌ *Fecha no reconocida*
+        return """❌ *Fecha no reconocida*
 
 Por favor, usá un formato claro como:
 ✅ 'hoy' o 'mañana'
 ✅ 'lunes', 'martes', etc.
 ✅ 'DD-MM-AAAA' (ej: 15-05-2026)
 
-Escribí 'Ver fechas' para ver disponibilidad.\"\"\"
+Escribí 'Ver fechas' para ver disponibilidad."""
 
     try:
         hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
