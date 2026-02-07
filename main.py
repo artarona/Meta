@@ -907,6 +907,7 @@ def manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id):
                 mensaje += f"{dia_emoji} {fecha_display} ({dia_semana.capitalize()}) ❌ AGOTADO\n"
         
         mensaje += "\n📌 *Escribí una fecha* (Formato: **DD-MM-AAAA**)\nEjemplos: 25-12-2026, hoy, mañana, lunes"
+        mensaje += "\n\n0️⃣ *❌ SALIR*"
         return mensaje
     
     fecha_ingresada = analizar_fecha(text_lower)
@@ -976,7 +977,7 @@ No hay horarios disponibles para el *{fecha_str}*.
             mensaje += "\n".join([f"• **{hora}** hs" for hora in tarde_noche])
         
         mensaje += "\n\n⏳ *Envía el horario que prefieras* (ej: '09:30' o '14:00')"
-        mensaje += "\n↩️ Para volver atrás, envía 'Atrás'"
+        mensaje += "\n↩️ 'Atrás' para volver | 0️⃣ '0' para Salir"
         
         return mensaje
         
@@ -1021,7 +1022,8 @@ def manejar_busqueda_keywords(termino, estado_usuario, user_id):
     if len(resultados) > 5:
         mensaje += "📝 _Mostrando los primeros 5 resultados..._\n"
         
-    mensaje += "\n👉 *Respondé con el número* (1, 2, 3...) para ver más detalle."
+    mensaje += "\n👉 *Respondé con el número* (1, 2, 3...) para ver más detalle.\n"
+    mensaje += "0️⃣ *❌ SALIR*"
     return mensaje
 
 def manejar_seleccionar_hora_cita(text, estado_usuario, user_id):
@@ -1040,7 +1042,9 @@ def manejar_seleccionar_hora_cita(text, estado_usuario, user_id):
 
 El horario seleccionado no está disponible. Por favor elige uno de los horarios listados.
 
-Ejemplo: '09:30' o '14:00'"""
+Ejemplo: '09:30' o '14:00'
+
+↩️ 'Atrás' para volver | 0️⃣ '0' para Salir"""
     
     estado_usuario['hora_cita'] = text
     
@@ -1093,12 +1097,19 @@ Ejemplo: '09:30' o '14:00'"""
 
 📞 *Contacto:* +{ADMIN_NUMBER}
 
-¡Gracias por elegir Dante Propiedades! 🏠🗝️"""
+¡Gracias por elegir Dante Propiedades! 🏠🗝️
+
+🏠 Envía 'Hola' para volver al menú principal."""
         else:
             return "❌ *Error al agendar la cita*\n\nHubo un problema al guardar tu cita. Por favor, intenta nuevamente o contacta al administrador."
     
     else:
-        return "❌ *Error: No se encontró la propiedad*\n\nHubo un problema al procesar tu cita. Por favor, inicia el proceso nuevamente enviando 'Hola'."
+        return """❌ *Error: No se encontró la propiedad*
+
+Hubo un problema al procesar tu cita. Por favor, inicia el proceso nuevamente.
+
+🏠 Envía 'Hola' para volver al menú.
+0️⃣ Envía '0' para salir."""
 
 # ========== FUNCIONES DE WHATSAPP API MEJORADAS ==========
 def check_token_validity():
