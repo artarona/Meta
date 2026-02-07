@@ -583,6 +583,18 @@ def get_bot_response(text, user_id):
     # 4. BUSCADOR POR TEXTO (Nuevo) - SOLAMENTE SI NO HAY ESTADO ACTIVO PRIORITARIO
     # Y si el paso es menu_principal o resultado_busqueda
     if text_lower.startswith("buscar ") or (len(text_lower) > 3 and paso == 'menu_principal' and not text_lower.isdigit()):
+        # DETECTAR SI ES UNA FECHA PERO SE PERDIÓ EL CONTEXTO
+        fecha_detectada = analizar_fecha(text_lower)
+        if fecha_detectada and len(text_lower.split()) <= 3: # Si es una fecha corta
+            return """⚠️ *Sesión expirada o contexto perdido*
+            
+Parece que querías agendar una fecha, pero no tengo seleccionada ninguna propiedad en este momento.
+
+Por favor:
+1. Envía 'Hola' para ver el menú
+2. Busca la propiedad nuevamente
+3. Selecciona 'Agendar Cita'"""
+
         termino = text_lower.replace("buscar ", "").strip()
         return manejar_busqueda_keywords(termino, estado_usuario, user_id)
 
