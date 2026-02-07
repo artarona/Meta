@@ -484,7 +484,7 @@ def formatear_detalle_propiedad(propiedad):
     detalle += f"\n📝 *Descripción:*\n{propiedad.get('descripcion', 'Sin descripción')[:500]}...\n\n"
     detalle += "────────────────────\n"
     detalle += "📷 *FOTOS* (Escribe 'F') | 8️⃣ *ME INTERESA*\n"
-    detalle += "Para volver al menú, envía '1' | Para salir envía '0' ❌"
+    detalle += "1️⃣ *VOLVER* | 0️⃣ *❌ SALIR*"
     
     return detalle
 
@@ -591,7 +591,7 @@ def get_bot_response(text, user_id):
 
 🏠 Envía 'Hola' para ver el menú.
 🔍 Puedes escribir 'buscar [casa/departamento/...]' para encontrar propiedades.
-0️⃣ Envía '0' para salir."""
+0️⃣ *❌ SALIR*"""
 
 # ========== MANEJADORES DE ESTADO ==========
 def manejar_menu_principal(text_lower, estado_usuario, user_id):
@@ -605,11 +605,11 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
     elif text_lower == "6":
         return procesar_opcion_mis_citas(user_id)
     elif text_lower == "7":
-        return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'Hola' para volver al menú."
+        return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
     elif text_lower == "8" and user_id == ADMIN_NUMBER.lstrip('549'):
         return mostrar_panel_admin()
     else:
-        return "📍 *Opción en desarrollo* - Próximamente disponible.\n\nEnvía 'Hola' para volver."
+        return "📍 *Opción en desarrollo* - Próximamente disponible.\n\nEnvía 'Hola' para volver.\n0️⃣ *❌ SALIR*"
 
 def procesar_opcion_venta(estado_usuario, user_id):
     """Procesa la opción de venta"""
@@ -657,7 +657,7 @@ def procesar_opcion_mis_citas(user_id):
     citas_usuario = [c for c in citas if c['telefono'] == user_id and c['estado'] != 'cancelada']
     
     if not citas_usuario:
-        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\nEnvía 'Hola' para volver al menú."
+        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\nEnvía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
     
     mensaje = f"📅 *TUS CITAS AGENDADAS*\n\nTienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
     
@@ -675,7 +675,7 @@ def procesar_opcion_mis_citas(user_id):
         mensaje += "   ───────────────\n"
     
     mensaje += f"\nPara consultar o modificar una cita, contacta al administrador.\n\n"
-    mensaje += f"Envía 'Hola' para volver al menú."
+    mensaje += f"Envía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
     
     return mensaje
 
@@ -698,7 +698,7 @@ Opciones disponibles:
 def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
     """Maneja la selección de propiedades del listado"""
     if not text_lower.isdigit():
-        return "Por favor, elegí un número del listado o enviá 'Hola' para volver."
+        return "Por favor, elegí un número del listado o enviá 'Hola' para volver.\n0️⃣ *❌ SALIR*"
     
     indice = int(text_lower)
     propiedades = estado_usuario.get('propiedades_filtradas', [])
@@ -706,7 +706,7 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
     if not propiedades:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "⚠️ No hay propiedades para mostrar. Envía 'Hola' para volver al menú."
+        return "⚠️ No hay propiedades para mostrar. Envía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
     
     if indice == 0:
         estado_usuario['paso'] = 'menu_principal'
@@ -730,7 +730,7 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
         return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
     else:
-        return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}). Elige uno o envía 'Hola'."
+        return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}). Elige uno o envía 'Hola'.\n0️⃣ *❌ SALIR*"
 
 def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
     """Maneja las opciones en el detalle de propiedad"""
@@ -758,14 +758,14 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
             titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
             return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
     
-    return "Para ver fotos, envía 'F'. Para indicar interés, envía '8'. Para volver al menú, envía '1'."
+    return "📷 'F' Fotos | 8️⃣ '8' Me interesa\n1️⃣ Volver | 0️⃣ *❌ SALIR*"
 
 def manejar_nombre_lead(text, estado_usuario, user_id):
     """Maneja la captura del nombre del lead"""
     nombre_cliente = text.strip()
     
     if len(nombre_cliente) < 2:
-        return "❌ Por favor, ingresa tu nombre completo (mínimo 2 caracteres)."
+        return "❌ Por favor, ingresa tu nombre completo (mínimo 2 caracteres).\n0️⃣ *❌ SALIR*"
     
     estado_usuario['nombre_cliente'] = nombre_cliente
     
@@ -798,7 +798,7 @@ Hemos registrado tu interés en:
     else:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "❌ Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad enviando 'Hola'."
+        return "❌ Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad enviando 'Hola'.\n0️⃣ *❌ SALIR*"
 
 def manejar_ofrecer_cita(text_lower, estado_usuario, user_id):
     """Maneja la oferta de cita"""
@@ -841,7 +841,7 @@ Un asesor se contactará contigo para brindarte toda la información.
 
 📱 *¿Necesitas algo más?*
 • Ver otras propiedades → Envía 'Hola'
-• Salir → Envía '0'"""
+0️⃣ *❌ SALIR*"""
     
     elif text_lower in ["3", "ofertar", "oferta", "comprar", "alquilar ya"]:
         nombre_cliente = estado_usuario.get('nombre_cliente', 'Cliente')
@@ -869,7 +869,8 @@ Un asesor te contactará en los próximos **15 minutos** para gestionar tu ofert
 
 ⏰ *Horario de contacto:* Inmediato
 
-¡Gracias por tu interés! 🏠💸"""
+¡Gracias por tu interés! 🏠💸
+0️⃣ *❌ SALIR*"""
     
     elif text_lower in ["0", "salir", "chau", "adiós"]:
         estado_usuario.update({
@@ -885,7 +886,7 @@ Un asesor te contactará en los próximos **15 minutos** para gestionar tu ofert
 1️⃣ *SÍ, AGENDAR CITA* 📅
 2️⃣ *No por ahora, solo información* 📋
 3️⃣ *Ya la vi, quiero ofertar* 💰
-0️⃣ *Salir* ❌"""
+0️⃣ *❌ SALIR*"""
 
 def manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id):
     """Maneja la solicitud de fecha para la cita"""
@@ -977,7 +978,7 @@ No hay horarios disponibles para el *{fecha_str}*.
             mensaje += "\n".join([f"• **{hora}** hs" for hora in tarde_noche])
         
         mensaje += "\n\n⏳ *Envía el horario que prefieras* (ej: '09:30' o '14:00')"
-        mensaje += "\n↩️ 'Atrás' para volver | 0️⃣ '0' para Salir"
+        mensaje += "\n↩️ 'Atrás' para volver | 0️⃣ *❌ SALIR*"
         
         return mensaje
         
@@ -1006,7 +1007,7 @@ def manejar_busqueda_keywords(termino, estado_usuario, user_id):
             resultados.append(p)
             
     if not resultados:
-        return f"🔍 No encontré propiedades que coincidan con *'{termino}'*. \n\nIntentá con otras palabras (ej: 'casa parque') o enviá 'Hola' para ver todo."
+        return f"🔍 No encontré propiedades que coincidan con *'{termino}'*. \n\nIntentá con otras palabras (ej: 'casa parque') o enviá 'Hola' para ver todo.\n0️⃣ *❌ SALIR*"
         
     estado_usuario.update({
         'paso': 'listado_propiedades',
@@ -1099,7 +1100,8 @@ Ejemplo: '09:30' o '14:00'
 
 ¡Gracias por elegir Dante Propiedades! 🏠🗝️
 
-🏠 Envía 'Hola' para volver al menú principal."""
+🏠 Envía 'Hola' para volver al menú principal.
+0️⃣ *❌ SALIR*"""
         else:
             return "❌ *Error al agendar la cita*\n\nHubo un problema al guardar tu cita. Por favor, intenta nuevamente o contacta al administrador."
     
