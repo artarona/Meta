@@ -412,7 +412,8 @@ def generar_listado_propiedades(propiedades):
     listado = "📋 *LISTADO DE PROPIEDADES*\n\n"
     
     for i, prop in enumerate(propiedades[:10], 1):
-        listado += f"{numero_a_emoji(i)} {prop.get('titulo', 'Sin título')}\n"
+        operacion = prop.get('operacion', '').upper()
+        listado += f"{numero_a_emoji(i)} {prop.get('titulo', 'Sin título')} -- {operacion} --\n"
         listado += f"   📍 {prop.get('barrio', 'N/A')} | "
         
         precio = prop.get('precio', 0)
