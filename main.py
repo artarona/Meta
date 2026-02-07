@@ -20,12 +20,14 @@ app = Flask(__name__)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-ACCESS_TOKEN = "EAAJYsGl5pHgBQu4ncLe2jJK1N340J17yKht83x16il4s8Lk1kX2nQsaRce7KCYwGjaDh1cMZCJyCUHzj4nR3ZBwD8KIUkP4o9XsoZBUcFLLdgiJCZBsChZAoA02AP5ZAWbeHyP0na3q7064PY4JQSICtwXpUutV798R9TNwuOY4ulkZBQx2PXT2j8vFZCu8Y5ymVxjCOxMGCvxtImOZA6zxEsCslC6Kl3iiwg6loNFtnjGIFGPfR8113Kw0Q8o3wszA9txAgJieEklfs1d7uTZCsZASmvFOC8DA6Px6XwZDZD"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQvd9ZB5qB5XzXguqlQa7ZCGwr7ya0o5aFGZCdA6M6xCcgnPwqcX1huQeElkZAiDIgkctNSTjzZAzU9rRfhtJzCgqidV3mbfjQqzIDHZARwI025GjsbwwbxnVUQoAuSBj9JnevZBAje2uRuAUAGmrxsXjtLgSpZBXa5ZAIqFpgFJkVSQVjlVsBxAjZBZBaujkD4ZAQEyab5cMrhqWyW2pDQoTxR9ROXUUhHtW3YcYndcsR09cuf0AigA16zrLRSZCtuNZAyoEVKhlKV2MwnhM3Rs4ivaYZCXO4kZD"
 PHONE_NUMBER_ID = "1000705633118215"
 ADMIN_NUMBER = "5491151511579"
 LEADS_FILE = "leads.json"
 ADMIN_ACCESS_KEY = "dante2026"
+ADMIN_ACCESS_KEY = "dante2026"
 CITAS_FILE = "citas.json"
+HORARIOS_FILE = "dias-horarios-visitas.json"
 
 # ========== CONFIGURACIÓN DE CITAS ==========
 CITAS_DISPONIBLES = [
@@ -902,7 +904,14 @@ def manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id):
             dia_semana = fecha.strftime("%A")
             dia_emoji = "🌞" if fecha.weekday() < 5 else "🎉"
             
-            horarios_disponibles = obtener_horarios_disponibles(fecha_iso)
+            # Obtener propiedad actual para consultar horarios específicos
+            indice = estado_usuario.get('ultimo_indice_preguntado')
+            propiedades_lista = estado_usuario.get('propiedades_filtradas', [])
+            propiedad_id = None
+            if indice and 1 <= indice <= len(propiedades_lista):
+                propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
+
+            horarios_disponibles = obtener_horarios_disponibles(fecha_iso, propiedad_id)
             if horarios_disponibles:
                 mensaje += f"{dia_emoji} *{fecha_display}* ({dia_semana.capitalize()}) ✅\n"
             else:
@@ -938,7 +947,14 @@ Escribí 'Ver fechas' para ver disponibilidad."""
         fecha_str = fecha_ingresada.strftime("%Y-%m-%d")
         estado_usuario['fecha_cita'] = fecha_str
         
-        horarios_disponibles = obtener_horarios_disponibles(fecha_str)
+        # Obtener propiedad actual
+        indice = estado_usuario.get('ultimo_indice_preguntado')
+        propiedades_lista = estado_usuario.get('propiedades_filtradas', [])
+        propiedad_id = None
+        if indice and 1 <= indice <= len(propiedades_lista):
+            propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
+
+        horarios_disponibles = obtener_horarios_disponibles(fecha_str, propiedad_id)
         
         if not horarios_disponibles:
             estado_usuario['paso'] = 'ofrecer_cita'
@@ -1793,21 +1809,67 @@ def notificar_cita_admin(cita):
         log(f"❌ Error notificando cita al admin: {e}")
         return False
 
-def obtener_horarios_disponibles(fecha_str):
-    """Obtiene horarios disponibles para una fecha específica"""
+def cargar_configuracion_horarios():
+    """Carga la configuración de días y horarios"""
+    try:
+        if os.path.exists(HORARIOS_FILE):
+            with open(HORARIOS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception as e:
+        log(f"❌ Error cargando {HORARIOS_FILE}: {e}")
+    
+    # Configuración por defecto si falla la carga
+    return {
+        "configuracion_global": {
+            "dias_habiles": [0, 1, 2, 3, 4], # Lunes a Viernes
+            "horarios": CITAS_DISPONIBLES
+        },
+        "propiedades": {}
+    }
+
+def obtener_horarios_disponibles(fecha_str, propiedad_id=None):
+    """Obtiene horarios disponibles para una fecha específica y propiedad"""
     try:
         fecha_deseada = datetime.strptime(fecha_str, "%Y-%m-%d")
+        dia_semana = fecha_deseada.weekday() # 0=Lunes, 6=Domingo
         
+        # 1. Cargar configuración
+        config = cargar_configuracion_horarios()
+        global_config = config.get("configuracion_global", {})
+        propiedades_config = config.get("propiedades", {})
+        
+        # 2. Determinar configuración a usar (Específica > Global)
+        horarios_base = global_config.get("horarios", CITAS_DISPONIBLES)
+        dias_habiles = global_config.get("dias_habiles", [0, 1, 2, 3, 4])
+        
+        if propiedad_id and propiedad_id in propiedades_config:
+            prop_config = propiedades_config[propiedad_id]
+            if "horarios" in prop_config:
+                horarios_base = prop_config["horarios"]
+            if "dias_habiles" in prop_config:
+                dias_habiles = prop_config["dias_habiles"]
+            log(f"📅 Usando configuración específica para propiedad {propiedad_id}")
+        
+        # 3. Verificar si el día es válido
+        if dia_semana not in dias_habiles:
+            log(f"📅 El día {fecha_str} (weekday {dia_semana}) no es hábil para esta propiedad.")
+            return []
+            
+        # 4. Filtrar horarios ocupados
         citas = cargar_citas()
         horarios_ocupados = []
         
         for cita in citas:
+            # Chequear fecha
             if cita['fecha'] == fecha_str and cita['estado'] in ['pendiente', 'confirmada']:
+                # Si es para la MISMA propiedad, bloquea el horario
+                # O si es el MISMO agente (asumiendo 1 agente global por ahora), bloquea el horario
+                # Por ahora bloqueamos globalmente para evitar doble booking del agente
                 horarios_ocupados.append(cita['hora'])
         
-        horarios_disponibles = [hora for hora in CITAS_DISPONIBLES if hora not in horarios_ocupados]
+        horarios_disponibles = [hora for hora in horarios_base if hora not in horarios_ocupados]
         
-        log(f"📅 Horarios disponibles para {fecha_str}: {len(horarios_disponibles)}/{len(CITAS_DISPONIBLES)}")
+        log(f"📅 Horarios disponibles para {fecha_str} (Prop: {propiedad_id}): {len(horarios_disponibles)}/{len(horarios_base)}")
         return horarios_disponibles
     except Exception as e:
         log(f"❌ Error obteniendo horarios disponibles: {e}")
