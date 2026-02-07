@@ -813,6 +813,15 @@ def manejar_ofrecer_cita(text_lower, estado_usuario, user_id):
         mañana = hoy + timedelta(days=1)
         ejemplo_fecha = mañana.strftime("%d-%m-%Y")
         
+        # Obtener propiedad actual para mostrar días específicos
+        indice = estado_usuario.get('ultimo_indice_preguntado')
+        propiedades_lista = estado_usuario.get('propiedades_filtradas', [])
+        propiedad_id = None
+        if indice and 1 <= indice <= len(propiedades_lista):
+            propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
+            
+        texto_dias = obtener_texto_dias_habiles(propiedad_id)
+        
         return f"""📅 *EXCELENTE {estado_usuario.get('nombre_cliente', 'Cliente')}!*
 
 Vamos a agendar tu visita.
@@ -821,6 +830,7 @@ Vamos a agendar tu visita.
 📅 *Ejemplo para mañana:* **{ejemplo_fecha}**
 
 📍 *Recomendaciones:*
+• **Días de visita:** {texto_dias}
 • Agendar con 24-48hs de anticipación
 • Evitar fines de semana (disponibilidad limitada)
 • Horarios de 9:00 a 18:30
@@ -1874,6 +1884,34 @@ def obtener_horarios_disponibles(fecha_str, propiedad_id=None):
     except Exception as e:
         log(f"❌ Error obteniendo horarios disponibles: {e}")
         return CITAS_DISPONIBLES
+
+def obtener_texto_dias_habiles(propiedad_id=None):
+    """Obtiene un texto descriptivo de los días hábiles para una propiedad"""
+    try:
+        config = cargar_configuracion_horarios()
+        global_config = config.get("configuracion_global", {})
+        propiedades_config = config.get("propiedades", {})
+        
+        dias_habiles = global_config.get("dias_habiles", [0, 1, 2, 3, 4])
+        
+        if propiedad_id and propiedad_id in propiedades_config:
+            prop_config = propiedades_config[propiedad_id]
+            if "dias_habiles" in prop_config:
+                dias_habiles = prop_config["dias_habiles"]
+        
+        nombres_dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        dias_texto = [nombres_dias[d] for d in sorted(dias_habiles)]
+        
+        if len(dias_texto) == 5 and dias_habiles == [0, 1, 2, 3, 4]:
+            return "Lunes a Viernes"
+        elif len(dias_texto) == 7:
+            return "Todos los días"
+        else:
+            return ", ".join(dias_texto)
+            
+    except Exception as e:
+        log(f"❌ Error obteniendo texto días hábiles: {e}")
+        return "Lunes a Viernes"
 
 # ========== RUTAS API ==========
 @app.route("/admin")
