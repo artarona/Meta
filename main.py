@@ -516,7 +516,7 @@ def get_bot_response(text, user_id):
             'propiedades_filtradas': []
         })
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "👋 ¡Gracias por contactarnos! Para volver al menú, envía 'Hola'."
+        return "👋 ¡Gracias por contactarnos! Para volver al menú, envía 'Hola'. Dante Propiedades! 🏠🗝️"
     
     # 2. ACCIONES ESPECIALES
     if text_lower == "8":
@@ -878,7 +878,7 @@ Un asesor te contactará en los próximos **15 minutos** para gestionar tu ofert
             'nombre_cliente': None
         })
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "👋 ¡Gracias por contactarnos! Para volver al menú, envía 'Hola'."
+        return "👋 ¡Gracias por contactarnos! Para volver al menú, envía 'Hola'. Dante Propiedades! 🏠🗝️"
     
     else:
         return """❌ Opción no válida. Por favor selecciona:
