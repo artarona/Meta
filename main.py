@@ -579,8 +579,9 @@ def get_bot_response(text, user_id):
     
     elif paso == 'vista_fotos':
         return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
-    
-    # 4. BUSCADOR POR TEXTO (Nuevo)
+
+    # 4. BUSCADOR POR TEXTO (Nuevo) - SOLAMENTE SI NO HAY ESTADO ACTIVO PRIORITARIO
+    # Y si el paso es menu_principal o resultado_busqueda
     if text_lower.startswith("buscar ") or (len(text_lower) > 3 and paso == 'menu_principal' and not text_lower.isdigit()):
         termino = text_lower.replace("buscar ", "").strip()
         return manejar_busqueda_keywords(termino, estado_usuario, user_id)
