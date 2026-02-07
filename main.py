@@ -808,13 +808,13 @@ def manejar_ofrecer_cita(text_lower, estado_usuario, user_id):
         
         hoy = datetime.now()
         mañana = hoy + timedelta(days=1)
-        ejemplo_fecha = mañana.strftime("%Y-%m-%d")
+        ejemplo_fecha = mañana.strftime("%d-%m-%Y")
         
         return f"""📅 *EXCELENTE {estado_usuario.get('nombre_cliente', 'Cliente')}!*
 
 Vamos a agendar tu visita.
 
-📋 *Formato de fecha:* **AAAA-MM-DD**
+📋 *Formato de fecha:* **DD-MM-AAAA**
 📅 *Ejemplo para mañana:* **{ejemplo_fecha}**
 
 📍 *Recomendaciones:*
@@ -822,7 +822,7 @@ Vamos a agendar tu visita.
 • Evitar fines de semana (disponibilidad limitada)
 • Horarios de 9:00 a 18:30
 
-📅 *Envía la fecha que prefieras o 'Ver fechas' para ver disponibilidad:*"""
+📅 *Envía la fecha que prefieras (ej: {ejemplo_fecha}, hoy, mañana, lunes) o 'Ver fechas' para ver disponibilidad:*"""
     
     elif text_lower in ["2", "no", "solo info", "informacion", "información"]:
         nombre_cliente = estado_usuario.get('nombre_cliente', 'Cliente')
@@ -895,17 +895,18 @@ def manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id):
         hoy = datetime.now()
         for i in range(1, 8):
             fecha = hoy + timedelta(days=i)
-            fecha_str = fecha.strftime("%Y-%m-%d")
+            fecha_iso = fecha.strftime("%Y-%m-%d")
+            fecha_display = fecha.strftime("%d-%m-%Y")
             dia_semana = fecha.strftime("%A")
             dia_emoji = "🌞" if fecha.weekday() < 5 else "🎉"
             
-            horarios_disponibles = obtener_horarios_disponibles(fecha_str)
+            horarios_disponibles = obtener_horarios_disponibles(fecha_iso)
             if horarios_disponibles:
-                mensaje += f"{dia_emoji} *{fecha_str}* ({dia_semana.capitalize()}) ✅\n"
+                mensaje += f"{dia_emoji} *{fecha_display}* ({dia_semana.capitalize()}) ✅\n"
             else:
-                mensaje += f"{dia_emoji} {fecha_str} ({dia_semana.capitalize()}) ❌ AGOTADO\n"
+                mensaje += f"{dia_emoji} {fecha_display} ({dia_semana.capitalize()}) ❌ AGOTADO\n"
         
-        mensaje += "\n📌 *Escribí una fecha* (ej: 'hoy', 'mañana', 'lunes' o '25-12-2026')"
+        mensaje += "\n📌 *Escribí una fecha* (Formato: **DD-MM-AAAA**)\nEjemplos: 25-12-2026, hoy, mañana, lunes"
         return mensaje
     
     fecha_ingresada = analizar_fecha(text_lower)
