@@ -835,6 +835,7 @@ def manejar_ofrecer_cita(text_lower, estado_usuario, user_id):
             propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
             
         texto_dias = obtener_texto_dias_habiles(propiedad_id)
+        texto_horarios = obtener_texto_horarios(propiedad_id)
         
         return f"""📅 *EXCELENTE {estado_usuario.get('nombre_cliente', 'Cliente')}!*
 
@@ -847,7 +848,7 @@ Vamos a agendar tu visita.
 • **Días de visita:** {texto_dias}
 • Agendar con 24-48hs de anticipación
 • Evitar fines de semana (disponibilidad limitada)
-• Horarios de 9:00 a 18:30
+• Horarios {texto_horarios}
 
 📅 *Envía la fecha que prefieras (ej: {ejemplo_fecha}, hoy, mañana, lunes) o 'Ver fechas' para ver disponibilidad:*"""
     
@@ -1898,6 +1899,33 @@ def obtener_horarios_disponibles(fecha_str, propiedad_id=None):
     except Exception as e:
         log(f"❌ Error obteniendo horarios disponibles: {e}")
         return CITAS_DISPONIBLES
+
+def obtener_texto_horarios(propiedad_id=None):
+    """Obtiene un texto descriptivo del rango de horarios para una propiedad"""
+    try:
+        config = cargar_configuracion_horarios()
+        global_config = config.get("configuracion_global", {})
+        propiedades_config = config.get("propiedades", {})
+        
+        horarios = global_config.get("horarios", CITAS_DISPONIBLES)
+        
+        if propiedad_id and propiedad_id in propiedades_config:
+            prop_config = propiedades_config[propiedad_id]
+            if "horarios" in prop_config:
+                horarios = prop_config["horarios"]
+        
+        if not horarios:
+            return "Consultar disponibilidad"
+            
+        horarios_ordenados = sorted(horarios)
+        inicio = horarios_ordenados[0]
+        fin = horarios_ordenados[-1]
+        
+        return f"de {inicio} a {fin}"
+            
+    except Exception as e:
+        log(f"❌ Error obteniendo texto horarios: {e}")
+        return "de 9:00 a 18:30"
 
 def obtener_texto_dias_habiles(propiedad_id=None):
     """Obtiene un texto descriptivo de los días hábiles para una propiedad"""
