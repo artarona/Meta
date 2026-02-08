@@ -852,7 +852,6 @@ Vamos a agendar tu visita.
 📍 *Recomendaciones:*
 • **Días de visita:** {texto_dias}
 • Agendar con 24-48hs de anticipación
-• Evitar fines de semana (disponibilidad limitada)
 • Horarios {texto_horarios}
 
 📅 *Envía la fecha que prefieras (ej: {ejemplo_fecha}, hoy, mañana, lunes) o 'Ver fechas' para ver disponibilidad:*"""
@@ -970,9 +969,6 @@ Escribí 'Ver fechas' para ver disponibilidad."""
         
         if (fecha_ingresada - hoy).days > 30:
             return "❌ *Plazo excedido*\nSolo podemos agendar hasta 30 días en el futuro.\n\nPor favor, elige una fecha más cercana."
-        
-        if fecha_ingresada.weekday() >= 5:
-            return "⚠️ *Fin de semana*\nLa disponibilidad de fines de semana es limitada.\n\n¿Confirmas que quieres agendar para fin de semana?\n\n✅ *Sí, confirmar* | ❌ *Elegir otra fecha*"
         
         fecha_str = fecha_ingresada.strftime("%Y-%m-%d")
         fecha_display = fecha_ingresada.strftime("%d-%m-%Y") # Formato visual estricto
