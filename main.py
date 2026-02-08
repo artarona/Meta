@@ -83,7 +83,12 @@ def analizar_fecha(texto):
         return ahora + timedelta(days=days_ahead)
     
     # 3. Formatos numéricos
-    formatos = ["%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"]
+    # Soportar DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD
+    # Soportar DD-MM-YY, DD/MM/YY (2 dígitos año)
+    formatos = [
+        "%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d",
+        "%d-%m-%y", "%d/%m/%y"
+    ]
     for fmt in formatos:
         try:
             return datetime.strptime(texto, fmt)
@@ -960,8 +965,8 @@ Escribí 'Ver fechas' para ver disponibilidad."""
     try:
         hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         
-        if fecha_ingresada < hoy:
-            return "❌ *Fecha pasada*\nNo se pueden agendar citas en fechas pasadas.\n\nEnvía una fecha futura (AAAA-MM-DD) o 'Ver fechas'"
+        if fecha_ingresada < hoy and fecha_ingresada.date() != hoy.date():
+            return "❌ *Fecha pasada*\nNo se pueden agendar citas en fechas pasadas.\n\nEnvía una fecha futura (DD-MM-AAAA) o 'Ver fechas'"
         
         if (fecha_ingresada - hoy).days > 30:
             return "❌ *Plazo excedido*\nSolo podemos agendar hasta 30 días en el futuro.\n\nPor favor, elige una fecha más cercana."
@@ -970,6 +975,8 @@ Escribí 'Ver fechas' para ver disponibilidad."""
             return "⚠️ *Fin de semana*\nLa disponibilidad de fines de semana es limitada.\n\n¿Confirmas que quieres agendar para fin de semana?\n\n✅ *Sí, confirmar* | ❌ *Elegir otra fecha*"
         
         fecha_str = fecha_ingresada.strftime("%Y-%m-%d")
+        fecha_display = fecha_ingresada.strftime("%d-%m-%Y") # Formato visual estricto
+        
         estado_usuario['fecha_cita'] = fecha_str
         
         # Obtener propiedad actual
@@ -987,12 +994,12 @@ Escribí 'Ver fechas' para ver disponibilidad."""
             
             return f"""❌ *SIN DISPONIBILIDAD*
 
-No hay horarios disponibles para el *{fecha_str}*.
+No hay horarios disponibles para el *{fecha_display}*.
 
 📅 Por favor, elige otra fecha o:
 1️⃣ Intentar otra fecha
 2️⃣ Solo información
-0️⃣ Salir"""
+3️⃣ Salir"""
         
         estado_usuario.update({
             'paso': 'seleccionar_hora_cita',
@@ -1000,7 +1007,7 @@ No hay horarios disponibles para el *{fecha_str}*.
         })
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        mensaje = f"📅 *Fecha confirmada:* **{fecha_str}**\n\n"
+        mensaje = f"📅 *Fecha confirmada:* **{fecha_display}**\n\n"
         mensaje += "⏰ *HORARIOS DISPONIBLES:*\n\n"
         
         manana = [h for h in horarios_disponibles if int(h.split(':')[0]) < 12]
@@ -1819,10 +1826,14 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, notas=""):
 def notificar_cita_admin(cita):
     """Envía notificación de nueva cita al admin"""
     try:
+        # Formatear fecha para el mensaje (DD-MM-AAAA)
+        fecha_obj = datetime.strptime(cita['fecha'], "%Y-%m-%d")
+        fecha_msg = fecha_obj.strftime("%d-%m-%Y")
+        
         mensaje = f"📅 *NUEVA CITA AGENDADA*\n\n"
         mensaje += f"👤 *Cliente:* {cita['nombre']}\n"
         mensaje += f"📞 *Teléfono:* +{cita['telefono']}\n"
-        mensaje += f"📅 *Fecha:* {cita['fecha']}\n"
+        mensaje += f"📅 *Fecha:* {fecha_msg}\n"
         mensaje += f"⏰ *Hora:* {cita['hora']}\n"
         mensaje += f"🏠 *Propiedad ID:* {cita['propiedad_id']}\n"
         mensaje += f"🆔 *ID Cita:* {cita['id']}\n"
