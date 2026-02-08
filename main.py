@@ -1918,6 +1918,18 @@ def obtener_texto_horarios(propiedad_id=None):
             return "Consultar disponibilidad"
             
         horarios_ordenados = sorted(horarios)
+        
+        # Si son pocos horarios, listarlos explícitamente para mayor claridad
+        # Ejemplo: "09:00 y 17:00" en lugar de "de 09:00 a 17:00"
+        if len(horarios_ordenados) <= 4:
+            if len(horarios_ordenados) == 1:
+                return f"a las {horarios_ordenados[0]}"
+            elif len(horarios_ordenados) == 2:
+                return f"{horarios_ordenados[0]} y {horarios_ordenados[1]}"
+            else:
+                return ", ".join(horarios_ordenados[:-1]) + " y " + horarios_ordenados[-1]
+        
+        # Si son muchos (rango continuo o extenso), usar formato "de X a Y"
         inicio = horarios_ordenados[0]
         fin = horarios_ordenados[-1]
         
