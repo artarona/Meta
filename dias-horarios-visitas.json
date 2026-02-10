@@ -105,6 +105,18 @@
                 "11:00",
                 "12:00"
             ]
+        },
+        "UF005": {
+            "_titulo": "Departamento en Flores",
+            "dias_habiles": [
+                2,
+                4
+            ],
+            "horarios": [
+                "11:00",
+                "12:00",
+                "13:00"
+            ]
         }
     }
 }
