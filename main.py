@@ -708,7 +708,7 @@ def procesar_opcion_venta(estado_usuario, user_id):
     
     propiedades = estado_usuario['propiedades_filtradas']
     if not propiedades:
-        return "📭 No hay propiedades en venta por ahora.\n\nEnvía 'Hola' para volver."
+        return "📭 No hay propiedades en venta por ahora.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
     
     return f"💰 *PROPIEDADES EN VENTA*\nEncontramos *{len(propiedades)}* disponibles:\n\n" + generar_listado_propiedades(propiedades)
 
@@ -723,7 +723,7 @@ def procesar_opcion_alquiler(estado_usuario, user_id):
     
     propiedades = estado_usuario['propiedades_filtradas']
     if not propiedades:
-        return "📭 No hay propiedades en alquiler por ahora.\n\nEnvía 'Hola' para volver."
+        return "📭 No hay propiedades en alquiler por ahora.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
     
     return f"🔑 *PROPIEDADES EN ALQUILER*\nEncontramos *{len(propiedades)}* disponibles:\n\n" + generar_listado_propiedades(propiedades)
 
@@ -743,7 +743,7 @@ def procesar_opcion_mis_citas(user_id):
     citas_usuario = [c for c in citas if c['telefono'] == user_id and c['estado'] != 'cancelada']
     
     if not citas_usuario:
-        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\nEnvía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
+        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
     
     mensaje = f"📅 *TUS CITAS AGENDADAS*\n\nTienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
     
@@ -851,7 +851,7 @@ def manejar_nombre_lead(text, estado_usuario, user_id):
     nombre_cliente = text.strip()
     
     if len(nombre_cliente) < 2:
-        return "❌ Por favor, ingresa tu nombre completo (mínimo 2 caracteres).\n0️⃣ *❌ SALIR*"
+        return "❌ Por favor, ingresa tu nombre completo (mínimo 2 caracteres).\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
     
     estado_usuario['nombre_cliente'] = nombre_cliente
     
@@ -935,8 +935,7 @@ Vamos a agendar tu visita.
 
 Un asesor se contactará contigo para brindarte toda la información.
 
-📱 *¿Necesitas algo más?*
-• Ver otras propiedades → Envía 'Hola'
+1️⃣ *VOLVER AL MENÚ* 🏠
 0️⃣ *❌ SALIR*"""
     
     elif text_lower in ["3", "ofertar", "oferta", "comprar", "alquilar ya"]:
@@ -966,6 +965,8 @@ Un asesor te contactará en los próximos **15 minutos** para gestionar tu ofert
 ⏰ *Horario de contacto:* Inmediato
 
 ¡Gracias por tu interés! 🏠💸
+
+1️⃣ *VOLVER AL MENÚ* 🏠
 0️⃣ *❌ SALIR*"""
     
     elif text_lower in ["0", "salir", "chau", "adiós"]:
@@ -1076,7 +1077,7 @@ def manejar_seleccionar_hora_cita(text, estado_usuario, user_id):
     if text_lower in ["0", "salir", "cancelar"]:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "❌ Operación cancelada. Envía 'Hola' para volver al inicio."
+        return "❌ Operación cancelada.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
     
     if text_lower in ["ver fechas", "cambiar fecha", "atrás", "atras"]:
         estado_usuario['paso'] = 'solicitar_fecha_cita'
@@ -1160,7 +1161,7 @@ Te esperamos. Si necesitas cancelar, por favor avísanos.
         # Cancelar
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "❌ Operación cancelada. Envía 'Hola' para volver al inicio."
+        return "❌ Operación cancelada.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
 
 # Helper para mostrar horarios (extraído para reusar)
 def mostrar_seleccion_horarios(fecha_display, horarios):
@@ -1352,7 +1353,7 @@ def send_photos_async(user_id, propiedad_id, base_url):
         notificar_agente(f"👤 Cliente {user_id} está viendo fotos de: {propiedad.get('titulo')}")
         registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_fotos")
         
-        send_whatsapp_message(user_id, "✅ *¡Fotos enviadas!*\n\nEnvía 'Hola' para volver al menú.")
+        send_whatsapp_message(user_id, "✅ *¡Fotos enviadas!*\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*")
         
         log(f"✅ Envío de fotos completado para {user_id}")
     except Exception as e:
