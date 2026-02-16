@@ -559,103 +559,99 @@ def formatear_detalle_propiedad(propiedad):
 # ========== BOT OPTIMIZADO ==========
 def get_bot_response(text, user_id):
     """Responde con un mensaje simple, manteniendo estado de usuario"""
-    start_time = time.time()
-    text_lower = text.lower().strip()
-    
-    estado_usuario = obtener_estado_usuario(user_id)
-    log(f"👤 Usuario {user_id}: {estado_usuario['paso']}")
-    
-    # 1. COMANDOS UNIVERSALES
-    if text_lower in ["hola", "hi", "hello", "inicio", "menu", "volver", "atras"]:
-        estado_usuario.update({
-            'paso': 'menu_principal',
-            'operacion_seleccionada': None,
-            'propiedades_filtradas': [],
-            'ultimo_indice_preguntado': None,
-            'timestamp': datetime.now().isoformat()
-        })
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "WELCOME_FLOW_TRIGGER"
-    
-    if text_lower in ["0", "salir", "exit", "chau", "adios"]:
-        estado_usuario.update({
-            'paso': 'menu_principal',
-            'operacion_seleccionada': None,
-            'propiedades_filtradas': []
-        })
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "👋 ¡Gracias por contactarnos! Para volver al menú, envía 'Hola'. Dante Propiedades! 🏠🗝️"
-    
-    # 2. ACCIONES ESPECIALES
-    if text_lower == "8":
-        indice = estado_usuario.get('ultimo_indice_preguntado')
-        propiedades = estado_usuario.get('propiedades_filtradas', [])
+    try:
+        start_time = time.time()
+        text_lower = text.lower().strip()
         
-        if indice and 1 <= indice <= len(propiedades):
-            propiedad = propiedades[indice - 1]
-            log(f"🎯 ACCIÓN: Me interesa (Prop ID: {propiedad.get('id_temporal')})")
-            estado_usuario['paso'] = 'esperando_nombre_lead'
+        estado_usuario = obtener_estado_usuario(user_id)
+        log(f"👤 Usuario {user_id}: {estado_usuario['paso']}")
+        
+        # 1. COMANDOS UNIVERSALES
+        if text_lower in ["hola", "hi", "hello", "inicio", "menu", "volver", "atras"]:
+            estado_usuario.update({
+                'paso': 'menu_principal',
+                'operacion_seleccionada': None,
+                'propiedades_filtradas': [],
+                'ultimo_indice_preguntado': None,
+                'timestamp': datetime.now().isoformat()
+            })
             actualizar_estado_usuario(user_id, estado_usuario)
-            
-            # REGISTRAR LEAD INMEDIATAMENTE - FIX PostgreSQL
-            try:
-                log(f"📝 REGISTRANDO LEAD: click_me_interesa para {user_id}")
-                registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "click_me_interesa")
-            except Exception as e:
-                log(f"⚠️ Error registrando lead click_me_interesa: {e}")
-            
-            return "🙌 ¡Excelente elección! Para que un asesor pueda contactarte, por favor decime tu *Nombre y Apellido*:"
-        else:
-            return "⚠️ Por favor, primero selecciona una propiedad del listado para indicar tu interés."
-    
-    if text_lower in ["f", "foto", "fotos"]:
-        indice = estado_usuario.get('ultimo_indice_preguntado')
-        propiedades = estado_usuario.get('propiedades_filtradas', [])
+            return "WELCOME_FLOW_TRIGGER"
         
-        if indice and 1 <= indice <= len(propiedades):
-            propiedad = propiedades[indice - 1]
-            log(f"🎯 ACCIÓN: Fotos (Prop ID: {propiedad.get('id_temporal')})")
-            estado_usuario['paso'] = 'vista_fotos'
+        if text_lower in ["0", "salir", "exit", "chau", "adios"]:
+            estado_usuario.update({
+                'paso': 'menu_principal',
+                'operacion_seleccionada': None,
+                'propiedades_filtradas': []
+            })
             actualizar_estado_usuario(user_id, estado_usuario)
-            return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
-        else:
-            return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
-    
-    # 3. LÓGICA POR ESTADO
-    paso = estado_usuario['paso']
-    
-    if paso == 'listado_propiedades':
-        return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
-    
-    elif paso == 'detalle_propiedad':
-        return manejar_detalle_propiedad(text_lower, estado_usuario, user_id)
-    
-    elif paso == 'esperando_nombre_lead':
-        return manejar_nombre_lead(text, estado_usuario, user_id)
-    
-    elif paso == 'ofrecer_cita':
-        return manejar_ofrecer_cita(text_lower, estado_usuario, user_id)
-    
-    elif paso == 'solicitar_fecha_cita':
-        return manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id)
-    
-    elif paso == 'seleccionar_hora_cita':
-        return manejar_seleccionar_hora_cita(text, estado_usuario, user_id)
+            return "👋 ¡Gracias por contactarnos! Para volver al menú, envía 'Hola'. Dante Propiedades! 🏠🗝️"
         
-    elif paso == 'confirmar_cita':
-        return manejar_confirmar_cita(text_lower, estado_usuario, user_id)
-    
-    elif paso == 'vista_fotos':
-        return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
+        # 2. ACCIONES ESPECIALES
+        if text_lower == "8":
+            indice = estado_usuario.get('ultimo_indice_preguntado')
+            propiedades = estado_usuario.get('propiedades_filtradas', [])
+            
+            if indice and 1 <= indice <= len(propiedades):
+                propiedad = propiedades[indice - 1]
+                log(f"🎯 ACCIÓN: Me interesa (Prop ID: {propiedad.get('id_temporal')})")
+                estado_usuario['paso'] = 'esperando_nombre_lead'
+                actualizar_estado_usuario(user_id, estado_usuario)
+                
+                # REGISTRAR LEAD INMEDIATAMENTE - FIX PostgreSQL
+                try:
+                    registrar_lead(user_id, propiedad.get('id_temporal'), 'click_me_interesa', f"Interés expresado en Propiedad: {propiedad.get('titulo')}")
+                except Exception as e:
+                    log(f"⚠️ Error registrando lead inicial: {e}")
+                    
+                return f"✅ ¡Genial! Me interesa la propiedad: *{propiedad.get('titulo')}*.\n\nPor favor, decime tu *Nombre y Apellido* para que un asesor te contacte."
+            else:
+                return "⚠️ Por favor, primero selecciona una propiedad del listado."
 
-    # 4. BUSCADOR POR TEXTO (Nuevo) - SOLAMENTE SI NO HAY ESTADO ACTIVO PRIORITARIO
-    # Y si el paso es menu_principal o resultado_busqueda
-    if text_lower.startswith("buscar ") or (len(text_lower) > 3 and paso == 'menu_principal' and not text_lower.isdigit()):
-        # DETECTAR SI ES UNA FECHA PERO SE PERDIÓ EL CONTEXTO
-        fecha_detectada = analizar_fecha(text_lower)
-        if fecha_detectada and len(text_lower.split()) <= 3: # Si es una fecha corta
-            return """⚠️ *Sesión expirada o contexto perdido*
+        if text_lower == "f":
+            indice = estado_usuario.get('ultimo_indice_preguntado')
+            propiedades = estado_usuario.get('propiedades_filtradas', [])
+            if indice and 1 <= indice <= len(propiedades):
+                propiedad = propiedades[indice - 1]
+                return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
+            else:
+                return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
+        
+        # 3. LÓGICA POR ESTADO
+        paso = estado_usuario['paso']
+        
+        if paso == 'listado_propiedades':
+            return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'detalle_propiedad':
+            return manejar_detalle_propiedad(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'esperando_nombre_lead':
+            return manejar_nombre_lead(text, estado_usuario, user_id)
+        
+        elif paso == 'ofrecer_cita':
+            return manejar_ofrecer_cita(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'solicitar_fecha_cita':
+            return manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'seleccionar_hora_cita':
+            return manejar_seleccionar_hora_cita(text, estado_usuario, user_id)
             
+        elif paso == 'confirmar_cita':
+            return manejar_confirmar_cita(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'vista_fotos':
+            return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
+
+        # 4. BUSCADOR POR TEXTO (Nuevo) - SOLAMENTE SI NO HAY ESTADO ACTIVO PRIORITARIO
+        # Y si el paso es menu_principal o resultado_busqueda
+        if text_lower.startswith("buscar ") or (len(text_lower) > 3 and paso == 'menu_principal' and not text_lower.isdigit()):
+            # DETECTAR SI ES UNA FECHA PERO SE PERDIÓ EL CONTEXTO
+            fecha_detectada = analizar_fecha(text_lower)
+            if fecha_detectada and len(text_lower.split()) <= 3: # Si es una fecha corta
+                return """⚠️ *Sesión expirada o contexto perdido*
+                
 Parece que querías agendar una fecha, pero no tengo seleccionada ninguna propiedad en este momento.
 
 Por favor:
@@ -663,19 +659,25 @@ Por favor:
 2. Busca la propiedad nuevamente
 3. Selecciona 'Agendar Cita'"""
 
-        termino = text_lower.replace("buscar ", "").strip()
-        return manejar_busqueda_keywords(termino, estado_usuario, user_id)
+            termino = text_lower.replace("buscar ", "").strip()
+            return manejar_busqueda_keywords(termino, estado_usuario, user_id)
 
-    # 5. OPCIONES DEL MENÚ PRINCIPAL
-    if paso == 'menu_principal':
-        return manejar_menu_principal(text_lower, estado_usuario, user_id)
-    
-    # Respuesta por defecto
-    return """⚠️ No entendí tu mensaje. 
+        # 5. OPCIONES DEL MENÚ PRINCIPAL
+        if paso == 'menu_principal':
+            return manejar_menu_principal(text_lower, estado_usuario, user_id)
+        
+        # Respuesta por defecto
+        return """⚠️ No entendí tu mensaje. 
 
 🏠 Envía 'Hola' para ver el menú.
 🔍 Puedes escribir 'buscar [casa/departamento/...]' para encontrar propiedades.
 0️⃣ *❌ SALIR*"""
+
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        log(f"🔥 ERROR EN get_bot_response: {e}\n{error_trace}")
+        return "❌ *Lo siento, ocurrió un error interno.*\n\nPor favor, intenta de nuevo enviando 'Hola' o contacta al administrador."
 
 # ========== MANEJADORES DE ESTADO ==========
 def manejar_menu_principal(text_lower, estado_usuario, user_id):
@@ -997,7 +999,9 @@ Por favor, probá con:
 ✅ "El jueves por la tarde"
 ✅ "25-10-2026"
 
-O escribí 'Ver fechas' para ver disponibilidad."""
+O escribí *'Ver fechas'* para ver disponibilidad.
+
+0️⃣ *❌ SALIR*"""
 
     # Validaciones de fecha
     hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -1020,7 +1024,12 @@ O escribí 'Ver fechas' para ver disponibilidad."""
     horarios_disponibles = obtener_horarios_disponibles(fecha_str, propiedad_id)
     
     if not horarios_disponibles:
-         return f"❌ *Sin disponibilidad*\nNo hay horarios para el {fecha_display}.\n\nPrueba otra fecha o escribe 'Ver fechas'."
+         return f"""❌ *Sin disponibilidad*
+No hay horarios para el {fecha_display}.
+
+Escribí otra fecha o escribí *'Ver fechas'* para ver el calendario.
+
+0️⃣ *❌ SALIR*"""
 
     estado_usuario['fecha_cita'] = fecha_str
     
@@ -1051,7 +1060,9 @@ El horario {hora_ingresada} no está disponible para el {fecha_display}.
 ⏰ *Horarios libres:*
 {", ".join(horarios_disponibles)}
 
-Por favor, escribí uno de los horarios disponibles:"""
+Por favor, escribí uno de los horarios disponibles:
+
+0️⃣ *❌ SALIR*"""
 
     # CASO B: Solicitó solo fecha -> Pedir hora
     estado_usuario['paso'] = 'seleccionar_hora_cita'
@@ -1087,7 +1098,9 @@ def manejar_seleccionar_hora_cita(text, estado_usuario, user_id):
 Por favor elegí uno de la lista:
 {", ".join(horarios_disponibles)}
 
-O escribí 'Cambiar fecha' para elegir otro día."""
+O escribí 'Cambiar fecha' para elegir otro día.
+
+0️⃣ *❌ SALIR*"""
             
     # Hora válida
     estado_usuario['hora_cita'] = hora_elegida
