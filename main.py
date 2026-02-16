@@ -646,6 +646,9 @@ def get_bot_response(text, user_id):
         elif paso == 'esperando_email_cita':
             return manejar_email_cita(text, estado_usuario, user_id)
         
+        elif paso == 'esperando_confirmacion_recordatorio':
+            return manejar_confirmacion_recordatorio(text, estado_usuario, user_id)
+        
         elif paso == 'vista_fotos':
             return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
 
@@ -1913,6 +1916,124 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None,
         if conn:
             conn.close()
 
+def buscar_cita_activa_usuario(user_id):
+    """Busca la cita más próxima y activa de un usuario"""
+    conn = None
+    try:
+        conn = get_db_connection()
+        if not conn: return None
+        cursor = conn.cursor()
+        
+        # Buscar cita pendiente para mañana o hoy
+        cursor.execute("""
+            SELECT id, nombre, fecha_cita, hora_cita, propiedad_id, estado, notas, telefono
+            FROM citas
+            WHERE (telefono = %s OR user_id = %s)
+            AND estado = 'pendiente'
+            AND fecha_cita >= CURRENT_DATE
+            ORDER BY fecha_cita ASC, hora_cita ASC
+            LIMIT 1
+        """, (user_id, user_id))
+        
+        res = cursor.fetchone()
+        if res:
+            return {
+                'id': res[0],
+                'nombre': res[1],
+                'fecha': res[2].strftime("%Y-%m-%d"),
+                'hora': res[3],
+                'propiedad_id': res[4],
+                'estado': res[5],
+                'notas': res[6],
+                'telefono': res[7]
+            }
+        return None
+    except Exception as e:
+        log(f"❌ Error buscando cita activa: {e}", "ERROR")
+        return None
+    finally:
+        if conn: conn.close()
+
+def actualizar_cita_db(cita_id, nuevo_estado=None, nuevas_notas=None):
+    """Actualiza estado y/o notas de una cita en PostgreSQL y JSON"""
+    conn = None
+    try:
+        # 1. Actualizar PostgreSQL
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            if nuevo_estado and nuevas_notas:
+                cursor.execute("UPDATE citas SET estado = %s, notas = %s WHERE id = %s", (nuevo_estado, nuevas_notas, cita_id))
+            elif nuevo_estado:
+                cursor.execute("UPDATE citas SET estado = %s WHERE id = %s", (nuevo_estado, cita_id))
+            elif nuevas_notas:
+                cursor.execute("UPDATE citas SET notas = %s WHERE id = %s", (nuevas_notas, cita_id))
+            conn.commit()
+            log(f"✅ Cita {cita_id} actualizada en PostgreSQL")
+        
+        # 2. Actualizar JSON (para mantener sincronía)
+        citas = cargar_citas()
+        for c in citas:
+            # Los IDs en JSON son strings como cita_0001, en DB son seriales
+            # Hacemos una comparación flexible o buscamos por otros campos
+            # Por ahora, si el ID coincide (convertido a string)
+            if str(c.get('id')) == str(cita_id) or c.get('id') == cita_id:
+                if nuevo_estado: c['estado'] = nuevo_estado
+                if nuevas_notas: c['notas'] = nuevas_notas
+                c['ultima_actualizacion'] = datetime.now().isoformat()
+                break
+        guardar_citas(citas)
+        return True
+    except Exception as e:
+        log(f"❌ Error actualizando cita: {e}", "ERROR")
+        return False
+    finally:
+        if conn: conn.close()
+
+def manejar_confirmacion_recordatorio(text, estado_usuario, user_id):
+    """Maneja la respuesta del usuario al recordatorio de cita"""
+    text_lower = text.lower().strip()
+    cita = buscar_cita_activa_usuario(user_id)
+    
+    if not cita:
+        estado_usuario['paso'] = 'menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "No encontré una cita pendiente para vos. ¿En qué puedo ayudarte? Envía 'Hola' para ver el menú."
+
+    # 1. CONFIRMACIÓN
+    if any(word in text_lower for word in ["confirm", "si", "sí", "voy", "dale", "ok", "claro"]):
+        actualizar_cita_db(cita['id'], nuevo_estado='confirmada', nuevas_notas="Usuario confirmó la visita")
+        estado_usuario['paso'] = 'menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return f"✅ ¡Muchas gracias, *{cita['nombre']}*! Hemos registrado tu confirmación. Nos vemos el {datetime.strptime(cita['fecha'], '%Y-%m-%d').strftime('%d/%m')} a las {cita['hora']} hs. 👋"
+
+    # 2. CANCELACIÓN
+    if any(word in text_lower for word in ["cancel", "no voy", "baja", "anular"]):
+        actualizar_cita_db(cita['id'], nuevo_estado='cancelada', nuevas_notas="Usuario canceló la visita")
+        estado_usuario['paso'] = 'menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "Entiendo. Hemos cancelado la visita. Si en otro momento deseas agendar nuevamente, no dudes en avisarnos. ¡Que tengas un buen día! 🏠"
+
+    # 3. REPROGRAMACIÓN
+    if any(word in text_lower for word in ["reprogramar", "cambiar", "otro dia", "otra hora", "no puedo", "puedo otro"]):
+        estado_usuario['paso'] = 'solicitar_fecha_cita' # Reusar flujo existente
+        # Necesitamos setear el ultimo_indice_preguntado para que sepa de qué propiedad hablamos
+        # Buscamos la propiedad en el listado general
+        props = cargar_propiedades_cached()
+        for i, p in enumerate(props, 1):
+            if p.get('id_temporal') == cita['propiedad_id']:
+                estado_usuario['ultimo_indice_preguntado'] = i
+                estado_usuario['propiedades_filtradas'] = props
+                break
+        
+        actualizar_cita_db(cita['id'], nuevas_notas=f"Usuario solicitó reprogramar: {text}")
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "No hay problema, podemos reprogramarla. 😊 ¿Para qué día y horario te quedaría mejor? (ej: 'El jueves a las 11')"
+
+    # 4. AMBIGÜEDAD / COMENTARIOS
+    actualizar_cita_db(cita['id'], nuevas_notas=f"Comentario usuario: {text}")
+    return "¿Podrías confirmarme si mantenés la visita o si preferís reprogramarla para otro momento? Así te reservamos el lugar. 😊"
+
 def notificar_cita_admin(cita):
     """Envía notificación de nueva cita al admin"""
     try:
@@ -2103,6 +2224,57 @@ def api_citas():
     
     citas = cargar_citas()
     return jsonify(citas)
+
+@app.route("/api/internal/set-state", methods=["POST"])
+def set_user_state():
+    """Endpoint interno para que el script de recordatorios setee el estado del usuario"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    data = request.get_json()
+    user_id = data.get('user_id')
+    nuevo_paso = data.get('paso')
+    
+    if not user_id or not nuevo_paso:
+        return jsonify({"error": "Missing user_id or paso"}), 400
+    
+    estado = obtener_estado_usuario(user_id)
+    estado['paso'] = nuevo_paso
+    actualizar_estado_usuario(user_id, estado)
+    
+    log(f"🔄 Estado de usuario {user_id} actualizado remotamente a: {nuevo_paso}")
+    return jsonify({"status": "success", "user_id": user_id, "paso": nuevo_paso})
+
+@app.route("/api/internal/send-reminder", methods=["POST"])
+def send_appointment_reminder():
+    """Envia un recordatorio de cita y setea el estado del usuario"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    data = request.get_json()
+    user_id = data.get('user_id') # Ej: 54911...
+    nombre = data.get('nombre', 'Cliente')
+    fecha = data.get('fecha') # DD-MM-AAAA
+    hora = data.get('hora')
+    propiedad = data.get('propiedad', 'la propiedad')
+    
+    if not all([user_id, fecha, hora]):
+        return jsonify({"error": "Missing fields"}), 400
+    
+    mensaje = f"Hola *{nombre}*! 😊\n\nTe escribo desde *Dante Propiedades* para recordarte tu visita de mañana:\n\n🏠 *{propiedad}*\n📅 *{fecha}*\n⏰ *{hora} hs*\n\n¿Nos confirmas si mantenés la visita o si preferís reprogramar/cancelar? Así te reservamos el lugar. 👇"
+    
+    # Enviar mensaje
+    result = send_whatsapp_message(user_id, mensaje)
+    
+    # Seteamos el estado para que la próxima respuesta caiga en el handler de confirmación
+    estado = obtener_estado_usuario(user_id)
+    estado['paso'] = 'esperando_confirmacion_recordatorio'
+    actualizar_estado_usuario(user_id, estado)
+    
+    log(f"🔔 Recordatorio enviado a {user_id} ({nombre})")
+    return jsonify({"status": result.get('status'), "whatsapp_id": result.get('message_id')})
 
 @app.route("/imgs/<path:filename>")
 def serve_image(filename):
