@@ -201,6 +201,7 @@ def init_db(conn):
                 fecha_creacion TIMESTAMP DEFAULT NOW(),
                 user_id VARCHAR(50),
                 nombre VARCHAR(100),
+                email VARCHAR(100),
                 telefono VARCHAR(20),
                 fecha_cita DATE,
                 hora_cita VARCHAR(10),
@@ -217,6 +218,7 @@ def init_db(conn):
             
             ALTER TABLE citas ADD COLUMN IF NOT EXISTS user_id VARCHAR(50);
             ALTER TABLE citas ADD COLUMN IF NOT EXISTS nombre VARCHAR(100);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS email VARCHAR(100);
             ALTER TABLE citas ADD COLUMN IF NOT EXISTS telefono VARCHAR(20);
             ALTER TABLE citas ADD COLUMN IF NOT EXISTS fecha_cita DATE;
             ALTER TABLE citas ADD COLUMN IF NOT EXISTS hora_cita VARCHAR(10);
@@ -641,6 +643,9 @@ def get_bot_response(text, user_id):
         elif paso == 'confirmar_cita':
             return manejar_confirmar_cita(text_lower, estado_usuario, user_id)
         
+        elif paso == 'esperando_email_cita':
+            return manejar_email_cita(text, estado_usuario, user_id)
+        
         elif paso == 'vista_fotos':
             return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
 
@@ -1037,20 +1042,16 @@ No hay horarios para el {fecha_display}.
         if hora_ingresada in horarios_disponibles:
             # Hora válida -> Ir a confirmación
             estado_usuario['hora_cita'] = hora_ingresada
-            estado_usuario['paso'] = 'confirmar_cita'
+            estado_usuario['paso'] = 'esperando_email_cita'
             actualizar_estado_usuario(user_id, estado_usuario)
             
-            return f"""📅 *CONFIRMAR VISITA*
-            
-Vas a agendar para:
-🏠 Propiedad: {estado_usuario.get('ultimo_indice_preguntado')} (ID: {propiedad_id})
-📅 Fecha: *{fecha_display}*
-⏰ Hora: *{hora_ingresada} hs*
+            return f"""📅 *FECHA SELECCIONADA:* {fecha_display} a las {hora_ingresada} hs.
 
-¿Confirmas?
-1️⃣ *SÍ, Confirmar* ✅
-2️⃣ *Cambiar horario* 🔄
-0️⃣ *Cancelar* ❌"""
+📧 *¿Te gustaría dejarnos tu correo electrónico?* (Opcional)
+Esto nos permite enviarte recordatorios y más detalles de la propiedad.
+
+1️⃣ *Escribí tu email*
+2️⃣ *No, saltar este paso* ⏭️"""
         else:
             # Hora inválida o ocupada
             return f"""❌ *Horario no disponible*
@@ -1102,19 +1103,50 @@ Por favor elegí uno de la lista:
             
     # Hora válida
     estado_usuario['hora_cita'] = hora_elegida
-    estado_usuario['paso'] = 'confirmar_cita' # Nuevo paso de confirmación explícita
+    estado_usuario['paso'] = 'esperando_email_cita' 
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    return f"""📅 *HORARIO SELECCIONADO:* {hora_elegida} hs.
+
+📧 *¿Te gustaría dejarnos tu correo electrónico?* (Opcional)
+Esto nos permite enviarte recordatorios y más detalles de la propiedad.
+
+1️⃣ *Escribí tu email*
+2️⃣ *No, saltar este paso* ⏭️"""
+
+def manejar_email_cita(text, estado_usuario, user_id):
+    """Maneja la captura del email (opcional)"""
+    text_lower = text.lower().strip()
+    
+    if text_lower in ["2", "no", "saltar", "skip", "n", "noup"]:
+        estado_usuario['email_cliente'] = None
+    else:
+        # Validación básica de email
+        if "@" in text and "." in text and len(text) > 5:
+            estado_usuario['email_cliente'] = text
+        else:
+            # Si no parece un email y no quiso saltar, le avisamos pero permitimos saltar
+            if text_lower == "1":
+                return "📧 Por favor, escribí tu correo electrónico o enviá *'2'* para saltar."
+            
+            return f"⚠️ *{text}* no parece un correo válido.\n\nPor favor, escribí un email válido o enviá *'2'* para saltar este paso."
+
+    estado_usuario['paso'] = 'confirmar_cita'
     actualizar_estado_usuario(user_id, estado_usuario)
     
     fecha_display = datetime.strptime(estado_usuario['fecha_cita'], "%Y-%m-%d").strftime("%d-%m-%Y")
+    hora = estado_usuario['hora_cita']
+    email = estado_usuario.get('email_cliente', 'No proporcionado')
     
-    return f"""📅 *CONFIRMAR VISITA*
+    return f"""📅 *RESUMEN DE TU VISITA*
             
-Fecha: *{fecha_display}*
-Hora: *{hora_elegida} hs*
+📅 Fecha: *{fecha_display}*
+⏰ Hora: *{hora} hs*
+📧 Email: *{email}*
 
-¿Confirmas?
+¿Confirmas la cita?
 1️⃣ *SÍ, Confirmar* ✅
-2️⃣ *Cambiar* 🔄
+2️⃣ *Cambiar fecha/hora* 🔄
 0️⃣ *Cancelar* ❌"""
 
 def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
@@ -1124,6 +1156,7 @@ def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
         fecha = estado_usuario.get('fecha_cita')
         hora = estado_usuario.get('hora_cita')
         nombre = estado_usuario.get('nombre_cliente', 'Cliente')
+        email = estado_usuario.get('email_cliente')
         
         # Obtener propiedad
         indice = estado_usuario.get('ultimo_indice_preguntado')
@@ -1134,7 +1167,7 @@ def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
             propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
             propiedad_titulo = propiedades_lista[indice - 1].get('titulo')
 
-        crear_cita(user_id, nombre, user_id, fecha, hora, propiedad_id, notas="Agendado vía Bot")
+        crear_cita(user_id, nombre, user_id, fecha, hora, propiedad_id, email=email, notas="Agendado vía Bot")
         
         # Resetear estado
         estado_usuario['paso'] = 'menu_principal'
@@ -1809,7 +1842,7 @@ def guardar_citas(citas):
         return False
 
 
-def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, notas=""):
+def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None, notas=""):
     """Crea una nueva cita y la guarda en JSON y PostgreSQL"""
     conn = None
     try:
@@ -1818,6 +1851,7 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, notas=""):
             'id': f"cita_{len(citas)+1:04d}",
             'user_id': user_id,
             'nombre': nombre,
+            'email': email,
             'telefono': telefono,
             'fecha': fecha,
             'hora': hora,
@@ -1844,10 +1878,10 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, notas=""):
             
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO citas (user_id, nombre, telefono, fecha_cita, hora_cita, propiedad_id, estado, notas)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO citas (user_id, nombre, email, telefono, fecha_cita, hora_cita, propiedad_id, estado, notas)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
-            """, (user_id, nombre, telefono, fecha, hora, propiedad_id, 'pendiente', notas))
+            """, (user_id, nombre, email, telefono, fecha, hora, propiedad_id, 'pendiente', notas))
             
             db_record_id = cursor.fetchone()[0]
             conn.commit()
@@ -1858,7 +1892,7 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, notas=""):
                 telefono=telefono,
                 nombre=nombre,
                 accion="cita_agendada",
-                detalles=f"Cita agendada para {fecha} {hora} - Propiedad ID: {propiedad_id}"
+                detalles=f"Cita agendada para {fecha} {hora} - Propiedad ID: {propiedad_id} - Email: {email}"
             )
         else:
             log("⚠️ No se pudo conectar a PostgreSQL para guardar la cita", "WARNING")
