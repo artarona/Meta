@@ -999,9 +999,8 @@ Por favor, probá con:
 ✅ "El jueves por la tarde"
 ✅ "25-10-2026"
 
-O escribí *'Ver fechas'* para ver disponibilidad.
-
-0️⃣ *❌ SALIR*"""
+1️⃣ *Ver fechas* (Ver disponibilidad)
+0️⃣ *Volver* (Ir al menú)"""
 
     # Validaciones de fecha
     hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -1027,9 +1026,8 @@ O escribí *'Ver fechas'* para ver disponibilidad.
          return f"""❌ *Sin disponibilidad*
 No hay horarios para el {fecha_display}.
 
-Escribí otra fecha o escribí *'Ver fechas'* para ver el calendario.
-
-0️⃣ *❌ SALIR*"""
+1️⃣ *Ver fechas* (Elegir otro día)
+0️⃣ *Volver* (Ir al menú)"""
 
     estado_usuario['fecha_cita'] = fecha_str
     
@@ -1098,9 +1096,8 @@ def manejar_seleccionar_hora_cita(text, estado_usuario, user_id):
 Por favor elegí uno de la lista:
 {", ".join(horarios_disponibles)}
 
-O escribí 'Cambiar fecha' para elegir otro día.
-
-0️⃣ *❌ SALIR*"""
+1️⃣ *Cambiar fecha* (Elegir otro día)
+0️⃣ *Volver* (Ir al menú)"""
             
     # Hora válida
     estado_usuario['hora_cita'] = hora_elegida
@@ -1136,7 +1133,7 @@ def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
             propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
             propiedad_titulo = propiedades_lista[indice - 1].get('titulo')
 
-        guardar_cita(user_id, nombre, fecha, hora, propiedad_id, notas="Agendado vía Bot")
+        crear_cita(user_id, nombre, user_id, fecha, hora, propiedad_id, notas="Agendado vía Bot")
         
         # Resetear estado
         estado_usuario['paso'] = 'menu_principal'
