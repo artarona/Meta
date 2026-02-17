@@ -2770,9 +2770,9 @@ def debug_leads():
 def send_appointment_reminder():
     """Envia un recordatorio de cita y setea el estado del usuario"""
     try:
-        key = request.args.get('key')
-        if key != ADMIN_ACCESS_KEY:
-            return jsonify({"error": "Unauthorized"}), 403
+        # key = request.args.get('key')
+        # if key != ADMIN_ACCESS_KEY:
+        #     return jsonify({"error": "Unauthorized"}), 403
         
         data = request.get_json()
         if not data:
