@@ -1,8 +1,3 @@
-    # key = request.args.get('key')
-    # if key != ADMIN_ACCESS_KEY:
-    #     return jsonify({"error": "Unauthorized"}), 403
-
-
 from flask import Flask, request, jsonify, send_from_directory, send_file
 import requests
 import os
@@ -212,54 +207,25 @@ def init_db(conn):
                 hora_cita VARCHAR(10),
                 propiedad_id VARCHAR(50),
                 estado VARCHAR(20) DEFAULT 'pendiente',
-                notas TEXT,
-                
-                -- Nuevas columnas para recordatorios
-                recordatorio_enviado BOOLEAN DEFAULT FALSE,
-                recordatorio_enviado_en TIMESTAMP,
-                recordatorio_horario VARCHAR(5) DEFAULT '09:00',
-                recordatorio_respuesta TEXT,
-                recordatorio_fecha_respuesta TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS user_states (
-                user_id VARCHAR(50) PRIMARY KEY,
-                paso VARCHAR(50),
-                operacion_seleccionada VARCHAR(50),
-                propiedades_filtradas TEXT,
-                ultimo_indice_preguntado INTEGER,
-                nombre_cliente VARCHAR(100),
-                email_cliente VARCHAR(100),
-                fecha_cita DATE,
-                hora_cita VARCHAR(10),
-                horarios_disponibles TEXT,
-                data TEXT,
-                timestamp TIMESTAMP
+                notas TEXT
             );
         """)
         
         # 2. Asegurar columnas adicionales
         cursor.execute("""
-        ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
-        ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_titulo VARCHAR(200);
-        
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS user_id VARCHAR(50);
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS nombre VARCHAR(100);
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS email VARCHAR(100);
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS telefono VARCHAR(20);
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS fecha_cita DATE;
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS hora_cita VARCHAR(10);
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS estado VARCHAR(20);
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS notas TEXT;
-        
-        -- Nuevas columnas para recordatorios
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_enviado BOOLEAN DEFAULT FALSE;
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_enviado_en TIMESTAMP;
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_horario VARCHAR(5) DEFAULT '09:00';
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_respuesta TEXT;
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_fecha_respuesta TIMESTAMP;
-    """)
+            ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
+            ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_titulo VARCHAR(200);
+            
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS user_id VARCHAR(50);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS nombre VARCHAR(100);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS email VARCHAR(100);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS telefono VARCHAR(20);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS fecha_cita DATE;
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS hora_cita VARCHAR(10);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS estado VARCHAR(20);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS notas TEXT;
+        """)
         
         # 3. Asegurar secuencias para tablas existentes
         cursor.execute("""
@@ -279,8 +245,6 @@ def init_db(conn):
                     ALTER SEQUENCE citas_id_seq OWNED BY citas.id;
                 END IF;
 
-                -- Secuencias para user_states (no necesita seq porque user_id es PK)
-                
                 -- Sincronizar secuencias (Usamos EXECUTE para evitar errores de compilación)
                 EXECUTE 'SELECT setval(''leads_id_seq'', COALESCE((SELECT MAX(id) FROM leads), 0) + 1, false)';
                 EXECUTE 'SELECT setval(''citas_id_seq'', COALESCE((SELECT MAX(id) FROM citas), 0) + 1, false)';
@@ -288,16 +252,14 @@ def init_db(conn):
         """)
         
         conn.commit()
-        log("✅ Esquema de base de datos verificado y actualizado (incluye tabla user_states)")
+        log("✅ Esquema de base de datos verificado y actualizado")
         return True
     except Exception as e:
         log(f"❌ Error inicializando base de datos: {e}", "ERROR")
         if conn:
             conn.rollback()
         return False
-    
-    
-    
+
 def guardar_en_postgresql(telefono, nombre, accion, detalles=""):
     """Guardar lead/cita en PostgreSQL de Render"""
     conn = None
@@ -341,103 +303,37 @@ def cargar_propiedades_cached():
     return cargar_propiedades()
 
 def obtener_estado_usuario(user_id):
-    """Obtiene o crea el estado de un usuario (Cache + PostgreSQL)"""
-    # 1. Intentar desde caché en memoria
-    if user_id in estados_usuarios:
-        return estados_usuarios[user_id]
-        
-    # 2. Intentar desde PostgreSQL
-    conn = None
-    try:
-        conn = get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data FROM user_states WHERE user_id = %s", (user_id,))
-            res = cursor.fetchone()
-            if res:
-                estado = {
-                    'paso': res[0],
-                    'operacion_seleccionada': res[1],
-                    'propiedades_filtradas': res[2] or [],
-                    'ultimo_indice_preguntado': res[3],
-                    'nombre_cliente': res[4],
-                    'email_cliente': res[5],
-                    'fecha_cita': res[6],
-                    'hora_cita': res[7],
-                    'horarios_disponibles': res[8] or [],
-                    'data': res[9] or {},
-                    'timestamp': datetime.now().isoformat()
-                }
-                estados_usuarios[user_id] = estado
-                return estado
-    except Exception as e:
-        log(f"⚠️ Error recuperando estado de DB: {e}")
-    finally:
-        if conn: conn.close()
-        
-    # 3. Si no existe, crear nuevo
-    estado_nuevo = {
-        'paso': 'menu_principal',
-        'operacion_seleccionada': None,
-        'propiedades_filtradas': [],
-        'ultimo_indice_preguntado': None,
-        'timestamp': datetime.now().isoformat(),
-        'data': {}
-    }
-    estados_usuarios[user_id] = estado_nuevo
-    return estado_nuevo
+    """Obtiene o crea el estado de un usuario"""
+    if user_id not in estados_usuarios:
+        estados_usuarios[user_id] = {
+            'paso': 'menu_principal',
+            'operacion_seleccionada': None,
+            'propiedades_filtradas': [],
+            'ultimo_indice_preguntado': None,
+            'timestamp': datetime.now().isoformat(),
+            'data': {}  # Datos adicionales del usuario
+        }
+    return estados_usuarios[user_id]
 
 def actualizar_estado_usuario(user_id, nuevo_estado):
-    """Actualiza el estado de un usuario en caché y PostgreSQL"""
+    """Actualiza el estado de un usuario con limpieza automática"""
     nuevo_estado['timestamp'] = datetime.now().isoformat()
     estados_usuarios[user_id] = nuevo_estado
     
-    # Sincronizar con PostgreSQL
-    conn = None
-    try:
-        conn = get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO user_states (
-                    user_id, paso, operacion_seleccionada, propiedades_filtradas, 
-                    ultimo_indice_preguntado, nombre_cliente, email_cliente, 
-                    fecha_cita, hora_cita, horarios_disponibles, data, timestamp
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (user_id) DO UPDATE SET
-                    paso = EXCLUDED.paso,
-                    operacion_seleccionada = EXCLUDED.operacion_seleccionada,
-                    propiedades_filtradas = EXCLUDED.propiedades_filtradas,
-                    ultimo_indice_preguntado = EXCLUDED.ultimo_indice_preguntado,
-                    nombre_cliente = EXCLUDED.nombre_cliente,
-                    email_cliente = EXCLUDED.email_cliente,
-                    fecha_cita = EXCLUDED.fecha_cita,
-                    hora_cita = EXCLUDED.hora_cita,
-                    horarios_disponibles = EXCLUDED.horarios_disponibles,
-                    data = EXCLUDED.data,
-                    timestamp = EXCLUDED.timestamp
-            """, (
-                user_id, 
-                nuevo_estado.get('paso'),
-                nuevo_estado.get('operacion_seleccionada'),
-                json.dumps(nuevo_estado.get('propiedades_filtradas', [])),
-                nuevo_estado.get('ultimo_indice_preguntado'),
-                nuevo_estado.get('nombre_cliente'),
-                nuevo_estado.get('email_cliente'),
-                nuevo_estado.get('fecha_cita'),
-                nuevo_estado.get('hora_cita'),
-                json.dumps(nuevo_estado.get('horarios_disponibles', [])),
-                json.dumps(nuevo_estado.get('data', {})),
-                nuevo_estado.get('timestamp')
-            ))
-            conn.commit()
-    except Exception as e:
-        log(f"⚠️ Error persistiendo estado en DB: {e}")
-    finally:
-        if conn:
-            conn.close()
-            
-            
+    # Limpiar estados antiguos (más de 2 horas)
+    ahora = datetime.now()
+    usuarios_a_eliminar = []
+    
+    for uid, estado in estados_usuarios.items():
+        if 'timestamp' in estado:
+            tiempo_dif = ahora - datetime.fromisoformat(estado['timestamp'])
+            if tiempo_dif.total_seconds() > 7200:  # 2 horas
+                usuarios_a_eliminar.append(uid)
+    
+    for uid in usuarios_a_eliminar:
+        del estados_usuarios[uid]
+        log(f"🧹 Estado limpiado para usuario: {uid}")
+
 # ========== GESTIÓN DE LEADS MEJORADA ==========
 
 def registrar_lead(user_id, propiedad_id, accion, detalle=""):
@@ -609,6 +505,7 @@ def generar_listado_propiedades(propiedades):
         listado += f"\n📊 ...y {len(propiedades) - 10} propiedades más.\n"
     
     listado += "\nPara ver detalles, responde con el número (ej: 1️⃣)\n"
+    listado += "9️⃣ *Volver al menú principal*\n"
     listado += f"{numero_a_emoji(0)} *❌ SALIR*"
     
     return listado
@@ -746,6 +643,9 @@ def get_bot_response(text, user_id):
             
         elif paso == 'submenu_asesor':
             return manejar_submenu_asesor(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'submenu_citas':
+            return manejar_submenu_citas(text_lower, estado_usuario, user_id)
 
         elif paso == 'listado_propiedades':
             return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
@@ -777,26 +677,25 @@ def get_bot_response(text, user_id):
         elif paso == 'vista_fotos':
             return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
 
-        # 4. BUSCADOR POR TEXTO (Nuevo) - SOLAMENTE SI NO HAY ESTADO ACTIVO PRIORITARIO
-        # Y si el paso es menu_principal o resultado_busqueda
-        if text_lower.startswith("buscar ") or (len(text_lower) > 3 and paso == 'menu_principal' and not text_lower.isdigit()):
-            # DETECTAR SI ES UNA FECHA PERO SE PERDIÓ EL CONTEXTO
-            fecha_detectada = analizar_fecha(text_lower)
-            if fecha_detectada and len(text_lower.split()) <= 3: # Si es una fecha corta
-                return """⚠️ *Sesión expirada o contexto perdido*
-                
+        # 4. OPCIONES DEL MENÚ PRINCIPAL
+        elif paso == 'menu_principal':
+            # BUSCADOR POR TEXTO - Solo en menú principal
+            if text_lower.startswith("buscar ") or (len(text_lower) > 3 and not text_lower.isdigit()):
+                # DETECTAR SI ES UNA FECHA PERO SE PERDIÓ EL CONTEXTO
+                fecha_detectada = analizar_fecha(text_lower)
+                if fecha_detectada and len(text_lower.split()) <= 3: # Si es una fecha corta
+                    return """⚠️ *Sesión expirada o contexto perdido*
+                    
 Parece que querías agendar una fecha, pero no tengo seleccionada ninguna propiedad en este momento.
 
 Por favor:
 1. Envía 'Hola' para ver el menú
 2. Busca la propiedad nuevamente
 3. Selecciona 'Agendar Cita'"""
+    
+                termino = text_lower.replace("buscar ", "").strip()
+                return manejar_busqueda_keywords(termino, estado_usuario, user_id)
 
-            termino = text_lower.replace("buscar ", "").strip()
-            return manejar_busqueda_keywords(termino, estado_usuario, user_id)
-
-        # 5. OPCIONES DEL MENÚ PRINCIPAL
-        if paso == 'menu_principal':
             return manejar_menu_principal(text_lower, estado_usuario, user_id)
         
         # Respuesta por defecto
@@ -815,33 +714,35 @@ Por favor:
 def manejar_menu_principal(text_lower, estado_usuario, user_id):
     """Maneja las opciones del menú principal"""
     if text_lower == "1":
-        estado_usuario['paso'] = 'submenu_consultar'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return """🔍 *CONSULTAR PROPIEDADES*
-
-1️⃣ Buscar por código (ej.: UF002)
-2️⃣ Buscar por zona
-3️⃣ Ver propiedades destacadas
-
-9️⃣ Volver al menú principal
-0️⃣ Salir"""
+        return procesar_opcion_venta(estado_usuario, user_id)
 
     elif text_lower == "2":
+        return procesar_opcion_alquiler(estado_usuario, user_id)
+
+    elif text_lower == "3":
         estado_usuario['paso'] = 'submenu_visita'
         actualizar_estado_usuario(user_id, estado_usuario)
         return """📅 *COORDINAR UNA VISITA*
 
-1️⃣ Elegir propiedad
-2️⃣ Ver días y horarios disponibles
-3️⃣ Confirmar visita
+1️⃣ Ver días y horarios disponibles
+2️⃣ Confirmar una visita
 
 9️⃣ Volver al menú principal
 0️⃣ Salir"""
 
-    elif text_lower == "3":
-        return procesar_opcion_mis_citas(user_id)
-
     elif text_lower == "4":
+        estado_usuario['paso'] = 'submenu_citas'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return """📋 *CITAS PROGRAMADAS*
+
+1️⃣ Ver próximas visitas
+2️⃣ Reprogramar una visita
+3️⃣ Cancelar una visita
+
+9️⃣ Volver al menú principal
+0️⃣ Salir"""
+
+    elif text_lower == "5":
         estado_usuario['paso'] = 'submenu_asesor'
         actualizar_estado_usuario(user_id, estado_usuario)
         return """👤 *HABLAR CON UN ASESOR*
@@ -852,30 +753,27 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
 9️⃣ Volver al menú principal
 0️⃣ Salir"""
 
-    elif text_lower == "5":
-            return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
-
     elif text_lower == "8" and user_id == ADMIN_NUMBER.lstrip('549'):
         return mostrar_panel_admin()
     
     else:
-        return """No pude identificar esa opción. Por favor elegí un número del menú.
+        return """Por favor elegí una opción del menú usando los números.
 
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*"""
 
 # ========== MANEJADORES DE SUBMENÚS ==========
 
-def manejar_submenu_consultar(text_lower, estado_usuario, user_id):
-    """Maneja las opciones del submenú de consulta"""
+def manejar_submenu_citas(text_lower, estado_usuario, user_id):
+    """Maneja las opciones del submenú de citas"""
     if text_lower == "1":
-        return "🔎 *Búsqueda por código*\n\nPor favor, enviá el código de la propiedad (ej: UF002).\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+        return procesar_opcion_mis_citas(user_id)
     elif text_lower == "2":
-        return "📍 *Búsqueda por zona*\n\n¿En qué zona estás buscando? (ej: Palermo, Belgrano, Tigre...)\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+        return "📅 *Reprogramar una visita*\n\nPor favor, contactá a un asesor para reprogramar tu cita o indicanos la nueva fecha deseada.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
     elif text_lower == "3":
-        return procesar_opcion_todas(estado_usuario, user_id)
+        return "❌ *Cancelar una visita*\n\nPara cancelar, por favor escribí el motivo o contactá a nuestro soporte.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
     else:
-        return """No pude identificar esa opción. Por favor elegí un número del menú.
+        return """Por favor elegí una opción del menú usando los números.
 
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*"""
@@ -883,13 +781,11 @@ def manejar_submenu_consultar(text_lower, estado_usuario, user_id):
 def manejar_submenu_visita(text_lower, estado_usuario, user_id):
     """Maneja las opciones del submenú de visitas"""
     if text_lower == "1":
-        return procesar_opcion_todas(estado_usuario, user_id)
-    elif text_lower == "2":
         return "📅 *Días y horarios disponibles*\n\nNuestros horarios generales son de Lunes a Viernes de 9 a 18:30 hs.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
-    elif text_lower == "3":
-        return "✅ *Confirmar visita*\n\nPara confirmar una visita, primero debemos seleccionar una propiedad. \n\n1️⃣ Ver propiedades\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+    elif text_lower == "2":
+        return "✅ *Confirmar visita*\n\nPara confirmar una visita, primero debemos seleccionar una propiedad. \n\n1️⃣ Ver propiedades en Venta\n2️⃣ Ver propiedades en Alquiler\n9️⃣ Volver al menú principal\n0️⃣ Salir"
     else:
-        return """No pude identificar esa opción. Por favor elegí un número del menú.
+        return """Por favor elegí una opción del menú usando los números.
 
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*"""
@@ -903,7 +799,7 @@ def manejar_submenu_asesor(text_lower, estado_usuario, user_id):
         notificar_agente(f"📞 *SOLICITUD DE LLAMADA*\n📞 Tel: +{user_id}\n📝 El cliente solicita ser llamado.")
         return "✅ *Solicitud registrada!*\n\nTe llamaremos en el horario más conveniente.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
     else:
-        return """No pude identificar esa opción. Por favor elegí un número del menú.
+        return """Por favor elegí una opción del menú usando los números.
 
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*"""
@@ -919,7 +815,7 @@ def procesar_opcion_venta(estado_usuario, user_id):
     
     propiedades = estado_usuario['propiedades_filtradas']
     if not propiedades:
-        return "📭 No hay propiedades en venta por ahora.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
+        return "📭 No hay propiedades en venta por ahora.\n\n9️⃣ *Volver al menú principal*\n0️⃣ *❌ SALIR*"
     
     return f"💰 *PROPIEDADES EN VENTA*\nEncontramos *{len(propiedades)}* disponibles:\n\n" + generar_listado_propiedades(propiedades)
 
@@ -934,7 +830,7 @@ def procesar_opcion_alquiler(estado_usuario, user_id):
     
     propiedades = estado_usuario['propiedades_filtradas']
     if not propiedades:
-        return "📭 No hay propiedades en alquiler por ahora.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
+        return "📭 No hay propiedades en alquiler por ahora.\n\n9️⃣ *Volver al menú principal*\n0️⃣ *❌ SALIR*"
     
     return f"🔑 *PROPIEDADES EN ALQUILER*\nEncontramos *{len(propiedades)}* disponibles:\n\n" + generar_listado_propiedades(propiedades)
 
@@ -954,7 +850,7 @@ def procesar_opcion_mis_citas(user_id):
     citas_usuario = [c for c in citas if c['telefono'] == user_id and c['estado'] != 'cancelada']
     
     if not citas_usuario:
-        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
+        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n9️⃣ *Volver al menú principal*\n0️⃣ *❌ SALIR*"
     
     mensaje = f"📅 *TUS CITAS AGENDADAS*\n\nTienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
     
@@ -972,7 +868,7 @@ def procesar_opcion_mis_citas(user_id):
         mensaje += "   ───────────────\n"
     
     mensaje += f"\nPara consultar o modificar una cita, contacta al administrador.\n\n"
-    mensaje += f"Envía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
+    mensaje += f"9️⃣ Volver al menú principal\n0️⃣ *❌ SALIR*"
     
     return mensaje
 
@@ -1190,12 +1086,13 @@ Un asesor te contactará en los próximos **15 minutos** para gestionar tu ofert
         return "👋 ¡Gracias por contactarnos! Para volver al menú, envía 'Hola'. Dante Propiedades! 🏠🗝️"
     
     else:
-        return """❌ Opción no válida. Por favor selecciona:
+        return """Por favor elegí una opción del menú usando los números.
 
 1️⃣ *SÍ, AGENDAR CITA* 📅
 2️⃣ *No por ahora, solo información* 📋
 3️⃣ *Ya la vi, quiero ofertar* 💰
-0️⃣ *❌ SALIR*"""
+9️⃣ *Volver al menú principal*
+0️⃣ *Salir del chat* ❌"""
 
 def manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id):
     """Maneja la solicitud de fecha para la cita"""
@@ -1334,9 +1231,9 @@ def manejar_email_cita(text, estado_usuario, user_id):
         else:
             # Si no parece un email y no quiso saltar, le avisamos pero permitimos saltar
             if text_lower == "1":
-                return "📧 Por favor, escribí tu correo electrónico o enviá *'2'* para saltar."
+                return "📧 Por favor, escribí tu correo electrónico o enviá *2️⃣* para saltar."
             
-            return f"⚠️ *{text}* no parece un correo válido.\n\nPor favor, escribí un email válido o enviá *'2'* para saltar este paso."
+            return f"⚠️ *{text}* no parece un correo válido.\n\nPor favor, escribí un email válido o enviá *2️⃣* para saltar este paso."
 
     estado_usuario['paso'] = 'confirmar_cita'
     actualizar_estado_usuario(user_id, estado_usuario)
@@ -1370,30 +1267,11 @@ def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
         propiedades_lista = estado_usuario.get('propiedades_filtradas', [])
         propiedad_id = "N/A"
         propiedad_titulo = "Propiedad"
-        
-        # Verificar que propiedades_lista sea una lista y tenga elementos
-        if propiedades_lista and isinstance(propiedades_lista, list) and indice and 1 <= indice <= len(propiedades_lista):
-            propiedad = propiedades_lista[indice - 1]
-            # Verificar que propiedad sea un diccionario
-            if isinstance(propiedad, dict):
-                propiedad_id = propiedad.get('id_temporal', 'N/A')
-                propiedad_titulo = propiedad.get('titulo', 'Propiedad')
-            else:
-                # Si es un string, usarlo directamente
-                propiedad_id = str(propiedad)
-                propiedad_titulo = str(propiedad)
+        if indice and 1 <= indice <= len(propiedades_lista):
+            propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
+            propiedad_titulo = propiedades_lista[indice - 1].get('titulo')
 
-        # LLAMAR a la función crear_cita
-        crear_cita(
-            user_id=user_id,
-            nombre=nombre,
-            telefono=user_id,
-            fecha=fecha,
-            hora=hora,
-            propiedad_id=propiedad_id,
-            email=email,
-            notas="Agendado vía Bot"
-        )
+        crear_cita(user_id, nombre, user_id, fecha, hora, propiedad_id, email=email, notas="Agendado vía Bot")
         
         # Resetear estado
         estado_usuario['paso'] = 'menu_principal'
@@ -1401,7 +1279,6 @@ def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
         estado_usuario['hora_cita'] = None
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        # Mensaje de confirmación
         return f"""✅ *¡VISITA AGENDADA!*
         
 Hemos confirmado tu visita para:
@@ -1422,84 +1299,6 @@ Te esperamos. Si necesitas cancelar, por favor avísanos.
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "❌ Operación cancelada.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
-
-def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None, notas=""):
-    """Crea una nueva cita y la guarda en JSON y PostgreSQL"""
-    conn = None
-    try:
-        citas = cargar_citas()
-        nueva_cita = {
-            'id': f"cita_{len(citas)+1:04d}",
-            'user_id': user_id,
-            'nombre': nombre,
-            'email': email,
-            'telefono': telefono,
-            'fecha': fecha,
-            'hora': hora,
-            'propiedad_id': propiedad_id,
-            'estado': 'pendiente',
-            'notas': notas,
-            'creacion': datetime.now().isoformat(),
-            'ultima_actualizacion': datetime.now().isoformat()
-        }
-        
-        citas.append(nueva_cita)
-        
-        # 1. Guardar en JSON
-        if not guardar_citas(citas):
-            log("⚠️ Error guardando cita en JSON", "WARNING")
-        
-        log(f"✅ Cita creada localmente: {nueva_cita['id']} para {nombre}")
-        
-        # 2. Guardar en PostgreSQL (con nuevas columnas)
-        conn = get_db_connection()
-        if conn:
-            # Asegurar esquema antes del INSERT
-            init_db(conn)
-            
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO citas (
-                    user_id, nombre, email, telefono, fecha_cita, hora_cita, 
-                    propiedad_id, estado, notas,
-                    recordatorio_enviado, recordatorio_horario
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-            """, (
-                user_id, nombre, email, telefono, fecha, hora, 
-                propiedad_id, 'pendiente', notas,
-                False, '09:00'  # Valores por defecto para recordatorios
-            ))
-            
-            db_record_id = cursor.fetchone()[0]
-            conn.commit()
-            log(f"✅ Cita guardada en PostgreSQL - ID DB: {db_record_id}")
-            
-            # Registrar también en el log general de leads
-            guardar_en_postgresql(
-                telefono=telefono,
-                nombre=nombre,
-                accion="cita_agendada",
-                detalles=f"Cita agendada para {fecha} {hora} - Propiedad ID: {propiedad_id} - Email: {email}"
-            )
-        else:
-            log("⚠️ No se pudo conectar a PostgreSQL para guardar la cita", "WARNING")
-
-        # 3. Notificar al admin
-        notificar_cita_admin(nueva_cita)
-        
-        return nueva_cita
-        
-    except Exception as e:
-        log(f"❌ Error creando cita: {e}", "ERROR")
-        if conn:
-            conn.rollback()
-        import traceback
-        log(f"🔍 Detalles error: {traceback.format_exc()}")
-        return None
-    finally:
-        if conn:
-            conn.close()
 
 # Helper para mostrar horarios (extraído para reusar)
 def mostrar_seleccion_horarios(fecha_display, horarios):
@@ -1557,55 +1356,25 @@ def manejar_busqueda_keywords(termino, estado_usuario, user_id):
 
 
 # ========== FUNCIONES DE WHATSAPP API MEJORADAS ==========
-# def check_token_validity():
-#     """Verifica si el token de acceso es válido"""
-#     try:
-#         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}"
-#         headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
-#         response = requests.get(url, headers=headers, timeout=10)
-        
-#         if response.status_code == 200:
-#             data = response.json()
-#             log(f"✅ Token válido: {data.get('verified_name', 'N/A')}")
-#             return True, data
-#         else:
-#             error_data = response.json() if response.content else {}
-#             log(f"❌ Token inválido: Status {response.status_code}")
-#             return False, error_data
-            
-#     except Exception as e:
-#         log(f"🔥 Error verificando token: {e}")
-#         return False, {"error": str(e)}
-
-
 def check_token_validity():
     """Verifica si el token de acceso es válido"""
     try:
-        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}?fields=verified_name"
-        headers = {
-            "Authorization": f"Bearer {ACCESS_TOKEN}",
-            "Content-Type": "application/json"
-        }
-
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}"
+        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
         response = requests.get(url, headers=headers, timeout=10)
-
+        
         if response.status_code == 200:
             data = response.json()
-            log(f"✅ Token válido. Verified name: {data.get('verified_name', 'N/A')}")
+            log(f"✅ Token válido: {data.get('verified_name', 'N/A')}")
             return True, data
-
         else:
             error_data = response.json() if response.content else {}
-            log(f"❌ Token inválido o sin permisos. Status {response.status_code}")
-            log(f"Detalles: {error_data}")
+            log(f"❌ Token inválido: Status {response.status_code}")
             return False, error_data
-
+            
     except Exception as e:
         log(f"🔥 Error verificando token: {e}")
         return False, {"error": str(e)}
-    
-    
-    
 
 def send_whatsapp_message(to_number, message_text):
     """Envía un mensaje de WhatsApp usando texto directo"""
@@ -1617,7 +1386,6 @@ def send_whatsapp_message(to_number, message_text):
                 "status": "error",
                 "error_code": "invalid_token",
                 "error_message": "Token de acceso expirado o inválido"
-                log(f"🔑 Token cargado (primeros 10 chars): {ACCESS_TOKEN[:10]}")
             }
         
         def transform_number(number):
@@ -1648,7 +1416,7 @@ def send_whatsapp_message(to_number, message_text):
         }
         
         log(f"📤 Enviando mensaje a: {to_number}")
-
+        
         response = requests.post(url, json=payload, headers=headers, timeout=30)
         
         if response.status_code == 200:
@@ -1722,7 +1490,7 @@ def send_photos_async(user_id, propiedad_id, base_url):
         notificar_agente(f"👤 Cliente {user_id} está viendo fotos de: {propiedad.get('titulo')}")
         registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_fotos")
         
-        send_whatsapp_message(user_id, "✅ *¡Fotos enviadas!*\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*")
+        send_whatsapp_message(user_id, "✅ *¡Fotos enviadas!*\n\n1️⃣ Reservar una cita\n9️⃣ Volver al menú 🏠\n0️⃣ ❌ Salir")
         
         log(f"✅ Envío de fotos completado para {user_id}")
     except Exception as e:
@@ -1784,10 +1552,11 @@ def send_welcome_flow(user_id):
 *¿Cómo podemos ayudarte hoy?*
 Elegí el número de tu opción:
 
-1️⃣ *Consultar propiedades* 🏠
-2️⃣ *Coordinar una visita* 📅
-3️⃣ *Ver mis citas programadas* 📋
-4️⃣ *Hablar con un asesor* 👤
+1️⃣ *Consultar propiedades en Venta* 💰
+2️⃣ *Consultar propiedades en Alquiler* 🔑
+3️⃣ *Coordinar una visita* 📅
+4️⃣ *Ver mis citas programadas* 📋
+5️⃣ *Hablar con un asesor* 👤
 
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*
@@ -2176,6 +1945,77 @@ def guardar_citas(citas):
         return False
 
 
+def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None, notas=""):
+    """Crea una nueva cita y la guarda en JSON y PostgreSQL"""
+    conn = None
+    try:
+        citas = cargar_citas()
+        nueva_cita = {
+            'id': f"cita_{len(citas)+1:04d}",
+            'user_id': user_id,
+            'nombre': nombre,
+            'email': email,
+            'telefono': telefono,
+            'fecha': fecha,
+            'hora': hora,
+            'propiedad_id': propiedad_id,
+            'estado': 'pendiente',
+            'notas': notas,
+            'creacion': datetime.now().isoformat(),
+            'ultima_actualizacion': datetime.now().isoformat()
+        }
+        
+        citas.append(nueva_cita)
+        
+        # 1. Guardar en JSON
+        if not guardar_citas(citas):
+            log("⚠️ Error guardando cita en JSON", "WARNING")
+        
+        log(f"✅ Cita creada localmente: {nueva_cita['id']} para {nombre}")
+        
+        # 2. Guardar en PostgreSQL
+        conn = get_db_connection()
+        if conn:
+            # Asegurar esquema antes del INSERT
+            init_db(conn)
+            
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO citas (user_id, nombre, email, telefono, fecha_cita, hora_cita, propiedad_id, estado, notas)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (user_id, nombre, email, telefono, fecha, hora, propiedad_id, 'pendiente', notas))
+            
+            db_record_id = cursor.fetchone()[0]
+            conn.commit()
+            log(f"✅ Cita guardada en PostgreSQL - ID DB: {db_record_id}")
+            
+            # Registrar también en el log general de leads
+            guardar_en_postgresql(
+                telefono=telefono,
+                nombre=nombre,
+                accion="cita_agendada",
+                detalles=f"Cita agendada para {fecha} {hora} - Propiedad ID: {propiedad_id} - Email: {email}"
+            )
+        else:
+            log("⚠️ No se pudo conectar a PostgreSQL para guardar la cita", "WARNING")
+
+        # 3. Notificar al admin
+        notificar_cita_admin(nueva_cita)
+        
+        return nueva_cita
+        
+    except Exception as e:
+        log(f"❌ Error creando cita: {e}", "ERROR")
+        if conn:
+            conn.rollback()
+        import traceback
+        log(f"🔍 Detalles error: {traceback.format_exc()}")
+        return None
+    finally:
+        if conn:
+            conn.close()
+
 def buscar_cita_activa_usuario(user_id):
     """Busca la cita más próxima y activa de un usuario"""
     conn = None
@@ -2506,7 +2346,35 @@ def set_user_state():
     log(f"🔄 Estado de usuario {user_id} actualizado remotamente a: {nuevo_paso}")
     return jsonify({"status": "success", "user_id": user_id, "paso": nuevo_paso})
 
-
+@app.route("/api/internal/send-reminder", methods=["POST"])
+def send_appointment_reminder():
+    """Envia un recordatorio de cita y setea el estado del usuario"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    data = request.get_json()
+    user_id = data.get('user_id') # Ej: 54911...
+    nombre = data.get('nombre', 'Cliente')
+    fecha = data.get('fecha') # DD-MM-AAAA
+    hora = data.get('hora')
+    propiedad = data.get('propiedad', 'la propiedad')
+    
+    if not all([user_id, fecha, hora]):
+        return jsonify({"error": "Missing fields"}), 400
+    
+    mensaje = f"Hola *{nombre}*! 😊\n\nTe escribo desde *Dante Propiedades* para recordarte tu visita de mañana:\n\n🏠 *{propiedad}*\n📅 *{fecha}*\n⏰ *{hora} hs*\n\n¿Nos confirmas si mantenés la visita o si preferís reprogramar/cancelar? Así te reservamos el lugar. 👇"
+    
+    # Enviar mensaje
+    result = send_whatsapp_message(user_id, mensaje)
+    
+    # Seteamos el estado para que la próxima respuesta caiga en el handler de confirmación
+    estado = obtener_estado_usuario(user_id)
+    estado['paso'] = 'esperando_confirmacion_recordatorio'
+    actualizar_estado_usuario(user_id, estado)
+    
+    log(f"🔔 Recordatorio enviado a {user_id} ({nombre})")
+    return jsonify({"status": result.get('status'), "whatsapp_id": result.get('message_id')})
 
 @app.route("/imgs/<path:filename>")
 def serve_image(filename):
@@ -2732,81 +2600,6 @@ def debug_leads():
         "ultimo_lead": leads_json[-1] if leads_json else None,
         "archivo": os.path.exists(LEADS_FILE)
     })
-
-
-@app.route("/api/internal/send-reminder", methods=["POST"])
-def send_appointment_reminder():
-    """Envia un recordatorio de cita y setea el estado del usuario"""
-    try:
-        # 🔥 VERIFICACIÓN DE CLAVE ELIMINADA PARA PRUEBAS
-        # key = request.args.get('key')
-        # if key != ADMIN_ACCESS_KEY:
-        #     return jsonify({"error": "Unauthorized"}), 403
-        
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No JSON data provided"}), 400
-        
-        user_id = data.get('user_id')
-        nombre = data.get('nombre', 'Cliente')
-        fecha = data.get('fecha')
-        hora = data.get('hora')
-        propiedad = data.get('propiedad', 'la propiedad')
-        
-        # Validar campos obligatorios
-        missing = []
-        if not user_id:
-            missing.append('user_id')
-        if not fecha:
-            missing.append('fecha')
-        if not hora:
-            missing.append('hora')
-            
-        if missing:
-            return jsonify({"error": "Missing fields", "missing": missing}), 400
-        
-        # Formatear mensaje
-        mensaje = f"""🔔 *RECORDATORIO DANTE PROPIEDADES*
-
-Hola *{nombre}*! 😊
-
-Te escribo para recordarte tu cita de mañana:
-
-📅 *Fecha:* {fecha}
-⏰ *Hora:* {hora} hs
-🏠 *Propiedad:* {propiedad}
-
-📍 Te esperamos. Si necesitas cancelar o reprogramar, avísanos respondiendo este mensaje.
-
-*Opciones:*
-✅ Respondé *CONFIRMAR* para confirmar
-❌ Respondé *CANCELAR* si no podrás asistir
-🔄 Respondé *REPROGRAMAR* para cambiar fecha/hora
-
-¡Gracias por confiar en Dante Propiedades! 🏠🗝️"""
-        
-        # Enviar mensaje
-        result = send_whatsapp_message(user_id, mensaje)
-        
-        # Setear estado para esperar confirmación
-        estado = obtener_estado_usuario(user_id)
-        estado['paso'] = 'esperando_confirmacion_recordatorio'
-        actualizar_estado_usuario(user_id, estado)
-        
-        log(f"🔔 Recordatorio enviado a {user_id} ({nombre})")
-        return jsonify({
-            "status": "success",
-            "whatsapp_id": result.get('message_id')
-        }), 200
-        
-    except Exception as e:
-        log(f"❌ Error inesperado: {e}")
-        import traceback
-        log(traceback.format_exc())
-        return jsonify({"error": "Internal server error", "details": str(e)}), 500
-    
-    
-# MAIN
 
 if __name__ == "__main__":
 
