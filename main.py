@@ -1557,25 +1557,54 @@ def manejar_busqueda_keywords(termino, estado_usuario, user_id):
 
 
 # ========== FUNCIONES DE WHATSAPP API MEJORADAS ==========
+# def check_token_validity():
+#     """Verifica si el token de acceso es válido"""
+#     try:
+#         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}"
+#         headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+#         response = requests.get(url, headers=headers, timeout=10)
+        
+#         if response.status_code == 200:
+#             data = response.json()
+#             log(f"✅ Token válido: {data.get('verified_name', 'N/A')}")
+#             return True, data
+#         else:
+#             error_data = response.json() if response.content else {}
+#             log(f"❌ Token inválido: Status {response.status_code}")
+#             return False, error_data
+            
+#     except Exception as e:
+#         log(f"🔥 Error verificando token: {e}")
+#         return False, {"error": str(e)}
+
+
 def check_token_validity():
     """Verifica si el token de acceso es válido"""
     try:
-        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}"
-        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}?fields=verified_name"
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+
         response = requests.get(url, headers=headers, timeout=10)
-        
+
         if response.status_code == 200:
             data = response.json()
-            log(f"✅ Token válido: {data.get('verified_name', 'N/A')}")
+            log(f"✅ Token válido. Verified name: {data.get('verified_name', 'N/A')}")
             return True, data
+
         else:
             error_data = response.json() if response.content else {}
-            log(f"❌ Token inválido: Status {response.status_code}")
+            log(f"❌ Token inválido o sin permisos. Status {response.status_code}")
+            log(f"Detalles: {error_data}")
             return False, error_data
-            
+
     except Exception as e:
         log(f"🔥 Error verificando token: {e}")
         return False, {"error": str(e)}
+
+
 
 def send_whatsapp_message(to_number, message_text):
     """Envía un mensaje de WhatsApp usando texto directo"""
