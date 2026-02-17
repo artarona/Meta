@@ -631,7 +631,10 @@ def get_bot_response(text, user_id):
             else:
                 return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
         
-        elif paso == 'submenu_consultar':
+        # 3. LÓGICA POR ESTADO
+        paso = estado_usuario['paso']
+        
+        if paso == 'submenu_consultar':
             return manejar_submenu_consultar(text_lower, estado_usuario, user_id)
             
         elif paso == 'submenu_visita':
@@ -639,7 +642,34 @@ def get_bot_response(text, user_id):
             
         elif paso == 'submenu_asesor':
             return manejar_submenu_asesor(text_lower, estado_usuario, user_id)
+
+        elif paso == 'listado_propiedades':
+            return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'detalle_propiedad':
+            return manejar_detalle_propiedad(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'esperando_nombre_lead':
+            return manejar_nombre_lead(text, estado_usuario, user_id)
+        
+        elif paso == 'ofrecer_cita':
+            return manejar_ofrecer_cita(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'solicitar_fecha_cita':
+            return manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'seleccionar_hora_cita':
+            return manejar_seleccionar_hora_cita(text, estado_usuario, user_id)
             
+        elif paso == 'confirmar_cita':
+            return manejar_confirmar_cita(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'esperando_email_cita':
+            return manejar_email_cita(text, estado_usuario, user_id)
+        
+        elif paso == 'esperando_confirmacion_recordatorio':
+            return manejar_confirmacion_recordatorio(text, estado_usuario, user_id)
+        
         elif paso == 'vista_fotos':
             return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
 
