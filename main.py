@@ -1603,8 +1603,9 @@ def check_token_validity():
     except Exception as e:
         log(f"🔥 Error verificando token: {e}")
         return False, {"error": str(e)}
-
-
+    
+    
+    
 
 def send_whatsapp_message(to_number, message_text):
     """Envía un mensaje de WhatsApp usando texto directo"""
