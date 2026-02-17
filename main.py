@@ -1374,83 +1374,26 @@ def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
             propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
             propiedad_titulo = propiedades_lista[indice - 1].get('titulo')
 
-        def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None, notas=""):
-        """Crea una nueva cita y la guarda en JSON y PostgreSQL"""
-            conn = None
-            try:
-                citas = cargar_citas()
-                nueva_cita = {
-                    'id': f"cita_{len(citas)+1:04d}",
-                    'user_id': user_id,
-                    'nombre': nombre,
-                    'email': email,
-                    'telefono': telefono,
-                    'fecha': fecha,
-                    'hora': hora,
-                    'propiedad_id': propiedad_id,
-                    'estado': 'pendiente',
-                    'notas': notas,
-                    'creacion': datetime.now().isoformat(),
-                    'ultima_actualizacion': datetime.now().isoformat()
-                }
-                
-                citas.append(nueva_cita)
-                
-                # 1. Guardar en JSON
-                if not guardar_citas(citas):
-                    log("⚠️ Error guardando cita en JSON", "WARNING")
-                
-                log(f"✅ Cita creada localmente: {nueva_cita['id']} para {nombre}")
-                
-                # 2. Guardar en PostgreSQL (con nuevas columnas)
-                conn = get_db_connection()
-                if conn:
-                    # Asegurar esquema antes del INSERT
-                    init_db(conn)
-                    
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        INSERT INTO citas (
-                            user_id, nombre, email, telefono, fecha_cita, hora_cita, 
-                            propiedad_id, estado, notas,
-                            recordatorio_enviado, recordatorio_horario
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        RETURNING id
-                    """, (
-                        user_id, nombre, email, telefono, fecha, hora, 
-                        propiedad_id, 'pendiente', notas,
-                        False, '09:00'  # Valores por defecto para recordatorios
-                    ))
-                    
-                    db_record_id = cursor.fetchone()[0]
-                    conn.commit()
-                    log(f"✅ Cita guardada en PostgreSQL - ID DB: {db_record_id}")
-                    
-                    # Registrar también en el log general de leads
-                    guardar_en_postgresql(
-                        telefono=telefono,
-                        nombre=nombre,
-                        accion="cita_agendada",
-                        detalles=f"Cita agendada para {fecha} {hora} - Propiedad ID: {propiedad_id} - Email: {email}"
-                    )
-                else:
-                    log("⚠️ No se pudo conectar a PostgreSQL para guardar la cita", "WARNING")
-
-                # 3. Notificar al admin
-                notificar_cita_admin(nueva_cita)
-                
-                return nueva_cita
-                
-            except Exception as e:
-                log(f"❌ Error creando cita: {e}", "ERROR")
-                if conn:
-                    conn.rollback()
-                import traceback
-                log(f"🔍 Detalles error: {traceback.format_exc()}")
-                return None
-            finally:
-                if conn:
-                    conn.close()
+        # LLAMAR a la función crear_cita (que debe estar definida fuera de esta función)
+        crear_cita(
+            user_id=user_id,
+            nombre=nombre,
+            telefono=user_id,
+            fecha=fecha,
+            hora=hora,
+            propiedad_id=propiedad_id,
+            email=email,
+            notas="Agendado vía Bot"
+        )
+        
+        # Resetear estado
+        estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['fecha_cita'] = None
+        estado_usuario['hora_cita'] = None
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        # Mensaje de confirmación
+        return f"""✅ *¡VISITA AGENDADA!*
         
 Hemos confirmado tu visita para:
 📅 *{datetime.strptime(fecha, "%Y-%m-%d").strftime("%d-%m-%Y")}*
@@ -1470,6 +1413,85 @@ Te esperamos. Si necesitas cancelar, por favor avísanos.
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "❌ Operación cancelada.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
+
+
+def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None, notas=""):
+    """Crea una nueva cita y la guarda en JSON y PostgreSQL"""
+    conn = None
+    try:
+        citas = cargar_citas()
+        nueva_cita = {
+            'id': f"cita_{len(citas)+1:04d}",
+            'user_id': user_id,
+            'nombre': nombre,
+            'email': email,
+            'telefono': telefono,
+            'fecha': fecha,
+            'hora': hora,
+            'propiedad_id': propiedad_id,
+            'estado': 'pendiente',
+            'notas': notas,
+            'creacion': datetime.now().isoformat(),
+            'ultima_actualizacion': datetime.now().isoformat()
+        }
+        
+        citas.append(nueva_cita)
+        
+        # 1. Guardar en JSON
+        if not guardar_citas(citas):
+            log("⚠️ Error guardando cita en JSON", "WARNING")
+        
+        log(f"✅ Cita creada localmente: {nueva_cita['id']} para {nombre}")
+        
+        # 2. Guardar en PostgreSQL (con nuevas columnas)
+        conn = get_db_connection()
+        if conn:
+            # Asegurar esquema antes del INSERT
+            init_db(conn)
+            
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO citas (
+                    user_id, nombre, email, telefono, fecha_cita, hora_cita, 
+                    propiedad_id, estado, notas,
+                    recordatorio_enviado, recordatorio_horario
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (
+                user_id, nombre, email, telefono, fecha, hora, 
+                propiedad_id, 'pendiente', notas,
+                False, '09:00'  # Valores por defecto para recordatorios
+            ))
+            
+            db_record_id = cursor.fetchone()[0]
+            conn.commit()
+            log(f"✅ Cita guardada en PostgreSQL - ID DB: {db_record_id}")
+            
+            # Registrar también en el log general de leads
+            guardar_en_postgresql(
+                telefono=telefono,
+                nombre=nombre,
+                accion="cita_agendada",
+                detalles=f"Cita agendada para {fecha} {hora} - Propiedad ID: {propiedad_id} - Email: {email}"
+            )
+        else:
+            log("⚠️ No se pudo conectar a PostgreSQL para guardar la cita", "WARNING")
+
+        # 3. Notificar al admin
+        notificar_cita_admin(nueva_cita)
+        
+        return nueva_cita
+        
+    except Exception as e:
+        log(f"❌ Error creando cita: {e}", "ERROR")
+        if conn:
+            conn.rollback()
+        import traceback
+        log(f"🔍 Detalles error: {traceback.format_exc()}")
+        return None
+    finally:
+        if conn:
+            conn.close()
 
 # Helper para mostrar horarios (extraído para reusar)
 def mostrar_seleccion_horarios(fecha_display, horarios):
