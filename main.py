@@ -1617,6 +1617,7 @@ def send_whatsapp_message(to_number, message_text):
                 "status": "error",
                 "error_code": "invalid_token",
                 "error_message": "Token de acceso expirado o inválido"
+                log(f"🔑 Token cargado (primeros 10 chars): {ACCESS_TOKEN[:10]}")
             }
         
         def transform_number(number):
@@ -1647,7 +1648,7 @@ def send_whatsapp_message(to_number, message_text):
         }
         
         log(f"📤 Enviando mensaje a: {to_number}")
-        log(f"🔑 Token cargado (primeros 10 chars): {ACCESS_TOKEN[:10]}")
+
         response = requests.post(url, json=payload, headers=headers, timeout=30)
         
         if response.status_code == 200:
