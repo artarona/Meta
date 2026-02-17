@@ -303,36 +303,112 @@ def cargar_propiedades_cached():
     return cargar_propiedades()
 
 def obtener_estado_usuario(user_id):
-    """Obtiene o crea el estado de un usuario"""
-    if user_id not in estados_usuarios:
-        estados_usuarios[user_id] = {
-            'paso': 'menu_principal',
-            'operacion_seleccionada': None,
-            'propiedades_filtradas': [],
-            'ultimo_indice_preguntado': None,
-            'timestamp': datetime.now().isoformat(),
-            'data': {}  # Datos adicionales del usuario
-        }
-    return estados_usuarios[user_id]
+    """Obtiene o crea el estado de un usuario (Cache + PostgreSQL)"""
+    # 1. Intentar desde caché en memoria
+    if user_id in estados_usuarios:
+        return estados_usuarios[user_id]
+        
+    # 2. Intentar desde PostgreSQL
+    conn = None
+    try:
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data FROM user_states WHERE user_id = %s", (user_id,))
+            res = cursor.fetchone()
+            if res:
+                estado = {
+                    'paso': res[0],
+                    'operacion_seleccionada': res[1],
+                    'propiedades_filtradas': res[2] or [],
+                    'ultimo_indice_preguntado': res[3],
+                    'nombre_cliente': res[4],
+                    'email_cliente': res[5],
+                    'fecha_cita': res[6],
+                    'hora_cita': res[7],
+                    'horarios_disponibles': res[8] or [],
+                    'data': res[9] or {},
+                    'timestamp': datetime.now().isoformat()
+                }
+                estados_usuarios[user_id] = estado
+                return estado
+    except Exception as e:
+        log(f"⚠️ Error recuperando estado de DB: {e}")
+    finally:
+        if conn: conn.close()
+        
+    # 3. Si no existe, crear nuevo
+    estado_nuevo = {
+        'paso': 'menu_principal',
+        'operacion_seleccionada': None,
+        'propiedades_filtradas': [],
+        'ultimo_indice_preguntado': None,
+        'timestamp': datetime.now().isoformat(),
+        'data': {}
+    }
+    estados_usuarios[user_id] = estado_nuevo
+    return estado_nuevo
 
 def actualizar_estado_usuario(user_id, nuevo_estado):
-    """Actualiza el estado de un usuario con limpieza automática"""
+    """Actualiza el estado de un usuario en caché y PostgreSQL"""
     nuevo_estado['timestamp'] = datetime.now().isoformat()
     estados_usuarios[user_id] = nuevo_estado
     
-    # Limpiar estados antiguos (más de 2 horas)
+    # Sincronizar con PostgreSQL
+    conn = None
+    try:
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO user_states (
+                    user_id, paso, operacion_seleccionada, propiedades_filtradas, 
+                    ultimo_indice_preguntado, nombre_cliente, email_cliente, 
+                    fecha_cita, hora_cita, horarios_disponibles, data, timestamp
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (user_id) DO UPDATE SET
+                    paso = EXCLUDED.paso,
+                    operacion_seleccionada = EXCLUDED.operacion_seleccionada,
+                    propiedades_filtradas = EXCLUDED.propiedades_filtradas,
+                    ultimo_indice_preguntado = EXCLUDED.ultimo_indice_preguntado,
+                    nombre_cliente = EXCLUDED.nombre_cliente,
+                    email_cliente = EXCLUDED.email_cliente,
+                    fecha_cita = EXCLUDED.fecha_cita,
+                    hora_cita = EXCLUDED.hora_cita,
+                    horarios_disponibles = EXCLUDED.horarios_disponibles,
+                    data = EXCLUDED.data,
+                    timestamp = EXCLUDED.timestamp
+            """, (
+                user_id, 
+                nuevo_estado.get('paso'),
+                nuevo_estado.get('operacion_seleccionada'),
+                json.dumps(nuevo_estado.get('propiedades_filtradas', [])),
+                nuevo_estado.get('ultimo_indice_preguntado'),
+                nuevo_estado.get('nombre_cliente'),
+                nuevo_estado.get('email_cliente'),
+                nuevo_estado.get('fecha_cita'),
+                nuevo_estado.get('hora_cita'),
+                json.dumps(nuevo_estado.get('horarios_disponibles', [])),
+                json.dumps(nuevo_estado.get('data', {})),
+                nuevo_estado.get('timestamp')
+            ))
+            conn.commit()
+    except Exception as e:
+        log(f"⚠️ Error persistiendo estado en DB: {e}")
+    finally:
+        if conn: conn.close()
+    
+    # Limpieza periódica de caché en memoria (no de DB)
     ahora = datetime.now()
-    usuarios_a_eliminar = []
-    
-    for uid, estado in estados_usuarios.items():
-        if 'timestamp' in estado:
-            tiempo_dif = ahora - datetime.fromisoformat(estado['timestamp'])
-            if tiempo_dif.total_seconds() > 7200:  # 2 horas
-                usuarios_a_eliminar.append(uid)
-    
-    for uid in usuarios_a_eliminar:
-        del estados_usuarios[uid]
-        log(f"🧹 Estado limpiado para usuario: {uid}")
+    if ahora.minute % 30 == 0: # Solo cada 30 minutos
+        usuarios_a_eliminar = []
+        for uid, estado in estados_usuarios.items():
+            if 'timestamp' in estado:
+                tiempo_dif = ahora - datetime.fromisoformat(estado['timestamp'])
+                if tiempo_dif.total_seconds() > 3600:  # 1 hora en caché
+                    usuarios_a_eliminar.append(uid)
+        for uid in usuarios_a_eliminar:
+            del estados_usuarios[uid]
 
 # ========== GESTIÓN DE LEADS MEJORADA ==========
 
