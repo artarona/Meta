@@ -824,6 +824,9 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
 9️⃣ Volver al menú principal
 0️⃣ Salir"""
 
+    elif text_lower == "5":
+            return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
+
     elif text_lower == "8" and user_id == ADMIN_NUMBER.lstrip('549'):
         return mostrar_panel_admin()
     
