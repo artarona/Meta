@@ -505,7 +505,6 @@ def generar_listado_propiedades(propiedades):
         listado += f"\n📊 ...y {len(propiedades) - 10} propiedades más.\n"
     
     listado += "\nPara ver detalles, responde con el número (ej: 1️⃣)\n"
-    listado += "9️⃣ *Volver al menú principal*\n"
     listado += f"{numero_a_emoji(0)} *❌ SALIR*"
     
     return listado
@@ -643,9 +642,6 @@ def get_bot_response(text, user_id):
             
         elif paso == 'submenu_asesor':
             return manejar_submenu_asesor(text_lower, estado_usuario, user_id)
-        
-        elif paso == 'submenu_citas':
-            return manejar_submenu_citas(text_lower, estado_usuario, user_id)
 
         elif paso == 'listado_propiedades':
             return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
@@ -715,35 +711,33 @@ Por favor:
 def manejar_menu_principal(text_lower, estado_usuario, user_id):
     """Maneja las opciones del menú principal"""
     if text_lower == "1":
-        return procesar_opcion_venta(estado_usuario, user_id)
+        estado_usuario['paso'] = 'submenu_consultar'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return """🔍 *CONSULTAR PROPIEDADES*
+
+1️⃣ Buscar por código (ej.: UF002)
+2️⃣ Buscar por zona
+3️⃣ Ver propiedades destacadas
+
+9️⃣ Volver al menú principal
+0️⃣ Salir"""
 
     elif text_lower == "2":
-        return procesar_opcion_alquiler(estado_usuario, user_id)
-
-    elif text_lower == "3":
         estado_usuario['paso'] = 'submenu_visita'
         actualizar_estado_usuario(user_id, estado_usuario)
         return """📅 *COORDINAR UNA VISITA*
 
-1️⃣ Ver días y horarios disponibles
-2️⃣ Confirmar una visita
+1️⃣ Elegir propiedad
+2️⃣ Ver días y horarios disponibles
+3️⃣ Confirmar visita
 
 9️⃣ Volver al menú principal
 0️⃣ Salir"""
+
+    elif text_lower == "3":
+        return procesar_opcion_mis_citas(user_id)
 
     elif text_lower == "4":
-        estado_usuario['paso'] = 'submenu_citas'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return """📋 *CITAS PROGRAMADAS*
-
-1️⃣ Ver próximas visitas
-2️⃣ Reprogramar una visita
-3️⃣ Cancelar una visita
-
-9️⃣ Volver al menú principal
-0️⃣ Salir"""
-
-    elif text_lower == "5":
         estado_usuario['paso'] = 'submenu_asesor'
         actualizar_estado_usuario(user_id, estado_usuario)
         return """👤 *HABLAR CON UN ASESOR*
@@ -758,23 +752,23 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
         return mostrar_panel_admin()
     
     else:
-        return """Por favor elegí una opción del menú usando los números.
+        return """No pude identificar esa opción. Por favor elegí un número del menú.
 
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*"""
 
 # ========== MANEJADORES DE SUBMENÚS ==========
 
-def manejar_submenu_citas(text_lower, estado_usuario, user_id):
-    """Maneja las opciones del submenú de citas"""
+def manejar_submenu_consultar(text_lower, estado_usuario, user_id):
+    """Maneja las opciones del submenú de consulta"""
     if text_lower == "1":
-        return procesar_opcion_mis_citas(user_id)
+        return "🔎 *Búsqueda por código*\n\nPor favor, enviá el código de la propiedad (ej: UF002).\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
     elif text_lower == "2":
-        return "📅 *Reprogramar una visita*\n\nPor favor, contactá a un asesor para reprogramar tu cita o indicanos la nueva fecha deseada.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+        return "📍 *Búsqueda por zona*\n\n¿En qué zona estás buscando? (ej: Palermo, Belgrano, Tigre...)\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
     elif text_lower == "3":
-        return "❌ *Cancelar una visita*\n\nPara cancelar, por favor escribí el motivo o contactá a nuestro soporte.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+        return procesar_opcion_todas(estado_usuario, user_id)
     else:
-        return """Por favor elegí una opción del menú usando los números.
+        return """No pude identificar esa opción. Por favor elegí un número del menú.
 
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*"""
@@ -782,11 +776,13 @@ def manejar_submenu_citas(text_lower, estado_usuario, user_id):
 def manejar_submenu_visita(text_lower, estado_usuario, user_id):
     """Maneja las opciones del submenú de visitas"""
     if text_lower == "1":
-        return "📅 *Días y horarios disponibles*\n\nNuestros horarios generales son de Lunes a Viernes de 9 a 18:30 hs.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+        return procesar_opcion_todas(estado_usuario, user_id)
     elif text_lower == "2":
-        return "✅ *Confirmar visita*\n\nPara confirmar una visita, primero debemos seleccionar una propiedad. \n\n1️⃣ Ver propiedades en Venta\n2️⃣ Ver propiedades en Alquiler\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+        return "📅 *Días y horarios disponibles*\n\nNuestros horarios generales son de Lunes a Viernes de 9 a 18:30 hs.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+    elif text_lower == "3":
+        return "✅ *Confirmar visita*\n\nPara confirmar una visita, primero debemos seleccionar una propiedad. \n\n1️⃣ Ver propiedades\n9️⃣ Volver al menú principal\n0️⃣ Salir"
     else:
-        return """Por favor elegí una opción del menú usando los números.
+        return """No pude identificar esa opción. Por favor elegí un número del menú.
 
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*"""
@@ -800,7 +796,7 @@ def manejar_submenu_asesor(text_lower, estado_usuario, user_id):
         notificar_agente(f"📞 *SOLICITUD DE LLAMADA*\n📞 Tel: +{user_id}\n📝 El cliente solicita ser llamado.")
         return "✅ *Solicitud registrada!*\n\nTe llamaremos en el horario más conveniente.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
     else:
-        return """Por favor elegí una opción del menú usando los números.
+        return """No pude identificar esa opción. Por favor elegí un número del menú.
 
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*"""
@@ -816,7 +812,7 @@ def procesar_opcion_venta(estado_usuario, user_id):
     
     propiedades = estado_usuario['propiedades_filtradas']
     if not propiedades:
-        return "📭 No hay propiedades en venta por ahora.\n\n9️⃣ *Volver al menú principal*\n0️⃣ *❌ SALIR*"
+        return "📭 No hay propiedades en venta por ahora.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
     
     return f"💰 *PROPIEDADES EN VENTA*\nEncontramos *{len(propiedades)}* disponibles:\n\n" + generar_listado_propiedades(propiedades)
 
@@ -831,7 +827,7 @@ def procesar_opcion_alquiler(estado_usuario, user_id):
     
     propiedades = estado_usuario['propiedades_filtradas']
     if not propiedades:
-        return "📭 No hay propiedades en alquiler por ahora.\n\n9️⃣ *Volver al menú principal*\n0️⃣ *❌ SALIR*"
+        return "📭 No hay propiedades en alquiler por ahora.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
     
     return f"🔑 *PROPIEDADES EN ALQUILER*\nEncontramos *{len(propiedades)}* disponibles:\n\n" + generar_listado_propiedades(propiedades)
 
@@ -851,7 +847,7 @@ def procesar_opcion_mis_citas(user_id):
     citas_usuario = [c for c in citas if c['telefono'] == user_id and c['estado'] != 'cancelada']
     
     if not citas_usuario:
-        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n9️⃣ *Volver al menú principal*\n0️⃣ *❌ SALIR*"
+        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
     
     mensaje = f"📅 *TUS CITAS AGENDADAS*\n\nTienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
     
@@ -869,7 +865,7 @@ def procesar_opcion_mis_citas(user_id):
         mensaje += "   ───────────────\n"
     
     mensaje += f"\nPara consultar o modificar una cita, contacta al administrador.\n\n"
-    mensaje += f"9️⃣ Volver al menú principal\n0️⃣ *❌ SALIR*"
+    mensaje += f"Envía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
     
     return mensaje
 
@@ -1087,13 +1083,12 @@ Un asesor te contactará en los próximos **15 minutos** para gestionar tu ofert
         return "👋 ¡Gracias por contactarnos! Para volver al menú, envía 'Hola'. Dante Propiedades! 🏠🗝️"
     
     else:
-        return """Por favor elegí una opción del menú usando los números.
+        return """❌ Opción no válida. Por favor selecciona:
 
 1️⃣ *SÍ, AGENDAR CITA* 📅
 2️⃣ *No por ahora, solo información* 📋
 3️⃣ *Ya la vi, quiero ofertar* 💰
-9️⃣ *Volver al menú principal*
-0️⃣ *Salir del chat* ❌"""
+0️⃣ *❌ SALIR*"""
 
 def manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id):
     """Maneja la solicitud de fecha para la cita"""
@@ -1232,9 +1227,9 @@ def manejar_email_cita(text, estado_usuario, user_id):
         else:
             # Si no parece un email y no quiso saltar, le avisamos pero permitimos saltar
             if text_lower == "1":
-                return "📧 Por favor, escribí tu correo electrónico o enviá *2️⃣* para saltar."
+                return "📧 Por favor, escribí tu correo electrónico o enviá *'2'* para saltar."
             
-            return f"⚠️ *{text}* no parece un correo válido.\n\nPor favor, escribí un email válido o enviá *2️⃣* para saltar este paso."
+            return f"⚠️ *{text}* no parece un correo válido.\n\nPor favor, escribí un email válido o enviá *'2'* para saltar este paso."
 
     estado_usuario['paso'] = 'confirmar_cita'
     actualizar_estado_usuario(user_id, estado_usuario)
@@ -1491,7 +1486,7 @@ def send_photos_async(user_id, propiedad_id, base_url):
         notificar_agente(f"👤 Cliente {user_id} está viendo fotos de: {propiedad.get('titulo')}")
         registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_fotos")
         
-        send_whatsapp_message(user_id, "✅ *¡Fotos enviadas!*\n\n1️⃣ Reservar una cita\n9️⃣ Volver al menú 🏠\n0️⃣ ❌ Salir")
+        send_whatsapp_message(user_id, "✅ *¡Fotos enviadas!*\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*")
         
         log(f"✅ Envío de fotos completado para {user_id}")
     except Exception as e:
@@ -1553,11 +1548,10 @@ def send_welcome_flow(user_id):
 *¿Cómo podemos ayudarte hoy?*
 Elegí el número de tu opción:
 
-1️⃣ *Consultar propiedades en Venta* 💰
-2️⃣ *Consultar propiedades en Alquiler* 🔑
-3️⃣ *Coordinar una visita* 📅
-4️⃣ *Ver mis citas programadas* 📋
-5️⃣ *Hablar con un asesor* 👤
+1️⃣ *Consultar propiedades* 🏠
+2️⃣ *Coordinar una visita* 📅
+3️⃣ *Ver mis citas programadas* 📋
+4️⃣ *Hablar con un asesor* 👤
 
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*
