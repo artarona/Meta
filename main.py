@@ -22,6 +22,14 @@ except ImportError:
 from functools import lru_cache
 import time
 
+
+
+def normalizar_numero_argentina(numero):
+    """Convierte número argentino al formato que espera la API de WhatsApp (sandbox)"""
+    if numero and numero.startswith('549') and len(numero) == 13:
+        return '54' + numero[3:]  # 5491151511579 → 5411515151579
+    return numero
+
 app = Flask(__name__)
 
 # ========== CONFIGURACIÓN ==========
@@ -29,7 +37,7 @@ VERIFY_TOKEN = "mi_token_secreto_123"
 ACCESS_TOKEN = "EAAJYsGl5pHgBQuyEI5n25ZCA8358KQrwzznmvird325M1HorVZCqdCcx6CAIAGEF3vxZBVrInKIITYD3bThLsnQ7zlZAvV8KwyBo9jO6JO8ZAlgFi3pRo6ZBBKOyZBpDtZB3PHcfj5PR6aqtZAPB2DY1CTeKijGMW9ZBp5f3AVa4CNeXioCJaP1AsdbrkcWNCl2M5UuuYN2ZA7tpWZCImNcjnqgqHH2A0XB0hEpxfzMexXcqZAcPgcMsel9fAXGZAs0eb3hQ1Yi9tGD3B1CnAg8fqmjCe5GiAENn2z3Vcz8ZADk"
 
 PHONE_NUMBER_ID = "1000705633118215"
-ADMIN_NUMBER = "5491151511579"
+ADMIN_NUMBER = "541151511579"
 LEADS_FILE = "leads.json"
 ADMIN_ACCESS_KEY = "dante2026"
 ADMIN_ACCESS_KEY = "dante2026"
@@ -1629,6 +1637,7 @@ def send_whatsapp_message(to_number, message_text):
             return number
         
         transformed_number = transform_number(to_number)
+        transformed_number = normalizar_numero_argentina(transformed_number)
         
         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
         headers = {
