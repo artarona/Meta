@@ -31,7 +31,7 @@ VERIFY_TOKEN = "mi_token_secreto_123"
 ACCESS_TOKEN = "EAAJYsGl5pHgBQkROvoiV867Y6DMLvz6Et9qLbU5YfIj6WG9uDom59ZCpk1A9tZAXRDecP965IlkKAKuJ2d7ZCnRBZClFPWTzhBkfaSwQ5eopistycmRKq7VW7aWDJBBzbVIUSJibUFZCM7009AKJg2JqFSenNU110OvTkQOC2Hhm5nRkAdi9EzbgVtka7QICY5emYZC86MMCYE0QianVUImZAYeDNcLyFB8NezlZBdOw1inlHkc4L2FRllGWKiUNt1MmDyhJZCQnpdFKNdiO3QwsIrAPGZBnBmtUO9IRsZD"
 
 PHONE_NUMBER_ID = "1000705633118215"
-ADMIN_NUMBER = "5491151511579"
+ADMIN_NUMBER = "5411151511579"
 LEADS_FILE = "leads.json"
 
 ADMIN_ACCESS_KEY = "dante2026"
@@ -1986,7 +1986,7 @@ def debug_pg():
         try:
             cursor.execute("""
                 INSERT INTO leads (telefono, nombre, accion, detalles)
-                VALUES ('test_5491151511579', 'TEST DEBUG', 'debug_test', 'Prueba desde /debug/postgresql')
+                VALUES ('test_5411151511579', 'TEST DEBUG', 'debug_test', 'Prueba desde /debug/postgresql')
                 RETURNING id
             """)
             test_id = cursor.fetchone()[0]
@@ -2022,7 +2022,7 @@ def debug_save_test():
     """Probar guardado manual en PostgreSQL"""
     try:
         result = guardar_en_postgresql(
-            telefono="5491151511579",
+            telefono="5411151511579",
             nombre="TEST MANUAL",
             accion="test_manual",
             detalles="Prueba manual desde /debug/save-test"
@@ -2523,7 +2523,7 @@ def serve_image(filename):
 @app.route("/test", methods=["GET"])
 def test_send():
     """Endpoint de prueba manual"""
-    test_number = "5491151511579"
+    test_number = "5411151511579"
     test_message = "✅ ¡Hola! Este es un mensaje de prueba desde el bot inmobiliario."
     
     result = send_whatsapp_message(test_number, test_message)
