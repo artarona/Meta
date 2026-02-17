@@ -2822,6 +2822,39 @@ Te escribo para recordarte tu cita de mañana:
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
     
     
+    
+@app.route("/test-envio", methods=["GET"])
+def test_envio():
+    """Endpoint ultra simple para probar envío"""
+    try:
+        # TU NÚMERO EN FORMATO META (sin 9, sin 15)
+        numero = "5411515151579"
+        mensaje = "🔔 PRUEBA DIRECTA DESDE EL BOT"
+        
+        # Copiar la función de envío simplificada
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": numero,
+            "type": "text",
+            "text": {"body": mensaje}
+        }
+        
+        response = requests.post(url, json=payload, headers=headers)
+        
+        return jsonify({
+            "status_code": response.status_code,
+            "respuesta": response.json(),
+            "token_usado": ACCESS_TOKEN[:30] + "..."
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500    
+    
 # MAIN
 
 if __name__ == "__main__":
