@@ -34,7 +34,7 @@ app = Flask(__name__)
 
 # ========== CONFIGURACIÓN ==========
 VERIFY_TOKEN = "mi_token_secreto_123"
-ACCESS_TOKEN = "EAAJYsGl5pHgBQtn0USyKI6kYkdZB1Ej54lmjx2jxqtMPwa7D1S6j5b0qzQp1bJlkJIRxpFYh41o7RpcZA6AAhGZBZB61hWWg0i2CqyZA61WcuiIpbjdBLyJ1ekWj5kUNhBov5ClrbggQOXVlNjrubVDoZB0iHmwTngyGh9ZAGFjxZBl9xmvWF0mFkv6cljUf9nb0V293rw4PCGROzoqn4fXIDO1ZAcjbBTN55V2ThFv6xhZA0mx9YdyXyVVJbCVCBUTK6HAfZC3ZBUzXat6QXiBIoaRnn0UjryFnvZBwT8gZDZD"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQuyEI5n25ZCA8358KQrwzznmvird325M1HorVZCqdCcx6CAIAGEF3vxZBVrInKIITYD3bThLsnQ7zlZAvV8KwyBo9jO6JO8ZAlgFi3pRo6ZBBKOyZBpDtZB3PHcfj5PR6aqtZAPB2DY1CTeKijGMW9ZBp5f3AVa4CNeXioCJaP1AsdbrkcWNCl2M5UuuYN2ZA7tpWZCImNcjnqgqHH2A0XB0hEpxfzMexXcqZAcPgcMsel9fAXGZAs0eb3hQ1Yi9tGD3B1CnAg8fqmjCe5GiAENn2z3Vcz8ZADk"
 
 PHONE_NUMBER_ID = "1000705633118215"
 ADMIN_NUMBER = "541151511579"
@@ -1636,9 +1636,13 @@ def send_whatsapp_message(to_number, message_text):
                 return f"{country}{area}15{rest}"
             return number
         
-        # transformed_number = transform_number(to_number)
-        # transformed_number = normalizar_numero_argentina(transformed_number)
-        transformed_number = to_number
+        log(f"🔍 Número original: {to_number}")
+        transformed_number = transform_number(to_number)
+        log(f"🔍 Número transformado: {transformed_number}")
+        transformed_number = normalizar_numero_argentina(transformed_number)
+        log(f"🔍 Número final para API: {transformed_number}")
+        
+
         log(f"📤 Intentando enviar a: {to_number}")
         log(f"📤 Token (primeros 50): {ACCESS_TOKEN[:50]}...")
         
