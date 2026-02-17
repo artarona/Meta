@@ -207,9 +207,16 @@ def init_db(conn):
                 hora_cita VARCHAR(10),
                 propiedad_id VARCHAR(50),
                 estado VARCHAR(20) DEFAULT 'pendiente',
-                notas TEXT
+                notas TEXT,
+                
+                -- Nuevas columnas para recordatorios
+                recordatorio_enviado BOOLEAN DEFAULT FALSE,
+                recordatorio_enviado_en TIMESTAMP,
+                recordatorio_horario VARCHAR(5) DEFAULT '09:00',
+                recordatorio_respuesta TEXT,
+                recordatorio_fecha_respuesta TIMESTAMP
             );
-            
+
             CREATE TABLE IF NOT EXISTS user_states (
                 user_id VARCHAR(50) PRIMARY KEY,
                 paso VARCHAR(50),
@@ -228,19 +235,26 @@ def init_db(conn):
         
         # 2. Asegurar columnas adicionales
         cursor.execute("""
-            ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
-            ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_titulo VARCHAR(200);
-            
-            ALTER TABLE citas ADD COLUMN IF NOT EXISTS user_id VARCHAR(50);
-            ALTER TABLE citas ADD COLUMN IF NOT EXISTS nombre VARCHAR(100);
-            ALTER TABLE citas ADD COLUMN IF NOT EXISTS email VARCHAR(100);
-            ALTER TABLE citas ADD COLUMN IF NOT EXISTS telefono VARCHAR(20);
-            ALTER TABLE citas ADD COLUMN IF NOT EXISTS fecha_cita DATE;
-            ALTER TABLE citas ADD COLUMN IF NOT EXISTS hora_cita VARCHAR(10);
-            ALTER TABLE citas ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
-            ALTER TABLE citas ADD COLUMN IF NOT EXISTS estado VARCHAR(20);
-            ALTER TABLE citas ADD COLUMN IF NOT EXISTS notas TEXT;
-        """)
+        ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
+        ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_titulo VARCHAR(200);
+        
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS user_id VARCHAR(50);
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS nombre VARCHAR(100);
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS email VARCHAR(100);
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS telefono VARCHAR(20);
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS fecha_cita DATE;
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS hora_cita VARCHAR(10);
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS estado VARCHAR(20);
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS notas TEXT;
+        
+        -- Nuevas columnas para recordatorios
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_enviado BOOLEAN DEFAULT FALSE;
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_enviado_en TIMESTAMP;
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_horario VARCHAR(5) DEFAULT '09:00';
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_respuesta TEXT;
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_fecha_respuesta TIMESTAMP;
+    """)
         
         # 3. Asegurar secuencias para tablas existentes
         cursor.execute("""
@@ -415,20 +429,10 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
     except Exception as e:
         log(f"⚠️ Error persistiendo estado en DB: {e}")
     finally:
-        if conn: conn.close()
-    
-    # Limpieza periódica de caché en memoria (no de DB)
-    ahora = datetime.now()
-    if ahora.minute % 30 == 0: # Solo cada 30 minutos
-        usuarios_a_eliminar = []
-        for uid, estado in estados_usuarios.items():
-            if 'timestamp' in estado:
-                tiempo_dif = ahora - datetime.fromisoformat(estado['timestamp'])
-                if tiempo_dif.total_seconds() > 3600:  # 1 hora en caché
-                    usuarios_a_eliminar.append(uid)
-        for uid in usuarios_a_eliminar:
-            del estados_usuarios[uid]
-
+        if conn:
+            conn.close()
+            
+            
 # ========== GESTIÓN DE LEADS MEJORADA ==========
 
 def registrar_lead(user_id, propiedad_id, accion, detalle=""):
@@ -1365,15 +1369,83 @@ def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
             propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
             propiedad_titulo = propiedades_lista[indice - 1].get('titulo')
 
-        crear_cita(user_id, nombre, user_id, fecha, hora, propiedad_id, email=email, notas="Agendado vía Bot")
-        
-        # Resetear estado
-        estado_usuario['paso'] = 'menu_principal'
-        estado_usuario['fecha_cita'] = None
-        estado_usuario['hora_cita'] = None
-        actualizar_estado_usuario(user_id, estado_usuario)
-        
-        return f"""✅ *¡VISITA AGENDADA!*
+        def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None, notas=""):
+        """Crea una nueva cita y la guarda en JSON y PostgreSQL"""
+            conn = None
+            try:
+                citas = cargar_citas()
+                nueva_cita = {
+                    'id': f"cita_{len(citas)+1:04d}",
+                    'user_id': user_id,
+                    'nombre': nombre,
+                    'email': email,
+                    'telefono': telefono,
+                    'fecha': fecha,
+                    'hora': hora,
+                    'propiedad_id': propiedad_id,
+                    'estado': 'pendiente',
+                    'notas': notas,
+                    'creacion': datetime.now().isoformat(),
+                    'ultima_actualizacion': datetime.now().isoformat()
+                }
+                
+                citas.append(nueva_cita)
+                
+                # 1. Guardar en JSON
+                if not guardar_citas(citas):
+                    log("⚠️ Error guardando cita en JSON", "WARNING")
+                
+                log(f"✅ Cita creada localmente: {nueva_cita['id']} para {nombre}")
+                
+                # 2. Guardar en PostgreSQL (con nuevas columnas)
+                conn = get_db_connection()
+                if conn:
+                    # Asegurar esquema antes del INSERT
+                    init_db(conn)
+                    
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO citas (
+                            user_id, nombre, email, telefono, fecha_cita, hora_cita, 
+                            propiedad_id, estado, notas,
+                            recordatorio_enviado, recordatorio_horario
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                    """, (
+                        user_id, nombre, email, telefono, fecha, hora, 
+                        propiedad_id, 'pendiente', notas,
+                        False, '09:00'  # Valores por defecto para recordatorios
+                    ))
+                    
+                    db_record_id = cursor.fetchone()[0]
+                    conn.commit()
+                    log(f"✅ Cita guardada en PostgreSQL - ID DB: {db_record_id}")
+                    
+                    # Registrar también en el log general de leads
+                    guardar_en_postgresql(
+                        telefono=telefono,
+                        nombre=nombre,
+                        accion="cita_agendada",
+                        detalles=f"Cita agendada para {fecha} {hora} - Propiedad ID: {propiedad_id} - Email: {email}"
+                    )
+                else:
+                    log("⚠️ No se pudo conectar a PostgreSQL para guardar la cita", "WARNING")
+
+                # 3. Notificar al admin
+                notificar_cita_admin(nueva_cita)
+                
+                return nueva_cita
+                
+            except Exception as e:
+                log(f"❌ Error creando cita: {e}", "ERROR")
+                if conn:
+                    conn.rollback()
+                import traceback
+                log(f"🔍 Detalles error: {traceback.format_exc()}")
+                return None
+            finally:
+                if conn:
+                    conn.close()
         
 Hemos confirmado tu visita para:
 📅 *{datetime.strptime(fecha, "%Y-%m-%d").strftime("%d-%m-%Y")}*
