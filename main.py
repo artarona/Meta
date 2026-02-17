@@ -851,7 +851,7 @@ def procesar_opcion_mis_citas(user_id):
     citas_usuario = [c for c in citas if c['telefono'] == user_id and c['estado'] != 'cancelada']
     
     if not citas_usuario:
-        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
+        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n9️⃣ *Volver al menú principal*\n0️⃣ *❌ SALIR*"
     
     mensaje = f"📅 *TUS CITAS AGENDADAS*\n\nTienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
     
