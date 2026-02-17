@@ -40,7 +40,6 @@ PHONE_NUMBER_ID = "1000705633118215"
 ADMIN_NUMBER = "541151511579"
 LEADS_FILE = "leads.json"
 ADMIN_ACCESS_KEY = "dante2026"
-ADMIN_ACCESS_KEY = "dante2026"
 CITAS_FILE = "citas.json"
 HORARIOS_FILE = "dias-horarios-visitas.json"
 
@@ -1617,6 +1616,7 @@ def check_token_validity():
 
 def send_whatsapp_message(to_number, message_text):
     """Envía un mensaje de WhatsApp usando texto directo"""
+    log(f"🔍 Usando token: {ACCESS_TOKEN[:50]}...")  # Muestra los primeros 50 caracteres
     try:
         token_valid, token_info = check_token_validity()
         if not token_valid:
@@ -1636,8 +1636,11 @@ def send_whatsapp_message(to_number, message_text):
                 return f"{country}{area}15{rest}"
             return number
         
-        transformed_number = transform_number(to_number)
-        transformed_number = normalizar_numero_argentina(transformed_number)
+        # transformed_number = transform_number(to_number)
+        # transformed_number = normalizar_numero_argentina(transformed_number)
+        transformed_number = to_number
+        log(f"📤 Intentando enviar a: {to_number}")
+        log(f"📤 Token (primeros 50): {ACCESS_TOKEN[:50]}...")
         
         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
         headers = {
