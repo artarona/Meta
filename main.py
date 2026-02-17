@@ -2538,93 +2538,7 @@ def set_user_state():
     log(f"🔄 Estado de usuario {user_id} actualizado remotamente a: {nuevo_paso}")
     return jsonify({"status": "success", "user_id": user_id, "paso": nuevo_paso})
 
-@app.route("/api/internal/send-reminder", methods=["POST"])
-@app.route("/api/internal/send-reminder", methods=["POST"])
-def send_appointment_reminder():
-    """Envia un recordatorio de cita y setea el estado del usuario"""
-    try:
-        # Log de la request completa
-        log(f"🔍 HEADERS: {dict(request.headers)}")
-        log(f"🔍 ARGS: {request.args}")
-        
-        # Verificar clave
-        key = request.args.get('key')
-        if key != ADMIN_ACCESS_KEY:
-            return jsonify({"error": "Unauthorized", "received_key": key}), 403
-        
-        # Intentar obtener JSON
-        try:
-            data = request.get_json()
-            log(f"🔍 DATA RECIBIDA: {data}")
-        except Exception as e:
-            log(f"❌ Error parseando JSON: {e}")
-            return jsonify({"error": "Invalid JSON", "details": str(e)}), 400
-        
-        if not data:
-            return jsonify({"error": "No JSON data provided"}), 400
-        
-        # Verificar campos
-        user_id = data.get('user_id')
-        nombre = data.get('nombre', 'Cliente')
-        fecha = data.get('fecha')
-        hora = data.get('hora')
-        propiedad = data.get('propiedad', 'la propiedad')
-        
-        missing = []
-        if not user_id:
-            missing.append('user_id')
-        if not fecha:
-            missing.append('fecha')
-        if not hora:
-            missing.append('hora')
-            
-        if missing:
-            return jsonify({
-                "error": "Missing fields", 
-                "missing": missing,
-                "received": data
-            }), 400
-        
-        # Aquí va el código para enviar el mensaje
-        mensaje = f"""🔔 *RECORDATORIO DANTE PROPIEDADES*
 
-Hola *{nombre}*! 😊
-
-Te escribo para recordarte tu cita de mañana:
-
-📅 *Fecha:* {fecha}
-⏰ *Hora:* {hora} hs
-🏠 *Propiedad:* {propiedad}
-
-📍 Te esperamos. Si necesitas cancelar o reprogramar, avísanos respondiendo este mensaje.
-
-*Opciones:*
-✅ Respondé *CONFIRMAR* para confirmar
-❌ Respondé *CANCELAR* si no podrás asistir
-🔄 Respondé *REPROGRAMAR* para cambiar fecha/hora
-
-¡Gracias por confiar en Dante Propiedades! 🏠🗝️"""
-        
-        # Enviar mensaje
-        result = send_whatsapp_message(user_id, mensaje)
-        
-        # Setear estado para esperar confirmación
-        estado = obtener_estado_usuario(user_id)
-        estado['paso'] = 'esperando_confirmacion_recordatorio'
-        actualizar_estado_usuario(user_id, estado)
-        
-        log(f"🔔 Recordatorio enviado a {user_id} ({nombre})")
-        return jsonify({
-            "status": "success",
-            "whatsapp_id": result.get('message_id')
-        }), 200
-        
-    except Exception as e:
-        log(f"❌ Error inesperado: {e}")
-        import traceback
-        log(traceback.format_exc())
-        return jsonify({"error": "Internal server error", "details": str(e)}), 500
-    
 
 @app.route("/imgs/<path:filename>")
 def serve_image(filename):
@@ -2851,38 +2765,39 @@ def debug_leads():
         "archivo": os.path.exists(LEADS_FILE)
     })
 
+
 @app.route("/api/internal/send-reminder", methods=["POST"])
 def send_appointment_reminder():
     """Envia un recordatorio de cita y setea el estado del usuario"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    data = request.get_json()
-    user_id = data.get('user_id')
-    nombre = data.get('nombre', 'Cliente')
-    fecha = data.get('fecha')
-    hora = data.get('hora')
-    propiedad = data.get('propiedad', 'la propiedad')
-    
-    if not all([user_id, fecha, hora]):
-        return jsonify({"error": "Missing fields"}), 400
-    
-    # Formatear fecha de DD-MM-YYYY a YYYY-MM-DD si es necesario
     try:
-        if '-' in fecha:
-            partes = fecha.split('-')
-            if len(partes) == 3 and len(partes[2]) == 4:  # DD-MM-YYYY
-                fecha_obj = datetime.strptime(fecha, "%d-%m-%Y")
-                fecha_para_bd = fecha_obj.strftime("%Y-%m-%d")
-            else:
-                fecha_para_bd = fecha
-        else:
-            fecha_para_bd = fecha
-    except:
-        fecha_para_bd = fecha
-    
-    mensaje = f"""🔔 *RECORDATORIO DANTE PROPIEDADES*
+        key = request.args.get('key')
+        if key != ADMIN_ACCESS_KEY:
+            return jsonify({"error": "Unauthorized"}), 403
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No JSON data provided"}), 400
+        
+        user_id = data.get('user_id')
+        nombre = data.get('nombre', 'Cliente')
+        fecha = data.get('fecha')
+        hora = data.get('hora')
+        propiedad = data.get('propiedad', 'la propiedad')
+        
+        # Validar campos obligatorios
+        missing = []
+        if not user_id:
+            missing.append('user_id')
+        if not fecha:
+            missing.append('fecha')
+        if not hora:
+            missing.append('hora')
+            
+        if missing:
+            return jsonify({"error": "Missing fields", "missing": missing}), 400
+        
+        # Formatear mensaje
+        mensaje = f"""🔔 *RECORDATORIO DANTE PROPIEDADES*
 
 Hola *{nombre}*! 😊
 
@@ -2900,38 +2815,52 @@ Te escribo para recordarte tu cita de mañana:
 🔄 Respondé *REPROGRAMAR* para cambiar fecha/hora
 
 ¡Gracias por confiar en Dante Propiedades! 🏠🗝️"""
-    
-    # Enviar mensaje
-    result = send_whatsapp_message(user_id, mensaje)
-    
-    # Setear estado para esperar confirmación
-    estado = obtener_estado_usuario(user_id)
-    estado['paso'] = 'esperando_confirmacion_recordatorio'
-    actualizar_estado_usuario(user_id, estado)
-    
-    # Registrar en base de datos
-    try:
-        conn = get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE citas 
-                SET recordatorio_enviado = TRUE, 
-                    recordatorio_enviado_en = NOW() 
-                WHERE telefono = %s AND fecha_cita = %s AND estado = 'pendiente'
-            """, (user_id, fecha_para_bd))
-            conn.commit()
-            cursor.close()
-            conn.close()
+        
+        # Enviar mensaje
+        result = send_whatsapp_message(user_id, mensaje)
+        
+        # Setear estado para esperar confirmación
+        estado = obtener_estado_usuario(user_id)
+        estado['paso'] = 'esperando_confirmacion_recordatorio'
+        actualizar_estado_usuario(user_id, estado)
+        
+        # Registrar en base de datos
+        try:
+            conn = get_db_connection()
+            if conn:
+                cursor = conn.cursor()
+                # Convertir fecha si viene en formato DD-MM-YYYY
+                fecha_bd = fecha
+                if '-' in fecha and len(fecha.split('-')[2]) == 4:
+                    try:
+                        fecha_obj = datetime.strptime(fecha, "%d-%m-%Y")
+                        fecha_bd = fecha_obj.strftime("%Y-%m-%d")
+                    except:
+                        pass
+                
+                cursor.execute("""
+                    UPDATE citas 
+                    SET recordatorio_enviado = TRUE, 
+                        recordatorio_enviado_en = NOW() 
+                    WHERE telefono = %s AND fecha_cita = %s AND estado = 'pendiente'
+                """, (user_id, fecha_bd))
+                conn.commit()
+                cursor.close()
+                conn.close()
+        except Exception as e:
+            log(f"⚠️ Error registrando recordatorio en DB: {e}")
+        
+        log(f"🔔 Recordatorio enviado a {user_id} ({nombre})")
+        return jsonify({
+            "status": "success",
+            "whatsapp_id": result.get('message_id')
+        }), 200
+        
     except Exception as e:
-        log(f"⚠️ Error registrando recordatorio en DB: {e}")
-    
-    log(f"🔔 Recordatorio enviado a {user_id} ({nombre})")
-    return jsonify({
-        "status": result.get('status'), 
-        "whatsapp_id": result.get('message_id')
-    })
-
+        log(f"❌ Error inesperado: {e}")
+        import traceback
+        log(traceback.format_exc())
+        return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
 if __name__ == "__main__":
 
