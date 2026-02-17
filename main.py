@@ -505,6 +505,7 @@ def generar_listado_propiedades(propiedades):
         listado += f"\n📊 ...y {len(propiedades) - 10} propiedades más.\n"
     
     listado += "\nPara ver detalles, responde con el número (ej: 1️⃣)\n"
+    listado += "9️⃣ *Volver al menú principal*\n"
     listado += f"{numero_a_emoji(0)} *❌ SALIR*"
     
     return listado
@@ -731,7 +732,16 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
 0️⃣ Salir"""
 
     elif text_lower == "4":
-        return procesar_opcion_mis_citas(user_id)
+        estado_usuario['paso'] = 'submenu_citas'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return """📋 *CITAS PROGRAMADAS*
+
+1️⃣ Ver próximas visitas
+2️⃣ Reprogramar una visita
+3️⃣ Cancelar una visita
+
+9️⃣ Volver al menú principal
+0️⃣ Salir"""
 
     elif text_lower == "5":
         estado_usuario['paso'] = 'submenu_asesor'
@@ -806,7 +816,7 @@ def procesar_opcion_venta(estado_usuario, user_id):
     
     propiedades = estado_usuario['propiedades_filtradas']
     if not propiedades:
-        return "📭 No hay propiedades en venta por ahora.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
+        return "📭 No hay propiedades en venta por ahora.\n\n9️⃣ *Volver al menú principal*\n0️⃣ *❌ SALIR*"
     
     return f"💰 *PROPIEDADES EN VENTA*\nEncontramos *{len(propiedades)}* disponibles:\n\n" + generar_listado_propiedades(propiedades)
 
@@ -821,7 +831,7 @@ def procesar_opcion_alquiler(estado_usuario, user_id):
     
     propiedades = estado_usuario['propiedades_filtradas']
     if not propiedades:
-        return "📭 No hay propiedades en alquiler por ahora.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
+        return "📭 No hay propiedades en alquiler por ahora.\n\n9️⃣ *Volver al menú principal*\n0️⃣ *❌ SALIR*"
     
     return f"🔑 *PROPIEDADES EN ALQUILER*\nEncontramos *{len(propiedades)}* disponibles:\n\n" + generar_listado_propiedades(propiedades)
 
@@ -859,7 +869,7 @@ def procesar_opcion_mis_citas(user_id):
         mensaje += "   ───────────────\n"
     
     mensaje += f"\nPara consultar o modificar una cita, contacta al administrador.\n\n"
-    mensaje += f"Envía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
+    mensaje += f"9️⃣ Volver al menú principal\n0️⃣ *❌ SALIR*"
     
     return mensaje
 
