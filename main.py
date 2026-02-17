@@ -569,7 +569,7 @@ def get_bot_response(text, user_id):
         log(f"👤 Usuario {user_id}: {estado_usuario['paso']}")
         
         # 1. COMANDOS UNIVERSALES
-        if text_lower in ["hola", "hi", "hello", "inicio", "menu", "volver", "atras"]:
+        if text_lower in ["9", "menu", "principal", "inicio"]:
             estado_usuario.update({
                 'paso': 'menu_principal',
                 'operacion_seleccionada': None,
@@ -580,14 +580,26 @@ def get_bot_response(text, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             return "WELCOME_FLOW_TRIGGER"
         
-        if text_lower in ["0", "salir", "exit", "chau", "adios"]:
+        if text_lower in ["0", "salir", "exit"]:
             estado_usuario.update({
                 'paso': 'menu_principal',
                 'operacion_seleccionada': None,
                 'propiedades_filtradas': []
             })
             actualizar_estado_usuario(user_id, estado_usuario)
-            return "👋 ¡Gracias por contactarnos! Para volver al menú, envía 'Hola'. Dante Propiedades! 🏠🗝️"
+            return "Gracias por contactarte con Dante Propiedades. ¡Que tengas un excelente día! 🏠🗝️"
+
+        # Comandos de compatibilidad
+        if text_lower in ["hola", "hi", "hello", "volver", "atras"]:
+            estado_usuario.update({
+                'paso': 'menu_principal',
+                'operacion_seleccionada': None,
+                'propiedades_filtradas': [],
+                'ultimo_indice_preguntado': None,
+                'timestamp': datetime.now().isoformat()
+            })
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "WELCOME_FLOW_TRIGGER"
         
         # 2. ACCIONES ESPECIALES
         if text_lower == "8":
@@ -619,36 +631,15 @@ def get_bot_response(text, user_id):
             else:
                 return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
         
-        # 3. LÓGICA POR ESTADO
-        paso = estado_usuario['paso']
-        
-        if paso == 'listado_propiedades':
-            return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
-        
-        elif paso == 'detalle_propiedad':
-            return manejar_detalle_propiedad(text_lower, estado_usuario, user_id)
-        
-        elif paso == 'esperando_nombre_lead':
-            return manejar_nombre_lead(text, estado_usuario, user_id)
-        
-        elif paso == 'ofrecer_cita':
-            return manejar_ofrecer_cita(text_lower, estado_usuario, user_id)
-        
-        elif paso == 'solicitar_fecha_cita':
-            return manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id)
-        
-        elif paso == 'seleccionar_hora_cita':
-            return manejar_seleccionar_hora_cita(text, estado_usuario, user_id)
+        elif paso == 'submenu_consultar':
+            return manejar_submenu_consultar(text_lower, estado_usuario, user_id)
             
-        elif paso == 'confirmar_cita':
-            return manejar_confirmar_cita(text_lower, estado_usuario, user_id)
-        
-        elif paso == 'esperando_email_cita':
-            return manejar_email_cita(text, estado_usuario, user_id)
-        
-        elif paso == 'esperando_confirmacion_recordatorio':
-            return manejar_confirmacion_recordatorio(text, estado_usuario, user_id)
-        
+        elif paso == 'submenu_visita':
+            return manejar_submenu_visita(text_lower, estado_usuario, user_id)
+            
+        elif paso == 'submenu_asesor':
+            return manejar_submenu_asesor(text_lower, estado_usuario, user_id)
+            
         elif paso == 'vista_fotos':
             return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
 
@@ -675,11 +666,10 @@ Por favor:
             return manejar_menu_principal(text_lower, estado_usuario, user_id)
         
         # Respuesta por defecto
-        return """⚠️ No entendí tu mensaje. 
+        return """No pude identificar esa opción. Por favor elegí un número del menú.
 
-🏠 Envía 'Hola' para ver el menú.
-🔍 Puedes escribir 'buscar [casa/departamento/...]' para encontrar propiedades.
-0️⃣ *❌ SALIR*"""
+9️⃣ *Volver al menú principal*
+0️⃣ *Salir del chat*"""
 
     except Exception as e:
         import traceback
@@ -691,19 +681,95 @@ Por favor:
 def manejar_menu_principal(text_lower, estado_usuario, user_id):
     """Maneja las opciones del menú principal"""
     if text_lower == "1":
-        return procesar_opcion_venta(estado_usuario, user_id)
+        estado_usuario['paso'] = 'submenu_consultar'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return """🔍 *CONSULTAR PROPIEDADES*
+
+1️⃣ Buscar por código (ej.: UF002)
+2️⃣ Buscar por zona
+3️⃣ Ver propiedades destacadas
+
+9️⃣ Volver al menú principal
+0️⃣ Salir"""
+
     elif text_lower == "2":
-        return procesar_opcion_alquiler(estado_usuario, user_id)
-    elif text_lower == "5":
-        return procesar_opcion_todas(estado_usuario, user_id)
-    elif text_lower == "6":
+        estado_usuario['paso'] = 'submenu_visita'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return """📅 *COORDINAR UNA VISITA*
+
+1️⃣ Elegir propiedad
+2️⃣ Ver días y horarios disponibles
+3️⃣ Confirmar visita
+
+9️⃣ Volver al menú principal
+0️⃣ Salir"""
+
+    elif text_lower == "3":
         return procesar_opcion_mis_citas(user_id)
-    elif text_lower == "7":
-        return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
+
+    elif text_lower == "4":
+        estado_usuario['paso'] = 'submenu_asesor'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return """👤 *HABLAR CON UN ASESOR*
+
+1️⃣ Enviar mensaje al asesor
+2️⃣ Solicitar llamada
+
+9️⃣ Volver al menú principal
+0️⃣ Salir"""
+
     elif text_lower == "8" and user_id == ADMIN_NUMBER.lstrip('549'):
         return mostrar_panel_admin()
+    
     else:
-        return "📍 *Opción en desarrollo* - Próximamente disponible.\n\nEnvía 'Hola' para volver.\n0️⃣ *❌ SALIR*"
+        return """No pude identificar esa opción. Por favor elegí un número del menú.
+
+9️⃣ *Volver al menú principal*
+0️⃣ *Salir del chat*"""
+
+# ========== MANEJADORES DE SUBMENÚS ==========
+
+def manejar_submenu_consultar(text_lower, estado_usuario, user_id):
+    """Maneja las opciones del submenú de consulta"""
+    if text_lower == "1":
+        return "🔎 *Búsqueda por código*\n\nPor favor, enviá el código de la propiedad (ej: UF002).\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+    elif text_lower == "2":
+        return "📍 *Búsqueda por zona*\n\n¿En qué zona estás buscando? (ej: Palermo, Belgrano, Tigre...)\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+    elif text_lower == "3":
+        return procesar_opcion_todas(estado_usuario, user_id)
+    else:
+        return """No pude identificar esa opción. Por favor elegí un número del menú.
+
+9️⃣ *Volver al menú principal*
+0️⃣ *Salir del chat*"""
+
+def manejar_submenu_visita(text_lower, estado_usuario, user_id):
+    """Maneja las opciones del submenú de visitas"""
+    if text_lower == "1":
+        return procesar_opcion_todas(estado_usuario, user_id)
+    elif text_lower == "2":
+        return "📅 *Días y horarios disponibles*\n\nNuestros horarios generales son de Lunes a Viernes de 9 a 18:30 hs.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+    elif text_lower == "3":
+        return "✅ *Confirmar visita*\n\nPara confirmar una visita, primero debemos seleccionar una propiedad. \n\n1️⃣ Ver propiedades\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+    else:
+        return """No pude identificar esa opción. Por favor elegí un número del menú.
+
+9️⃣ *Volver al menú principal*
+0️⃣ *Salir del chat*"""
+
+def manejar_submenu_asesor(text_lower, estado_usuario, user_id):
+    """Maneja las opciones del submenú de asesor"""
+    if text_lower == "1":
+        notificar_agente(f"👤 *SOLICITUD DE ASESOR*\n📞 Tel: +{user_id}\n📝 El cliente desea enviar un mensaje.")
+        return "✅ *Mensaje enviado!*\n\nUn asesor se pondrá en contacto con vos a la brevedad.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+    elif text_lower == "2":
+        notificar_agente(f"📞 *SOLICITUD DE LLAMADA*\n📞 Tel: +{user_id}\n📝 El cliente solicita ser llamado.")
+        return "✅ *Solicitud registrada!*\n\nTe llamaremos en el horario más conveniente.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+    else:
+        return """No pude identificar esa opción. Por favor elegí un número del menú.
+
+9️⃣ *Volver al menú principal*
+0️⃣ *Salir del chat*"""
 
 def procesar_opcion_venta(estado_usuario, user_id):
     """Procesa la opción de venta"""
@@ -824,7 +890,7 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
         return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
     else:
-        return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}). Elige uno o envía 'Hola'.\n0️⃣ *❌ SALIR*"
+        return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}). Elige uno o envía 9 para volver.\n0️⃣ *Salir*"
 
 def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
     """Maneja las opciones en el detalle de propiedad"""
@@ -852,14 +918,14 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
             titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
             return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
     
-    return "📷 'F' Fotos | 8️⃣ '8' Me interesa\n1️⃣ Volver | 0️⃣ *❌ SALIR*"
+    return "📷 'F' Fotos | 8️⃣ '8' Me interesa\n9️⃣ Volver al menú | 0️⃣ *Salir*"
 
 def manejar_nombre_lead(text, estado_usuario, user_id):
     """Maneja la captura del nombre del lead"""
     nombre_cliente = text.strip()
     
     if len(nombre_cliente) < 2:
-        return "❌ Por favor, ingresa tu nombre completo (mínimo 2 caracteres).\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
+        return "❌ Por favor, ingresa tu nombre completo (mínimo 2 caracteres).\n\n9️⃣ *Volver al menú principal*\n0️⃣ *Salir*"
     
     estado_usuario['nombre_cliente'] = nombre_cliente
     
@@ -888,11 +954,12 @@ Hemos registrado tu interés en:
 1️⃣ *SÍ, AGENDAR CITA* 📅 (Recomendado)
 2️⃣ *No por ahora, solo información* 📋
 3️⃣ *Ya la vi, quiero ofertar* 💰
-0️⃣ *Salir* ❌"""
+9️⃣ *Volver al menú principal*
+0️⃣ *Salir del chat* ❌"""
     else:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "❌ Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad enviando 'Hola'.\n0️⃣ *❌ SALIR*"
+        return "❌ Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad.\n\n9️⃣ Volver al menú principal\n0️⃣ *Salir*"
 
 def manejar_ofrecer_cita(text_lower, estado_usuario, user_id):
     """Maneja la oferta de cita"""
@@ -1448,20 +1515,18 @@ def send_welcome_flow(user_id):
 
 ¡Hola! Soy el asistente inmobiliario de Dante Propiedades.
 
-*¿Qué tipo de operación te interesa?*
-Escribí el número de tu opción:
+*¿Cómo podemos ayudarte hoy?*
+Elegí el número de tu opción:
 
-1️⃣ *💰 VENTA* - Propiedades en venta
-2️⃣ *🔑 ALQUILER* - Propiedades en alquiler
-3️⃣ *📍 Búsqueda por zona* (próximamente)
-4️⃣ *🔍 Búsqueda libre* (próximamente)
-5️⃣ *📋 Ver todas las propiedades*
-6️⃣ *📅 Mis citas agendadas* (NUEVO)
-7️⃣ *🌐 Ir a nuestra Web*
-8️⃣ *🔐 Panel Admin* (Solo Dante)
-0️⃣ *❌ SALIR*
+1️⃣ *Consultar propiedades* 🏠
+2️⃣ *Coordinar una visita* 📅
+3️⃣ *Ver mis citas programadas* 📋
+4️⃣ *Hablar con un asesor* 👤
 
-Para seleccionar, solo envía el número (ej: "1" o "0")"""
+9️⃣ *Volver al menú principal*
+0️⃣ *Salir del chat*
+
+Para seleccionar, solo enviá el número."""
     
     return send_whatsapp_message(user_id, welcome_message)
 

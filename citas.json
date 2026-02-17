@@ -1,0 +1,16 @@
+[
+    {
+        "id": "pg_41",
+        "user_id": "5491154984802",
+        "nombre": "Rosa Zita",
+        "email": "roszitelli@hotmail.com",
+        "telefono": "5491154984802",
+        "fecha": "2026-02-18",
+        "hora": "09:00",
+        "propiedad_id": "UF002",
+        "estado": "pendiente",
+        "notas": "le gusta",
+        "creacion": "2026-02-16T23:15:58.439813",
+        "ultima_actualizacion": "2026-02-16T23:15:58.439813"
+    }
+]
