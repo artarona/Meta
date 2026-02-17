@@ -209,6 +209,21 @@ def init_db(conn):
                 estado VARCHAR(20) DEFAULT 'pendiente',
                 notas TEXT
             );
+            
+            CREATE TABLE IF NOT EXISTS user_states (
+                user_id VARCHAR(50) PRIMARY KEY,
+                paso VARCHAR(50),
+                operacion_seleccionada VARCHAR(50),
+                propiedades_filtradas TEXT,
+                ultimo_indice_preguntado INTEGER,
+                nombre_cliente VARCHAR(100),
+                email_cliente VARCHAR(100),
+                fecha_cita DATE,
+                hora_cita VARCHAR(10),
+                horarios_disponibles TEXT,
+                data TEXT,
+                timestamp TIMESTAMP
+            );
         """)
         
         # 2. Asegurar columnas adicionales
@@ -245,6 +260,8 @@ def init_db(conn):
                     ALTER SEQUENCE citas_id_seq OWNED BY citas.id;
                 END IF;
 
+                -- Secuencias para user_states (no necesita seq porque user_id es PK)
+                
                 -- Sincronizar secuencias (Usamos EXECUTE para evitar errores de compilación)
                 EXECUTE 'SELECT setval(''leads_id_seq'', COALESCE((SELECT MAX(id) FROM leads), 0) + 1, false)';
                 EXECUTE 'SELECT setval(''citas_id_seq'', COALESCE((SELECT MAX(id) FROM citas), 0) + 1, false)';
@@ -252,14 +269,16 @@ def init_db(conn):
         """)
         
         conn.commit()
-        log("✅ Esquema de base de datos verificado y actualizado")
+        log("✅ Esquema de base de datos verificado y actualizado (incluye tabla user_states)")
         return True
     except Exception as e:
         log(f"❌ Error inicializando base de datos: {e}", "ERROR")
         if conn:
             conn.rollback()
         return False
-
+    
+    
+    
 def guardar_en_postgresql(telefono, nombre, accion, detalles=""):
     """Guardar lead/cita en PostgreSQL de Render"""
     conn = None
