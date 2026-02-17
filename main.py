@@ -1232,9 +1232,9 @@ def manejar_email_cita(text, estado_usuario, user_id):
         else:
             # Si no parece un email y no quiso saltar, le avisamos pero permitimos saltar
             if text_lower == "1":
-                return "📧 Por favor, escribí tu correo electrónico o enviá *'2'* para saltar."
+                return "📧 Por favor, escribí tu correo electrónico o enviá *2️⃣* para saltar."
             
-            return f"⚠️ *{text}* no parece un correo válido.\n\nPor favor, escribí un email válido o enviá *'2'* para saltar este paso."
+            return f"⚠️ *{text}* no parece un correo válido.\n\nPor favor, escribí un email válido o enviá *2️⃣* para saltar este paso."
 
     estado_usuario['paso'] = 'confirmar_cita'
     actualizar_estado_usuario(user_id, estado_usuario)
