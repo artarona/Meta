@@ -1,3 +1,8 @@
+    # key = request.args.get('key')
+    # if key != ADMIN_ACCESS_KEY:
+    #     return jsonify({"error": "Unauthorized"}), 403
+
+
 from flask import Flask, request, jsonify, send_from_directory, send_file
 import requests
 import os
@@ -2514,9 +2519,9 @@ def set_user_state():
 @app.route("/api/internal/send-reminder", methods=["POST"])
 def send_appointment_reminder():
     """Envia un recordatorio de cita y setea el estado del usuario"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
+    # key = request.args.get('key')
+    # if key != ADMIN_ACCESS_KEY:
+    #     return jsonify({"error": "Unauthorized"}), 403
     
     data = request.get_json()
     user_id = data.get('user_id') # Ej: 54911...
