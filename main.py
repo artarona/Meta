@@ -1370,11 +1370,20 @@ def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
         propiedades_lista = estado_usuario.get('propiedades_filtradas', [])
         propiedad_id = "N/A"
         propiedad_titulo = "Propiedad"
-        if indice and 1 <= indice <= len(propiedades_lista):
-            propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
-            propiedad_titulo = propiedades_lista[indice - 1].get('titulo')
+        
+        # Verificar que propiedades_lista sea una lista y tenga elementos
+        if propiedades_lista and isinstance(propiedades_lista, list) and indice and 1 <= indice <= len(propiedades_lista):
+            propiedad = propiedades_lista[indice - 1]
+            # Verificar que propiedad sea un diccionario
+            if isinstance(propiedad, dict):
+                propiedad_id = propiedad.get('id_temporal', 'N/A')
+                propiedad_titulo = propiedad.get('titulo', 'Propiedad')
+            else:
+                # Si es un string, usarlo directamente
+                propiedad_id = str(propiedad)
+                propiedad_titulo = str(propiedad)
 
-        # LLAMAR a la función crear_cita (que debe estar definida fuera de esta función)
+        # LLAMAR a la función crear_cita
         crear_cita(
             user_id=user_id,
             nombre=nombre,
@@ -1413,7 +1422,6 @@ Te esperamos. Si necesitas cancelar, por favor avísanos.
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "❌ Operación cancelada.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
-
 
 def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None, notas=""):
     """Crea una nueva cita y la guarda en JSON y PostgreSQL"""
@@ -2767,9 +2775,11 @@ def debug_leads():
 
 
 @app.route("/api/internal/send-reminder", methods=["POST"])
+@app.route("/api/internal/send-reminder", methods=["POST"])
 def send_appointment_reminder():
     """Envia un recordatorio de cita y setea el estado del usuario"""
     try:
+        # 🔥 VERIFICACIÓN DE CLAVE ELIMINADA PARA PRUEBAS
         # key = request.args.get('key')
         # if key != ADMIN_ACCESS_KEY:
         #     return jsonify({"error": "Unauthorized"}), 403
@@ -2824,32 +2834,6 @@ Te escribo para recordarte tu cita de mañana:
         estado['paso'] = 'esperando_confirmacion_recordatorio'
         actualizar_estado_usuario(user_id, estado)
         
-        # Registrar en base de datos
-        try:
-            conn = get_db_connection()
-            if conn:
-                cursor = conn.cursor()
-                # Convertir fecha si viene en formato DD-MM-YYYY
-                fecha_bd = fecha
-                if '-' in fecha and len(fecha.split('-')[2]) == 4:
-                    try:
-                        fecha_obj = datetime.strptime(fecha, "%d-%m-%Y")
-                        fecha_bd = fecha_obj.strftime("%Y-%m-%d")
-                    except:
-                        pass
-                
-                cursor.execute("""
-                    UPDATE citas 
-                    SET recordatorio_enviado = TRUE, 
-                        recordatorio_enviado_en = NOW() 
-                    WHERE telefono = %s AND fecha_cita = %s AND estado = 'pendiente'
-                """, (user_id, fecha_bd))
-                conn.commit()
-                cursor.close()
-                conn.close()
-        except Exception as e:
-            log(f"⚠️ Error registrando recordatorio en DB: {e}")
-        
         log(f"🔔 Recordatorio enviado a {user_id} ({nombre})")
         return jsonify({
             "status": "success",
@@ -2861,6 +2845,9 @@ Te escribo para recordarte tu cita de mañana:
         import traceback
         log(traceback.format_exc())
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
+    
+    
+# MAIN
 
 if __name__ == "__main__":
 
