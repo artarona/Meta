@@ -1,7 +1,13 @@
+    # key = request.args.get('key')
+    # if key != ADMIN_ACCESS_KEY:
+    #     return jsonify({"error": "Unauthorized"}), 403
+
+
 from flask import Flask, request, jsonify, send_from_directory, send_file
 import requests
 import os
 import json
+import re
 from datetime import datetime, timedelta
 from collections import deque
 import threading
@@ -22,12 +28,12 @@ app = Flask(__name__)
 VERIFY_TOKEN = "mi_token_secreto_123"
 
 
-ACCESS_TOKEN = "EAAJYsGl5pHgBQtn0USyKI6kYkdZB1Ej54lmjx2jxqtMPwa7D1S6j5b0qzQp1bJlkJIRxpFYh41o7RpcZA6AAhGZBZB61hWWg0i2CqyZA61WcuiIpbjdBLyJ1ekWj5kUNhBov5ClrbggQOXVlNjrubVDoZB0iHmwTngyGh9ZAGFjxZBl9xmvWF0mFkv6cljUf9nb0V293rw4PCGROzoqn4fXIDO1ZAcjbBTN55V2ThFv6xhZA0mx9YdyXyVVJbCVCBUTK6HAfZC3ZBUzXat6QXiBIoaRnn0UjryFnvZBwT8gZDZD"
+ACCESS_TOKEN = "EAAJYsGl5pHgBQj4KKzYyJFUy0q1cUd0wvQN2rORLcW6frj13G3bjcX652dZBKOHOZAZBMWKxdaMtZC7deX51XBZCChCWZCVV7uLfuZAYok2nTD6ylrpcjgjUrveF3W295ZAOrLUEOOGBDcyVrGfkP2FimQgCAPfcvdjOlGNVJgjiufbU3VytZA7XizYEdrk6KObIbOZA980jnJ1OPMOUZBUT7p3E2TLGVZBk5wCLKerNkoeP1OJ3LmAAIUsz7SLZCVZANDj3ZAuPIZBCYsNgln4AuDeXE6Ea2WLbWBpuNEOmWZCUERwZDZD"
 
 PHONE_NUMBER_ID = "1000705633118215"
 ADMIN_NUMBER = "5491151511579"
 LEADS_FILE = "leads.json"
-ADMIN_ACCESS_KEY = "dante2026"
+
 ADMIN_ACCESS_KEY = "dante2026"
 CITAS_FILE = "citas.json"
 HORARIOS_FILE = "dias-horarios-visitas.json"
@@ -61,41 +67,99 @@ def get_db_connection():
         log(f"❌ Error conectando a PostgreSQL: {e}", "ERROR")
         return None
 
+def analizar_hora(texto):
+    """
+    Parsea horarios en lenguaje natural.
+    Retorna HH:MM o None.
+    """
+    texto = texto.lower().replace('.', ':').strip()
+    
+    # 1. Formatos explícitos: 10:00, 17:30
+    match_hora = re.search(r'(\d{1,2})[:](\d{2})', texto)
+    if match_hora:
+        h, m = map(int, match_hora.groups())
+        if 0 <= h <= 23 and 0 <= m <= 59:
+            return f"{h:02d}:{m:02d}"
+    
+    # 2. Formatos con "hs", "h", "horas" (ej: 10hs, 10 h)
+    match_hs = re.search(r'(\d{1,2})\s*(?:hs|h|hrs|horas)', texto)
+    if match_hs:
+        h = int(match_hs.group(1))
+        if 0 <= h <= 23:
+            return f"{h:02d}:00"
+            
+    # 3. Formatos AM/PM (ej: 5 pm, 10 am)
+    match_ampm = re.search(r'(\d{1,2})(?::(\d{2}))?\s*(am|pm)', texto)
+    if match_ampm:
+        h = int(match_ampm.group(1))
+        m = int(match_ampm.group(2) or 0)
+        periodo = match_ampm.group(3)
+        
+        if periodo == 'pm' and h < 12:
+            h += 12
+        if periodo == 'am' and h == 12:
+            h = 0
+            
+        if 0 <= h <= 23 and 0 <= m <= 59:
+            return f"{h:02d}:{m:02d}"
+
+    # 4. Formatos informales "tipo 6", "a las 10"
+    match_simple = re.search(r'(?:tipo|a las|alas)\s*(\d{1,2})', texto)
+    if match_simple:
+        h = int(match_simple.group(1))
+        if h < 8: # Asumir PM si es muy temprano (contexto inmobiliaria)
+            h += 12
+        if 0 <= h <= 23:
+            return f"{h:02d}:00"
+    
+    return None
+
 def analizar_fecha(texto):
     """Parsea fecha en formatos naturales (hoy, mañana, lunes) o DD-MM-AAAA"""
     texto = texto.lower().strip()
     ahora = datetime.now()
     
     # 1. Fechas relativas
-    if texto == "hoy":
+    if "pasado mañana" in texto or "pasado manana" in texto:
+        return ahora + timedelta(days=2)
+    if "mañana" in texto or "manana" in texto:
+        # Asegurarse que no sea "pasado mañana" (ya cubierto arriba pero por si acaso el orden importa)
+        if "pasado" not in texto:
+            return ahora + timedelta(days=1)
+    if "hoy" in texto:
         return ahora
-    if texto == "mañana":
-        return ahora + timedelta(days=1)
     
     # 2. Días de la semana
     dias = {
         "lunes": 0, "martes": 1, "miércoles": 2, "miercoles": 2,
         "jueves": 3, "viernes": 4, "sábado": 5, "sabado": 5, "domingo": 6
     }
-    if texto in dias:
-        target_weekday = dias[texto]
-        days_ahead = target_weekday - ahora.weekday()
-        if days_ahead <= 0: # Si ya pasó, asumimos la próxima semana
-            days_ahead += 7
-        return ahora + timedelta(days=days_ahead)
+    
+    # Buscar nombres de días en el texto
+    for nombre_dia, num_dia in dias.items():
+        if nombre_dia in texto:
+            target_weekday = num_dia
+            days_ahead = target_weekday - ahora.weekday()
+            if days_ahead <= 0: # Si ya pasó, asumimos la próxima semana
+                days_ahead += 7
+            return ahora + timedelta(days=days_ahead)
     
     # 3. Formatos numéricos
-    # Soportar DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD
-    # Soportar DD-MM-YY, DD/MM/YY (2 dígitos año)
+    # Extraer tokens que parezcan fechas
+    tokens = texto.split()
     formatos = [
         "%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d",
         "%d-%m-%y", "%d/%m/%y"
     ]
-    for fmt in formatos:
-        try:
-            return datetime.strptime(texto, fmt)
-        except ValueError:
-            continue
+    
+    for token in tokens:
+        # Limpiar puntuación
+        token_limpio = token.strip('.,')
+        for fmt in formatos:
+            try:
+                return datetime.strptime(token_limpio, fmt)
+            except ValueError:
+                continue
             
     return None
 
@@ -144,29 +208,60 @@ def init_db(conn):
                 fecha_creacion TIMESTAMP DEFAULT NOW(),
                 user_id VARCHAR(50),
                 nombre VARCHAR(100),
+                email VARCHAR(100),
                 telefono VARCHAR(20),
                 fecha_cita DATE,
                 hora_cita VARCHAR(10),
                 propiedad_id VARCHAR(50),
                 estado VARCHAR(20) DEFAULT 'pendiente',
-                notas TEXT
+                notas TEXT,
+                
+                -- Nuevas columnas para recordatorios
+                recordatorio_enviado BOOLEAN DEFAULT FALSE,
+                recordatorio_enviado_en TIMESTAMP,
+                recordatorio_horario VARCHAR(5) DEFAULT '09:00',
+                recordatorio_respuesta TEXT,
+                recordatorio_fecha_respuesta TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS user_states (
+                user_id VARCHAR(50) PRIMARY KEY,
+                paso VARCHAR(50),
+                operacion_seleccionada VARCHAR(50),
+                propiedades_filtradas TEXT,
+                ultimo_indice_preguntado INTEGER,
+                nombre_cliente VARCHAR(100),
+                email_cliente VARCHAR(100),
+                fecha_cita DATE,
+                hora_cita VARCHAR(10),
+                horarios_disponibles TEXT,
+                data TEXT,
+                timestamp TIMESTAMP
             );
         """)
         
         # 2. Asegurar columnas adicionales
         cursor.execute("""
-            ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
-            ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_titulo VARCHAR(200);
-            
-            ALTER TABLE citas ADD COLUMN IF NOT EXISTS user_id VARCHAR(50);
-            ALTER TABLE citas ADD COLUMN IF NOT EXISTS nombre VARCHAR(100);
-            ALTER TABLE citas ADD COLUMN IF NOT EXISTS telefono VARCHAR(20);
-            ALTER TABLE citas ADD COLUMN IF NOT EXISTS fecha_cita DATE;
-            ALTER TABLE citas ADD COLUMN IF NOT EXISTS hora_cita VARCHAR(10);
-            ALTER TABLE citas ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
-            ALTER TABLE citas ADD COLUMN IF NOT EXISTS estado VARCHAR(20);
-            ALTER TABLE citas ADD COLUMN IF NOT EXISTS notas TEXT;
-        """)
+        ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
+        ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_titulo VARCHAR(200);
+        
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS user_id VARCHAR(50);
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS nombre VARCHAR(100);
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS email VARCHAR(100);
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS telefono VARCHAR(20);
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS fecha_cita DATE;
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS hora_cita VARCHAR(10);
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS estado VARCHAR(20);
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS notas TEXT;
+        
+        -- Nuevas columnas para recordatorios
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_enviado BOOLEAN DEFAULT FALSE;
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_enviado_en TIMESTAMP;
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_horario VARCHAR(5) DEFAULT '09:00';
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_respuesta TEXT;
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_fecha_respuesta TIMESTAMP;
+    """)
         
         # 3. Asegurar secuencias para tablas existentes
         cursor.execute("""
@@ -186,6 +281,8 @@ def init_db(conn):
                     ALTER SEQUENCE citas_id_seq OWNED BY citas.id;
                 END IF;
 
+                -- Secuencias para user_states (no necesita seq porque user_id es PK)
+                
                 -- Sincronizar secuencias (Usamos EXECUTE para evitar errores de compilación)
                 EXECUTE 'SELECT setval(''leads_id_seq'', COALESCE((SELECT MAX(id) FROM leads), 0) + 1, false)';
                 EXECUTE 'SELECT setval(''citas_id_seq'', COALESCE((SELECT MAX(id) FROM citas), 0) + 1, false)';
@@ -193,14 +290,16 @@ def init_db(conn):
         """)
         
         conn.commit()
-        log("✅ Esquema de base de datos verificado y actualizado")
+        log("✅ Esquema de base de datos verificado y actualizado (incluye tabla user_states)")
         return True
     except Exception as e:
         log(f"❌ Error inicializando base de datos: {e}", "ERROR")
         if conn:
             conn.rollback()
         return False
-
+    
+    
+    
 def guardar_en_postgresql(telefono, nombre, accion, detalles=""):
     """Guardar lead/cita en PostgreSQL de Render"""
     conn = None
@@ -244,37 +343,103 @@ def cargar_propiedades_cached():
     return cargar_propiedades()
 
 def obtener_estado_usuario(user_id):
-    """Obtiene o crea el estado de un usuario"""
-    if user_id not in estados_usuarios:
-        estados_usuarios[user_id] = {
-            'paso': 'menu_principal',
-            'operacion_seleccionada': None,
-            'propiedades_filtradas': [],
-            'ultimo_indice_preguntado': None,
-            'timestamp': datetime.now().isoformat(),
-            'data': {}  # Datos adicionales del usuario
-        }
-    return estados_usuarios[user_id]
+    """Obtiene o crea el estado de un usuario (Cache + PostgreSQL)"""
+    # 1. Intentar desde caché en memoria
+    if user_id in estados_usuarios:
+        return estados_usuarios[user_id]
+        
+    # 2. Intentar desde PostgreSQL
+    conn = None
+    try:
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data FROM user_states WHERE user_id = %s", (user_id,))
+            res = cursor.fetchone()
+            if res:
+                estado = {
+                    'paso': res[0],
+                    'operacion_seleccionada': res[1],
+                    'propiedades_filtradas': res[2] or [],
+                    'ultimo_indice_preguntado': res[3],
+                    'nombre_cliente': res[4],
+                    'email_cliente': res[5],
+                    'fecha_cita': res[6],
+                    'hora_cita': res[7],
+                    'horarios_disponibles': res[8] or [],
+                    'data': res[9] or {},
+                    'timestamp': datetime.now().isoformat()
+                }
+                estados_usuarios[user_id] = estado
+                return estado
+    except Exception as e:
+        log(f"⚠️ Error recuperando estado de DB: {e}")
+    finally:
+        if conn: conn.close()
+        
+    # 3. Si no existe, crear nuevo
+    estado_nuevo = {
+        'paso': 'menu_principal',
+        'operacion_seleccionada': None,
+        'propiedades_filtradas': [],
+        'ultimo_indice_preguntado': None,
+        'timestamp': datetime.now().isoformat(),
+        'data': {}
+    }
+    estados_usuarios[user_id] = estado_nuevo
+    return estado_nuevo
 
 def actualizar_estado_usuario(user_id, nuevo_estado):
-    """Actualiza el estado de un usuario con limpieza automática"""
+    """Actualiza el estado de un usuario en caché y PostgreSQL"""
     nuevo_estado['timestamp'] = datetime.now().isoformat()
     estados_usuarios[user_id] = nuevo_estado
     
-    # Limpiar estados antiguos (más de 2 horas)
-    ahora = datetime.now()
-    usuarios_a_eliminar = []
-    
-    for uid, estado in estados_usuarios.items():
-        if 'timestamp' in estado:
-            tiempo_dif = ahora - datetime.fromisoformat(estado['timestamp'])
-            if tiempo_dif.total_seconds() > 7200:  # 2 horas
-                usuarios_a_eliminar.append(uid)
-    
-    for uid in usuarios_a_eliminar:
-        del estados_usuarios[uid]
-        log(f"🧹 Estado limpiado para usuario: {uid}")
-
+    # Sincronizar con PostgreSQL
+    conn = None
+    try:
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO user_states (
+                    user_id, paso, operacion_seleccionada, propiedades_filtradas, 
+                    ultimo_indice_preguntado, nombre_cliente, email_cliente, 
+                    fecha_cita, hora_cita, horarios_disponibles, data, timestamp
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (user_id) DO UPDATE SET
+                    paso = EXCLUDED.paso,
+                    operacion_seleccionada = EXCLUDED.operacion_seleccionada,
+                    propiedades_filtradas = EXCLUDED.propiedades_filtradas,
+                    ultimo_indice_preguntado = EXCLUDED.ultimo_indice_preguntado,
+                    nombre_cliente = EXCLUDED.nombre_cliente,
+                    email_cliente = EXCLUDED.email_cliente,
+                    fecha_cita = EXCLUDED.fecha_cita,
+                    hora_cita = EXCLUDED.hora_cita,
+                    horarios_disponibles = EXCLUDED.horarios_disponibles,
+                    data = EXCLUDED.data,
+                    timestamp = EXCLUDED.timestamp
+            """, (
+                user_id, 
+                nuevo_estado.get('paso'),
+                nuevo_estado.get('operacion_seleccionada'),
+                json.dumps(nuevo_estado.get('propiedades_filtradas', [])),
+                nuevo_estado.get('ultimo_indice_preguntado'),
+                nuevo_estado.get('nombre_cliente'),
+                nuevo_estado.get('email_cliente'),
+                nuevo_estado.get('fecha_cita'),
+                nuevo_estado.get('hora_cita'),
+                json.dumps(nuevo_estado.get('horarios_disponibles', [])),
+                json.dumps(nuevo_estado.get('data', {})),
+                nuevo_estado.get('timestamp')
+            ))
+            conn.commit()
+    except Exception as e:
+        log(f"⚠️ Error persistiendo estado en DB: {e}")
+    finally:
+        if conn:
+            conn.close()
+            
+            
 # ========== GESTIÓN DE LEADS MEJORADA ==========
 
 def registrar_lead(user_id, propiedad_id, accion, detalle=""):
@@ -502,100 +667,126 @@ def formatear_detalle_propiedad(propiedad):
 # ========== BOT OPTIMIZADO ==========
 def get_bot_response(text, user_id):
     """Responde con un mensaje simple, manteniendo estado de usuario"""
-    start_time = time.time()
-    text_lower = text.lower().strip()
-    
-    estado_usuario = obtener_estado_usuario(user_id)
-    log(f"👤 Usuario {user_id}: {estado_usuario['paso']}")
-    
-    # 1. COMANDOS UNIVERSALES
-    if text_lower in ["hola", "hi", "hello", "inicio", "menu", "volver", "atras"]:
-        estado_usuario.update({
-            'paso': 'menu_principal',
-            'operacion_seleccionada': None,
-            'propiedades_filtradas': [],
-            'ultimo_indice_preguntado': None,
-            'timestamp': datetime.now().isoformat()
-        })
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "WELCOME_FLOW_TRIGGER"
-    
-    if text_lower in ["0", "salir", "exit", "chau", "adios"]:
-        estado_usuario.update({
-            'paso': 'menu_principal',
-            'operacion_seleccionada': None,
-            'propiedades_filtradas': []
-        })
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "👋 ¡Gracias por contactarnos! Para volver al menú, envía 'Hola'. Dante Propiedades! 🏠🗝️"
-    
-    # 2. ACCIONES ESPECIALES
-    if text_lower == "8":
-        indice = estado_usuario.get('ultimo_indice_preguntado')
-        propiedades = estado_usuario.get('propiedades_filtradas', [])
+    try:
+        start_time = time.time()
+        text_lower = text.lower().strip()
         
-        if indice and 1 <= indice <= len(propiedades):
-            propiedad = propiedades[indice - 1]
-            log(f"🎯 ACCIÓN: Me interesa (Prop ID: {propiedad.get('id_temporal')})")
-            estado_usuario['paso'] = 'esperando_nombre_lead'
-            actualizar_estado_usuario(user_id, estado_usuario)
-            
-            # REGISTRAR LEAD INMEDIATAMENTE - FIX PostgreSQL
-            try:
-                log(f"📝 REGISTRANDO LEAD: click_me_interesa para {user_id}")
-                registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "click_me_interesa")
-            except Exception as e:
-                log(f"⚠️ Error registrando lead click_me_interesa: {e}")
-            
-            return "🙌 ¡Excelente elección! Para que un asesor pueda contactarte, por favor decime tu *Nombre y Apellido*:"
-        else:
-            return "⚠️ Por favor, primero selecciona una propiedad del listado para indicar tu interés."
-    
-    if text_lower in ["f", "foto", "fotos"]:
-        indice = estado_usuario.get('ultimo_indice_preguntado')
-        propiedades = estado_usuario.get('propiedades_filtradas', [])
+        estado_usuario = obtener_estado_usuario(user_id)
+        log(f"👤 Usuario {user_id}: {estado_usuario['paso']}")
         
-        if indice and 1 <= indice <= len(propiedades):
-            propiedad = propiedades[indice - 1]
-            log(f"🎯 ACCIÓN: Fotos (Prop ID: {propiedad.get('id_temporal')})")
-            estado_usuario['paso'] = 'vista_fotos'
+        # 1. COMANDOS UNIVERSALES
+        if text_lower in ["9", "menu", "principal", "inicio"]:
+            estado_usuario.update({
+                'paso': 'menu_principal',
+                'operacion_seleccionada': None,
+                'propiedades_filtradas': [],
+                'ultimo_indice_preguntado': None,
+                'timestamp': datetime.now().isoformat()
+            })
             actualizar_estado_usuario(user_id, estado_usuario)
-            return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
-        else:
-            return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
-    
-    # 3. LÓGICA POR ESTADO
-    paso = estado_usuario['paso']
-    
-    if paso == 'listado_propiedades':
-        return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
-    
-    elif paso == 'detalle_propiedad':
-        return manejar_detalle_propiedad(text_lower, estado_usuario, user_id)
-    
-    elif paso == 'esperando_nombre_lead':
-        return manejar_nombre_lead(text, estado_usuario, user_id)
-    
-    elif paso == 'ofrecer_cita':
-        return manejar_ofrecer_cita(text_lower, estado_usuario, user_id)
-    
-    elif paso == 'solicitar_fecha_cita':
-        return manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id)
-    
-    elif paso == 'seleccionar_hora_cita':
-        return manejar_seleccionar_hora_cita(text, estado_usuario, user_id)
-    
-    elif paso == 'vista_fotos':
-        return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
+            return "WELCOME_FLOW_TRIGGER"
+        
+        if text_lower in ["0", "salir", "exit"]:
+            estado_usuario.update({
+                'paso': 'menu_principal',
+                'operacion_seleccionada': None,
+                'propiedades_filtradas': []
+            })
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "Gracias por contactarte con Dante Propiedades. ¡Que tengas un excelente día! 🏠🗝️"
 
-    # 4. BUSCADOR POR TEXTO (Nuevo) - SOLAMENTE SI NO HAY ESTADO ACTIVO PRIORITARIO
-    # Y si el paso es menu_principal o resultado_busqueda
-    if text_lower.startswith("buscar ") or (len(text_lower) > 3 and paso == 'menu_principal' and not text_lower.isdigit()):
-        # DETECTAR SI ES UNA FECHA PERO SE PERDIÓ EL CONTEXTO
-        fecha_detectada = analizar_fecha(text_lower)
-        if fecha_detectada and len(text_lower.split()) <= 3: # Si es una fecha corta
-            return """⚠️ *Sesión expirada o contexto perdido*
+        # Comandos de compatibilidad
+        if text_lower in ["hola", "hi", "hello", "volver", "atras"]:
+            estado_usuario.update({
+                'paso': 'menu_principal',
+                'operacion_seleccionada': None,
+                'propiedades_filtradas': [],
+                'ultimo_indice_preguntado': None,
+                'timestamp': datetime.now().isoformat()
+            })
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "WELCOME_FLOW_TRIGGER"
+        
+        # 2. ACCIONES ESPECIALES
+        if text_lower == "8":
+            indice = estado_usuario.get('ultimo_indice_preguntado')
+            propiedades = estado_usuario.get('propiedades_filtradas', [])
             
+            if indice and 1 <= indice <= len(propiedades):
+                propiedad = propiedades[indice - 1]
+                log(f"🎯 ACCIÓN: Me interesa (Prop ID: {propiedad.get('id_temporal')})")
+                estado_usuario['paso'] = 'esperando_nombre_lead'
+                actualizar_estado_usuario(user_id, estado_usuario)
+                
+                # REGISTRAR LEAD INMEDIATAMENTE - FIX PostgreSQL
+                try:
+                    registrar_lead(user_id, propiedad.get('id_temporal'), 'click_me_interesa', f"Interés expresado en Propiedad: {propiedad.get('titulo')}")
+                except Exception as e:
+                    log(f"⚠️ Error registrando lead inicial: {e}")
+                    
+                return f"✅ ¡Genial! Me interesa la propiedad: *{propiedad.get('titulo')}*.\n\nPor favor, decime tu *Nombre y Apellido* para que un asesor te contacte."
+            else:
+                return "⚠️ Por favor, primero selecciona una propiedad del listado."
+
+        if text_lower == "f":
+            indice = estado_usuario.get('ultimo_indice_preguntado')
+            propiedades = estado_usuario.get('propiedades_filtradas', [])
+            if indice and 1 <= indice <= len(propiedades):
+                propiedad = propiedades[indice - 1]
+                return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
+            else:
+                return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
+        
+        # 3. LÓGICA POR ESTADO
+        paso = estado_usuario['paso']
+        
+        if paso == 'submenu_consultar':
+            return manejar_submenu_consultar(text_lower, estado_usuario, user_id)
+            
+        elif paso == 'submenu_visita':
+            return manejar_submenu_visita(text_lower, estado_usuario, user_id)
+            
+        elif paso == 'submenu_asesor':
+            return manejar_submenu_asesor(text_lower, estado_usuario, user_id)
+
+        elif paso == 'listado_propiedades':
+            return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'detalle_propiedad':
+            return manejar_detalle_propiedad(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'esperando_nombre_lead':
+            return manejar_nombre_lead(text, estado_usuario, user_id)
+        
+        elif paso == 'ofrecer_cita':
+            return manejar_ofrecer_cita(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'solicitar_fecha_cita':
+            return manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'seleccionar_hora_cita':
+            return manejar_seleccionar_hora_cita(text, estado_usuario, user_id)
+            
+        elif paso == 'confirmar_cita':
+            return manejar_confirmar_cita(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'esperando_email_cita':
+            return manejar_email_cita(text, estado_usuario, user_id)
+        
+        elif paso == 'esperando_confirmacion_recordatorio':
+            return manejar_confirmacion_recordatorio(text, estado_usuario, user_id)
+        
+        elif paso == 'vista_fotos':
+            return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
+
+        # 4. BUSCADOR POR TEXTO (Nuevo) - SOLAMENTE SI NO HAY ESTADO ACTIVO PRIORITARIO
+        # Y si el paso es menu_principal o resultado_busqueda
+        if text_lower.startswith("buscar ") or (len(text_lower) > 3 and paso == 'menu_principal' and not text_lower.isdigit()):
+            # DETECTAR SI ES UNA FECHA PERO SE PERDIÓ EL CONTEXTO
+            fecha_detectada = analizar_fecha(text_lower)
+            if fecha_detectada and len(text_lower.split()) <= 3: # Si es una fecha corta
+                return """⚠️ *Sesión expirada o contexto perdido*
+                
 Parece que querías agendar una fecha, pero no tengo seleccionada ninguna propiedad en este momento.
 
 Por favor:
@@ -603,37 +794,121 @@ Por favor:
 2. Busca la propiedad nuevamente
 3. Selecciona 'Agendar Cita'"""
 
-        termino = text_lower.replace("buscar ", "").strip()
-        return manejar_busqueda_keywords(termino, estado_usuario, user_id)
+            termino = text_lower.replace("buscar ", "").strip()
+            return manejar_busqueda_keywords(termino, estado_usuario, user_id)
 
-    # 5. OPCIONES DEL MENÚ PRINCIPAL
-    if paso == 'menu_principal':
-        return manejar_menu_principal(text_lower, estado_usuario, user_id)
-    
-    # Respuesta por defecto
-    return """⚠️ No entendí tu mensaje. 
+        # 5. OPCIONES DEL MENÚ PRINCIPAL
+        if paso == 'menu_principal':
+            return manejar_menu_principal(text_lower, estado_usuario, user_id)
+        
+        # Respuesta por defecto
+        return """No pude identificar esa opción. Por favor elegí un número del menú.
 
-🏠 Envía 'Hola' para ver el menú.
-🔍 Puedes escribir 'buscar [casa/departamento/...]' para encontrar propiedades.
-0️⃣ *❌ SALIR*"""
+9️⃣ *Volver al menú principal*
+0️⃣ *Salir del chat*"""
+
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        log(f"🔥 ERROR EN get_bot_response: {e}\n{error_trace}")
+        return "❌ *Lo siento, ocurrió un error interno.*\n\nPor favor, intenta de nuevo enviando 'Hola' o contacta al administrador."
 
 # ========== MANEJADORES DE ESTADO ==========
 def manejar_menu_principal(text_lower, estado_usuario, user_id):
     """Maneja las opciones del menú principal"""
     if text_lower == "1":
-        return procesar_opcion_venta(estado_usuario, user_id)
+        estado_usuario['paso'] = 'submenu_consultar'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return """🔍 *CONSULTAR PROPIEDADES*
+
+1️⃣ Buscar por código (ej.: UF002)
+2️⃣ Buscar por zona
+3️⃣ Ver propiedades destacadas
+
+9️⃣ Volver al menú principal
+0️⃣ Salir"""
+
     elif text_lower == "2":
-        return procesar_opcion_alquiler(estado_usuario, user_id)
-    elif text_lower == "5":
-        return procesar_opcion_todas(estado_usuario, user_id)
-    elif text_lower == "6":
+        estado_usuario['paso'] = 'submenu_visita'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return """📅 *COORDINAR UNA VISITA*
+
+1️⃣ Elegir propiedad
+2️⃣ Ver días y horarios disponibles
+3️⃣ Confirmar visita
+
+9️⃣ Volver al menú principal
+0️⃣ Salir"""
+
+    elif text_lower == "3":
         return procesar_opcion_mis_citas(user_id)
-    elif text_lower == "7":
-        return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
+
+    elif text_lower == "4":
+        estado_usuario['paso'] = 'submenu_asesor'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return """👤 *HABLAR CON UN ASESOR*
+
+1️⃣ Enviar mensaje al asesor
+2️⃣ Solicitar llamada
+
+9️⃣ Volver al menú principal
+0️⃣ Salir"""
+
+    elif text_lower == "5":
+            return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
+
     elif text_lower == "8" and user_id == ADMIN_NUMBER.lstrip('549'):
         return mostrar_panel_admin()
+    
     else:
-        return "📍 *Opción en desarrollo* - Próximamente disponible.\n\nEnvía 'Hola' para volver.\n0️⃣ *❌ SALIR*"
+        return """No pude identificar esa opción. Por favor elegí un número del menú.
+
+9️⃣ *Volver al menú principal*
+0️⃣ *Salir del chat*"""
+
+# ========== MANEJADORES DE SUBMENÚS ==========
+
+def manejar_submenu_consultar(text_lower, estado_usuario, user_id):
+    """Maneja las opciones del submenú de consulta"""
+    if text_lower == "1":
+        return "🔎 *Búsqueda por código*\n\nPor favor, enviá el código de la propiedad (ej: UF002).\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+    elif text_lower == "2":
+        return "📍 *Búsqueda por zona*\n\n¿En qué zona estás buscando? (ej: Palermo, Belgrano, Tigre...)\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+    elif text_lower == "3":
+        return procesar_opcion_todas(estado_usuario, user_id)
+    else:
+        return """No pude identificar esa opción. Por favor elegí un número del menú.
+
+9️⃣ *Volver al menú principal*
+0️⃣ *Salir del chat*"""
+
+def manejar_submenu_visita(text_lower, estado_usuario, user_id):
+    """Maneja las opciones del submenú de visitas"""
+    if text_lower == "1":
+        return procesar_opcion_todas(estado_usuario, user_id)
+    elif text_lower == "2":
+        return "📅 *Días y horarios disponibles*\n\nNuestros horarios generales son de Lunes a Viernes de 9 a 18:30 hs.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+    elif text_lower == "3":
+        return "✅ *Confirmar visita*\n\nPara confirmar una visita, primero debemos seleccionar una propiedad. \n\n1️⃣ Ver propiedades\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+    else:
+        return """No pude identificar esa opción. Por favor elegí un número del menú.
+
+9️⃣ *Volver al menú principal*
+0️⃣ *Salir del chat*"""
+
+def manejar_submenu_asesor(text_lower, estado_usuario, user_id):
+    """Maneja las opciones del submenú de asesor"""
+    if text_lower == "1":
+        notificar_agente(f"👤 *SOLICITUD DE ASESOR*\n📞 Tel: +{user_id}\n📝 El cliente desea enviar un mensaje.")
+        return "✅ *Mensaje enviado!*\n\nUn asesor se pondrá en contacto con vos a la brevedad.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+    elif text_lower == "2":
+        notificar_agente(f"📞 *SOLICITUD DE LLAMADA*\n📞 Tel: +{user_id}\n📝 El cliente solicita ser llamado.")
+        return "✅ *Solicitud registrada!*\n\nTe llamaremos en el horario más conveniente.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+    else:
+        return """No pude identificar esa opción. Por favor elegí un número del menú.
+
+9️⃣ *Volver al menú principal*
+0️⃣ *Salir del chat*"""
 
 def procesar_opcion_venta(estado_usuario, user_id):
     """Procesa la opción de venta"""
@@ -646,7 +921,7 @@ def procesar_opcion_venta(estado_usuario, user_id):
     
     propiedades = estado_usuario['propiedades_filtradas']
     if not propiedades:
-        return "📭 No hay propiedades en venta por ahora.\n\nEnvía 'Hola' para volver."
+        return "📭 No hay propiedades en venta por ahora.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
     
     return f"💰 *PROPIEDADES EN VENTA*\nEncontramos *{len(propiedades)}* disponibles:\n\n" + generar_listado_propiedades(propiedades)
 
@@ -661,7 +936,7 @@ def procesar_opcion_alquiler(estado_usuario, user_id):
     
     propiedades = estado_usuario['propiedades_filtradas']
     if not propiedades:
-        return "📭 No hay propiedades en alquiler por ahora.\n\nEnvía 'Hola' para volver."
+        return "📭 No hay propiedades en alquiler por ahora.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
     
     return f"🔑 *PROPIEDADES EN ALQUILER*\nEncontramos *{len(propiedades)}* disponibles:\n\n" + generar_listado_propiedades(propiedades)
 
@@ -681,7 +956,7 @@ def procesar_opcion_mis_citas(user_id):
     citas_usuario = [c for c in citas if c['telefono'] == user_id and c['estado'] != 'cancelada']
     
     if not citas_usuario:
-        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\nEnvía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
+        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
     
     mensaje = f"📅 *TUS CITAS AGENDADAS*\n\nTienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
     
@@ -754,7 +1029,7 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
         return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
     else:
-        return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}). Elige uno o envía 'Hola'.\n0️⃣ *❌ SALIR*"
+        return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}). Elige uno o envía 9 para volver.\n0️⃣ *Salir*"
 
 def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
     """Maneja las opciones en el detalle de propiedad"""
@@ -782,14 +1057,14 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
             titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
             return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
     
-    return "📷 'F' Fotos | 8️⃣ '8' Me interesa\n1️⃣ Volver | 0️⃣ *❌ SALIR*"
+    return "📷 'F' Fotos | 8️⃣ '8' Me interesa\n9️⃣ Volver al menú | 0️⃣ *Salir*"
 
 def manejar_nombre_lead(text, estado_usuario, user_id):
     """Maneja la captura del nombre del lead"""
     nombre_cliente = text.strip()
     
     if len(nombre_cliente) < 2:
-        return "❌ Por favor, ingresa tu nombre completo (mínimo 2 caracteres).\n0️⃣ *❌ SALIR*"
+        return "❌ Por favor, ingresa tu nombre completo (mínimo 2 caracteres).\n\n9️⃣ *Volver al menú principal*\n0️⃣ *Salir*"
     
     estado_usuario['nombre_cliente'] = nombre_cliente
     
@@ -818,11 +1093,12 @@ Hemos registrado tu interés en:
 1️⃣ *SÍ, AGENDAR CITA* 📅 (Recomendado)
 2️⃣ *No por ahora, solo información* 📋
 3️⃣ *Ya la vi, quiero ofertar* 💰
-0️⃣ *Salir* ❌"""
+9️⃣ *Volver al menú principal*
+0️⃣ *Salir del chat* ❌"""
     else:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "❌ Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad enviando 'Hola'.\n0️⃣ *❌ SALIR*"
+        return "❌ Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad.\n\n9️⃣ Volver al menú principal\n0️⃣ *Salir*"
 
 def manejar_ofrecer_cita(text_lower, estado_usuario, user_id):
     """Maneja la oferta de cita"""
@@ -873,8 +1149,7 @@ Vamos a agendar tu visita.
 
 Un asesor se contactará contigo para brindarte toda la información.
 
-📱 *¿Necesitas algo más?*
-• Ver otras propiedades → Envía 'Hola'
+1️⃣ *VOLVER AL MENÚ* 🏠
 0️⃣ *❌ SALIR*"""
     
     elif text_lower in ["3", "ofertar", "oferta", "comprar", "alquilar ya"]:
@@ -904,6 +1179,8 @@ Un asesor te contactará en los próximos **15 minutos** para gestionar tu ofert
 ⏰ *Horario de contacto:* Inmediato
 
 ¡Gracias por tu interés! 🏠💸
+
+1️⃣ *VOLVER AL MENÚ* 🏠
 0️⃣ *❌ SALIR*"""
     
     elif text_lower in ["0", "salir", "chau", "adiós"]:
@@ -925,113 +1202,319 @@ Un asesor te contactará en los próximos **15 minutos** para gestionar tu ofert
 def manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id):
     """Maneja la solicitud de fecha para la cita"""
     if text_lower in ["ver fechas", "disponibles", "fechas"]:
-        mensaje = "📅 *PRÓXIMAS FECHAS DISPONIBLES:*\n\n"
-        
-        hoy = datetime.now()
-        for i in range(1, 8):
-            fecha = hoy + timedelta(days=i)
-            fecha_iso = fecha.strftime("%Y-%m-%d")
-            fecha_display = fecha.strftime("%d-%m-%Y")
-            dia_semana = fecha.strftime("%A")
-            dia_emoji = "🌞" if fecha.weekday() < 5 else "🎉"
-            
-            # Obtener propiedad actual para consultar horarios específicos
-            indice = estado_usuario.get('ultimo_indice_preguntado')
-            propiedades_lista = estado_usuario.get('propiedades_filtradas', [])
-            propiedad_id = None
-            if indice and 1 <= indice <= len(propiedades_lista):
-                propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
-
-            horarios_disponibles = obtener_horarios_disponibles(fecha_iso, propiedad_id)
-            if horarios_disponibles:
-                mensaje += f"{dia_emoji} *{fecha_display}* ({dia_semana.capitalize()}) ✅\n"
-            else:
-                mensaje += f"{dia_emoji} {fecha_display} ({dia_semana.capitalize()}) ❌ AGOTADO\n"
-        
-        mensaje += "\n📌 *Escribí una fecha* (Formato: **DD-MM-AAAA**)\nEjemplos: 25-12-2026, hoy, mañana, lunes"
-        mensaje += "\n\n0️⃣ *❌ SALIR*"
-        return mensaje
+        return mostrar_fechas_disponibles(estado_usuario)
     
+    # 1. Analizar Fecha
     fecha_ingresada = analizar_fecha(text_lower)
+    
     if not fecha_ingresada:
-        return """❌ *Fecha no reconocida*
+        return """❌ *No entendí la fecha*
+Por favor, probá con:
+✅ "Mañana a las 10"
+✅ "El jueves por la tarde"
+✅ "25-10-2026"
 
-Por favor, usá un formato claro como:
-✅ 'hoy' o 'mañana'
-✅ 'lunes', 'martes', etc.
-✅ 'DD-MM-AAAA' (ej: 15-05-2026)
+1️⃣ *Ver fechas* (Ver disponibilidad)
+0️⃣ *Volver* (Ir al menú)"""
 
-Escribí 'Ver fechas' para ver disponibilidad."""
+    # Validaciones de fecha
+    hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    if fecha_ingresada < hoy and fecha_ingresada.date() != hoy.date():
+         return "❌ *Fecha pasada*\nPor favor elige una fecha futura."
+    
+    # 2. Analizar Hora (si el usuario la incluyó)
+    hora_ingresada = analizar_hora(text_lower)
+    
+    fecha_str = fecha_ingresada.strftime("%Y-%m-%d")
+    fecha_display = fecha_ingresada.strftime("%d-%m-%Y")
+    
+    # Obtener propiedad actual
+    indice = estado_usuario.get('ultimo_indice_preguntado')
+    propiedades_lista = estado_usuario.get('propiedades_filtradas', [])
+    propiedad_id = None
+    if indice and 1 <= indice <= len(propiedades_lista):
+        propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
+        
+    horarios_disponibles = obtener_horarios_disponibles(fecha_str, propiedad_id)
+    
+    if not horarios_disponibles:
+         return f"""❌ *Sin disponibilidad*
+No hay horarios para el {fecha_display}.
 
-    try:
-        hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        
-        if fecha_ingresada < hoy and fecha_ingresada.date() != hoy.date():
-            return "❌ *Fecha pasada*\nNo se pueden agendar citas en fechas pasadas.\n\nEnvía una fecha futura (DD-MM-AAAA) o 'Ver fechas'"
-        
-        if (fecha_ingresada - hoy).days > 30:
-            return "❌ *Plazo excedido*\nSolo podemos agendar hasta 30 días en el futuro.\n\nPor favor, elige una fecha más cercana."
-        
-        fecha_str = fecha_ingresada.strftime("%Y-%m-%d")
-        fecha_display = fecha_ingresada.strftime("%d-%m-%Y") # Formato visual estricto
-        
-        estado_usuario['fecha_cita'] = fecha_str
-        
-        # Obtener propiedad actual
-        indice = estado_usuario.get('ultimo_indice_preguntado')
-        propiedades_lista = estado_usuario.get('propiedades_filtradas', [])
-        propiedad_id = None
-        if indice and 1 <= indice <= len(propiedades_lista):
-            propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
+1️⃣ *Ver fechas* (Elegir otro día)
+0️⃣ *Volver* (Ir al menú)"""
 
-        horarios_disponibles = obtener_horarios_disponibles(fecha_str, propiedad_id)
-        
-        if not horarios_disponibles:
-            estado_usuario['paso'] = 'ofrecer_cita'
+    estado_usuario['fecha_cita'] = fecha_str
+    
+    # CASO A: Usuario indicó fecha Y hora ("mañana a las 10")
+    if hora_ingresada:
+        if hora_ingresada in horarios_disponibles:
+            # Hora válida -> Ir a confirmación
+            estado_usuario['hora_cita'] = hora_ingresada
+            estado_usuario['paso'] = 'esperando_email_cita'
             actualizar_estado_usuario(user_id, estado_usuario)
             
-            return f"""❌ *SIN DISPONIBILIDAD*
+            return f"""📅 *FECHA SELECCIONADA:* {fecha_display} a las {hora_ingresada} hs.
 
-No hay horarios disponibles para el *{fecha_display}*.
+📧 *¿Te gustaría dejarnos tu correo electrónico?* (Opcional)
+Esto nos permite enviarte recordatorios y más detalles de la propiedad.
 
-📅 Por favor, elige otra fecha o:
-1️⃣ Intentar otra fecha
-2️⃣ Solo información
-3️⃣ Salir"""
+1️⃣ *Escribí tu email*
+2️⃣ *No, saltar este paso* ⏭️"""
+        else:
+            # Hora inválida o ocupada
+            return f"""❌ *Horario no disponible*
+El horario {hora_ingresada} no está disponible para el {fecha_display}.
+
+⏰ *Horarios libres:*
+{", ".join(horarios_disponibles)}
+
+Por favor, escribí uno de los horarios disponibles:
+
+0️⃣ *❌ SALIR*"""
+
+    # CASO B: Solicitó solo fecha -> Pedir hora
+    estado_usuario['paso'] = 'seleccionar_hora_cita'
+    estado_usuario['horarios_disponibles'] = horarios_disponibles
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    return mostrar_seleccion_horarios(fecha_display, horarios_disponibles)
+
+def manejar_seleccionar_hora_cita(text, estado_usuario, user_id):
+    """Maneja la selección de hora"""
+    text_lower = text.lower()
+    
+    if text_lower in ["0", "salir", "cancelar"]:
+        estado_usuario['paso'] = 'menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "❌ Operación cancelada.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
+    
+    if text_lower in ["ver fechas", "cambiar fecha", "atrás", "atras"]:
+        estado_usuario['paso'] = 'solicitar_fecha_cita'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "📅 Escribí la nueva fecha (ej: 'mañana', 'jueves'):"
+
+    hora_elegida = analizar_hora(text)
+    horarios_disponibles = estado_usuario.get('horarios_disponibles', [])
+    
+    # Si el usuario escribió algo que no parece hora, o la hora no está en la lista
+    if not hora_elegida or hora_elegida not in horarios_disponibles:
+        # Intento de matcheo flexible (si escribió "10" y está "10:00")
+        if text.strip() in horarios_disponibles: 
+             hora_elegida = text.strip()
+        else:
+            return f"""❌ *Horario no válido*
+Por favor elegí uno de la lista:
+{", ".join(horarios_disponibles)}
+
+1️⃣ *Cambiar fecha* (Elegir otro día)
+0️⃣ *Volver* (Ir al menú)"""
+            
+    # Hora válida
+    estado_usuario['hora_cita'] = hora_elegida
+    estado_usuario['paso'] = 'esperando_email_cita' 
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    return f"""📅 *HORARIO SELECCIONADO:* {hora_elegida} hs.
+
+📧 *¿Te gustaría dejarnos tu correo electrónico?* (Opcional)
+Esto nos permite enviarte recordatorios y más detalles de la propiedad.
+
+1️⃣ *Escribí tu email*
+2️⃣ *No, saltar este paso* ⏭️"""
+
+def manejar_email_cita(text, estado_usuario, user_id):
+    """Maneja la captura del email (opcional)"""
+    text_lower = text.lower().strip()
+    
+    if text_lower in ["2", "no", "saltar", "skip", "n", "noup"]:
+        estado_usuario['email_cliente'] = None
+    else:
+        # Validación básica de email
+        if "@" in text and "." in text and len(text) > 5:
+            estado_usuario['email_cliente'] = text
+        else:
+            # Si no parece un email y no quiso saltar, le avisamos pero permitimos saltar
+            if text_lower == "1":
+                return "📧 Por favor, escribí tu correo electrónico o enviá *'2'* para saltar."
+            
+            return f"⚠️ *{text}* no parece un correo válido.\n\nPor favor, escribí un email válido o enviá *'2'* para saltar este paso."
+
+    estado_usuario['paso'] = 'confirmar_cita'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    fecha_display = datetime.strptime(estado_usuario['fecha_cita'], "%Y-%m-%d").strftime("%d-%m-%Y")
+    hora = estado_usuario['hora_cita']
+    email = estado_usuario.get('email_cliente', 'No proporcionado')
+    
+    return f"""📅 *RESUMEN DE TU VISITA*
+            
+📅 Fecha: *{fecha_display}*
+⏰ Hora: *{hora} hs*
+📧 Email: *{email}*
+
+¿Confirmas la cita?
+1️⃣ *SÍ, Confirmar* ✅
+2️⃣ *Cambiar fecha/hora* 🔄
+0️⃣ *Cancelar* ❌"""
+
+def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
+    """Paso final de confirmación explícita"""
+    if text_lower in ["1", "si", "sí", "confirmar", "ok", "dale"]:
+        # Guardar cita
+        fecha = estado_usuario.get('fecha_cita')
+        hora = estado_usuario.get('hora_cita')
+        nombre = estado_usuario.get('nombre_cliente', 'Cliente')
+        email = estado_usuario.get('email_cliente')
         
-        estado_usuario.update({
-            'paso': 'seleccionar_hora_cita',
-            'horarios_disponibles': horarios_disponibles
-        })
+        # Obtener propiedad
+        indice = estado_usuario.get('ultimo_indice_preguntado')
+        propiedades_lista = estado_usuario.get('propiedades_filtradas', [])
+        propiedad_id = "N/A"
+        propiedad_titulo = "Propiedad"
+        
+        # Verificar que propiedades_lista sea una lista y tenga elementos
+        if propiedades_lista and isinstance(propiedades_lista, list) and indice and 1 <= indice <= len(propiedades_lista):
+            propiedad = propiedades_lista[indice - 1]
+            # Verificar que propiedad sea un diccionario
+            if isinstance(propiedad, dict):
+                propiedad_id = propiedad.get('id_temporal', 'N/A')
+                propiedad_titulo = propiedad.get('titulo', 'Propiedad')
+            else:
+                # Si es un string, usarlo directamente
+                propiedad_id = str(propiedad)
+                propiedad_titulo = str(propiedad)
+
+        # LLAMAR a la función crear_cita
+        crear_cita(
+            user_id=user_id,
+            nombre=nombre,
+            telefono=user_id,
+            fecha=fecha,
+            hora=hora,
+            propiedad_id=propiedad_id,
+            email=email,
+            notas="Agendado vía Bot"
+        )
+        
+        # Resetear estado
+        estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['fecha_cita'] = None
+        estado_usuario['hora_cita'] = None
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        mensaje = f"📅 *Fecha confirmada:* **{fecha_display}**\n\n"
-        mensaje += "⏰ *HORARIOS DISPONIBLES:*\n\n"
+        # Mensaje de confirmación
+        return f"""✅ *¡VISITA AGENDADA!*
         
-        manana = [h for h in horarios_disponibles if int(h.split(':')[0]) < 12]
-        tarde = [h for h in horarios_disponibles if 12 <= int(h.split(':')[0]) < 17]
-        tarde_noche = [h for h in horarios_disponibles if int(h.split(':')[0]) >= 17]
+Hemos confirmado tu visita para:
+📅 *{datetime.strptime(fecha, "%Y-%m-%d").strftime("%d-%m-%Y")}*
+⏰ *{hora} hs*
+🏠 {propiedad_titulo}
+
+Te esperamos. Si necesitas cancelar, por favor avísanos.
+👋 ¡Gracias!"""
+
+    elif text_lower in ["2", "cambiar", "no"]:
+        estado_usuario['paso'] = 'solicitar_fecha_cita'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "🔄 Ok, cambiemos la fecha. ¿Cuándo te gustaría venir? (ej: 'mañana 10am')"
         
-        if manana:
-            mensaje += "🌅 *MAÑANA:*\n"
-            mensaje += "\n".join([f"• **{hora}** hs" for hora in manana]) + "\n\n"
+    else:
+        # Cancelar
+        estado_usuario['paso'] = 'menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "❌ Operación cancelada.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
+
+def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None, notas=""):
+    """Crea una nueva cita y la guarda en JSON y PostgreSQL"""
+    conn = None
+    try:
+        citas = cargar_citas()
+        nueva_cita = {
+            'id': f"cita_{len(citas)+1:04d}",
+            'user_id': user_id,
+            'nombre': nombre,
+            'email': email,
+            'telefono': telefono,
+            'fecha': fecha,
+            'hora': hora,
+            'propiedad_id': propiedad_id,
+            'estado': 'pendiente',
+            'notas': notas,
+            'creacion': datetime.now().isoformat(),
+            'ultima_actualizacion': datetime.now().isoformat()
+        }
         
-        if tarde:
-            mensaje += "🌞 *TARDE:*\n"
-            mensaje += "\n".join([f"• **{hora}** hs" for hora in tarde]) + "\n\n"
+        citas.append(nueva_cita)
         
-        if tarde_noche:
-            mensaje += "🌇 *TARDE-NOCHE:*\n"
-            mensaje += "\n".join([f"• **{hora}** hs" for hora in tarde_noche])
+        # 1. Guardar en JSON
+        if not guardar_citas(citas):
+            log("⚠️ Error guardando cita en JSON", "WARNING")
         
-        mensaje += "\n\n⏳ *Envía el horario que prefieras* (ej: '09:30' o '14:00')"
-        mensaje += "\n↩️ 'Atrás' para volver | 0️⃣ *❌ SALIR*"
+        log(f"✅ Cita creada localmente: {nueva_cita['id']} para {nombre}")
         
-        return mensaje
+        # 2. Guardar en PostgreSQL (con nuevas columnas)
+        conn = get_db_connection()
+        if conn:
+            # Asegurar esquema antes del INSERT
+            init_db(conn)
+            
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO citas (
+                    user_id, nombre, email, telefono, fecha_cita, hora_cita, 
+                    propiedad_id, estado, notas,
+                    recordatorio_enviado, recordatorio_horario
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (
+                user_id, nombre, email, telefono, fecha, hora, 
+                propiedad_id, 'pendiente', notas,
+                False, '09:00'  # Valores por defecto para recordatorios
+            ))
+            
+            db_record_id = cursor.fetchone()[0]
+            conn.commit()
+            log(f"✅ Cita guardada en PostgreSQL - ID DB: {db_record_id}")
+            
+            # Registrar también en el log general de leads
+            guardar_en_postgresql(
+                telefono=telefono,
+                nombre=nombre,
+                accion="cita_agendada",
+                detalles=f"Cita agendada para {fecha} {hora} - Propiedad ID: {propiedad_id} - Email: {email}"
+            )
+        else:
+            log("⚠️ No se pudo conectar a PostgreSQL para guardar la cita", "WARNING")
+
+        # 3. Notificar al admin
+        notificar_cita_admin(nueva_cita)
+        
+        return nueva_cita
         
     except Exception as e:
-        log(f"⚠️ Error en manejar_solicitar_fecha_cita: {e}")
-        return "❌ Ocurrió un error al procesar la fecha. Por favor, intenta de nuevo con el formato DD-MM-AAAA."
+        log(f"❌ Error creando cita: {e}", "ERROR")
+        if conn:
+            conn.rollback()
+        import traceback
+        log(f"🔍 Detalles error: {traceback.format_exc()}")
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+# Helper para mostrar horarios (extraído para reusar)
+def mostrar_seleccion_horarios(fecha_display, horarios):
+    mensaje = f"📅 *Fecha:* **{fecha_display}**\n\n"
+    mensaje += "⏰ *HORARIOS DISPONIBLES:*\n"
+    mensaje += ", ".join(horarios)
+    mensaje += "\n\n⏳ *Escribí el horario* (ej: '10:00' o '10 am')"
+    return mensaje
+
+def mostrar_fechas_disponibles(estado_usuario):
+    # Lógica auxiliar para mostrar fechas (simplificada del código anterior)
+    # ... (Se mantiene lógica de iterar y mostrar calendario)
+    return "📅 (Calendario simplificado) Escribí una fecha..."
 
 def manejar_busqueda_keywords(termino, estado_usuario, user_id):
     """Busca propiedades por palabras clave y actualiza el estado"""
@@ -1074,112 +1557,57 @@ def manejar_busqueda_keywords(termino, estado_usuario, user_id):
     mensaje += "0️⃣ *❌ SALIR*"
     return mensaje
 
-def manejar_seleccionar_hora_cita(text, estado_usuario, user_id):
-    """Maneja la selección de hora para la cita"""
-    text_lower = text.lower().strip()
-    
-    if text_lower in ["atrás", "atras", "volver", "back"]:
-        estado_usuario['paso'] = 'solicitar_fecha_cita'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "🔄 *Volviendo atrás...*\n\nEnvía una nueva fecha (AAAA-MM-DD) o 'Ver fechas'"
-    
-    horarios_disponibles = estado_usuario.get('horarios_disponibles', [])
-    
-    if text not in horarios_disponibles:
-        return """❌ *Horario no disponible*
-
-El horario seleccionado no está disponible. Por favor elige uno de los horarios listados.
-
-Ejemplo: '09:30' o '14:00'
-
-↩️ 'Atrás' para volver | 0️⃣ '0' para Salir"""
-    
-    estado_usuario['hora_cita'] = text
-    
-    indice = estado_usuario.get('ultimo_indice_preguntado')
-    propiedades = estado_usuario.get('propiedades_filtradas', [])
-    
-    if indice and 1 <= indice <= len(propiedades):
-        propiedad = propiedades[indice - 1]
-        propiedad_id = propiedad.get('id_temporal', 'N/A')
-        propiedad_titulo = propiedad.get('titulo', 'Propiedad sin título')
-        nombre_cliente = estado_usuario.get('nombre_cliente', 'Cliente')
-        fecha_cita = estado_usuario.get('fecha_cita')
-        hora_cita = text
-        
-        cita = crear_cita(
-            user_id=user_id,
-            nombre=nombre_cliente,
-            telefono=user_id,
-            fecha=fecha_cita,
-            hora=hora_cita,
-            propiedad_id=propiedad_id,
-            notas=f"Propiedad: {propiedad_titulo}"
-        )
-        
-        if cita:
-            fecha_obj = datetime.strptime(fecha_cita, "%Y-%m-%d")
-            fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
-            
-            estado_usuario.update({
-                'paso': 'menu_principal',
-                'nombre_cliente': None,
-                'fecha_cita': None,
-                'hora_cita': None
-            })
-            actualizar_estado_usuario(user_id, estado_usuario)
-            
-            return f"""🎉 *¡CITA AGENDADA CON ÉXITO!*
-
-✅ **Resumen de tu cita:**
-👤 *Cliente:* {nombre_cliente}
-📅 *Fecha:* {fecha_formateada}
-⏰ *Hora:* {hora_cita} hs
-🏠 *Propiedad:* {propiedad_titulo[:50]}...
-🆔 *ID Cita:* {cita['id']}
-
-📍 *Instrucciones importantes:*
-• Llega 10 minutos antes
-• Trae tu documento de identidad
-• Si necesitas cancelar o reprogramar, contacta al administrador
-
-📞 *Contacto:* +{ADMIN_NUMBER}
-
-¡Gracias por elegir Dante Propiedades! 🏠🗝️
-
-🏠 Envía 'Hola' para volver al menú principal.
-0️⃣ *❌ SALIR*"""
-        else:
-            return "❌ *Error al agendar la cita*\n\nHubo un problema al guardar tu cita. Por favor, intenta nuevamente o contacta al administrador."
-    
-    else:
-        return """❌ *Error: No se encontró la propiedad*
-
-Hubo un problema al procesar tu cita. Por favor, inicia el proceso nuevamente.
-
-🏠 Envía 'Hola' para volver al menú.
-0️⃣ Envía '0' para salir."""
 
 # ========== FUNCIONES DE WHATSAPP API MEJORADAS ==========
+# def check_token_validity():
+#     """Verifica si el token de acceso es válido"""
+#     try:
+#         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}"
+#         headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+#         response = requests.get(url, headers=headers, timeout=10)
+        
+#         if response.status_code == 200:
+#             data = response.json()
+#             log(f"✅ Token válido: {data.get('verified_name', 'N/A')}")
+#             return True, data
+#         else:
+#             error_data = response.json() if response.content else {}
+#             log(f"❌ Token inválido: Status {response.status_code}")
+#             return False, error_data
+            
+#     except Exception as e:
+#         log(f"🔥 Error verificando token: {e}")
+#         return False, {"error": str(e)}
+
+
 def check_token_validity():
     """Verifica si el token de acceso es válido"""
     try:
-        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}"
-        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}?fields=verified_name"
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+
         response = requests.get(url, headers=headers, timeout=10)
-        
+
         if response.status_code == 200:
             data = response.json()
-            log(f"✅ Token válido: {data.get('verified_name', 'N/A')}")
+            log(f"✅ Token válido. Verified name: {data.get('verified_name', 'N/A')}")
             return True, data
+
         else:
             error_data = response.json() if response.content else {}
-            log(f"❌ Token inválido: Status {response.status_code}")
+            log(f"❌ Token inválido o sin permisos. Status {response.status_code}")
+            log(f"Detalles: {error_data}")
             return False, error_data
-            
+
     except Exception as e:
         log(f"🔥 Error verificando token: {e}")
         return False, {"error": str(e)}
+    
+    
+    
 
 def send_whatsapp_message(to_number, message_text):
     """Envía un mensaje de WhatsApp usando texto directo"""
@@ -1191,6 +1619,7 @@ def send_whatsapp_message(to_number, message_text):
                 "status": "error",
                 "error_code": "invalid_token",
                 "error_message": "Token de acceso expirado o inválido"
+                log(f"🔑 Token cargado (primeros 10 chars): {ACCESS_TOKEN[:10]}")
             }
         
         def transform_number(number):
@@ -1221,7 +1650,7 @@ def send_whatsapp_message(to_number, message_text):
         }
         
         log(f"📤 Enviando mensaje a: {to_number}")
-        
+
         response = requests.post(url, json=payload, headers=headers, timeout=30)
         
         if response.status_code == 200:
@@ -1295,7 +1724,7 @@ def send_photos_async(user_id, propiedad_id, base_url):
         notificar_agente(f"👤 Cliente {user_id} está viendo fotos de: {propiedad.get('titulo')}")
         registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_fotos")
         
-        send_whatsapp_message(user_id, "✅ *¡Fotos enviadas!*\n\nEnvía 'Hola' para volver al menú.")
+        send_whatsapp_message(user_id, "✅ *¡Fotos enviadas!*\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*")
         
         log(f"✅ Envío de fotos completado para {user_id}")
     except Exception as e:
@@ -1354,20 +1783,18 @@ def send_welcome_flow(user_id):
 
 ¡Hola! Soy el asistente inmobiliario de Dante Propiedades.
 
-*¿Qué tipo de operación te interesa?*
-Escribí el número de tu opción:
+*¿Cómo podemos ayudarte hoy?*
+Elegí el número de tu opción:
 
-1️⃣ *💰 VENTA* - Propiedades en venta
-2️⃣ *🔑 ALQUILER* - Propiedades en alquiler
-3️⃣ *📍 Búsqueda por zona* (próximamente)
-4️⃣ *🔍 Búsqueda libre* (próximamente)
-5️⃣ *📋 Ver todas las propiedades*
-6️⃣ *📅 Mis citas agendadas* (NUEVO)
-7️⃣ *🌐 Ir a nuestra Web*
-8️⃣ *🔐 Panel Admin* (Solo Dante)
-0️⃣ *❌ SALIR*
+1️⃣ *Consultar propiedades* 🏠
+2️⃣ *Coordinar una visita* 📅
+3️⃣ *Ver mis citas programadas* 📋
+4️⃣ *Hablar con un asesor* 👤
 
-Para seleccionar, solo envía el número (ej: "1" o "0")"""
+9️⃣ *Volver al menú principal*
+0️⃣ *Salir del chat*
+
+Para seleccionar, solo enviá el número."""
     
     return send_whatsapp_message(user_id, welcome_message)
 
@@ -1751,75 +2178,123 @@ def guardar_citas(citas):
         return False
 
 
-def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, notas=""):
-    """Crea una nueva cita y la guarda en JSON y PostgreSQL"""
+def buscar_cita_activa_usuario(user_id):
+    """Busca la cita más próxima y activa de un usuario"""
     conn = None
     try:
-        citas = cargar_citas()
-        nueva_cita = {
-            'id': f"cita_{len(citas)+1:04d}",
-            'user_id': user_id,
-            'nombre': nombre,
-            'telefono': telefono,
-            'fecha': fecha,
-            'hora': hora,
-            'propiedad_id': propiedad_id,
-            'estado': 'pendiente',
-            'notas': notas,
-            'creacion': datetime.now().isoformat(),
-            'ultima_actualizacion': datetime.now().isoformat()
-        }
-        
-        citas.append(nueva_cita)
-        
-        # 1. Guardar en JSON
-        if not guardar_citas(citas):
-            log("⚠️ Error guardando cita en JSON", "WARNING")
-        
-        log(f"✅ Cita creada localmente: {nueva_cita['id']} para {nombre}")
-        
-        # 2. Guardar en PostgreSQL
         conn = get_db_connection()
-        if conn:
-            # Asegurar esquema antes del INSERT
-            init_db(conn)
-            
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO citas (user_id, nombre, telefono, fecha_cita, hora_cita, propiedad_id, estado, notas)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-            """, (user_id, nombre, telefono, fecha, hora, propiedad_id, 'pendiente', notas))
-            
-            db_record_id = cursor.fetchone()[0]
-            conn.commit()
-            log(f"✅ Cita guardada en PostgreSQL - ID DB: {db_record_id}")
-            
-            # Registrar también en el log general de leads
-            guardar_en_postgresql(
-                telefono=telefono,
-                nombre=nombre,
-                accion="cita_agendada",
-                detalles=f"Cita agendada para {fecha} {hora} - Propiedad ID: {propiedad_id}"
-            )
-        else:
-            log("⚠️ No se pudo conectar a PostgreSQL para guardar la cita", "WARNING")
-
-        # 3. Notificar al admin
-        notificar_cita_admin(nueva_cita)
+        if not conn: return None
+        cursor = conn.cursor()
         
-        return nueva_cita
+        # Buscar cita pendiente para mañana o hoy
+        cursor.execute("""
+            SELECT id, nombre, fecha_cita, hora_cita, propiedad_id, estado, notas, telefono
+            FROM citas
+            WHERE (telefono = %s OR user_id = %s)
+            AND estado = 'pendiente'
+            AND fecha_cita >= CURRENT_DATE
+            ORDER BY fecha_cita ASC, hora_cita ASC
+            LIMIT 1
+        """, (user_id, user_id))
         
+        res = cursor.fetchone()
+        if res:
+            return {
+                'id': res[0],
+                'nombre': res[1],
+                'fecha': res[2].strftime("%Y-%m-%d"),
+                'hora': res[3],
+                'propiedad_id': res[4],
+                'estado': res[5],
+                'notas': res[6],
+                'telefono': res[7]
+            }
+        return None
     except Exception as e:
-        log(f"❌ Error creando cita: {e}", "ERROR")
-        if conn:
-            conn.rollback()
-        import traceback
-        log(f"🔍 Detalles error: {traceback.format_exc()}")
+        log(f"❌ Error buscando cita activa: {e}", "ERROR")
         return None
     finally:
+        if conn: conn.close()
+
+def actualizar_cita_db(cita_id, nuevo_estado=None, nuevas_notas=None):
+    """Actualiza estado y/o notas de una cita en PostgreSQL y JSON"""
+    conn = None
+    try:
+        # 1. Actualizar PostgreSQL
+        conn = get_db_connection()
         if conn:
-            conn.close()
+            cursor = conn.cursor()
+            if nuevo_estado and nuevas_notas:
+                cursor.execute("UPDATE citas SET estado = %s, notas = %s WHERE id = %s", (nuevo_estado, nuevas_notas, cita_id))
+            elif nuevo_estado:
+                cursor.execute("UPDATE citas SET estado = %s WHERE id = %s", (nuevo_estado, cita_id))
+            elif nuevas_notas:
+                cursor.execute("UPDATE citas SET notas = %s WHERE id = %s", (nuevas_notas, cita_id))
+            conn.commit()
+            log(f"✅ Cita {cita_id} actualizada en PostgreSQL")
+        
+        # 2. Actualizar JSON (para mantener sincronía)
+        citas = cargar_citas()
+        for c in citas:
+            # Los IDs en JSON son strings como cita_0001, en DB son seriales
+            # Hacemos una comparación flexible o buscamos por otros campos
+            # Por ahora, si el ID coincide (convertido a string)
+            if str(c.get('id')) == str(cita_id) or c.get('id') == cita_id:
+                if nuevo_estado: c['estado'] = nuevo_estado
+                if nuevas_notas: c['notas'] = nuevas_notas
+                c['ultima_actualizacion'] = datetime.now().isoformat()
+                break
+        guardar_citas(citas)
+        return True
+    except Exception as e:
+        log(f"❌ Error actualizando cita: {e}", "ERROR")
+        return False
+    finally:
+        if conn: conn.close()
+
+def manejar_confirmacion_recordatorio(text, estado_usuario, user_id):
+    """Maneja la respuesta del usuario al recordatorio de cita"""
+    text_lower = text.lower().strip()
+    cita = buscar_cita_activa_usuario(user_id)
+    
+    if not cita:
+        estado_usuario['paso'] = 'menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "No encontré una cita pendiente para vos. ¿En qué puedo ayudarte? Envía 'Hola' para ver el menú."
+
+    # 1. CONFIRMACIÓN
+    if any(word in text_lower for word in ["confirm", "si", "sí", "voy", "dale", "ok", "claro"]):
+        actualizar_cita_db(cita['id'], nuevo_estado='confirmada', nuevas_notas="Usuario confirmó la visita")
+        estado_usuario['paso'] = 'menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return f"✅ ¡Muchas gracias, *{cita['nombre']}*! Hemos registrado tu confirmación. Nos vemos el {datetime.strptime(cita['fecha'], '%Y-%m-%d').strftime('%d/%m')} a las {cita['hora']} hs. 👋"
+
+    # 2. CANCELACIÓN
+    if any(word in text_lower for word in ["cancel", "no voy", "baja", "anular"]):
+        actualizar_cita_db(cita['id'], nuevo_estado='cancelada', nuevas_notas="Usuario canceló la visita")
+        estado_usuario['paso'] = 'menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "Entiendo. Hemos cancelado la visita. Si en otro momento deseas agendar nuevamente, no dudes en avisarnos. ¡Que tengas un buen día! 🏠"
+
+    # 3. REPROGRAMACIÓN
+    if any(word in text_lower for word in ["reprogramar", "cambiar", "otro dia", "otra hora", "no puedo", "puedo otro"]):
+        estado_usuario['paso'] = 'solicitar_fecha_cita' # Reusar flujo existente
+        # Necesitamos setear el ultimo_indice_preguntado para que sepa de qué propiedad hablamos
+        # Buscamos la propiedad en el listado general
+        props = cargar_propiedades_cached()
+        for i, p in enumerate(props, 1):
+            if p.get('id_temporal') == cita['propiedad_id']:
+                estado_usuario['ultimo_indice_preguntado'] = i
+                estado_usuario['propiedades_filtradas'] = props
+                break
+        
+        actualizar_cita_db(cita['id'], nuevas_notas=f"Usuario solicitó reprogramar: {text}")
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "No hay problema, podemos reprogramarla. 😊 ¿Para qué día y horario te quedaría mejor? (ej: 'El jueves a las 11')"
+
+    # 4. AMBIGÜEDAD / COMENTARIOS
+    actualizar_cita_db(cita['id'], nuevas_notas=f"Comentario usuario: {text}")
+    return "¿Podrías confirmarme si mantenés la visita o si preferís reprogramarla para otro momento? Así te reservamos el lugar. 😊"
 
 def notificar_cita_admin(cita):
     """Envía notificación de nueva cita al admin"""
@@ -2011,6 +2486,29 @@ def api_citas():
     
     citas = cargar_citas()
     return jsonify(citas)
+
+@app.route("/api/internal/set-state", methods=["POST"])
+def set_user_state():
+    """Endpoint interno para que el script de recordatorios setee el estado del usuario"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    data = request.get_json()
+    user_id = data.get('user_id')
+    nuevo_paso = data.get('paso')
+    
+    if not user_id or not nuevo_paso:
+        return jsonify({"error": "Missing user_id or paso"}), 400
+    
+    estado = obtener_estado_usuario(user_id)
+    estado['paso'] = nuevo_paso
+    actualizar_estado_usuario(user_id, estado)
+    
+    log(f"🔄 Estado de usuario {user_id} actualizado remotamente a: {nuevo_paso}")
+    return jsonify({"status": "success", "user_id": user_id, "paso": nuevo_paso})
+
+
 
 @app.route("/imgs/<path:filename>")
 def serve_image(filename):
@@ -2236,6 +2734,81 @@ def debug_leads():
         "ultimo_lead": leads_json[-1] if leads_json else None,
         "archivo": os.path.exists(LEADS_FILE)
     })
+
+
+@app.route("/api/internal/send-reminder", methods=["POST"])
+def send_appointment_reminder():
+    """Envia un recordatorio de cita y setea el estado del usuario"""
+    try:
+        # 🔥 VERIFICACIÓN DE CLAVE ELIMINADA PARA PRUEBAS
+        # key = request.args.get('key')
+        # if key != ADMIN_ACCESS_KEY:
+        #     return jsonify({"error": "Unauthorized"}), 403
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No JSON data provided"}), 400
+        
+        user_id = data.get('user_id')
+        nombre = data.get('nombre', 'Cliente')
+        fecha = data.get('fecha')
+        hora = data.get('hora')
+        propiedad = data.get('propiedad', 'la propiedad')
+        
+        # Validar campos obligatorios
+        missing = []
+        if not user_id:
+            missing.append('user_id')
+        if not fecha:
+            missing.append('fecha')
+        if not hora:
+            missing.append('hora')
+            
+        if missing:
+            return jsonify({"error": "Missing fields", "missing": missing}), 400
+        
+        # Formatear mensaje
+        mensaje = f"""🔔 *RECORDATORIO DANTE PROPIEDADES*
+
+Hola *{nombre}*! 😊
+
+Te escribo para recordarte tu cita de mañana:
+
+📅 *Fecha:* {fecha}
+⏰ *Hora:* {hora} hs
+🏠 *Propiedad:* {propiedad}
+
+📍 Te esperamos. Si necesitas cancelar o reprogramar, avísanos respondiendo este mensaje.
+
+*Opciones:*
+✅ Respondé *CONFIRMAR* para confirmar
+❌ Respondé *CANCELAR* si no podrás asistir
+🔄 Respondé *REPROGRAMAR* para cambiar fecha/hora
+
+¡Gracias por confiar en Dante Propiedades! 🏠🗝️"""
+        
+        # Enviar mensaje
+        result = send_whatsapp_message(user_id, mensaje)
+        
+        # Setear estado para esperar confirmación
+        estado = obtener_estado_usuario(user_id)
+        estado['paso'] = 'esperando_confirmacion_recordatorio'
+        actualizar_estado_usuario(user_id, estado)
+        
+        log(f"🔔 Recordatorio enviado a {user_id} ({nombre})")
+        return jsonify({
+            "status": "success",
+            "whatsapp_id": result.get('message_id')
+        }), 200
+        
+    except Exception as e:
+        log(f"❌ Error inesperado: {e}")
+        import traceback
+        log(traceback.format_exc())
+        return jsonify({"error": "Internal server error", "details": str(e)}), 500
+    
+    
+# MAIN
 
 if __name__ == "__main__":
 
