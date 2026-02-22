@@ -69,16 +69,20 @@ def get_db_connection():
         if not database_url:
             database_url = "postgresql://dantepropiedadesdb_user:wiBPwMvLzG01zHkHKyqEsTfHEhcZzfKi@dpg-d62aqenpm1nc73fqi3m0-a.oregon-postgres.render.com:5432/dantepropiedadesdb"
         
-        # Forzar SSL y timeout
-        conn = psycopg2.connect(
-            database_url,
-            sslmode='require',
-            connect_timeout=10,
-            keepalives_idle=30,
-            keepalives_interval=10,
-            keepalives_count=5
-        )
-        return conn
+        # Intentar con diferentes opciones SSL
+        try:
+            # Primero intentar con sslmode=require
+            conn = psycopg2.connect(database_url, sslmode='require', connect_timeout=10)
+            log("✅ Conectado a PostgreSQL con sslmode=require")
+            return conn
+        except Exception as e1:
+            log(f"⚠️ Falló sslmode=require: {e1}")
+            
+            # Intentar sin SSL
+            conn = psycopg2.connect(database_url, sslmode='disable', connect_timeout=10)
+            log("✅ Conectado a PostgreSQL sin SSL")
+            return conn
+            
     except Exception as e:
         log(f"❌ Error conectando a PostgreSQL: {e}", "ERROR")
         return None
@@ -3233,7 +3237,7 @@ def api_citas():
         log(f"❌ Error en api_citas: {e}", "ERROR")
         return jsonify({"error": str(e), "citas": []}), 500
     
-    @app.route("/api/db-status", methods=["GET"])
+@app.route("/api/db-status", methods=["GET"])
 def db_status():
     """Verifica el estado de la conexión a PostgreSQL"""
     key = request.args.get('key')
@@ -3282,6 +3286,57 @@ def db_status():
         status["message"] = "❌ Error en la conexión"
     
     return jsonify(status)
+
+
+@app.route("/api/db-check", methods=["GET"])
+def db_check():
+    """Verificación rápida de la base de datos"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    results = {}
+    
+    # Verificar variables de entorno
+    results["database_url_exists"] = bool(os.getenv("DATABASE_URL"))
+    
+    # Intentar conexión
+    try:
+        conn = get_db_connection()
+        results["connection_success"] = conn is not None
+        
+        if conn:
+            cursor = conn.cursor()
+            
+            # Listar tablas
+            cursor.execute("""
+                SELECT table_name FROM information_schema.tables 
+                WHERE table_schema = 'public'
+            """)
+            tables = [t[0] for t in cursor.fetchall()]
+            results["tables"] = tables
+            
+            # Contar registros en citas
+            if 'citas' in tables:
+                cursor.execute("SELECT COUNT(*) FROM citas")
+                results["citas_count"] = cursor.fetchone()[0]
+            
+            # Contar registros en leads
+            if 'leads' in tables:
+                cursor.execute("SELECT COUNT(*) FROM leads")
+                results["leads_count"] = cursor.fetchone()[0]
+            
+            cursor.close()
+            conn.close()
+            results["message"] = "✅ Conexión exitosa"
+        else:
+            results["message"] = "❌ No se pudo conectar"
+            
+    except Exception as e:
+        results["error"] = str(e)
+        results["message"] = "❌ Error"
+    
+    return jsonify(results)
 
 if __name__ == "__main__":
 
