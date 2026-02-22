@@ -70,10 +70,10 @@ def get_db_connection():
     try:
         database_url = os.getenv("DATABASE_URL")
         if not database_url:
-            # Fallback a URL hardcodeada solo si no hay variable de entorno
             database_url = "postgresql://dantepropiedadesdb_user:wiBPwMvLzG01zHkHKyqEsTfHEhcZzfKi@dpg-d62aqenpm1nc73fqi3m0-a.oregon-postgres.render.com:5432/dantepropiedadesdb"
         
-        return psycopg2.connect(database_url)
+        # Añadir sslmode=require a la conexión
+        return psycopg2.connect(database_url, sslmode='require')
     except Exception as e:
         log(f"❌ Error conectando a PostgreSQL: {e}", "ERROR")
         return None
@@ -2958,6 +2958,53 @@ def debug_python():
         "runtime_txt_content": open('runtime.txt').read().strip() if os.path.exists('runtime.txt') else 'No existe',
         "timestamp": datetime.now().isoformat()
     })
+
+@app.route("/debug-db", methods=["GET"])
+def debug_db():
+    """Diagnóstico detallado de la conexión a PostgreSQL"""
+    import psycopg2
+    import os
+    
+    resultados = {
+        "variable_db_url": "NO CONFIGURADA",
+        "intento_conexion": False,
+        "error_detalle": None,
+        "timestamp": datetime.now().isoformat()
+    }
+    
+    # 1. Verificar variable de entorno
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url:
+        resultados["variable_db_url"] = "CONFIGURADA (oculta)"
+        # Mostrar solo los primeros caracteres por seguridad
+        resultados["db_url_preview"] = db_url[:30] + "..." + db_url[-10:]
+    else:
+        resultados["variable_db_url"] = "NO EXISTE"
+        return jsonify(resultados)
+    
+    # 2. Intentar conexión
+    try:
+        conn = psycopg2.connect(db_url)
+        cursor = conn.cursor()
+        
+        # Probar consulta simple
+        cursor.execute("SELECT 1")
+        resultado = cursor.fetchone()
+        
+        cursor.close()
+        conn.close()
+        
+        resultados["intento_conexion"] = True
+        resultados["consulta_prueba"] = resultado[0] == 1
+        resultados["mensaje"] = "✅ Conexión exitosa"
+        
+    except Exception as e:
+        resultados["intento_conexion"] = False
+        resultados["error_detalle"] = str(e)
+        resultados["tipo_error"] = type(e).__name__
+    
+    return jsonify(resultados)
+
 
 if __name__ == "__main__":
 
