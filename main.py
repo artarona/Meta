@@ -2659,37 +2659,6 @@ def api_leads():
             
     return jsonify({"leads": leads})
 
-@app.route("/api/citas", methods=["GET"])
-def api_citas():
-    """Retorna todas las citas en formato JSON"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    citas = cargar_citas()
-    return jsonify(citas)
-
-@app.route("/api/internal/set-state", methods=["POST"])
-def set_user_state():
-    """Endpoint interno para que el script de recordatorios setee el estado del usuario"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    data = request.get_json()
-    user_id = data.get('user_id')
-    nuevo_paso = data.get('paso')
-    
-    if not user_id or not nuevo_paso:
-        return jsonify({"error": "Missing user_id or paso"}), 400
-    
-    estado = obtener_estado_usuario(user_id)
-    estado['paso'] = nuevo_paso
-    actualizar_estado_usuario(user_id, estado)
-    
-    log(f"🔄 Estado de usuario {user_id} actualizado remotamente a: {nuevo_paso}")
-    return jsonify({"status": "success", "user_id": user_id, "paso": nuevo_paso})
-
 
 
 @app.route("/imgs/<path:filename>")
@@ -3167,13 +3136,51 @@ def debug_db():
 
 @app.route("/api/citas", methods=["GET"])
 def api_citas():
-    """Retorna todas las citas en formato JSON (requiere key de admin)"""
+    """Retorna todas las citas desde PostgreSQL"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
     
-    citas = cargar_citas()
-    return jsonify(citas)
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Error conectando a la base de datos"}), 500
+        
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT 
+                id, nombre, telefono, fecha_cita, hora_cita,
+                propiedad_id, estado, notas, fecha_creacion, email
+            FROM citas 
+            ORDER BY fecha_cita DESC, hora_cita DESC
+        """)
+        
+        citas = cursor.fetchall()
+        
+        citas_formateadas = []
+        for cita in citas:
+            citas_formateadas.append({
+                "id": cita[0],
+                "nombre": cita[1],
+                "telefono": cita[2],
+                "fecha": cita[3].strftime('%Y-%m-%d') if cita[3] else None,
+                "hora": cita[4],
+                "propiedad_id": cita[5],
+                "estado": cita[6] or "pendiente",
+                "notas": cita[7],
+                "fecha_creacion": cita[8].isoformat() if cita[8] else None,
+                "email": cita[9]
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify(citas_formateadas)
+        
+    except Exception as e:
+        log(f"❌ Error en api_citas: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
 
