@@ -2477,6 +2477,147 @@ def obtener_texto_dias_habiles(propiedad_id=None):
         return "Lunes a Viernes"
 
 # ========== RUTAS API ==========
+@app.route("/api/sincronizar/citas", methods=["POST"])
+def sincronizar_citas_manual():
+    """Sincroniza citas entre JSON y PostgreSQL (endpoint manual)"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "No se pudo conectar a PostgreSQL"}), 500
+        
+        cursor = conn.cursor()
+        
+        # 1. Cargar citas desde JSON
+        if not os.path.exists('citas.json'):
+            return jsonify({"error": "Archivo citas.json no encontrado"}), 404
+            
+        with open('citas.json', 'r', encoding='utf-8') as f:
+            citas_json = json.load(f)
+        
+        if not citas_json:
+            return jsonify({"message": "No hay citas en JSON para sincronizar", "creadas": 0, "actualizadas": 0})
+        
+        sincronizadas = 0
+        creadas = 0
+        errores = []
+        
+        for cita in citas_json:
+            try:
+                # Verificar si ya existe en PostgreSQL (por teléfono + fecha + hora)
+                cursor.execute("""
+                    SELECT id FROM citas 
+                    WHERE telefono = %s AND fecha_cita = %s AND hora_cita = %s
+                """, (
+                    cita.get('telefono'), 
+                    cita.get('fecha'), 
+                    cita.get('hora')
+                ))
+                
+                if not cursor.fetchone():
+                    # No existe, insertar nueva cita
+                    cursor.execute("""
+                        INSERT INTO citas (
+                            nombre, telefono, email, fecha_cita, hora_cita,
+                            propiedad_id, estado, notas, fecha_creacion,
+                            recordatorio_enviado, recordatorio_horario
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        cita.get('nombre', 'Cliente'),
+                        cita.get('telefono'),
+                        cita.get('email', ''),
+                        cita.get('fecha'),
+                        cita.get('hora'),
+                        cita.get('propiedad_id', ''),
+                        cita.get('estado', 'pendiente'),
+                        cita.get('notas', ''),
+                        cita.get('creacion', datetime.now().isoformat()),
+                        False,
+                        '09:00'
+                    ))
+                    creadas += 1
+                    log(f"✅ Cita creada en PostgreSQL: {cita.get('nombre')} - {cita.get('fecha')}")
+                else:
+                    # Ya existe, actualizar estado si es necesario
+                    cursor.execute("""
+                        UPDATE citas SET 
+                            estado = %s, 
+                            notas = %s,
+                            email = %s
+                        WHERE telefono = %s AND fecha_cita = %s AND hora_cita = %s
+                    """, (
+                        cita.get('estado', 'pendiente'),
+                        cita.get('notas', ''),
+                        cita.get('email', ''),
+                        cita.get('telefono'),
+                        cita.get('fecha'),
+                        cita.get('hora')
+                    ))
+                    sincronizadas += 1
+                    log(f"🔄 Cita actualizada en PostgreSQL: {cita.get('nombre')}")
+                    
+            except Exception as e:
+                errores.append(f"Error con cita {cita.get('id')}: {str(e)}")
+                continue
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        # Actualizar también el archivo JSON con IDs de PostgreSQL (opcional)
+        await actualizar_ids_json()
+        
+        return jsonify({
+            "status": "success",
+            "message": "Sincronización completada",
+            "creadas": creadas,
+            "actualizadas": sincronizadas,
+            "errores": errores if errores else None,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        log(f"❌ Error en sincronización: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+async def actualizar_ids_json():
+    """Actualiza el archivo JSON con los IDs reales de PostgreSQL"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Obtener todas las citas de PostgreSQL
+        cursor.execute("SELECT id, telefono, fecha_cita, hora_cita FROM citas")
+        citas_db = cursor.fetchall()
+        
+        # Cargar JSON actual
+        with open('citas.json', 'r', encoding='utf-8') as f:
+            citas_json = json.load(f)
+        
+        # Actualizar IDs
+        for cita_json in citas_json:
+            for cita_db in citas_db:
+                if (cita_json.get('telefono') == cita_db[1] and 
+                    cita_json.get('fecha') == cita_db[2].strftime('%Y-%m-%d') and 
+                    cita_json.get('hora') == cita_db[3]):
+                    cita_json['id'] = f"pg_{cita_db[0]}"
+                    break
+        
+        # Guardar JSON actualizado
+        with open('citas.json', 'w', encoding='utf-8') as f:
+            json.dump(citas_json, f, indent=4, ensure_ascii=False)
+            
+        cursor.close()
+        conn.close()
+        log("✅ IDs de PostgreSQL actualizados en citas.json")
+        
+    except Exception as e:
+        log(f"⚠️ Error actualizando IDs en JSON: {e}")
+
+
 @app.route("/admin")
 def admin_panel():
     """Sirve el panel de administración"""
