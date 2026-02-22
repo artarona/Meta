@@ -3006,6 +3006,18 @@ def debug_db():
     return jsonify(resultados)
 
 
+
+
+@app.route("/api/citas", methods=["GET"])
+def api_citas():
+    """Retorna todas las citas en formato JSON (requiere key de admin)"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    citas = cargar_citas()
+    return jsonify(citas)
+
 if __name__ == "__main__":
 
     print("\n" + "=" * 60)
