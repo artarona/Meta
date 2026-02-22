@@ -63,18 +63,22 @@ processed_message_ids = deque(maxlen=1000)  # Aumentado para manejar más mensaj
 
 # ========== CONEXIÓN A POSTGRESQL (Render) ==========
 def get_db_connection():
-    """Obtiene conexión a PostgreSQL usando variable de entorno"""
-    if psycopg2 is None:
-        log("❌ No se puede conectar: el módulo 'psycopg2' no está cargado", "ERROR")
-        return None
-        
+    """Obtiene conexión a PostgreSQL con manejo robusto de SSL"""
     try:
         database_url = os.getenv("DATABASE_URL")
         if not database_url:
             database_url = "postgresql://dantepropiedadesdb_user:wiBPwMvLzG01zHkHKyqEsTfHEhcZzfKi@dpg-d62aqenpm1nc73fqi3m0-a.oregon-postgres.render.com:5432/dantepropiedadesdb"
         
-        # Añadir sslmode=require a la conexión
-        return psycopg2.connect(database_url, sslmode='require')
+        # Forzar SSL y timeout
+        conn = psycopg2.connect(
+            database_url,
+            sslmode='require',
+            connect_timeout=10,
+            keepalives_idle=30,
+            keepalives_interval=10,
+            keepalives_count=5
+        )
+        return conn
     except Exception as e:
         log(f"❌ Error conectando a PostgreSQL: {e}", "ERROR")
         return None
@@ -3228,6 +3232,56 @@ def api_citas():
     except Exception as e:
         log(f"❌ Error en api_citas: {e}", "ERROR")
         return jsonify({"error": str(e), "citas": []}), 500
+    
+    @app.route("/api/db-status", methods=["GET"])
+def db_status():
+    """Verifica el estado de la conexión a PostgreSQL"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    status = {
+        "database_url_configured": bool(os.getenv("DATABASE_URL")),
+        "connection_test": False,
+        "tables": {},
+        "timestamp": datetime.now().isoformat()
+    }
+    
+    try:
+        conn = get_db_connection()
+        if conn:
+            status["connection_test"] = True
+            cursor = conn.cursor()
+            
+            # Verificar tablas
+            cursor.execute("""
+                SELECT table_name, 
+                       (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = t.table_name) as column_count
+                FROM information_schema.tables t
+                WHERE table_schema = 'public'
+                ORDER BY table_name
+            """)
+            
+            for table in cursor.fetchall():
+                # Contar registros
+                cursor.execute(f"SELECT COUNT(*) FROM {table[0]}")
+                count = cursor.fetchone()[0]
+                status["tables"][table[0]] = {
+                    "columns": table[1],
+                    "rows": count
+                }
+            
+            cursor.close()
+            conn.close()
+            status["message"] = "✅ Conexión exitosa"
+        else:
+            status["message"] = "❌ No se pudo conectar"
+            
+    except Exception as e:
+        status["error"] = str(e)
+        status["message"] = "❌ Error en la conexión"
+    
+    return jsonify(status)
 
 if __name__ == "__main__":
 
