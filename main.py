@@ -2945,7 +2945,19 @@ def debug_version():
         "render_deploy": os.environ.get('RENDER_DEPLOY', 'unknown')
     })
 
-
+@app.route("/debug-python", methods=["GET"])
+def debug_python():
+    """Muestra la versión de Python que está usando Render"""
+    import sys
+    import platform
+    
+    return jsonify({
+        "python_version": sys.version,
+        "python_implementation": platform.python_implementation(),
+        "python_compiler": platform.python_compiler(),
+        "runtime_txt_content": open('runtime.txt').read().strip() if os.path.exists('runtime.txt') else 'No existe',
+        "timestamp": datetime.now().isoformat()
+    })
 
 if __name__ == "__main__":
 
