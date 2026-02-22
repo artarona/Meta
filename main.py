@@ -808,6 +808,36 @@ def debug_token_env():
         "environment_keys": [k for k in os.environ.keys() if not k.startswith('_')]  # Solo variables no privadas
     })
 
+
+@app.route("/emergency-fix", methods=["GET"])
+def emergency_fix():
+    """Endpoint de emergencia para verificar qué código está corriendo"""
+    import inspect
+    import sys
+    
+    # Verificar token
+    token_value = ACCESS_TOKEN[:20] + "..." if len(ACCESS_TOKEN) > 20 else ACCESS_TOKEN
+    
+    # Verificar si las funciones existen
+    funciones = {
+        "send_whatsapp_reply": "send_whatsapp_reply" in dir(),
+        "transform_number_for_sandbox": "transform_number_for_sandbox" in dir(),
+        "test_token_validity": "test_token_validity" in dir(),
+    }
+    
+    # Verificar variables de entorno
+    env_vars = {k: v[:10] + "..." if "TOKEN" in k else v for k, v in os.environ.items() if not k.startswith('_')}
+    
+    return jsonify({
+        "status": "emergency_check",
+        "token_preview": token_value,
+        "token_length": len(ACCESS_TOKEN),
+        "funciones_existentes": funciones,
+        "environment_vars": env_vars,
+        "python_version": sys.version,
+        "file_content_hash": hashlib.md5(open(__file__).read().encode()).hexdigest()[:10]
+    })
+
 if __name__ == "__main__":
     # Mostrar banner inmediatamente
     show_banner()
