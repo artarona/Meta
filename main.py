@@ -2914,6 +2914,39 @@ def test_envio_simple():
 
 # MAIN
 
+@app.route("/debug-version", methods=["GET"])
+def debug_version():
+    """Muestra información de la versión del código"""
+    import hashlib
+    import os
+    
+    # Hash del archivo actual
+    with open(__file__, 'rb') as f:
+        file_hash = hashlib.md5(f.read()).hexdigest()[:8]
+    
+    # Verificar si existen los endpoints
+    endpoints = {
+        "version-actual": "version_actual" in dir(),
+        "token-status": "token_status" in dir(),
+        "debug-token-env": "debug_token_env" in dir(),
+        "test-envio": "test_envio_simple" in dir()
+    }
+    
+    # Última modificación del archivo
+    mod_time = os.path.getmtime(__file__)
+    mod_date = datetime.fromtimestamp(mod_time).strftime('%Y-%m-%d %H:%M:%S')
+    
+    return jsonify({
+        "status": "debug",
+        "file_hash": file_hash,
+        "last_modified": mod_date,
+        "endpoints_presentes": endpoints,
+        "python_version": os.environ.get('PYTHON_VERSION', 'unknown'),
+        "render_deploy": os.environ.get('RENDER_DEPLOY', 'unknown')
+    })
+
+
+
 if __name__ == "__main__":
 
     print("\n" + "=" * 60)
