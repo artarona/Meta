@@ -2642,22 +2642,50 @@ def admin_panel():
         return "⚠️ Acceso No Autorizado. Por favor usa el enlace seguro.", 403
     return send_file("admin.html")
 
-@app.route("/api/leads")
+@app.route("/api/leads", methods=["GET"])
 def api_leads():
-    """Retorna los leads en formato JSON"""
+    """Retorna todos los leads desde PostgreSQL"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
     
-    leads = []
-    if os.path.exists(LEADS_FILE):
-        try:
-            with open(LEADS_FILE, 'r', encoding='utf-8') as f:
-                leads = json.load(f)
-        except Exception as e:
-            log(f"Error leyendo leads para API: {e}")
-            
-    return jsonify({"leads": leads})
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
+        
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT id, fecha, telefono, nombre, propiedad_id, propiedad_titulo, accion, detalles
+            FROM leads 
+            ORDER BY fecha DESC
+            LIMIT 1000
+        """)
+        
+        leads = cursor.fetchall()
+        
+        leads_formateados = []
+        for lead in leads:
+            leads_formateados.append({
+                "id": lead[0],
+                "timestamp": lead[1].isoformat() if lead[1] else None,
+                "user_id": lead[2],
+                "nombre": lead[3],
+                "propiedad_id": lead[4],
+                "propiedad_titulo": lead[5],
+                "accion": lead[6],
+                "detalle": lead[7]
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({"leads": leads_formateados})
+        
+    except Exception as e:
+        log(f"❌ Error en api_leads: {e}", "ERROR")
+        return jsonify({"error": str(e), "leads": []}), 500
 
 
 
@@ -3144,9 +3172,23 @@ def api_citas():
     try:
         conn = get_db_connection()
         if not conn:
-            return jsonify({"error": "Error conectando a la base de datos"}), 500
+            return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
         
         cursor = conn.cursor()
+        
+        # Verificar si la tabla citas existe
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'citas'
+            )
+        """)
+        tabla_existe = cursor.fetchone()[0]
+        
+        if not tabla_existe:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "La tabla 'citas' no existe", "citas": []}), 200
         
         cursor.execute("""
             SELECT 
@@ -3160,17 +3202,22 @@ def api_citas():
         
         citas_formateadas = []
         for cita in citas:
+            try:
+                fecha_str = cita[3].strftime('%Y-%m-%d') if cita[3] else None
+            except:
+                fecha_str = str(cita[3]) if cita[3] else None
+                
             citas_formateadas.append({
                 "id": cita[0],
-                "nombre": cita[1],
-                "telefono": cita[2],
-                "fecha": cita[3].strftime('%Y-%m-%d') if cita[3] else None,
-                "hora": cita[4],
-                "propiedad_id": cita[5],
+                "nombre": cita[1] or "Sin nombre",
+                "telefono": cita[2] or "",
+                "fecha": fecha_str,
+                "hora": cita[4] or "",
+                "propiedad_id": cita[5] or "",
                 "estado": cita[6] or "pendiente",
-                "notas": cita[7],
+                "notas": cita[7] or "",
                 "fecha_creacion": cita[8].isoformat() if cita[8] else None,
-                "email": cita[9]
+                "email": cita[9] or ""
             })
         
         cursor.close()
@@ -3180,7 +3227,7 @@ def api_citas():
         
     except Exception as e:
         log(f"❌ Error en api_citas: {e}", "ERROR")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": str(e), "citas": []}), 500
 
 if __name__ == "__main__":
 
