@@ -793,6 +793,21 @@ def test_transform():
     })
 
 
+
+@app.route("/debug-token-env", methods=["GET"])
+def debug_token_env():
+    """Muestra información del token desde environment"""
+    token_from_env = os.environ.get("WHATSAPP_TOKEN", "NO_ENV_VAR")
+    token_from_code = ACCESS_TOKEN
+    
+    return jsonify({
+        "env_var_exists": "WHATSAPP_TOKEN" in os.environ,
+        "token_from_env_preview": token_from_env[:20] + "..." if len(token_from_env) > 20 else token_from_env,
+        "token_from_code_preview": token_from_code[:20] + "...",
+        "tokens_match": token_from_env == token_from_code if token_from_env != "NO_ENV_VAR" else False,
+        "environment_keys": [k for k in os.environ.keys() if not k.startswith('_')]  # Solo variables no privadas
+    })
+
 if __name__ == "__main__":
     # Mostrar banner inmediatamente
     show_banner()
