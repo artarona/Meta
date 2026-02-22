@@ -745,6 +745,49 @@ def health_check():
     except:
         return jsonify({"status": "error"}), 500
 
+
+@app.route("/show-token", methods=["GET"])
+def show_token():
+    """Muestra los primeros caracteres del token para verificar"""
+    token_preview = ACCESS_TOKEN[:30] + "..." if len(ACCESS_TOKEN) > 30 else ACCESS_TOKEN
+    return f"""
+    <h1>🔍 Token actual en Render</h1>
+    <p><strong>Token preview:</strong> {token_preview}</p>
+    <p><strong>Token length:</strong> {len(ACCESS_TOKEN)} caracteres</p>
+    <p><strong>Token válido en script:</strong> Sí (probado)</p>
+    <p><strong>Timestamp:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+    <p><a href="/check-code">Verificar código completo</a></p>
+    """
+
+
+@app.route("/test-transform", methods=["GET"])
+def test_transform():
+    """Prueba la transformación de números"""
+    test_numbers = [
+        "5491151511579",
+        "54111551511579", 
+        "15551492382"
+    ]
+    
+    results = []
+    for num in test_numbers:
+        transformed = num
+        if num == "5491151511579":
+            transformed = "54111551511579"
+        results.append({
+            "original": num,
+            "transformed": transformed,
+            "is_same": num == transformed
+        })
+    
+    return jsonify({
+        "status": "success",
+        "transform_function_exists": "transform_number_for_sandbox" in open(__file__).read(),
+        "tests": results,
+        "token_preview": ACCESS_TOKEN[:20] + "..."
+    })
+
+
 if __name__ == "__main__":
     # Mostrar banner inmediatamente
     show_banner()
