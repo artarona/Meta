@@ -2658,6 +2658,53 @@ def sincronizar_citas_manual():
         return jsonify({"error": str(e)}), 500
     
 
+@app.route("/api/citas/<int:cita_id>", methods=["DELETE"])
+def eliminar_cita(cita_id):
+    """Elimina una cita permanentemente"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Error conectando a la base de datos"}), 500
+        
+        cursor = conn.cursor()
+        
+        cursor.execute("DELETE FROM citas WHERE id = %s RETURNING id", (cita_id,))
+        deleted = cursor.fetchone()
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        if not deleted:
+            return jsonify({"error": "Cita no encontrada"}), 404
+        
+        # También eliminar de JSON
+        try:
+            if os.path.exists('citas.json'):
+                with open('citas.json', 'r', encoding='utf-8') as f:
+                    citas_json = json.load(f)
+                
+                citas_json = [c for c in citas_json 
+                             if c.get('id') != cita_id 
+                             and c.get('id') != f"cita_{cita_id:04d}"
+                             and c.get('id') != f"pg_{cita_id}"]
+                
+                with open('citas.json', 'w', encoding='utf-8') as f:
+                    json.dump(citas_json, f, indent=4, ensure_ascii=False)
+        except Exception as json_e:
+            log(f"⚠️ Error eliminando de JSON: {json_e}")
+        
+        log(f"✅ Cita {cita_id} eliminada")
+        return jsonify({"status": "success", "message": "Cita eliminada"})
+        
+    except Exception as e:
+        log(f"❌ Error eliminando cita {cita_id}: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+
 
 @app.route("/api/citas/<int:cita_id>", methods=["GET"])
 def obtener_cita_por_id(cita_id):
@@ -2747,6 +2794,73 @@ def actualizar_cita(cita_id):
         
     except Exception as e:
         log(f"❌ Error actualizando cita {cita_id}: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/citas/<int:cita_id>/estado", methods=["PUT"])
+def cambiar_estado_cita(cita_id):
+    """Cambia el estado de una cita (pendiente, confirmada, cancelada, completada)"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    nuevo_estado = request.args.get('estado')
+    if not nuevo_estado or nuevo_estado not in ['pendiente', 'confirmada', 'completada', 'cancelada']:
+        return jsonify({"error": "Estado inválido"}), 400
+    
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Error conectando a la base de datos"}), 500
+        
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            UPDATE citas 
+            SET estado = %s
+            WHERE id = %s
+            RETURNING id, nombre, estado
+        """, (nuevo_estado, cita_id))
+        
+        updated = cursor.fetchone()
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        if not updated:
+            return jsonify({"error": "Cita no encontrada"}), 404
+        
+        # También actualizar en JSON si existe
+        try:
+            if os.path.exists('citas.json'):
+                with open('citas.json', 'r', encoding='utf-8') as f:
+                    citas_json = json.load(f)
+                
+                for c in citas_json:
+                    if c.get('id') == cita_id or c.get('id') == f"cita_{cita_id:04d}" or c.get('id') == f"pg_{cita_id}":
+                        c['estado'] = nuevo_estado
+                        c['ultima_actualizacion'] = datetime.now().isoformat()
+                        break
+                
+                with open('citas.json', 'w', encoding='utf-8') as f:
+                    json.dump(citas_json, f, indent=4, ensure_ascii=False)
+        except Exception as json_e:
+            log(f"⚠️ Error actualizando JSON: {json_e}")
+        
+        log(f"✅ Estado de cita {cita_id} cambiado a {nuevo_estado}")
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Estado cambiado a {nuevo_estado}",
+            "cita": {
+                "id": updated[0],
+                "nombre": updated[1],
+                "estado": updated[2]
+            }
+        })
+        
+    except Exception as e:
+        log(f"❌ Error cambiando estado de cita {cita_id}: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
 
 
