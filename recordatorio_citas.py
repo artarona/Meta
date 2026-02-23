@@ -53,13 +53,13 @@ def obtener_citas_para_recordatorio():
         # 👇 SOLO 7 COLUMNAS, EN EL MISMO ORDEN QUE ESPERA enviar_recordatorio()
         cursor.execute("""
             SELECT 
-                id,              # 1. cita_id
-                telefono,        # 2. telefono
-                nombre,          # 3. nombre
-                fecha_cita,      # 4. fecha
-                hora_cita,       # 5. hora
-                propiedad_id,    # 6. propiedad_id
-                email            # 7. email
+                id,              -- 1. cita_id
+                telefono,        -- 2. telefono
+                nombre,          -- 3. nombre
+                fecha_cita,      -- 4. fecha
+                hora_cita,       -- 5. hora
+                propiedad_id,    -- 6. propiedad_id
+                email            -- 7. email
             FROM citas 
             WHERE fecha_cita = %s 
             AND estado = 'pendiente'
