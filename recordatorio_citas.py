@@ -76,49 +76,58 @@ def enviar_recordatorio(cita):
     """
     Envía recordatorio para una cita específica
     """
-    cita_id, user_id, telefono, nombre, fecha, hora, propiedad_id, email, recordatorio_previo = cita
+    cita_id, telefono, nombre, fecha, hora, propiedad_id, email = cita
     
-    logger.info(f"Enviando recordatorio a {nombre} ({telefono}) - Cita {fecha} {hora}")
+    logger.info(f"📤 Enviando recordatorio a {nombre} ({telefono}) - Cita {fecha} {hora}")
     
-    # Buscar título de propiedad (opcional)
-    propiedad_titulo = propiedad_id
-    try:
-        # Intentar obtener de propiedades.json
-        import json
-        if os.path.exists('propiedades.json'):
-            with open('propiedades.json', 'r', encoding='utf-8') as f:
-                propiedades = json.load(f)
-                for p in propiedades:
-                    if p.get('id_temporal') == propiedad_id:
-                        propiedad_titulo = p.get('titulo', propiedad_id)
-                        break
-    except:
-        pass
+    propiedad_titulo = obtener_titulo_propiedad(propiedad_id)
+    fecha_formateada = fecha.strftime('%d/%m') if hasattr(fecha, 'strftime') else fecha
     
     # Datos para el endpoint
     data = {
-        "user_id": telefono or user_id,
+        "user_id": telefono,
         "nombre": nombre,
-        "fecha": datetime.strptime(str(fecha), '%Y-%m-%d').strftime('%d/%m'),
+        "fecha": fecha_formateada,
         "fecha_iso": str(fecha),
         "hora": hora,
         "propiedad": propiedad_titulo
     }
     
+    # Obtener BASE_URL (ya debería estar configurada)
+    BASE_URL = os.getenv('BASE_URL', 'https://meta-rjpb.onrender.com')
+    url = f"{BASE_URL}/api/internal/send-reminder"
+    
+    logger.info(f"📞 Llamando a: {url}")
+    
     try:
-        response = requests.post(
-            f"{BASE_URL}/api/internal/send-reminder?key={ADMIN_KEY}",
-            json=data,
-            timeout=15
-        )
+        # ⬆️ AUMENTAR TIMEOUT A 30 SEGUNDOS ⬆️
+        response = requests.post(url, json=data, timeout=30)
         
         if response.status_code == 200:
             logger.info(f"✅ Recordatorio enviado a {nombre}")
+            
+            # Marcar como enviado en DB
+            conn = get_db_connection()
+            if conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE citas 
+                    SET recordatorio_enviado = TRUE, 
+                        recordatorio_enviado_en = NOW() 
+                    WHERE id = %s
+                """, (cita_id,))
+                conn.commit()
+                cursor.close()
+                conn.close()
+            
             return True
         else:
             logger.error(f"❌ Error {response.status_code}: {response.text}")
             return False
             
+    except requests.exceptions.Timeout:
+        logger.error(f"⏰ Timeout después de 30 segundos - El endpoint tarda más de lo esperado")
+        return False
     except Exception as e:
         logger.error(f"❌ Error enviando recordatorio: {e}")
         return False
