@@ -13,6 +13,9 @@ import sys
 import logging
 from dotenv import load_dotenv
 
+
+
+
 # Configuración
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -44,24 +47,27 @@ def obtener_citas_para_recordatorio():
         
         # Calcular mañana
         manana = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-        hoy = datetime.now().strftime('%Y-%m-%d')
         
-        logger.info(f"Buscando citas para {manana}")
+        logger.info(f"🔍 Buscando citas para {manana}")
         
+        # 👇 SOLO 7 COLUMNAS, EN EL MISMO ORDEN QUE ESPERA enviar_recordatorio()
         cursor.execute("""
             SELECT 
-                id, user_id, telefono, nombre, 
-                fecha_cita, hora_cita, propiedad_id, email,
-                recordatorio_enviado
+                id,              # 1. cita_id
+                telefono,        # 2. telefono
+                nombre,          # 3. nombre
+                fecha_cita,      # 4. fecha
+                hora_cita,       # 5. hora
+                propiedad_id,    # 6. propiedad_id
+                email            # 7. email
             FROM citas 
             WHERE fecha_cita = %s 
             AND estado = 'pendiente'
             AND (recordatorio_enviado = FALSE OR recordatorio_enviado IS NULL)
-            ORDER BY hora_cita
         """, (manana,))
         
         citas = cursor.fetchall()
-        logger.info(f"Encontradas {len(citas)} citas para recordatorio")
+        logger.info(f"📊 Encontradas {len(citas)} citas para recordatorio")
         
         cursor.close()
         conn.close()
@@ -71,7 +77,9 @@ def obtener_citas_para_recordatorio():
     except Exception as e:
         logger.error(f"Error obteniendo citas: {e}")
         return []
-
+    
+    
+    
 def enviar_recordatorio(cita):
     """
     Envía recordatorio para una cita específica
