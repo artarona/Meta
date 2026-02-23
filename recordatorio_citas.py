@@ -37,32 +37,36 @@ def get_db_connection():
 def obtener_citas_para_recordatorio():
     """
     Obtiene citas para mañana que no han recibido recordatorio
+    Incluye logs detallados para diagnóstico
     """
     try:
         conn = get_db_connection()
         if not conn:
+            logger.error("❌ No se pudo conectar a la base de datos")
             return []
         
         cursor = conn.cursor()
         
         # Calcular mañana
         manana = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+        hoy = datetime.now().strftime('%Y-%m-%d')
         
-        logger.info(f"🔍 Buscando citas para {manana}")
+        logger.info(f"🔍 Buscando citas para MAÑANA: {manana}")
+        logger.info(f"📅 Fecha de hoy: {hoy}")
         
-        # 🔴 PRIMERO: Ver cuántas citas hay en total para mañana (sin filtros)
+        # 🔴 PASO 1: Ver cuántas citas hay en total para mañana (sin filtros)
         cursor.execute("""
             SELECT COUNT(*) FROM citas 
             WHERE fecha_cita = %s
         """, (manana,))
         total_para_manana = cursor.fetchone()[0]
-        logger.info(f"📊 Total de citas para mañana (sin filtros): {total_para_manana}")
+        logger.info(f"📊 TOTAL de citas para mañana (sin filtros): {total_para_manana}")
         
-        # 🟡 SEGUNDO: Ver cuántas están pendientes y sin recordatorio
+        # 🟡 PASO 2: Ver cuántas están pendientes y sin recordatorio (las que procesaremos)
         cursor.execute("""
             SELECT 
-                id, telefono, nombre, fecha_cita, hora_cita, propiedad_id, email,
-                estado, recordatorio_enviado
+                id, telefono, nombre, fecha_cita, hora_cita, 
+                propiedad_id, email, estado, recordatorio_enviado
             FROM citas 
             WHERE fecha_cita = %s 
             AND estado = 'pendiente'
@@ -70,19 +74,51 @@ def obtener_citas_para_recordatorio():
         """, (manana,))
         
         citas = cursor.fetchall()
-        logger.info(f"📊 Citas que cumplen los criterios: {len(citas)}")
+        logger.info(f"📊 Citas que CUMPLEN CRITERIOS (pendientes + sin recordatorio): {len(citas)}")
         
-        # 🟢 TERCERO: Si hay diferencia, mostrar las excluidas
+        # 🟢 PASO 3: Si hay diferencia, mostrar DETALLE de todas las citas para diagnóstico
         if len(citas) < total_para_manana:
+            logger.info("🔍 DETALLE de TODAS las citas para mañana:")
+            
             cursor.execute("""
-                SELECT id, nombre, estado, recordatorio_enviado
+                SELECT 
+                    id, nombre, telefono, hora_cita, 
+                    estado, recordatorio_enviado, email
                 FROM citas 
                 WHERE fecha_cita = %s
+                ORDER BY id
             """, (manana,))
-            todas = cursor.fetchall()
-            logger.info("🔍 Detalle de todas las citas para mañana:")
-            for c in todas:
-                logger.info(f"   - ID: {c[0]}, Nombre: {c[1]}, Estado: {c[2]}, Recordatorio enviado: {c[3]}")
+            
+            todas_citas = cursor.fetchall()
+            
+            for cita in todas_citas:
+                cita_id = cita[0]
+                nombre = cita[1] or "Sin nombre"
+                telefono = cita[2] or "Sin teléfono"
+                hora = cita[3] or "Sin hora"
+                estado = cita[4] or "pendiente"
+                recordatorio = cita[5]
+                email = cita[6] or "Sin email"
+                
+                # Determinar por qué NO fue seleccionada
+                if estado != 'pendiente':
+                    motivo = f"Estado '{estado}' (debe ser 'pendiente')"
+                elif recordatorio:
+                    motivo = f"Recordatorio ya enviado (TRUE)"
+                else:
+                    motivo = "Cumple criterios (DEBERÍA estar incluida)"
+                
+                logger.info(f"   📌 ID {cita_id}: {nombre} - {hora} - Tel: {telefono}")
+                logger.info(f"      Estado: {estado} | Recordatorio enviado: {recordatorio} | Email: {email}")
+                logger.info(f"      Motivo exclusión: {motivo}")
+        
+        # 🟣 PASO 4: Si hay citas seleccionadas, mostrar resumen
+        if citas:
+            logger.info(f"✅ Se procesarán {len(citas)} citas:")
+            for idx, c in enumerate(citas, 1):
+                logger.info(f"   {idx}. ID {c[0]}: {c[2]} - {c[4]} (Tel: {c[1]})")
+        else:
+            logger.info("📭 No hay citas para procesar hoy")
         
         cursor.close()
         conn.close()
@@ -90,9 +126,10 @@ def obtener_citas_para_recordatorio():
         return citas
         
     except Exception as e:
-        logger.error(f"Error obteniendo citas: {e}")
+        logger.error(f"❌ Error obteniendo citas: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return []
-
 
 def obtener_titulo_propiedad(propiedad_id):
     """
