@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 import os
 import sys
 import logging
+import json  # ← Agrega esta línea junto a los otros imports
 from dotenv import load_dotenv
 
 
@@ -153,7 +154,15 @@ def enviar_recordatorio(cita):
     """
     Envía recordatorio para una cita específica
     """
-    cita_id, telefono, nombre, fecha, hora, propiedad_id, email = cita
+    # Desempaquetado explícito - SOLO los primeros 7 valores
+    cita_id = cita[0]
+    telefono = cita[1]
+    nombre = cita[2]
+    fecha = cita[3]
+    hora = cita[4]
+    propiedad_id = cita[5]
+    email = cita[6]
+    # Los índices 7, 8... contienen estado y recordatorio_enviado, los ignoramos
     
     logger.info(f"📤 Enviando recordatorio a {nombre} ({telefono}) - Cita {fecha} {hora}")
     
@@ -170,14 +179,13 @@ def enviar_recordatorio(cita):
         "propiedad": propiedad_titulo
     }
     
-    # Obtener BASE_URL (ya debería estar configurada)
+    # Obtener BASE_URL
     BASE_URL = os.getenv('BASE_URL', 'https://meta-rjpb.onrender.com')
     url = f"{BASE_URL}/api/internal/send-reminder"
     
     logger.info(f"📞 Llamando a: {url}")
     
     try:
-        # ⬆️ AUMENTAR TIMEOUT A 30 SEGUNDOS ⬆️
         response = requests.post(url, json=data, timeout=30)
         
         if response.status_code == 200:
@@ -203,7 +211,7 @@ def enviar_recordatorio(cita):
             return False
             
     except requests.exceptions.Timeout:
-        logger.error(f"⏰ Timeout después de 30 segundos - El endpoint tarda más de lo esperado")
+        logger.error(f"⏰ Timeout después de 30 segundos")
         return False
     except Exception as e:
         logger.error(f"❌ Error enviando recordatorio: {e}")
