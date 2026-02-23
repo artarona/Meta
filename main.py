@@ -2657,7 +2657,98 @@ def sincronizar_citas_manual():
         log(f"❌ Error en sincronización: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
     
+
+
+@app.route("/api/citas/<int:cita_id>", methods=["GET"])
+def obtener_cita_por_id(cita_id):
+    """Obtiene los datos de una cita específica por su ID"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
     
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Error conectando a la base de datos"}), 500
+        
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT 
+                id, nombre, telefono, email, fecha_cita, hora_cita,
+                propiedad_id, estado, notas
+            FROM citas 
+            WHERE id = %s
+        """, (cita_id,))
+        
+        cita = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if not cita:
+            return jsonify({"error": "Cita no encontrada"}), 404
+        
+        # Formatear respuesta
+        return jsonify({
+            "id": cita[0],
+            "nombre": cita[1],
+            "telefono": cita[2],
+            "email": cita[3] or "",
+            "fecha": cita[4].strftime('%Y-%m-%d') if cita[4] else None,
+            "hora": cita[5],
+            "propiedad_id": cita[6] or "",
+            "estado": cita[7] or "pendiente",
+            "notas": cita[8] or ""
+        })
+        
+    except Exception as e:
+        log(f"❌ Error obteniendo cita {cita_id}: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/citas/<int:cita_id>", methods=["PUT"])
+def actualizar_cita(cita_id):
+    """Actualiza los datos de una cita"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Error conectando a la base de datos"}), 500
+        
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            UPDATE citas 
+            SET nombre = %s, email = %s, fecha_cita = %s, 
+                hora_cita = %s, notas = %s, estado = %s
+            WHERE id = %s
+        """, (
+            data.get('nombre'),
+            data.get('email'),
+            data.get('fecha'),
+            data.get('hora'),
+            data.get('notas'),
+            data.get('estado', 'pendiente'),
+            cita_id
+        ))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({"status": "success", "message": "Cita actualizada"})
+        
+    except Exception as e:
+        log(f"❌ Error actualizando cita {cita_id}: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/admin")
 def admin_panel():
