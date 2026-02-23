@@ -3603,6 +3603,51 @@ def api_config_horarios():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/diagnostico-citas", methods=["GET"])
+def diagnostico_citas():
+    """Endpoint para diagnosticar citas para mañana"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        manana = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        cursor.execute("""
+            SELECT 
+                id, nombre, telefono, fecha_cita, hora_cita,
+                estado, recordatorio_enviado, recordatorio_enviado_en
+            FROM citas 
+            WHERE fecha_cita = %s
+            ORDER BY id
+        """, (manana,))
+        
+        citas = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            "fecha": manana,
+            "total_citas": len(citas),
+            "citas": [{
+                "id": c[0],
+                "nombre": c[1],
+                "telefono": c[2],
+                "fecha": str(c[3]),
+                "hora": c[4],
+                "estado": c[5],
+                "recordatorio_enviado": c[6],
+                "recordatorio_enviado_en": str(c[7]) if c[7] else None
+            } for c in citas]
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/db-check", methods=["GET"])
 def db_check():
     """Verificación rápida de la base de datos"""

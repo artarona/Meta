@@ -50,16 +50,19 @@ def obtener_citas_para_recordatorio():
         
         logger.info(f"🔍 Buscando citas para {manana}")
         
-        # 👇 SOLO 7 COLUMNAS, EN EL MISMO ORDEN QUE ESPERA enviar_recordatorio()
+        # 🔴 PRIMERO: Ver cuántas citas hay en total para mañana (sin filtros)
+        cursor.execute("""
+            SELECT COUNT(*) FROM citas 
+            WHERE fecha_cita = %s
+        """, (manana,))
+        total_para_manana = cursor.fetchone()[0]
+        logger.info(f"📊 Total de citas para mañana (sin filtros): {total_para_manana}")
+        
+        # 🟡 SEGUNDO: Ver cuántas están pendientes y sin recordatorio
         cursor.execute("""
             SELECT 
-                id,              -- 1. cita_id
-                telefono,        -- 2. telefono
-                nombre,          -- 3. nombre
-                fecha_cita,      -- 4. fecha
-                hora_cita,       -- 5. hora
-                propiedad_id,    -- 6. propiedad_id
-                email            -- 7. email
+                id, telefono, nombre, fecha_cita, hora_cita, propiedad_id, email,
+                estado, recordatorio_enviado
             FROM citas 
             WHERE fecha_cita = %s 
             AND estado = 'pendiente'
@@ -67,7 +70,19 @@ def obtener_citas_para_recordatorio():
         """, (manana,))
         
         citas = cursor.fetchall()
-        logger.info(f"📊 Encontradas {len(citas)} citas para recordatorio")
+        logger.info(f"📊 Citas que cumplen los criterios: {len(citas)}")
+        
+        # 🟢 TERCERO: Si hay diferencia, mostrar las excluidas
+        if len(citas) < total_para_manana:
+            cursor.execute("""
+                SELECT id, nombre, estado, recordatorio_enviado
+                FROM citas 
+                WHERE fecha_cita = %s
+            """, (manana,))
+            todas = cursor.fetchall()
+            logger.info("🔍 Detalle de todas las citas para mañana:")
+            for c in todas:
+                logger.info(f"   - ID: {c[0]}, Nombre: {c[1]}, Estado: {c[2]}, Recordatorio enviado: {c[3]}")
         
         cursor.close()
         conn.close()
@@ -77,7 +92,6 @@ def obtener_citas_para_recordatorio():
     except Exception as e:
         logger.error(f"Error obteniendo citas: {e}")
         return []
-    
 
 
 def obtener_titulo_propiedad(propiedad_id):
