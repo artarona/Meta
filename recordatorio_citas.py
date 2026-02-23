@@ -218,7 +218,7 @@ def enviar_recordatorio(cita):
         return False
 
 def main():
-    """Función principal con manejo robusto de errores"""
+    """Función principal con envío escalonado de recordatorios"""
     start_time = datetime.now()
     logger.info("🚀 Iniciando proceso de recordatorios")
     
@@ -229,52 +229,46 @@ def main():
             logger.info("📭 No hay citas para recordatorio hoy")
             return
         
-        logger.info(f"📋 Total de citas a procesar: {len(citas)}")
+        total_citas = len(citas)
+        logger.info(f"📋 Total de citas a procesar: {total_citas}")
+        
+        # Configuración de escalonamiento
+        PAUSA_BASE = 2  # segundos
+        PAUSA_MAXIMA = 10  # segundos
+        TIEMPO_MAXIMO_TOTAL = 110  # segundos (con timeout de 120s)
         
         exitosos = 0
         fallidos = 0
-        detalles = []
+        tiempo_inicio = time.time()
         
         for idx, cita in enumerate(citas, 1):
-            cita_id = cita[0]  # El ID está en la primera posición
-            logger.info(f"🔄 Procesando cita {idx}/{len(citas)} (ID: {cita_id})")
+            # Verificar tiempo total
+            if time.time() - tiempo_inicio > TIEMPO_MAXIMO_TOTAL:
+                logger.warning(f"⏰ Tiempo máximo cercano. Procesando última cita {idx}/{total_citas}")
+            
+            cita_id = cita[0]
+            logger.info(f"🔄 Procesando cita {idx}/{total_citas} (ID: {cita_id})")
             
             try:
-                # Registrar inicio del proceso para esta cita
                 inicio_cita = datetime.now()
                 
                 if enviar_recordatorio(cita):
                     exitosos += 1
-                    detalles.append({
-                        "cita_id": cita_id,
-                        "estado": "exitoso",
-                        "tiempo_ms": (datetime.now() - inicio_cita).total_seconds() * 1000
-                    })
                     logger.info(f"✅ Cita {cita_id} procesada exitosamente")
                 else:
                     fallidos += 1
-                    detalles.append({
-                        "cita_id": cita_id,
-                        "estado": "fallido",
-                        "error": "La función enviar_recordatorio devolvió False"
-                    })
                     logger.warning(f"⚠️ Cita {cita_id} marcada como fallida")
                     
             except Exception as e:
                 fallidos += 1
-                error_msg = str(e)
-                detalles.append({
-                    "cita_id": cita_id,
-                    "estado": "error",
-                    "error": error_msg
-                })
-                logger.error(f"🔥 Error procesando cita {cita_id}: {error_msg}")
-                # Continuamos con la siguiente cita
-                continue
+                logger.error(f"🔥 Error procesando cita {cita_id}: {e}")
             
-            # Pequeña pausa entre envíos para no sobrecargar la API
-            if idx < len(citas):
-                time.sleep(1)  # 1 segundo de pausa entre envíos
+            # Pausa escalonada entre envíos
+            if idx < total_citas:
+                # Pausa progresiva: 2s, 3s, 4s... (pero no más de 10s)
+                pausa = min(PAUSA_BASE + (idx-1), PAUSA_MAXIMA)
+                logger.info(f"⏱️ Pausa de {pausa}s antes de siguiente envío")
+                time.sleep(pausa)
         
         # Resumen final
         tiempo_total = (datetime.now() - start_time).total_seconds()
@@ -283,20 +277,17 @@ def main():
         logger.info(f"   ❌ Fallidos: {fallidos}")
         logger.info(f"   📈 Tasa de éxito: {(exitosos/(exitosos+fallidos)*100):.1f}%")
         
-        # Guardar resumen en base de datos (opcional)
         guardar_resumen_recordatorios({
             "fecha": start_time.strftime('%Y-%m-%d'),
-            "total": len(citas),
+            "total": total_citas,
             "exitosos": exitosos,
             "fallidos": fallidos,
-            "detalles": detalles,
             "tiempo_segundos": tiempo_total
         })
         
     except Exception as e:
         logger.critical(f"💥 Error CRÍTICO en main(): {e}")
-        # Aquí podrías enviar una alerta al admin
-        raise  # Re-lanzamos la excepción para que Gunicorn la registre
+        raise
 
 def guardar_resumen_recordatorios(resumen):
     """Guarda un resumen de la ejecución en la base de datos"""
