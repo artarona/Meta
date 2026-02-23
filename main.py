@@ -2487,7 +2487,33 @@ def obtener_texto_dias_habiles(propiedad_id=None):
 
 # ========== RUTAS API ==========
 
-
+@app.route("/api/enviar-recordatorios-manual", methods=["POST"])
+def enviar_recordatorios_manual():
+    """Endpoint para activar manualmente el envío de recordatorios"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        # Ejecutar script de recordatorios
+        import subprocess
+        result = subprocess.run(
+            ['python', 'recordatorio_citas.py'],
+            capture_output=True,
+            text=True
+        )
+        
+        return jsonify({
+            "status": "success",
+            "output": result.stdout,
+            "error": result.stderr
+        })
+        
+    except Exception as e:
+        log(f"❌ Error: {e}")
+        return jsonify({"error": str(e)}), 500
+    
+    
 def actualizar_ids_json():  # ← ELIMINADO 'async'
     """Actualiza el archivo JSON con los IDs reales de PostgreSQL"""
     try:
