@@ -3315,6 +3315,38 @@ def db_status():
     return jsonify(status)
 
 
+@app.route("/api/propiedades", methods=["GET"])
+def api_propiedades():
+    """Retorna la lista de propiedades para el buscador del panel admin"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        if os.path.exists("propiedades.json"):
+            with open("propiedades.json", 'r', encoding='utf-8') as f:
+                propiedades = json.load(f)
+            
+            # Solo enviar los campos necesarios para el buscador
+            propiedades_simplificadas = []
+            for p in propiedades:
+                propiedades_simplificadas.append({
+                    "id": p.get("id_temporal"),
+                    "titulo": p.get("titulo"),
+                    "direccion": p.get("direccion"),
+                    "tipo": p.get("tipo"),
+                    "operacion": p.get("operacion")
+                })
+            
+            return jsonify(propiedades_simplificadas)
+        else:
+            return jsonify([])
+            
+    except Exception as e:
+        log(f"❌ Error en api_propiedades: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/db-check", methods=["GET"])
 def db_check():
     """Verificación rápida de la base de datos"""
