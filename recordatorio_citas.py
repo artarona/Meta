@@ -4,7 +4,7 @@
 Script de recordatorios automáticos de citas
 Ejecutar diariamente a las 9:00 AM
 """
-
+import time
 import requests
 import psycopg2
 from datetime import datetime, timedelta
