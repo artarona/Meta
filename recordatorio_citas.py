@@ -78,7 +78,25 @@ def obtener_citas_para_recordatorio():
         logger.error(f"Error obteniendo citas: {e}")
         return []
     
+
+
+def obtener_titulo_propiedad(propiedad_id):
+    """
+    Obtiene el título de una propiedad desde propiedades.json
+    """
+    try:
+        if os.path.exists('propiedades.json'):
+            with open('propiedades.json', 'r', encoding='utf-8') as f:
+                propiedades = json.load(f)
+                for p in propiedades:
+                    if p.get('id_temporal') == propiedad_id:
+                        return p.get('titulo', propiedad_id)
+    except Exception as e:
+        logger.error(f"Error obteniendo título de propiedad {propiedad_id}: {e}")
     
+    return propiedad_id  # Si no encuentra, devuelve el ID
+
+
     
 def enviar_recordatorio(cita):
     """
