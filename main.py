@@ -37,7 +37,7 @@ VERIFY_TOKEN = "mi_token_secreto_123"
 # 🔥 CAMBIO IMPORTANTE: Usar variable de entorno para el token
 
 
-ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQ19f0c4Yi0NMvue75HIUkWdkWsBSVyunZB4rWQW4B31wVKtGnDQxg0dFvqNKXiwrafgTZAivQUDSUjiRU8UGZAJdU8u1nzY39WuRAmFdzQe1BvEjFEmW5SOG4z7WHvZAKiMGskj5Dqv4sT4WWkXHRtgOdljFUZBe2ezCxqufDdOroPyf66U280JuKr4BjjRoUzXOfh2ZB3AVzZCNHGrsEm2E5oqgA1l2Opgu8wVuVsAghoDZCC1kg5EzPOqEZBbbRmSaSZC4nzmXZBIeIpAAKM1ju5pkAZDZD")
+ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQ1MyfMwodKIXNZAezedpRpR3aJEtSC6anMXGIsA1BpM95eAkGuZBVnnba2CiGC4FsskQyBejvXps1Je9Xvdsw2hIu8yJb0Fh5ZAeRgnTT6x0338qmjuDpmrZCGU7niB1WVfmkmsWUJ7mQ1PqrQPtCjZBMtgTAe4424vh03GowtCZBrIMdAGLg8FckFhgQa0p4pGqr5vtkBCZAZA1DoYDZC5U6Ke5neZAZAeQCiifxti92niAf8oA1V6CEMDefXHZAQ2yTZCxAgbwfmXsyHk8R2mOVhe26ZAwZDZD")
 
 
 
@@ -2644,11 +2644,38 @@ def sincronizar_citas_manual():
 
 @app.route("/admin")
 def admin_panel():
-    """Sirve el panel de administración"""
+    """Sirve el panel de administración con mejor manejo de errores"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return "⚠️ Acceso No Autorizado. Por favor usa el enlace seguro.", 403
-    return send_file("admin.html")
+    
+    # Intentar diferentes rutas posibles
+    possible_paths = [
+        'admin.html',
+        './admin.html',
+        '/opt/render/project/src/admin.html',
+        os.path.join(os.getcwd(), 'admin.html')
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            try:
+                return send_file(path)
+            except Exception as e:
+                log(f"❌ Error enviando archivo {path}: {e}")
+                continue
+    
+    # Si no se encuentra, mostrar información de debug
+    import glob
+    all_html = glob.glob('*.html')
+    
+    return jsonify({
+        "error": "Archivo admin.html no encontrado",
+        "current_directory": os.getcwd(),
+        "files_in_directory": os.listdir('.'),
+        "html_files_found": all_html,
+        "possible_paths_tried": possible_paths
+    }), 404
 
 @app.route("/api/leads", methods=["GET"])
 def api_leads():
@@ -3337,6 +3364,23 @@ def db_check():
         results["message"] = "❌ Error"
     
     return jsonify(results)
+
+@app.route("/debug-files", methods=["GET"])
+def debug_files():
+    """Muestra los archivos disponibles en el servidor"""
+    import os
+    files = os.listdir('.')
+    html_files = [f for f in files if f.endswith('.html')]
+    return jsonify({
+        "current_directory": os.getcwd(),
+        "all_files": files[:20],  # Primeros 20 archivos
+        "html_files": html_files,
+        "admin_html_exists": os.path.exists('admin.html'),
+        "admin_html_size": os.path.getsize('admin.html') if os.path.exists('admin.html') else 0,
+        "cwd": os.getcwd()
+    })
+
+
 
 if __name__ == "__main__":
 
