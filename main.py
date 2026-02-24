@@ -25,9 +25,14 @@ import time
 
 
 def normalizar_numero_argentina(numero):
-    """Convierte número argentino al formato que espera la API de WhatsApp (sandbox)"""
+    """
+    Convierte número argentino al formato que espera la API de WhatsApp (sandbox).
+    El usuario verificó que el Sandbox espera: 54 + Area + 15 + Numero
+    Ejemplo: 5491151511579 -> 54111551511579
+    """
     if numero and numero.startswith('549') and len(numero) == 13:
-        return '54' + numero[3:]  # 5491151511579 → 5411515151579
+        # Asumiendo código de área de 2 dígitos (como 11 para BA)
+        return '54' + numero[3:5] + '15' + numero[5:]
     return numero
 
 app = Flask(__name__)
@@ -3323,11 +3328,12 @@ def send_appointment_feedback():
                 "whatsapp_id": resultado.get("message_id")
             })
         else:
-            log(f"❌ Error enviando feedback a {user_id}: {resultado.get('error')}", "ERROR")
+            error_msg = resultado.get("error") or resultado.get("error_message") or "Error desconocido"
+            log(f"❌ Error enviando feedback a {user_id}: {error_msg}", "ERROR")
             return jsonify({
                 "status": "error",
                 "message": "Error enviando WhatsApp",
-                "details": resultado.get("error")
+                "details": error_msg
             }), 500
             
     except Exception as e:
