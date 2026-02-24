@@ -837,33 +837,23 @@ Por favor:
 def manejar_menu_principal(text_lower, estado_usuario, user_id):
     """Maneja las opciones del menú principal"""
     if text_lower == "1":
-        estado_usuario['paso'] = 'submenu_consultar'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return """🔍 *CONSULTAR PROPIEDADES*
-
-1️⃣ Buscar por código (ej.: UF002)
-2️⃣ Buscar por zona
-3️⃣ Ver propiedades destacadas
-
-9️⃣ Volver al menú principal
-0️⃣ Salir"""
-
+        # INMUEBLES EN VENTA
+        return procesar_opcion_venta(estado_usuario, user_id)
+        
     elif text_lower == "2":
-        estado_usuario['paso'] = 'submenu_visita'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return """📅 *COORDINAR UNA VISITA*
-
-1️⃣ Elegir propiedad
-2️⃣ Ver días y horarios disponibles
-3️⃣ Confirmar visita
-
-9️⃣ Volver al menú principal
-0️⃣ Salir"""
-
+        # INMUEBLES EN ALQUILER
+        return procesar_opcion_alquiler(estado_usuario, user_id)
+        
     elif text_lower == "3":
-        return procesar_opcion_mis_citas(user_id)
+        # Visitar sitio web
+        return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
 
     elif text_lower == "4":
+        # Ver mis citas
+        return procesar_opcion_mis_citas(user_id)
+
+    elif text_lower == "5":
+        # Hablar con asesor
         estado_usuario['paso'] = 'submenu_asesor'
         actualizar_estado_usuario(user_id, estado_usuario)
         return """👤 *HABLAR CON UN ASESOR*
@@ -874,14 +864,26 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
 9️⃣ Volver al menú principal
 0️⃣ Salir"""
 
-    elif text_lower == "5":
-            return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
+    elif text_lower == "9":
+        # Volver al menú
+        return "WELCOME_FLOW_TRIGGER"
+        
+    elif text_lower == "0":
+        # Salir
+        return "Gracias por contactarte con Dante Propiedades. ¡Que tengas un excelente día! 🏠🗝️"
 
     elif text_lower == "8" and user_id == ADMIN_NUMBER.lstrip('549'):
+        # Panel admin (solo para número autorizado)
         return mostrar_panel_admin()
     
     else:
         return """No pude identificar esa opción. Por favor elegí un número del menú.
+
+1️⃣ *INMUEBLES EN VENTA* 🏠
+2️⃣ *INMUEBLES EN ALQUILER* 🔑
+3️⃣ *Visitar nuestro sitio web* 🌐
+4️⃣ *Ver mis citas programadas* 📋
+5️⃣ *Hablar con un asesor* 👤
 
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*"""
@@ -1820,10 +1822,11 @@ def send_welcome_flow(user_id):
 *¿Cómo podemos ayudarte hoy?*
 Elegí el número de tu opción:
 
-1️⃣ *Consultar propiedades* 🏠
-2️⃣ *Coordinar una visita* 📅
-3️⃣ *Ver mis citas programadas* 📋
-4️⃣ *Hablar con un asesor* 👤
+1️⃣ *INMUEBLES EN VENTA* 🏠
+2️⃣ *INMUEBLES EN ALQUILER* 🔑
+3️⃣ *Visitar nuestro sitio web* 🌐
+4️⃣ *Ver mis citas programadas* 📋
+5️⃣ *Hablar con un asesor* 👤
 
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*
