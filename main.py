@@ -37,7 +37,7 @@ VERIFY_TOKEN = "mi_token_secreto_123"
 # 🔥 CAMBIO IMPORTANTE: Usar variable de entorno para el token
 
 
-ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQZBuz2oUQj89fbtGpKaLitUGvtWdy1LbUXur5Vu5oVPylY5iEZCToZCSuYTZCwvxZBkTYKb5zrQvfYnx5vhqv8PZAG1pJtAW2oHouBA3ZBNLd9JUlHgUCJTgg02O3PbjfdMKnCc6ZAZCfVN9XtZBnZBrv3ZAGNnK4bD8gAd1Ug27yDBB8KcozpV0ZAEgv3R1fFYJ6mO2y9jlpvv6nVCZBWKb525mRHxwRi3JiHxCL7CwHZAOeyUI5r2DOEADvcigDnhJ0jimgxh2ZA4PgORZBsRSPrw3NXBudxAZDZD")
+ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQyWMHNIDZAdQjWtraBHUPlrI9ZAz9LKfTtFueBOhBrUtpOKyKTWA6t5YFkiwqmZC2YvCB1OioahvVaQlxfBBMTNLSUZC3ZCMwg8N2FuB474yb3kSOmAhcYqFPZA9MSDsYcxiyFAFZAqSjeJUr4MyKnEAr0Tl9YYxJG7uVdIImpxloC8mRMl4LEi3JwM9YxXYtG3crkdwU92zkyDZCb6YoMn02XtEyufORxpa8iO1v9NtCvdU4yKiqAbzWdfS4pSoms1IBLkhfTI3ZBbJ5yH1A9gkmrQZDZD")
 
 
 
@@ -63,54 +63,40 @@ processed_message_ids = deque(maxlen=1000)  # Aumentado para manejar más mensaj
 
 # ========== CONEXIÓN A POSTGRESQL (Render) ==========
 def get_db_connection():
-    """Obtiene conexión a PostgreSQL con reconexión automática y SSL robusto"""
-    max_intentos = 3
-    intento = 0
-    
-    while intento < max_intentos:
+    """Obtiene conexión a PostgreSQL forzando SSL correctamente"""
+    try:
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            # Fallback solo si no hay variable de entorno
+            database_url = "postgresql://dantepropiedadesdb_user:wiBPwMvLzG01zHkHKyqEsTfHEhcZzfKi@dpg-d62aqenpm1nc73fqi3m0-a.oregon-postgres.render.com:5432/dantepropiedadesdb"
+        
+        # Forzar SSL y agregar parámetros de conexión
+        conn = psycopg2.connect(
+            database_url,
+            sslmode='require',
+            connect_timeout=10,
+            keepalives_idle=30,
+            keepalives_interval=10,
+            keepalives_count=5,
+            options='-c statement_timeout=30000'  # Timeout de 30 segundos
+        )
+        
+        log("✅ Conectado a PostgreSQL con SSL correctamente")
+        return conn
+        
+    except Exception as e:
+        log(f"❌ Error conectando a PostgreSQL: {e}", "ERROR")
+        
+        # Intento de último recurso (solo para diagnóstico)
         try:
-            intento += 1
-            database_url = os.getenv("DATABASE_URL")
-            if not database_url:
-                database_url = "postgresql://dantepropiedadesdb_user:wiBPwMvLzG01zHkHKyqEsTfHEhcZzfKi@dpg-d62aqenpm1nc73fqi3m0-a.oregon-postgres.render.com:5432/dantepropiedadesdb"
-            
-            # Configuración robusta de SSL
-            conn = psycopg2.connect(
-                database_url,
-                sslmode='require',
-                connect_timeout=10,
-                keepalives_idle=30,
-                keepalives_interval=5,
-                keepalives_count=5,
-                options='-c statement_timeout=30000 -c client_encoding=UTF8'
-            )
-            
-            # Verificar que la conexión funciona
-            cursor = conn.cursor()
-            cursor.execute("SELECT 1")
-            cursor.close()
-            
-            log(f"✅ Conectado a PostgreSQL (intento {intento})")
+            log("⚠️ Intentando conexión sin SSL (solo diagnóstico)...")
+            conn = psycopg2.connect(database_url, connect_timeout=5)
+            log("⚠️ Conexión sin SSL exitosa (esto no debería pasar)")
             return conn
-            
-        except psycopg2.OperationalError as e:
-            log(f"⚠️ Intento {intento} falló: {e}")
-            if intento == max_intentos:
-                log(f"❌ Error conectando a PostgreSQL tras {max_intentos} intentos")
-                # Intentar un último recurso
-                try:
-                    log("⚠️ Último intento - conexión básica...")
-                    conn = psycopg2.connect(database_url, connect_timeout=5)
-                    return conn
-                except:
-                    return None
-            time.sleep(2 ** intento)  # Espera exponencial: 2s, 4s, 8s...
-            
-        except Exception as e:
-            log(f"❌ Error inesperado conectando a PostgreSQL: {e}")
-            return None
-    
-    return None
+        except:
+            pass
+        
+        return None
 
 def analizar_hora(texto):
     """
