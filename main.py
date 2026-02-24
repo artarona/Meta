@@ -879,8 +879,8 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
     else:
         return """No pude identificar esa opción. Por favor elegí un número del menú.
 
-1️⃣ *INMUEBLES EN VENTA* 🏠
-2️⃣ *INMUEBLES EN ALQUILER* 🔑
+1️⃣ *Inmuebles en Venta* 🏠
+2️⃣ *Inmuebles en Alquiler* 🔑
 3️⃣ *Visitar nuestro sitio web* 🌐
 4️⃣ *Ver mis citas programadas* 📋
 5️⃣ *Hablar con un asesor* 👤
