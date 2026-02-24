@@ -1673,28 +1673,9 @@ def send_whatsapp_message(to_number, message_text):
                 "error_message": "Token de acceso expirado o inválido"
             }
         
-        # 🔥 FUNCIÓN DE TRANSFORMACIÓN DE NÚMEROS MEJORADA
-        def transform_number(number):
-            # Para números argentinos en formato 5491151511579 (el que envía Meta)
-            if number and number.startswith("549") and len(number) == 13:
-                # Formato para sandbox: 54111551511579
-                # Quitamos el 9 y agregamos 15
-                country = number[:2]  # 54
-                area = number[3:5]    # 11
-                rest = number[5:]     # 51511579
-                transformed = f"{country}{area}15{rest}"  # 54111551511579
-                log(f"🔄 Transformando número: {number} -> {transformed}")
-                return transformed
-            # Si ya está en formato correcto, devolver igual
-            return number
-        
         log(f"🔍 Número original: {to_number}")
-        transformed_number = transform_number(to_number)
-        log(f"🔍 Número transformado: {transformed_number}")
-        
-        # Aplicar también la normalización por si acaso
-        transformed_number = normalizar_numero_argentina(transformed_number)
-        log(f"🔍 Número final para API: {transformed_number}")
+        transformed_number = normalizar_numero_argentina(to_number)
+        log(f"🔍 Número final para API (Sandbox): {transformed_number}")
         
         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
         headers = {
