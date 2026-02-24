@@ -63,28 +63,39 @@ processed_message_ids = deque(maxlen=1000)  # Aumentado para manejar más mensaj
 
 # ========== CONEXIÓN A POSTGRESQL (Render) ==========
 def get_db_connection():
-    """Obtiene conexión a PostgreSQL con manejo robusto de SSL"""
+    """Obtiene conexión a PostgreSQL forzando SSL correctamente"""
     try:
         database_url = os.getenv("DATABASE_URL")
         if not database_url:
+            # Fallback solo si no hay variable de entorno
             database_url = "postgresql://dantepropiedadesdb_user:wiBPwMvLzG01zHkHKyqEsTfHEhcZzfKi@dpg-d62aqenpm1nc73fqi3m0-a.oregon-postgres.render.com:5432/dantepropiedadesdb"
         
-        # Intentar con diferentes opciones SSL
-        try:
-            # Primero intentar con sslmode=require
-            conn = psycopg2.connect(database_url, sslmode='require', connect_timeout=10)
-            log("✅ Conectado a PostgreSQL con sslmode=require")
-            return conn
-        except Exception as e1:
-            log(f"⚠️ Falló sslmode=require: {e1}")
-            
-            # Intentar sin SSL
-            conn = psycopg2.connect(database_url, sslmode='disable', connect_timeout=10)
-            log("✅ Conectado a PostgreSQL sin SSL")
-            return conn
-            
+        # Forzar SSL y agregar parámetros de conexión
+        conn = psycopg2.connect(
+            database_url,
+            sslmode='require',
+            connect_timeout=10,
+            keepalives_idle=30,
+            keepalives_interval=10,
+            keepalives_count=5,
+            options='-c statement_timeout=30000'  # Timeout de 30 segundos
+        )
+        
+        log("✅ Conectado a PostgreSQL con SSL correctamente")
+        return conn
+        
     except Exception as e:
         log(f"❌ Error conectando a PostgreSQL: {e}", "ERROR")
+        
+        # Intento de último recurso (solo para diagnóstico)
+        try:
+            log("⚠️ Intentando conexión sin SSL (solo diagnóstico)...")
+            conn = psycopg2.connect(database_url, connect_timeout=5)
+            log("⚠️ Conexión sin SSL exitosa (esto no debería pasar)")
+            return conn
+        except:
+            pass
+        
         return None
 
 def analizar_hora(texto):
