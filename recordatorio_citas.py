@@ -24,6 +24,9 @@ logger = logging.getLogger(__name__)
 
 # Configuración de base de datos
 DATABASE_URL = os.getenv('DATABASE_URL')
+if not DATABASE_URL:
+    DATABASE_URL = "postgresql://dantepropiedadesdb_user:wiBPwMvLzG01zHkHKyqEsTfHEhcZzfKi@dpg-d62aqenpm1nc73fqi3m0-a.oregon-postgres.render.com:5432/dantepropiedadesdb"
+
 ADMIN_KEY = os.getenv('ADMIN_KEY', 'dante_admin_2024')
 BASE_URL = os.getenv('BASE_URL', 'https://meta-rjpb.onrender.com')
 
