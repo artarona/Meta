@@ -269,6 +269,17 @@ def init_db(conn):
                 data TEXT,
                 timestamp TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS recordatorios_log (
+                id SERIAL PRIMARY KEY,
+                fecha DATE,
+                total INTEGER,
+                exitosos INTEGER,
+                fallidos INTEGER,
+                detalles TEXT,
+                tiempo_segundos FLOAT,
+                timestamp TIMESTAMP DEFAULT NOW()
+            );
         """)
         
         # 2. Asegurar columnas adicionales
