@@ -62,7 +62,7 @@ estados_usuarios = {}
 processed_message_ids = deque(maxlen=1000)  # Aumentado para manejar más mensajes
 
 # ========== CONEXIÓN A POSTGRESQL (Render) ==========
-def get_db_connection(max_retries=3):
+def get_db_connection(max_retries=5):
     """Obtiene conexión a PostgreSQL con reintentos para manejar errores intermitentes de SSL"""
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
@@ -74,7 +74,7 @@ def get_db_connection(max_retries=3):
             conn = psycopg2.connect(
                 database_url,
                 sslmode='require',
-                connect_timeout=10,
+                connect_timeout=15,
                 keepalives=1,
                 keepalives_idle=30,
                 keepalives_interval=10,
@@ -96,7 +96,7 @@ def get_db_connection(max_retries=3):
             if "SSL connection has been closed unexpectedly" in error_str or "connection to server at" in error_str:
                 log(f"⚠️ Error de conexión (Intento {i+1}/{max_retries}): {error_str}", "WARNING")
                 if i < max_retries - 1:
-                    time.sleep(1) # Esperar un segundo antes de reintentar
+                    time.sleep(2) # Esperar dos segundos antes de reintentar
                     continue
             log(f"❌ Error fatal conectando a PostgreSQL: {e}", "ERROR")
             break

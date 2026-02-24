@@ -27,7 +27,7 @@ DATABASE_URL = os.getenv('DATABASE_URL')
 ADMIN_KEY = os.getenv('ADMIN_KEY', 'dante_admin_2024')
 BASE_URL = os.getenv('BASE_URL', 'https://meta-rjpb.onrender.com')
 
-def get_db_connection(max_retries=3):
+def get_db_connection(max_retries=5):
     """Obtiene conexión a PostgreSQL con reintentos para manejar errores intermitentes de SSL"""
     import time
     if not DATABASE_URL:
@@ -39,7 +39,7 @@ def get_db_connection(max_retries=3):
             conn = psycopg2.connect(
                 DATABASE_URL,
                 sslmode='require',
-                connect_timeout=10,
+                connect_timeout=15,
                 keepalives=1,
                 keepalives_idle=30,
                 keepalives_interval=10,
@@ -53,7 +53,7 @@ def get_db_connection(max_retries=3):
             error_str = str(e)
             if i < max_retries - 1:
                 logger.warning(f"⚠️ Error de conexión (Intento {i+1}): {error_str}. Reintentando...")
-                time.sleep(1)
+                time.sleep(2)
                 continue
             logger.error(f"❌ Error final conectando a DB: {e}")
             break
