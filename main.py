@@ -2322,24 +2322,38 @@ def manejar_confirmacion_recordatorio(text, estado_usuario, user_id):
         comando = match.group(1)
         cita_id = int(match.group(2))
         log(f"🔍 Respuesta con ID específico: {comando} para cita {cita_id}")
-        
-        # Buscar la cita específica por ID
         cita = buscar_cita_por_id(cita_id)
     else:
-        # Fallback: buscar cita activa (comportamiento anterior)
-        log("⚠️ Respuesta sin ID, buscando cita activa...")
-        cita = buscar_cita_activa_usuario(user_id)
-        if cita:
-            cita_id = cita['id']
-            # Determinar comando
-            if any(word in text.lower() for word in ["confirm", "si", "sí", "voy", "dale", "ok"]):
-                comando = "CONFIRMAR"
-            elif any(word in text.lower() for word in ["cancel", "no voy", "baja"]):
-                comando = "CANCELAR"
-            elif any(word in text.lower() for word in ["reprogramar", "cambiar", "otro dia"]):
-                comando = "REPROGRAMAR"
+        # Tipeo simple: CONFIRMAR, CANCELAR, REPROGRAMAR
+        text_upper = text.upper()
+        if text_upper in ["CONFIRMAR", "CANCELAR", "REPROGRAMAR"]:
+            comando = text_upper
+            # Prioridad: usar el ID guardado en el estado al enviar el recordatorio
+            cita_id = estado_usuario.get('ultimo_recordatorio_cita_id')
+            if cita_id:
+                log(f"🔍 Tipeo simple '{comando}', usando ID del estado: {cita_id}")
+                cita = buscar_cita_por_id(cita_id)
+            else:
+                log(f"⚠️ Tipeo simple '{comando}' sin ID en estado, buscando cita activa...")
+                cita = buscar_cita_activa_usuario(user_id)
+        else:
+            # Fallback total: palabras clave sueltas
+            log("⚠️ Respuesta no estructurada, buscando cita activa por keywords...")
+            cita = buscar_cita_activa_usuario(user_id)
+            if cita:
+                if any(word in text.lower() for word in ["confirm", "si", "sí", "voy", "dale", "ok"]):
+                    comando = "CONFIRMAR"
+                elif any(word in text.lower() for word in ["cancel", "no voy", "baja"]):
+                    comando = "CANCELAR"
+                elif any(word in text.lower() for word in ["reprogramar", "cambiar", "otro dia"]):
+                    comando = "REPROGRAMAR"
+                else:
+                    comando = "DESCONOCIDO"
             else:
                 comando = "DESCONOCIDO"
+    
+    if cita:
+        cita_id = cita['id']
     
     if not cita:
         estado_usuario['paso'] = 'menu_principal'
@@ -2383,7 +2397,7 @@ def manejar_confirmacion_recordatorio(text, estado_usuario, user_id):
         return "No hay problema, podemos reprogramarla. 😊 ¿Para qué día y horario te quedaría mejor? (ej: 'El jueves a las 11')"
 
     else:
-        return "Por favor, respondé con CONFIRMAR, CANCELAR o REPROGRAMAR seguido del número de cita (ej: CONFIRMAR-123)"
+        return "Por favor, respondé con *CONFIRMAR*, *CANCELAR* o *REPROGRAMAR* para gestionar tu cita."
 
 def buscar_cita_por_id(cita_id):
     """Busca una cita específica por su ID"""
@@ -3301,9 +3315,9 @@ Te escribo para recordarte tu cita de mañana:
 
 📍 Te esperamos. Para responder, escribí:
 
-✅ *CONFIRMAR-{cita_id}* para confirmar
-❌ *CANCELAR-{cita_id}* si no podrás asistir
-🔄 *REPROGRAMAR-{cita_id}* para cambiar fecha/hora
+✅ *CONFIRMAR* para confirmar
+❌ *CANCELAR* si no podrás asistir
+🔄 *REPROGRAMAR* para cambiar fecha/hora
 
 ¡Gracias por confiar en Dante Propiedades! 🏠🗝️"""
         
