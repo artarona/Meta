@@ -264,11 +264,14 @@ def main():
         logger.info(f"   ❌ Fallidos: {fallidos}")
         logger.info(f"   📈 Tasa de éxito: {(exitosos/(exitosos+fallidos)*100):.1f}%")
         
+        ids_procesados = [c[0] for c in citas]
+        
         guardar_resumen_recordatorios({
             "fecha": start_time.strftime('%Y-%m-%d'),
             "total": total_citas,
             "exitosos": exitosos,
             "fallidos": fallidos,
+            "detalles": {"ids": ids_procesados},
             "tiempo_segundos": tiempo_total
         })
         
