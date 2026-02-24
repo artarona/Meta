@@ -1563,8 +1563,7 @@ def mostrar_fechas_disponibles(estado_usuario):
 def manejar_busqueda_keywords(termino, estado_usuario, user_id):
     """Busca propiedades por palabras clave y actualiza el estado"""
     global propiedades
-    if not propiedades:
-        propiedades = cargar_propiedades()
+    propiedades = cargar_propiedades_cached()
         
     terminos = termino.lower().split()
     resultados = []
@@ -2588,18 +2587,13 @@ def enviar_recordatorios_manual():
         return jsonify({"error": "Unauthorized"}), 403
     
     try:
-        # Ejecutar script de recordatorios
+        # Ejecutar script de recordatorios en segundo plano para evitar timeout
         import subprocess
-        result = subprocess.run(
-            ['python', 'recordatorio_citas.py'],
-            capture_output=True,
-            text=True
-        )
+        subprocess.Popen(['python', 'recordatorio_citas.py'])
         
         return jsonify({
             "status": "success",
-            "output": result.stdout,
-            "error": result.stderr
+            "message": "Proceso de recordatorios iniciado en segundo plano."
         })
         
     except Exception as e:
