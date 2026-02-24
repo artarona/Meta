@@ -260,7 +260,11 @@ def init_db(conn):
                 recordatorio_enviado_en TIMESTAMP,
                 recordatorio_horario VARCHAR(5) DEFAULT '09:00',
                 recordatorio_respuesta TEXT,
-                recordatorio_fecha_respuesta TIMESTAMP
+                recordatorio_fecha_respuesta TIMESTAMP,
+                
+                -- Nuevas columnas para feedback
+                feedback_enviado BOOLEAN DEFAULT FALSE,
+                feedback_enviado_en TIMESTAMP
             );
 
             CREATE TABLE IF NOT EXISTS user_states (
@@ -311,6 +315,10 @@ def init_db(conn):
         ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_horario VARCHAR(5) DEFAULT '09:00';
         ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_respuesta TEXT;
         ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_fecha_respuesta TIMESTAMP;
+        
+        -- Nuevas columnas para feedback
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS feedback_enviado BOOLEAN DEFAULT FALSE;
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS feedback_enviado_en TIMESTAMP;
     """)
         
         # 3. Asegurar secuencias para tablas existentes
@@ -3262,7 +3270,72 @@ def debug_leads():
     })
 
 
-@app.route("/api/internal/send-reminder", methods=["POST"])
+@app.route("/api/internal/send-feedback", methods=["POST"])
+def send_appointment_feedback():
+    """
+    Endpoint interno para enviar mensajes de feedback post-visita.
+    Invocado por el script de seguimiento automático.
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data received"}), 400
+            
+        user_id = data.get("user_id")
+        nombre = data.get("nombre", "Cliente")
+        propiedad = data.get("propiedad", "la propiedad")
+        cita_id = data.get("cita_id")
+        
+        if not user_id:
+            return jsonify({"error": "user_id is required"}), 400
+            
+        log(f"✉️ Preparando mensaje de feedback para {nombre} ({user_id})")
+        
+        # Mensaje de feedback amigable
+        mensaje = f"¡Hola *{nombre}*! 👋 Soy el asistente de *Dante Propiedades*.\n\n"
+        mensaje += f"¿Qué te pareció la visita a la propiedad *{propiedad}*? 🏠\n\n"
+        mensaje += "¿Te gustaría hacer una oferta, te interesaría verla de nuevo o prefieres que busquemos algo más para vos? 😊"
+        
+        # Enviar vía WhatsApp
+        resultado = send_whatsapp_message(user_id, mensaje)
+        
+        if resultado.get("status") == "success":
+            log(f"✅ Feedback enviado correctamente a {user_id}")
+            
+            # Registrar en DB si viene cita_id
+            if cita_id:
+                conn = get_db_connection()
+                if conn:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        UPDATE citas 
+                        SET feedback_enviado = TRUE, 
+                            feedback_enviado_en = NOW() 
+                        WHERE id = %s
+                    """, (cita_id,))
+                    conn.commit()
+                    cursor.close()
+                    conn.close()
+            
+            return jsonify({
+                "status": "success",
+                "message": f"Feedback enviado a {user_id}",
+                "whatsapp_id": resultado.get("message_id")
+            })
+        else:
+            log(f"❌ Error enviando feedback a {user_id}: {resultado.get('error')}", "ERROR")
+            return jsonify({
+                "status": "error",
+                "message": "Error enviando WhatsApp",
+                "details": resultado.get("error")
+            }), 500
+            
+    except Exception as e:
+        log(f"❌ Error en endpoint de feedback: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/internal/send-reminder", methods=["POST"])
 def send_appointment_reminder():
     try:
