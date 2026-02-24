@@ -3559,32 +3559,55 @@ def api_citas():
         citas_formateadas = []
         for cita in citas:
             try:
-                fecha_str = cita[3].strftime('%Y-%m-%d') if cita[3] else None
-            except:
-                fecha_str = str(cita[3]) if cita[3] else None
+                # Extraer campos con cuidado
+                c_id = cita[0]
+                nombre = cita[1] or "Sin nombre"
+                telefono = cita[2] or ""
+                f_cita = cita[3]
+                hora = cita[4] or ""
+                p_id = cita[5] or ""
+                estado = cita[6] or "pendiente"
+                notas = cita[7] or ""
+                f_creacion = cita[8]
+                email = cita[9] or ""
                 
-            citas_formateadas.append({
-                "id": cita[0],
-                "nombre": cita[1] or "Sin nombre",
-                "telefono": cita[2] or "",
-                "fecha": fecha_str,
-                "hora": cita[4] or "",
-                "propiedad_id": cita[5] or "",
-                "propiedad_titulo": "Propiedad",
-                "estado": cita[6] or "pendiente",
-                "notas": cita[7] or "",
-                "fecha_creacion": cita[8].isoformat() if cita[8] else None,
-                "email": cita[9] or ""
-            })
+                # Formatear fechas de forma segura
+                try:
+                    fecha_str = f_cita.strftime('%Y-%m-%d') if hasattr(f_cita, 'strftime') else str(f_cita) if f_cita else None
+                except:
+                    fecha_str = str(f_cita) if f_cita else None
+                
+                try:
+                    creacion_str = f_creacion.isoformat() if hasattr(f_creacion, 'isoformat') else str(f_creacion) if f_creacion else None
+                except:
+                    creacion_str = str(f_creacion) if f_creacion else None
+                    
+                citas_formateadas.append({
+                    "id": c_id,
+                    "nombre": nombre,
+                    "telefono": telefono,
+                    "fecha": fecha_str,
+                    "hora": hora,
+                    "propiedad_id": p_id,
+                    "propiedad_titulo": "Propiedad",
+                    "estado": estado,
+                    "notas": notas,
+                    "fecha_creacion": creacion_str,
+                    "email": email
+                })
+            except Exception as item_e:
+                log(f"⚠️ Error procesando cita individual: {item_e}")
+                continue
         
         cursor.close()
         conn.close()
-        
         return jsonify(citas_formateadas)
         
     except Exception as e:
         log(f"❌ Error en api_citas: {e}", "ERROR")
-        return jsonify({"error": str(e), "citas": []}), 500
+        import traceback
+        log(traceback.format_exc(), "ERROR")
+        return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
     
     
     
