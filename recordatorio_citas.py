@@ -154,44 +154,34 @@ def enviar_recordatorio(cita):
     """
     Envía recordatorio para una cita específica
     """
-    # Desempaquetado explícito - SOLO los primeros 7 valores
-    cita_id = cita[0]
-    telefono = cita[1]
-    nombre = cita[2]
-    fecha = cita[3]
-    hora = cita[4]
-    propiedad_id = cita[5]
-    email = cita[6]
-    # Los índices 7, 8... contienen estado y recordatorio_enviado, los ignoramos
+    cita_id, telefono, nombre, fecha, hora, propiedad_id, email = cita[:7]
     
-    logger.info(f"📤 Enviando recordatorio a {nombre} ({telefono}) - Cita {fecha} {hora}")
+    logger.info(f"📤 Enviando recordatorio a {nombre} ({telefono}) - Cita {fecha} {hora} (ID: {cita_id})")
     
     propiedad_titulo = obtener_titulo_propiedad(propiedad_id)
     fecha_formateada = fecha.strftime('%d/%m') if hasattr(fecha, 'strftime') else fecha
     
-    # Datos para el endpoint
+    # Datos para el endpoint - INCLUIR CITA_ID
     data = {
         "user_id": telefono,
         "nombre": nombre,
         "fecha": fecha_formateada,
         "fecha_iso": str(fecha),
         "hora": hora,
-        "propiedad": propiedad_titulo
+        "propiedad": propiedad_titulo,
+        "cita_id": cita_id  # ← NUEVO: pasar el ID
     }
     
-    # Obtener BASE_URL
     BASE_URL = os.getenv('BASE_URL', 'https://meta-rjpb.onrender.com')
     url = f"{BASE_URL}/api/internal/send-reminder"
     
-    logger.info(f"📞 Llamando a: {url}")
-    
     try:
-        response = requests.post(url, json=data, timeout=30)
+        response = requests.post(url, json=data, timeout=45)
         
         if response.status_code == 200:
-            logger.info(f"✅ Recordatorio enviado a {nombre}")
+            logger.info(f"✅ Recordatorio enviado a {nombre} para cita {cita_id}")
             
-            # Marcar como enviado en DB
+            # Marcar como enviado
             conn = get_db_connection()
             if conn:
                 cursor = conn.cursor()
@@ -210,9 +200,6 @@ def enviar_recordatorio(cita):
             logger.error(f"❌ Error {response.status_code}: {response.text}")
             return False
             
-    except requests.exceptions.Timeout:
-        logger.error(f"⏰ Timeout después de 30 segundos")
-        return False
     except Exception as e:
         logger.error(f"❌ Error enviando recordatorio: {e}")
         return False

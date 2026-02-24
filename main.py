@@ -2288,33 +2288,62 @@ def actualizar_cita_db(cita_id, nuevo_estado=None, nuevas_notas=None):
 
 def manejar_confirmacion_recordatorio(text, estado_usuario, user_id):
     """Maneja la respuesta del usuario al recordatorio de cita"""
-    text_lower = text.lower().strip()
-    cita = buscar_cita_activa_usuario(user_id)
+    text = text.strip()
+    
+    # Intentar extraer ID de la cita del mensaje
+    import re
+    match = re.search(r'(CONFIRMAR|CANCELAR|REPROGRAMAR)[-\s]*(\d+)', text.upper())
+    
+    if match:
+        comando = match.group(1)
+        cita_id = int(match.group(2))
+        log(f"🔍 Respuesta con ID específico: {comando} para cita {cita_id}")
+        
+        # Buscar la cita específica por ID
+        cita = buscar_cita_por_id(cita_id)
+    else:
+        # Fallback: buscar cita activa (comportamiento anterior)
+        log("⚠️ Respuesta sin ID, buscando cita activa...")
+        cita = buscar_cita_activa_usuario(user_id)
+        if cita:
+            cita_id = cita['id']
+            # Determinar comando
+            if any(word in text.lower() for word in ["confirm", "si", "sí", "voy", "dale", "ok"]):
+                comando = "CONFIRMAR"
+            elif any(word in text.lower() for word in ["cancel", "no voy", "baja"]):
+                comando = "CANCELAR"
+            elif any(word in text.lower() for word in ["reprogramar", "cambiar", "otro dia"]):
+                comando = "REPROGRAMAR"
+            else:
+                comando = "DESCONOCIDO"
     
     if not cita:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "No encontré una cita pendiente para vos. ¿En qué puedo ayudarte? Envía 'Hola' para ver el menú."
 
-    # 1. CONFIRMACIÓN
-    if any(word in text_lower for word in ["confirm", "si", "sí", "voy", "dale", "ok", "claro"]):
-        actualizar_cita_db(cita['id'], nuevo_estado='confirmada', nuevas_notas="Usuario confirmó la visita")
+    # Procesar según el comando
+    if comando == "CONFIRMAR":
+        actualizar_cita_db(cita_id, nuevo_estado='confirmada', nuevas_notas="Usuario confirmó la visita")
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
+        
+        notificar_agente(f"✅ *CITA CONFIRMADA*\n👤 {cita['nombre']}\n📅 {cita['fecha']} {cita['hora']}")
+        
         return f"✅ ¡Muchas gracias, *{cita['nombre']}*! Hemos registrado tu confirmación. Nos vemos el {datetime.strptime(cita['fecha'], '%Y-%m-%d').strftime('%d/%m')} a las {cita['hora']} hs. 👋"
 
-    # 2. CANCELACIÓN
-    if any(word in text_lower for word in ["cancel", "no voy", "baja", "anular"]):
-        actualizar_cita_db(cita['id'], nuevo_estado='cancelada', nuevas_notas="Usuario canceló la visita")
+    elif comando == "CANCELAR":
+        actualizar_cita_db(cita_id, nuevo_estado='cancelada', nuevas_notas="Usuario canceló la visita")
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
+        
+        notificar_agente(f"❌ *CITA CANCELADA*\n👤 {cita['nombre']}\n📅 {cita['fecha']} {cita['hora']}")
+        
         return "Entiendo. Hemos cancelado la visita. Si en otro momento deseas agendar nuevamente, no dudes en avisarnos. ¡Que tengas un buen día! 🏠"
 
-    # 3. REPROGRAMACIÓN
-    if any(word in text_lower for word in ["reprogramar", "cambiar", "otro dia", "otra hora", "no puedo", "puedo otro"]):
-        estado_usuario['paso'] = 'solicitar_fecha_cita' # Reusar flujo existente
-        # Necesitamos setear el ultimo_indice_preguntado para que sepa de qué propiedad hablamos
-        # Buscamos la propiedad en el listado general
+    elif comando == "REPROGRAMAR":
+        estado_usuario['paso'] = 'solicitar_fecha_cita'
+        estado_usuario['cita_reprogramando_id'] = cita_id  # Guardar qué cita se reprograma
         props = cargar_propiedades_cached()
         for i, p in enumerate(props, 1):
             if p.get('id_temporal') == cita['propiedad_id']:
@@ -2322,13 +2351,52 @@ def manejar_confirmacion_recordatorio(text, estado_usuario, user_id):
                 estado_usuario['propiedades_filtradas'] = props
                 break
         
-        actualizar_cita_db(cita['id'], nuevas_notas=f"Usuario solicitó reprogramar: {text}")
+        actualizar_cita_db(cita_id, nuevas_notas=f"Usuario solicitó reprogramar")
         actualizar_estado_usuario(user_id, estado_usuario)
+        
+        notificar_agente(f"🔄 *SOLICITUD DE REPROGRAMACIÓN*\n👤 {cita['nombre']}\n📅 Original: {cita['fecha']} {cita['hora']}")
+        
         return "No hay problema, podemos reprogramarla. 😊 ¿Para qué día y horario te quedaría mejor? (ej: 'El jueves a las 11')"
 
-    # 4. AMBIGÜEDAD / COMENTARIOS
-    actualizar_cita_db(cita['id'], nuevas_notas=f"Comentario usuario: {text}")
-    return "¿Podrías confirmarme si mantenés la visita o si preferís reprogramarla para otro momento? Así te reservamos el lugar. 😊"
+    else:
+        return "Por favor, respondé con CONFIRMAR, CANCELAR o REPROGRAMAR seguido del número de cita (ej: CONFIRMAR-123)"
+
+def buscar_cita_por_id(cita_id):
+    """Busca una cita específica por su ID"""
+    conn = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return None
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, nombre, fecha_cita, hora_cita, propiedad_id, estado, notas, telefono
+            FROM citas
+            WHERE id = %s
+        """, (cita_id,))
+        
+        res = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if res:
+            return {
+                'id': res[0],
+                'nombre': res[1],
+                'fecha': res[2].strftime('%Y-%m-%d') if hasattr(res[2], 'strftime') else res[2],
+                'hora': res[3],
+                'propiedad_id': res[4],
+                'estado': res[5],
+                'notas': res[6],
+                'telefono': res[7]
+            }
+        return None
+        
+    except Exception as e:
+        log(f"❌ Error buscando cita por ID {cita_id}: {e}")
+        return None
+
 
 def notificar_cita_admin(cita):
     """Envía notificación de nueva cita al admin"""
@@ -3173,14 +3241,9 @@ def debug_leads():
 
 
 @app.route("/api/internal/send-reminder", methods=["POST"])
+@app.route("/api/internal/send-reminder", methods=["POST"])
 def send_appointment_reminder():
-    """Envia un recordatorio de cita y setea el estado del usuario"""
     try:
-        # 🔥 VERIFICACIÓN DE CLAVE ELIMINADA PARA PRUEBAS
-        # key = request.args.get('key')
-        # if key != ADMIN_ACCESS_KEY:
-        #     return jsonify({"error": "Unauthorized"}), 403
-        
         data = request.get_json()
         if not data:
             return jsonify({"error": "No JSON data provided"}), 400
@@ -3190,8 +3253,9 @@ def send_appointment_reminder():
         fecha = data.get('fecha')
         hora = data.get('hora')
         propiedad = data.get('propiedad', 'la propiedad')
+        cita_id = data.get('cita_id')  # ← NUEVO: recibir el ID de la cita
         
-        # Validar campos obligatorios
+        # Validar campos
         missing = []
         if not user_id:
             missing.append('user_id')
@@ -3199,11 +3263,13 @@ def send_appointment_reminder():
             missing.append('fecha')
         if not hora:
             missing.append('hora')
+        if not cita_id:
+            missing.append('cita_id')  # ← NUEVO: validar ID
             
         if missing:
             return jsonify({"error": "Missing fields", "missing": missing}), 400
         
-        # Formatear mensaje
+        # Formatear mensaje con el ID de la cita
         mensaje = f"""🔔 *RECORDATORIO DANTE PROPIEDADES*
 
 Hola *{nombre}*! 😊
@@ -3214,24 +3280,24 @@ Te escribo para recordarte tu cita de mañana:
 ⏰ *Hora:* {hora} hs
 🏠 *Propiedad:* {propiedad}
 
-📍 Te esperamos. Si necesitas cancelar o reprogramar, avísanos respondiendo este mensaje.
+📍 Te esperamos. Para responder, escribí:
 
-*Opciones:*
-✅ Respondé *CONFIRMAR* para confirmar
-❌ Respondé *CANCELAR* si no podrás asistir
-🔄 Respondé *REPROGRAMAR* para cambiar fecha/hora
+✅ *CONFIRMAR-{cita_id}* para confirmar
+❌ *CANCELAR-{cita_id}* si no podrás asistir
+🔄 *REPROGRAMAR-{cita_id}* para cambiar fecha/hora
 
 ¡Gracias por confiar en Dante Propiedades! 🏠🗝️"""
         
         # Enviar mensaje
         result = send_whatsapp_message(user_id, mensaje)
         
-        # Setear estado para esperar confirmación
+        # Setear estado
         estado = obtener_estado_usuario(user_id)
         estado['paso'] = 'esperando_confirmacion_recordatorio'
+        estado['ultimo_recordatorio_cita_id'] = cita_id  # ← NUEVO: guardar el ID
         actualizar_estado_usuario(user_id, estado)
         
-        log(f"🔔 Recordatorio enviado a {user_id} ({nombre})")
+        log(f"🔔 Recordatorio enviado a {user_id} ({nombre}) para cita {cita_id}")
         return jsonify({
             "status": "success",
             "whatsapp_id": result.get('message_id')
@@ -3239,9 +3305,9 @@ Te escribo para recordarte tu cita de mañana:
         
     except Exception as e:
         log(f"❌ Error inesperado: {e}")
-        import traceback
-        log(traceback.format_exc())
-        return jsonify({"error": "Internal server error", "details": str(e)}), 500
+        return jsonify({"error": str(e)}), 500
+    
+    
 
 # 🔥 NUEVOS ENDPOINTS PARA DIAGNÓSTICO
 @app.route("/version-actual", methods=["GET"])
