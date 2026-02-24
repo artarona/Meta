@@ -27,13 +27,40 @@ DATABASE_URL = os.getenv('DATABASE_URL')
 ADMIN_KEY = os.getenv('ADMIN_KEY', 'dante_admin_2024')
 BASE_URL = os.getenv('BASE_URL', 'https://meta-rjpb.onrender.com')
 
-def get_db_connection():
-    """Obtiene conexión a PostgreSQL"""
-    try:
-        return psycopg2.connect(DATABASE_URL)
-    except Exception as e:
-        logger.error(f"Error conectando a DB: {e}")
+def get_db_connection(max_retries=3):
+    """Obtiene conexión a PostgreSQL con reintentos para manejar errores intermitentes de SSL"""
+    import time
+    if not DATABASE_URL:
+        logger.error("❌ DATABASE_URL no encontrada en variables de entorno")
         return None
+
+    for i in range(max_retries):
+        try:
+            conn = psycopg2.connect(
+                DATABASE_URL,
+                sslmode='require',
+                connect_timeout=10,
+                keepalives=1,
+                keepalives_idle=30,
+                keepalives_interval=10,
+                keepalives_count=5
+            )
+            # Verificar si la conexión es funcional
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+            return conn
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            error_str = str(e)
+            if i < max_retries - 1:
+                logger.warning(f"⚠️ Error de conexión (Intento {i+1}): {error_str}. Reintentando...")
+                time.sleep(1)
+                continue
+            logger.error(f"❌ Error final conectando a DB: {e}")
+            break
+        except Exception as e:
+            logger.error(f"❌ Error inesperado conectando a DB: {e}")
+            break
+    return None
 
 def obtener_citas_para_recordatorio():
     """

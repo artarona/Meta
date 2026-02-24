@@ -62,41 +62,49 @@ estados_usuarios = {}
 processed_message_ids = deque(maxlen=1000)  # Aumentado para manejar más mensajes
 
 # ========== CONEXIÓN A POSTGRESQL (Render) ==========
-def get_db_connection():
-    """Obtiene conexión a PostgreSQL forzando SSL correctamente"""
-    try:
-        database_url = os.getenv("DATABASE_URL")
-        if not database_url:
-            # Fallback solo si no hay variable de entorno
-            database_url = "postgresql://dantepropiedadesdb_user:wiBPwMvLzG01zHkHKyqEsTfHEhcZzfKi@dpg-d62aqenpm1nc73fqi3m0-a.oregon-postgres.render.com:5432/dantepropiedadesdb"
-        
-        # Forzar SSL y agregar parámetros de conexión
-        conn = psycopg2.connect(
-            database_url,
-            sslmode='require',
-            connect_timeout=10,
-            keepalives_idle=30,
-            keepalives_interval=10,
-            keepalives_count=5,
-            options='-c statement_timeout=30000'  # Timeout de 30 segundos
-        )
-        
-        log("✅ Conectado a PostgreSQL con SSL correctamente")
-        return conn
-        
-    except Exception as e:
-        log(f"❌ Error conectando a PostgreSQL: {e}", "ERROR")
-        
-        # Intento de último recurso (solo para diagnóstico)
-        try:
-            log("⚠️ Intentando conexión sin SSL (solo diagnóstico)...")
-            conn = psycopg2.connect(database_url, connect_timeout=5)
-            log("⚠️ Conexión sin SSL exitosa (esto no debería pasar)")
-            return conn
-        except:
-            pass
-        
+def get_db_connection(max_retries=3):
+    """Obtiene conexión a PostgreSQL con reintentos para manejar errores intermitentes de SSL"""
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        log("❌ DATABASE_URL no encontrada", "ERROR")
         return None
+
+    for i in range(max_retries):
+        try:
+            conn = psycopg2.connect(
+                database_url,
+                sslmode='require',
+                connect_timeout=10,
+                keepalives=1,
+                keepalives_idle=30,
+                keepalives_interval=10,
+                keepalives_count=5,
+                options='-c statement_timeout=30000'
+            )
+            # Verificar si la conexión es funcional
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+            
+            if i > 0:
+                log(f"✅ Conexión establecida tras {i} reintentos")
+            else:
+                log("✅ Conexión a PostgreSQL exitosa")
+            return conn
+            
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            error_str = str(e)
+            if "SSL connection has been closed unexpectedly" in error_str or "connection to server at" in error_str:
+                log(f"⚠️ Error de conexión (Intento {i+1}/{max_retries}): {error_str}", "WARNING")
+                if i < max_retries - 1:
+                    time.sleep(1) # Esperar un segundo antes de reintentar
+                    continue
+            log(f"❌ Error fatal conectando a PostgreSQL: {e}", "ERROR")
+            break
+        except Exception as e:
+            log(f"❌ Error inesperado conectando a PostgreSQL: {e}", "ERROR")
+            break
+            
+    return None
 
 def analizar_hora(texto):
     """
