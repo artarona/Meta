@@ -1675,83 +1675,53 @@ def check_token_validity():
 
 def send_whatsapp_message(to_number, message_text):
     """Envía un mensaje de WhatsApp usando texto directo"""
-    log(f"🔍 Usando token: {ACCESS_TOKEN[:50]}...")  # Muestra los primeros 50 caracteres
+    with open('debug_whatsapp.log', 'a', encoding='utf-8') as f:
+        f.write(f"\n--- {datetime.now()} ---\n")
+        f.write(f"To: {to_number}\n")
+        
     try:
         token_valid, token_info = check_token_validity()
         if not token_valid:
-            log("❌ Token inválido - No se puede enviar mensaje")
-            return {
-                "status": "error",
-                "error_code": "invalid_token",
-                "error_message": "Token de acceso expirado o inválido"
-            }
+            log("❌ Token inválido")
+            return {"status": "error", "error_message": "Token inválido"}
         
-        log(f"🔍 Número original: {to_number}")
         transformed_number = normalizar_numero_argentina(to_number)
-        log(f"🔍 Número final para API (Sandbox): {transformed_number}")
-        
         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
         headers = {
             "Authorization": f"Bearer {ACCESS_TOKEN}",
             "Content-Type": "application/json"
         }
-        
         payload = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
             "to": transformed_number,
             "type": "text",
-            "text": {
-                "preview_url": False,
-                "body": message_text
-            }
+            "text": {"preview_url": False, "body": message_text}
         }
         
-        log(f"📤 Enviando mensaje a: {to_number}")
+        with open('debug_whatsapp.log', 'a', encoding='utf-8') as f:
+            f.write(f"URL: {url}\n")
+            f.write(f"Payload: {json.dumps(payload)}\n")
 
         response = requests.post(url, json=payload, headers=headers, timeout=30)
         
+        with open('debug_whatsapp.log', 'a', encoding='utf-8') as f:
+            f.write(f"Status: {response.status_code}\n")
+            f.write(f"Response: {response.text}\n")
+
         if response.status_code == 200:
             result = response.json()
             message_id = result.get('messages', [{}])[0].get('id', 'N/A')
-            log(f"✅ Mensaje enviado exitosamente - ID: {message_id}")
-            return {
-                "status": "success",
-                "message_id": message_id,
-                "details": "Mensaje de texto directo enviado"
-            }
+            return {"status": "success", "message_id": message_id}
         else:
             error_data = response.json() if response.content else {}
-            error_code = error_data.get('error', {}).get('code', 'N/A')
-            error_message = error_data.get('error', {}).get('message', 'Error desconocido')
-            
-            log(f"❌ Error API: {error_code} - {error_message}")
-            
-            if error_code == 190:
-                return {
-                    "status": "error",
-                    "error_code": error_code,
-                    "error_message": "Token expirado. Renueva el token en Meta Developers."
-                }
-            elif error_code == 10:
-                return {
-                    "status": "error",
-                    "error_code": error_code,
-                    "error_message": "El token no tiene permisos suficientes."
-                }
-            
-            return {
-                "status": "error",
-                "error_code": error_code,
-                "error_message": error_message
-            }
+            error_msg = error_data.get('error', {}).get('message', 'Error desconocido')
+            return {"status": "error", "error_message": error_msg}
             
     except Exception as e:
-        log(f"🔥 Error inesperado: {str(e)}")
-        return {
-            "status": "error",
-            "error": str(e)
-        }
+        with open('debug_whatsapp.log', 'a', encoding='utf-8') as f:
+            f.write(f"Exception: {str(e)}\n")
+        return {"status": "error", "error": str(e)}
 
 def notificar_agente(mensaje):
     """Envía una notificación al número de Dante (ADMIN_NUMBER)"""
