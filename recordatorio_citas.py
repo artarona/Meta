@@ -104,41 +104,9 @@ def obtener_citas_para_recordatorio():
         citas = cursor.fetchall()
         logger.info(f"📊 Citas que CUMPLEN CRITERIOS (pendientes + sin recordatorio): {len(citas)}")
         
-        # 🟢 PASO 3: Si hay diferencia, mostrar DETALLE de todas las citas para diagnóstico
-        if len(citas) < total_para_manana:
-            logger.info("🔍 DETALLE de TODAS las citas para mañana:")
-            
-            cursor.execute("""
-                SELECT 
-                    id, nombre, telefono, hora_cita, 
-                    estado, recordatorio_enviado, email
-                FROM citas 
-                WHERE fecha_cita = %s
-                ORDER BY id
-            """, (manana,))
-            
-            todas_citas = cursor.fetchall()
-            
-            for cita in todas_citas:
-                cita_id = cita[0]
-                nombre = cita[1] or "Sin nombre"
-                telefono = cita[2] or "Sin teléfono"
-                hora = cita[3] or "Sin hora"
-                estado = cita[4] or "pendiente"
-                recordatorio = cita[5]
-                email = cita[6] or "Sin email"
-                
-                # Determinar por qué NO fue seleccionada
-                if estado != 'pendiente':
-                    motivo = f"Estado '{estado}' (debe ser 'pendiente')"
-                elif recordatorio:
-                    motivo = f"Recordatorio ya enviado (TRUE)"
-                else:
-                    motivo = "Cumple criterios (DEBERÍA estar incluida)"
-                
-                logger.info(f"   📌 ID {cita_id}: {nombre} - {hora} - Tel: {telefono}")
-                logger.info(f"      Estado: {estado} | Recordatorio enviado: {recordatorio} | Email: {email}")
-                logger.info(f"      Motivo exclusión: {motivo}")
+        # 🟢 PASO 3: Solo loguear si no hay citas para dar contexto rápido
+        if total_para_manana > 0 and len(citas) == 0:
+            logger.info("ℹ️ Todas las citas de mañana ya fueron procesadas o no están en estado 'pendiente'.")
         
         # 🟣 PASO 4: Si hay citas seleccionadas, mostrar resumen
         if citas:
