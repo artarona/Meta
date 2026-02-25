@@ -420,16 +420,36 @@ def obtener_estado_usuario(user_id):
             cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data FROM user_states WHERE user_id = %s", (user_id,))
             res = cursor.fetchone()
             if res:
-                # Función auxiliar para parseo seguro
+                # Función auxiliar para parseo seguro y profundo
                 def safe_json_loads(data, default):
                     if not data: return default
-                    if not isinstance(data, str): return data # Ya es objeto
-                    try:
-                        parsed = json.loads(data)
-                        return parsed if parsed is not None else default
-                    except:
-                        log(f"⚠️ Error parseando JSON: {data[:50]}...")
-                        return default
+                    # Si ya es un objeto (dict/list), devolverlo
+                    if isinstance(data, (dict, list)): return data
+                    
+                    # Si es un string, intentar parsear
+                    current_data = data
+                    max_depth = 3 # Evitar bucles infinitos
+                    for _ in range(max_depth):
+                        if not isinstance(current_data, str):
+                            break
+                        try:
+                            # Trim para ver si parece JSON
+                            trimmed = current_data.strip()
+                            if (trimmed.startswith('{') and trimmed.endswith('}')) or (trimmed.startswith('[') and trimmed.endswith(']')):
+                                parsed = json.loads(current_data)
+                                if parsed is not None:
+                                    current_data = parsed
+                                else:
+                                    break
+                            else:
+                                break # No parece JSON
+                        except:
+                            break
+                            
+                    # Si al final es un dict/list, éxito. Si no, devolver default si era string basura
+                    if isinstance(current_data, (dict, list)):
+                        return current_data
+                    return default if isinstance(data, str) and not isinstance(current_data, (dict, list)) else current_data
 
                 estado = {
                     'paso': res[0],
@@ -3322,7 +3342,11 @@ def send_appointment_feedback():
             try:
                 estado = obtener_estado_usuario(user_id)
                 estado['paso'] = 'esperando_feedback'
-                if 'data' not in estado: estado['data'] = {}
+                
+                # Asegurar que 'data' sea un diccionario
+                if 'data' not in estado or not isinstance(estado['data'], dict):
+                    estado['data'] = {}
+                
                 estado['data']['propiedad_feedback'] = propiedad
                 actualizar_estado_usuario(user_id, estado)
                 log(f"🔄 Estado de {user_id} cambiado a 'esperando_feedback'")
