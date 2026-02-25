@@ -423,14 +423,14 @@ def obtener_estado_usuario(user_id):
                 estado = {
                     'paso': res[0],
                     'operacion_seleccionada': res[1],
-                    'propiedades_filtradas': res[2] or [],
+                    'propiedades_filtradas': json.loads(res[2]) if res[2] else [],
                     'ultimo_indice_preguntado': res[3],
                     'nombre_cliente': res[4],
                     'email_cliente': res[5],
                     'fecha_cita': res[6],
                     'hora_cita': res[7],
-                    'horarios_disponibles': res[8] or [],
-                    'data': res[9] or {},
+                    'horarios_disponibles': json.loads(res[8]) if res[8] else [],
+                    'data': json.loads(res[9]) if res[9] else {},
                     'timestamp': datetime.now().isoformat()
                 }
                 estados_usuarios[user_id] = estado
