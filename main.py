@@ -1478,7 +1478,14 @@ def manejar_email_cita(text, estado_usuario, user_id):
     estado_usuario['paso'] = 'confirmar_cita'
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    fecha_display = datetime.strptime(estado_usuario['fecha_cita'], "%Y-%m-%d").strftime("%d-%m-%Y")
+    fecha_raw = estado_usuario.get('fecha_cita')
+    if hasattr(fecha_raw, 'strftime'):
+        fecha_display = fecha_raw.strftime("%d-%m-%Y")
+    else:
+        try:
+            fecha_display = datetime.strptime(str(fecha_raw), "%Y-%m-%d").strftime("%d-%m-%Y")
+        except:
+            fecha_display = str(fecha_raw)
     hora = estado_usuario['hora_cita']
     email = estado_usuario.get('email_cliente', 'No proporcionado')
     
@@ -1539,10 +1546,18 @@ def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
         actualizar_estado_usuario(user_id, estado_usuario)
         
         # Mensaje de confirmación
+        if hasattr(fecha, 'strftime'):
+            fecha_f = fecha.strftime("%d-%m-%Y")
+        else:
+            try:
+                fecha_f = datetime.strptime(str(fecha), "%Y-%m-%d").strftime("%d-%m-%Y")
+            except:
+                fecha_f = str(fecha)
+        
         return f"""✅ *¡VISITA AGENDADA!*
         
 Hemos confirmado tu visita para:
-📅 *{datetime.strptime(fecha, "%Y-%m-%d").strftime("%d-%m-%Y")}*
+📅 *{fecha_f}*
 ⏰ *{hora} hs*
 🏠 {propiedad_titulo}
 
