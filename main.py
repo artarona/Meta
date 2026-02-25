@@ -977,7 +977,15 @@ def manejar_submenu_visita(text_lower, estado_usuario, user_id):
 
 def manejar_respuesta_feedback(text, estado_usuario, user_id):
     """Maneja la respuesta del usuario al mensaje de feedback"""
-    propiedad = estado_usuario.get('data', {}).get('propiedad_feedback', 'la propiedad')
+    # Defensive: data might be a string if parsing failed elsewhere
+    data_obj = estado_usuario.get('data', {})
+    if isinstance(data_obj, str):
+        try:
+            data_obj = json.loads(data_obj)
+        except:
+            data_obj = {}
+            
+    propiedad = data_obj.get('propiedad_feedback', 'la propiedad')
     nombre = estado_usuario.get('nombre_cliente', 'Cliente')
     
     log(f"📩 FEEDBACK RECIBIDO de {user_id}: {text}")
