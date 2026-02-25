@@ -836,6 +836,9 @@ def get_bot_response(text, user_id):
         elif paso == 'esperando_email_cita':
             return manejar_email_cita(text, estado_usuario, user_id)
         
+        elif paso == 'esperando_feedback':
+            return manejar_respuesta_feedback(text, estado_usuario, user_id)
+        
         elif paso == 'esperando_confirmacion_recordatorio':
             return manejar_confirmacion_recordatorio(text, estado_usuario, user_id)
         
@@ -960,6 +963,34 @@ def manejar_submenu_visita(text_lower, estado_usuario, user_id):
 
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*"""
+
+def manejar_respuesta_feedback(text, estado_usuario, user_id):
+    """Maneja la respuesta del usuario al mensaje de feedback"""
+    propiedad = estado_usuario.get('data', {}).get('propiedad_feedback', 'la propiedad')
+    nombre = estado_usuario.get('nombre_cliente', 'Cliente')
+    
+    log(f"📩 FEEDBACK RECIBIDO de {user_id}: {text}")
+    
+    # Notificar al agente
+    mensaje_agente = f"🚩 *NUEVO FEEDBACK RECIBIDO*\n\n"
+    mensaje_agente += f"👤 *Cliente:* {nombre} ({user_id})\n"
+    mensaje_agente += f"🏠 *Propiedad:* {propiedad}\n"
+    mensaje_agente += f"💬 *Respuesta:* {text}"
+    
+    try:
+        notificar_agente(mensaje_agente)
+    except Exception as e:
+        log(f"⚠️ Error notificando feedback al agente: {e}")
+    
+    # Reset estado a menú principal
+    estado_usuario.update({
+        'paso': 'menu_principal',
+        'operacion_seleccionada': None,
+        'timestamp': datetime.now().isoformat()
+    })
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    return f"¡Muchas gracias por tu respuesta, *{nombre}*! 🙌 Ya le pasé tus comentarios al asesor responsable. Se va a estar contactando con vos a la brevedad. 😊\n\n¿En qué más te puedo ayudar?\n\n1️⃣ Ver más propiedades\n9️⃣ Volver al menú principal"
 
 def manejar_submenu_asesor(text_lower, estado_usuario, user_id):
     """Maneja las opciones del submenú de asesor"""
@@ -1675,17 +1706,15 @@ def check_token_validity():
 
 def send_whatsapp_message(to_number, message_text):
     """Envía un mensaje de WhatsApp usando texto directo"""
-    with open('debug_whatsapp.log', 'a', encoding='utf-8') as f:
-        f.write(f"\n--- {datetime.now()} ---\n")
-        f.write(f"To: {to_number}\n")
-        
     try:
         token_valid, token_info = check_token_validity()
         if not token_valid:
-            log("❌ Token inválido")
+            log("❌ Token inválido - No se puede enviar mensaje", "ERROR")
             return {"status": "error", "error_message": "Token inválido"}
         
         transformed_number = normalizar_numero_argentina(to_number)
+        log(f"📤 Enviando mensaje a: {transformed_number}")
+        
         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
         headers = {
             "Authorization": f"Bearer {ACCESS_TOKEN}",
@@ -1699,28 +1728,21 @@ def send_whatsapp_message(to_number, message_text):
             "text": {"preview_url": False, "body": message_text}
         }
         
-        with open('debug_whatsapp.log', 'a', encoding='utf-8') as f:
-            f.write(f"URL: {url}\n")
-            f.write(f"Payload: {json.dumps(payload)}\n")
-
         response = requests.post(url, json=payload, headers=headers, timeout=30)
         
-        with open('debug_whatsapp.log', 'a', encoding='utf-8') as f:
-            f.write(f"Status: {response.status_code}\n")
-            f.write(f"Response: {response.text}\n")
-
         if response.status_code == 200:
             result = response.json()
             message_id = result.get('messages', [{}])[0].get('id', 'N/A')
+            log(f"✅ Mensaje enviado exitosamente - ID: {message_id}")
             return {"status": "success", "message_id": message_id}
         else:
             error_data = response.json() if response.content else {}
             error_msg = error_data.get('error', {}).get('message', 'Error desconocido')
+            log(f"❌ Error API WhatsApp: {error_msg}", "ERROR")
             return {"status": "error", "error_message": error_msg}
             
     except Exception as e:
-        with open('debug_whatsapp.log', 'a', encoding='utf-8') as f:
-            f.write(f"Exception: {str(e)}\n")
+        log(f"🔥 Error inesperado enviando WhatsApp: {str(e)}", "ERROR")
         return {"status": "error", "error": str(e)}
 
 def notificar_agente(mensaje):
@@ -1815,8 +1837,8 @@ def send_welcome_flow(user_id):
 *¿Cómo podemos ayudarte hoy?*
 Elegí el número de tu opción:
 
-1️⃣ *INMUEBLES EN VENTA* 🏠
-2️⃣ *INMUEBLES EN ALQUILER* 🔑
+1️⃣ *Inmuebles en Venta* 🏠
+2️⃣ *Inmuebles en Alquiler* 🔑
 3️⃣ *Visitar nuestro sitio web* 🌐
 4️⃣ *Ver mis citas programadas* 📋
 5️⃣ *Hablar con un asesor* 👤
@@ -3277,6 +3299,17 @@ def send_appointment_feedback():
         if resultado.get("status") == "success":
             log(f"✅ Feedback enviado correctamente a {user_id}")
             
+            # Actualizar estado del usuario a 'esperando_feedback'
+            try:
+                estado = obtener_estado_usuario(user_id)
+                estado['paso'] = 'esperando_feedback'
+                if 'data' not in estado: estado['data'] = {}
+                estado['data']['propiedad_feedback'] = propiedad
+                actualizar_estado_usuario(user_id, estado)
+                log(f"🔄 Estado de {user_id} cambiado a 'esperando_feedback'")
+            except Exception as e:
+                log(f"⚠️ No se pudo actualizar el estado del usuario: {e}", "WARNING")
+
             # Registrar en DB si viene cita_id
             if cita_id:
                 conn = get_db_connection()
