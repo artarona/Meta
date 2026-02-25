@@ -420,17 +420,28 @@ def obtener_estado_usuario(user_id):
             cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data FROM user_states WHERE user_id = %s", (user_id,))
             res = cursor.fetchone()
             if res:
+                # Función auxiliar para parseo seguro
+                def safe_json_loads(data, default):
+                    if not data: return default
+                    if not isinstance(data, str): return data # Ya es objeto
+                    try:
+                        parsed = json.loads(data)
+                        return parsed if parsed is not None else default
+                    except:
+                        log(f"⚠️ Error parseando JSON: {data[:50]}...")
+                        return default
+
                 estado = {
                     'paso': res[0],
                     'operacion_seleccionada': res[1],
-                    'propiedades_filtradas': json.loads(res[2]) if res[2] else [],
+                    'propiedades_filtradas': safe_json_loads(res[2], []),
                     'ultimo_indice_preguntado': res[3],
                     'nombre_cliente': res[4],
                     'email_cliente': res[5],
                     'fecha_cita': res[6],
                     'hora_cita': res[7],
-                    'horarios_disponibles': json.loads(res[8]) if res[8] else [],
-                    'data': json.loads(res[9]) if res[9] else {},
+                    'horarios_disponibles': safe_json_loads(res[8], []),
+                    'data': safe_json_loads(res[9], {}),
                     'timestamp': datetime.now().isoformat()
                 }
                 estados_usuarios[user_id] = estado
