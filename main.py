@@ -407,9 +407,9 @@ def cargar_propiedades_cached():
 
 def obtener_estado_usuario(user_id):
     """Obtiene o crea el estado de un usuario (Cache + PostgreSQL)"""
-    # 1. Intentar desde caché en memoria
-    if user_id in estados_usuarios:
-        return estados_usuarios[user_id]
+    # 1. Intentar desde caché en memoria (DESHABILITADO para consistencia en Render)
+    # if user_id in estados_usuarios:
+    #     return estados_usuarios[user_id]
         
     # 2. Intentar desde PostgreSQL
     conn = None
@@ -2361,13 +2361,18 @@ def manejar_confirmacion_recordatorio(text, estado_usuario, user_id):
         text_upper = text.upper()
         if text_upper in ["CONFIRMAR", "CANCELAR", "REPROGRAMAR"]:
             comando = text_upper
-            # Prioridad: usar el ID guardado en el estado al enviar el recordatorio
-            cita_id = estado_usuario.get('ultimo_recordatorio_cita_id')
+            # Prioridad: usar el ID guardado en DATA al enviar el recordatorio
+            data_obj = estado_usuario.get('data', {})
+            if isinstance(data_obj, str):
+                try: data_obj = json.loads(data_obj)
+                except: data_obj = {}
+                
+            cita_id = data_obj.get('ultimo_recordatorio_cita_id')
             if cita_id:
-                log(f"🔍 Tipeo simple '{comando}', usando ID del estado: {cita_id}")
+                log(f"🔍 Tipeo simple '{comando}', usando ID del estado guardado: {cita_id}")
                 cita = buscar_cita_por_id(cita_id)
             else:
-                log(f"⚠️ Tipeo simple '{comando}' sin ID en estado, buscando cita activa...")
+                log(f"⚠️ Tipeo simple '{comando}' sin ID en data, buscando cita activa...")
                 cita = buscar_cita_activa_usuario(user_id)
         else:
             # Fallback total: palabras clave sueltas
@@ -3429,8 +3434,8 @@ Te escribo para recordarte tu cita de mañana:
 
 📍 Te esperamos. Para responder, escribí:
 
-✅ *CONFIRMAR* para confirmar
-❌ *CANCELAR* si no podrás asistir
+✅ *CONFIRMAR* o *CONFIRMAR-{cita_id}* para confirmar
+❌ *CANCELAR* o *CANCELAR-{cita_id}* si no podrás asistir
 🔄 *REPROGRAMAR* para cambiar fecha/hora
 
 ¡Gracias por confiar en Dante Propiedades! 🏠🗝️"""
@@ -3441,7 +3446,12 @@ Te escribo para recordarte tu cita de mañana:
         # Setear estado
         estado = obtener_estado_usuario(user_id)
         estado['paso'] = 'esperando_confirmacion_recordatorio'
-        estado['ultimo_recordatorio_cita_id'] = cita_id  # ← NUEVO: guardar el ID
+        
+        # Guardar el ID dentro de 'data' para que se persista en DB
+        if 'data' not in estado or not isinstance(estado['data'], dict):
+            estado['data'] = {}
+        
+        estado['data']['ultimo_recordatorio_cita_id'] = cita_id
         actualizar_estado_usuario(user_id, estado)
         
         log(f"🔔 Recordatorio enviado a {user_id} ({nombre}) para cita {cita_id}")
