@@ -815,6 +815,8 @@ def get_bot_response(text, user_id):
                 # REGISTRAR LEAD INMEDIATAMENTE - FIX PostgreSQL
                 try:
                     registrar_lead(user_id, propiedad.get('id_temporal'), 'click_me_interesa', f"Interés expresado en Propiedad: {propiedad.get('titulo')}")
+                    # NOTIFICACIÓN INMEDIATA AL AGENTE
+                    notificar_agente(f"👀 *INTERÉS INICIAL*\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad.get('titulo')}\n_(Esperando que el usuario ingrese su nombre...)_")
                 except Exception as e:
                     log(f"⚠️ Error registrando lead inicial: {e}")
                     
@@ -1801,8 +1803,13 @@ def send_whatsapp_message(to_number, message_text):
 
 def notificar_agente(mensaje):
     """Envía una notificación al número de Dante (ADMIN_NUMBER)"""
-    log(f"📢 Notificando al agente: {mensaje[:50]}...")
-    return send_whatsapp_message(ADMIN_NUMBER, f"🔔 *ALERTA DANTE-INSIGHTS*\n{mensaje}")
+    log(f"📢 Preparando notificación para el agente ({ADMIN_NUMBER}): {mensaje[:50]}...")
+    resultado = send_whatsapp_message(ADMIN_NUMBER, f"🔔 *ALERTA DANTE-INSIGHTS*\n{mensaje}")
+    if resultado.get("status") == "success":
+        log(f"✅ Notificación enviada al agente: {resultado.get('message_id')}")
+    else:
+        log(f"❌ Error notificando al agente: {resultado.get('error_message')}", "ERROR")
+    return resultado
 
 def send_photos_async(user_id, propiedad_id, base_url):
     """Tarea ejecutada en hilo secundario para enviar fotos"""
@@ -2510,7 +2517,8 @@ def notificar_cita_admin(cita):
         mensaje += f"📝 *Notas:* {cita.get('notas', 'Sin notas')}\n\n"
         mensaje += f"📍 *Estado:* {cita['estado'].upper()}"
         
-        return send_whatsapp_message(ADMIN_NUMBER, mensaje)
+        # Usar notificar_agente para centralizar los logs de avisos al admin
+        return notificar_agente(mensaje)
     except Exception as e:
         log(f"❌ Error notificando cita al admin: {e}")
         return False
