@@ -1890,6 +1890,10 @@ Para seleccionar, solo enviá el número."""
     return send_whatsapp_message(user_id, welcome_message)
 
 # ========== RUTAS PRINCIPALES ==========
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204
+
 @app.route("/")
 def home():
     """Página principal"""
@@ -2903,6 +2907,8 @@ def actualizar_cita(cita_id):
     if not data:
         return jsonify({"error": "No data provided"}), 400
     
+    log(f"📝 Solicitud de edición para cita {cita_id}")
+    
     try:
         conn = get_db_connection()
         if not conn:
@@ -2910,30 +2916,45 @@ def actualizar_cita(cita_id):
         
         cursor = conn.cursor()
         
+        # Validar fecha para evitar errores de tipo DATE en PG
+        fecha_valida = data.get('fecha')
+        if not fecha_valida or fecha_valida == "" or fecha_valida == "null":
+            fecha_valida = None
+
         cursor.execute("""
             UPDATE citas 
             SET nombre = %s, email = %s, fecha_cita = %s, 
-                hora_cita = %s, notas = %s, estado = %s
+                hora_cita = %s, notas = %s, estado = %s,
+                propiedad_id = %s
             WHERE id = %s
         """, (
             data.get('nombre'),
             data.get('email'),
-            data.get('fecha'),
+            fecha_valida,
             data.get('hora'),
             data.get('notas'),
             data.get('estado', 'pendiente'),
+            data.get('propiedad_id'),
             cita_id
         ))
         
+        filas = cursor.rowcount
         conn.commit()
         cursor.close()
         conn.close()
         
+        if filas == 0:
+            return jsonify({"error": "Cita no encontrada"}), 404
+            
+        log(f"✅ Cita {cita_id} actualizada correctamente")
         return jsonify({"status": "success", "message": "Cita actualizada"})
         
     except Exception as e:
-        log(f"❌ Error actualizando cita {cita_id}: {e}", "ERROR")
-        return jsonify({"error": str(e)}), 500
+        import traceback
+        error_msg = str(e)
+        log(f"❌ Error actualizando cita {cita_id}: {error_msg}", "ERROR")
+        log(traceback.format_exc(), "ERROR")
+        return jsonify({"error": error_msg, "traceback": traceback.format_exc()}), 500
 
 
 @app.route("/api/citas/<int:cita_id>/estado", methods=["PUT"])
