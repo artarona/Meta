@@ -21,15 +21,39 @@ SCOPES = ['https://www.googleapis.com/auth/calendar']
 SERVICE_ACCOUNT_FILE = 'google_calendar_key.json'
 
 def get_calendar_service():
-    """Obtener servicio de Google Calendar API"""
-    if not os.path.exists(SERVICE_ACCOUNT_FILE):
+    """Obtener servicio de Google Calendar API.
+    Compatible con entorno local (archivo JSON) y Render (variable de entorno GOOGLE_CALENDAR_KEY_B64).
+    """
+    import json, base64
+    creds_data = None
+
+    # Opción 1: archivo local (desarrollo)
+    if os.path.exists(SERVICE_ACCOUNT_FILE):
+        try:
+            with open(SERVICE_ACCOUNT_FILE, 'r') as f:
+                creds_data = json.load(f)
+        except Exception as e:
+            return None
+
+    # Opción 2: variable de entorno base64 (Render/producción)
+    if not creds_data:
+        key_b64 = os.environ.get("GOOGLE_CALENDAR_KEY_B64")
+        if key_b64:
+            try:
+                creds_data = json.loads(base64.b64decode(key_b64).decode('utf-8'))
+            except Exception as e:
+                return None
+
+    if not creds_data:
         return None
+
     try:
-        creds = service_account.Credentials.from_service_account_file(
-            SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-        return build('calendar', 'v3', credentials=creds)
+        creds = service_account.Credentials.from_service_account_info(
+            creds_data, scopes=SCOPES)
+        return build('calendar', 'v3', credentials=creds, cache_discovery=False)
     except Exception as e:
         return None
+
 try:
     import psycopg2
 except ImportError:
