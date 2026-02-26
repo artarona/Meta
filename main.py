@@ -2526,8 +2526,15 @@ def notificar_cita_admin(cita):
     """Envía notificación de nueva cita al admin"""
     try:
         # Formatear fecha para el mensaje (DD-MM-AAAA)
-        fecha_obj = datetime.strptime(cita['fecha'], "%Y-%m-%d")
-        fecha_msg = fecha_obj.strftime("%d-%m-%Y")
+        fecha_raw = cita['fecha']
+        if hasattr(fecha_raw, 'strftime'):
+            fecha_msg = fecha_raw.strftime("%d-%m-%Y")
+        else:
+            try:
+                fecha_obj = datetime.strptime(str(fecha_raw), "%Y-%m-%d")
+                fecha_msg = fecha_obj.strftime("%d-%m-%Y")
+            except:
+                fecha_msg = str(fecha_raw)
         
         mensaje = f"📅 *NUEVA CITA AGENDADA*\n\n"
         mensaje += f"👤 *Cliente:* {cita['nombre']}\n"
