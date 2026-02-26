@@ -62,6 +62,23 @@ CITAS_DISPONIBLES = [
     "17:00", "17:30", "18:00", "18:30"
 ]
 
+# ========== FUNCIONES UTILITARIAS ==========
+def save_json_atomic(filepath, data):
+    """Guarda un archivo JSON de forma atómica usando un archivo temporal"""
+    temp_file = f"{filepath}.tmp"
+    try:
+        with open(temp_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
+        # Reemplazo atómico (en Windows os.replace es atómico para archivos)
+        os.replace(temp_file, filepath)
+        return True
+    except Exception as e:
+        log(f"❌ Error en guardado atómico de {filepath}: {e}")
+        if os.path.exists(temp_file):
+            try: os.remove(temp_file)
+            except: pass
+        return False
+
 # ========== GESTIÓN DE ESTADO DE USUARIOS ==========
 estados_usuarios = {}
 processed_message_ids = deque(maxlen=1000)  # Aumentado para manejar más mensajes
@@ -551,8 +568,11 @@ def registrar_lead(user_id, propiedad_id, accion, detalle=""):
         # 1. Guardar en archivo JSON local
         leads = []
         if os.path.exists(LEADS_FILE):
-            with open(LEADS_FILE, 'r', encoding='utf-8') as f:
-                leads = json.load(f)
+            try:
+                with open(LEADS_FILE, 'r', encoding='utf-8') as f:
+                    leads = json.load(f)
+            except Exception as e:
+                log(f"⚠️ Error cargando leads existentes: {e}. Se iniciará lista nueva para evitar pérdida de datos.")
         
         nuevo_lead = {
             'timestamp': datetime.now().isoformat(),
@@ -564,8 +584,7 @@ def registrar_lead(user_id, propiedad_id, accion, detalle=""):
         }
         leads.append(nuevo_lead)
         
-        with open(LEADS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(leads, f, indent=4, ensure_ascii=False)
+        save_json_atomic(LEADS_FILE, leads)
         
         log(f"✅ Lead registrado en JSON: {user_id} - {accion}")
         
@@ -2273,6 +2292,9 @@ def cargar_citas():
         if os.path.exists(CITAS_FILE):
             with open(CITAS_FILE, 'r', encoding='utf-8') as f:
                 citas = json.load(f)
+                if not isinstance(citas, list):
+                    log(f"⚠️ Formato inválido en {CITAS_FILE}")
+                    return None
                 for cita in citas:
                     if 'telefono' not in cita and 'user_id' in cita:
                         cita['telefono'] = cita['user_id']
@@ -2282,17 +2304,14 @@ def cargar_citas():
         return []
     except Exception as e:
         log(f"❌ Error cargando citas: {e}")
-        return []
+        return None # Retorna None en caso de error de parseo (crítico para no borrar datos)
 
 def guardar_citas(citas):
     """Guarda las citas en el archivo JSON"""
-    try:
-        with open(CITAS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(citas, f, indent=4, ensure_ascii=False)
-        return True
-    except Exception as e:
-        log(f"❌ Error guardando citas: {e}")
+    if citas is None:
+        log("⚠️ Intento de guardar citas siendo None, operación cancelada.")
         return False
+    return save_json_atomic(CITAS_FILE, citas)
 
 
 def buscar_cita_activa_usuario(user_id):
@@ -2352,16 +2371,19 @@ def actualizar_cita_db(cita_id, nuevo_estado=None, nuevas_notas=None):
         
         # 2. Actualizar JSON (para mantener sincronía)
         citas = cargar_citas()
-        for c in citas:
-            # Los IDs en JSON son strings como cita_0001, en DB son seriales
-            # Hacemos una comparación flexible o buscamos por otros campos
-            # Por ahora, si el ID coincide (convertido a string)
-            if str(c.get('id')) == str(cita_id) or c.get('id') == cita_id:
-                if nuevo_estado: c['estado'] = nuevo_estado
-                if nuevas_notas: c['notas'] = nuevas_notas
-                c['ultima_actualizacion'] = datetime.now().isoformat()
-                break
-        guardar_citas(citas)
+        if citas is not None:
+            for c in citas:
+                # Los IDs en JSON son strings como cita_0001, en DB son seriales
+                # Hacemos una comparación flexible o buscamos por otros campos
+                # Por ahora, si el ID coincide (convertido a string)
+                if str(c.get('id')) == str(cita_id) or c.get('id') == cita_id:
+                    if nuevo_estado: c['estado'] = nuevo_estado
+                    if nuevas_notas: c['notas'] = nuevas_notas
+                    c['ultima_actualizacion'] = datetime.now().isoformat()
+                    break
+            guardar_citas(citas)
+        else:
+            log(f"⚠️ No se actualizó JSON de citas porque falló la carga (ID {cita_id})")
         return True
     except Exception as e:
         log(f"❌ Error actualizando cita: {e}", "ERROR")
