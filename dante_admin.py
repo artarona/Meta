@@ -13,6 +13,26 @@ import pandas as pd
 from io import BytesIO
 import logging
 import traceback
+from googleapiclient.discovery import build
+from google.oauth2 import service_account
+
+# ========== CONFIGURACIÓN GOOGLE CALENDAR ==========
+SCOPES = ['https://www.googleapis.com/auth/calendar']
+SERVICE_ACCOUNT_FILE = 'google_calendar_key.json'
+CALENDAR_ID = 'primary' # O el email de la cuenta si se comparte con una personal
+
+def get_calendar_service():
+    """Obtener servicio de Google Calendar API"""
+    if not os.path.exists(SERVICE_ACCOUNT_FILE):
+        logger.error(f"❌ Archivo de llave Google Calendar no encontrado: {SERVICE_ACCOUNT_FILE}")
+        return None
+    try:
+        creds = service_account.Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+        return build('calendar', 'v3', credentials=creds)
+    except Exception as e:
+        logger.error(f"❌ Error creando servicio Google Calendar: {e}")
+        return None
 
 # ========== CONFIGURACIÓN ==========
 load_dotenv()
@@ -816,6 +836,95 @@ def estado_sistema():
         
     except Exception as e:
         logger.error(f"Error obteniendo estado: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# ========== RUTAS DE GOOGLE CALENDAR ==========
+
+@app.route('/api/calendar/sync/<string:cita_id>', methods=['POST'])
+def sync_calendar_cita(cita_id):
+    """Sincronizar una cita específica con Google Calendar"""
+    key = request.args.get('key')
+    if not validar_admin_key(key):
+        return jsonify({"error": "Acceso no autorizado"}), 401
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Obtener datos de la cita
+        cursor.execute("""
+            SELECT id, nombre, email, telefono, fecha_cita, hora_cita, 
+                   propiedad_id, propiedad_titulo, notas, estado
+            FROM citas WHERE id = %s
+        """, (cita_id,))
+        
+        cita = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if not cita:
+            return jsonify({"error": "Cita no encontrada"}), 404
+        
+        service = get_calendar_service()
+        if not service:
+            return jsonify({"error": "Servicio de Google Calendar no configurado. Verifica google_calendar_key.json"}), 500
+        
+        # Preparar evento
+        # cita: (id, nombre, email, telefono, fecha, hora, prop_id, prop_titulo, notas, estado)
+        nombre = cita[1]
+        fecha = str(cita[4])
+        hora = cita[5]
+        prop_info = cita[7] or cita[6] or "Propiedad no especificada"
+        notas = cita[8] or ""
+        telefono = cita[3] or "N/A"
+        email_cliente = cita[2]
+        
+        # Combinar fecha y hora para ISO format
+        # Asumiendo hora en formato HH:MM
+        try:
+            start_time = f"{fecha}T{hora}:00"
+            # Duración estimada 1 hora
+            dt_start = datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S")
+            dt_end = dt_start + timedelta(hours=1)
+            end_time = dt_end.strftime("%Y-%m-%dT%H:%M:%S")
+        except Exception as e:
+            logger.error(f"Error formateando fechas para calendario: {e}")
+            return jsonify({"error": f"Formato de fecha/hora inválido: {fecha} {hora}"}), 400
+
+        event = {
+            'summary': f'Cita Inmobiliaria: {nombre}',
+            'location': prop_info,
+            'description': f'Cliente: {nombre}\nTeléfono: {telefono}\nEmail: {email_cliente}\nNotas: {notas}\nPropiedad: {prop_info}',
+            'start': {
+                'dateTime': start_time,
+                'timeZone': 'America/Argentina/Buenos_Aires', # Ajustar según zona horaria
+            },
+            'end': {
+                'dateTime': end_time,
+                'timeZone': 'America/Argentina/Buenos_Aires',
+            },
+            'reminders': {
+                'useDefault': False,
+                'overrides': [
+                    {'method': 'email', 'minutes': 24 * 60},
+                    {'method': 'popup', 'minutes': 30},
+                ],
+            },
+        }
+
+        # Insertar evento
+        event = service.events().insert(calendarId='primary', body=event).execute()
+        
+        logger.info(f"✅ Cita #{cita_id} sincronizada con Google Calendar. ID Evento: {event.get('htmlLink')}")
+        
+        return jsonify({
+            "status": "success", 
+            "message": "Sincronizado con Google Calendar",
+            "link": event.get('htmlLink')
+        })
+        
+    except Exception as e:
+        logger.error(f"Error sincronizando con Google Calendar: {e}")
         return jsonify({"error": str(e)}), 500
 
 # ========== RUTAS DE ESTADÍSTICAS ==========
