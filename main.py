@@ -11,6 +11,25 @@ import re
 from datetime import datetime, timedelta
 from collections import deque
 import threading
+import pandas as pd
+from io import BytesIO
+from googleapiclient.discovery import build
+from google.oauth2 import service_account
+
+# ========== CONFIGURACIÓN GOOGLE CALENDAR ==========
+SCOPES = ['https://www.googleapis.com/auth/calendar']
+SERVICE_ACCOUNT_FILE = 'google_calendar_key.json'
+
+def get_calendar_service():
+    """Obtener servicio de Google Calendar API"""
+    if not os.path.exists(SERVICE_ACCOUNT_FILE):
+        return None
+    try:
+        creds = service_account.Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+        return build('calendar', 'v3', credentials=creds)
+    except Exception as e:
+        return None
 try:
     import psycopg2
 except ImportError:
@@ -4032,6 +4051,84 @@ def debug_files():
         "cwd": os.getcwd()
     })
 
+
+
+# ========== RUTAS DE EXPORTACIÓN Y CALENDARIO ADICIONALES ==========
+
+@app.route('/api/exportar/leads', methods=['GET'])
+def export_leads_main():
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY: return jsonify({"error": "Unauthorized"}), 403
+    try:
+        desde = request.args.get('desde')
+        hasta = request.args.get('hasta')
+        conn = get_db_connection()
+        query = "SELECT fecha, telefono, nombre, propiedad_id, propiedad_titulo, accion, detalles FROM leads WHERE telefono IS NOT NULL"
+        params = []
+        if desde:
+            query += " AND fecha >= %s"; params.append(desde)
+        if hasta:
+            query += " AND fecha <= %s"; params.append(f"{hasta} 23:59:59")
+        query += " ORDER BY fecha DESC"
+        df = pd.read_sql_query(query, conn, params=params)
+        conn.close()
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Leads', index=False)
+        output.seek(0)
+        return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=f'leads_dante_{datetime.now().strftime("%Y%m%d")}.xlsx')
+    except Exception as e: return jsonify({"error": str(e)}), 500
+
+@app.route('/api/exportar/citas', methods=['GET'])
+def export_citas_main():
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY: return jsonify({"error": "Unauthorized"}), 403
+    try:
+        desde = request.args.get('desde')
+        hasta = request.args.get('hasta')
+        conn = get_db_connection()
+        query = "SELECT id, nombre, email, telefono, fecha_cita as fecha, hora_cita as hora, propiedad_id, propiedad_titulo, estado, notas FROM citas WHERE 1=1"
+        params = []
+        if desde:
+            query += " AND fecha_cita >= %s"; params.append(desde)
+        if hasta:
+            query += " AND fecha_cita <= %s"; params.append(hasta)
+        query += " ORDER BY fecha_cita DESC, hora_cita DESC"
+        df = pd.read_sql_query(query, conn, params=params)
+        conn.close()
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Citas', index=False)
+        output.seek(0)
+        return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=f'citas_dante_{datetime.now().strftime("%Y%m%d")}.xlsx')
+    except Exception as e: return jsonify({"error": str(e)}), 500
+
+@app.route('/api/calendar/sync/<string:cita_id>', methods=['POST'])
+def sync_calendar_main(cita_id):
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY: return jsonify({"error": "Unauthorized"}), 403
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, nombre, email, telefono, fecha_cita, hora_cita, propiedad_titulo, notas FROM citas WHERE id = %s", (cita_id,))
+        cita = cursor.fetchone()
+        cursor.close(); conn.close()
+        if not cita: return jsonify({"error": "No encontrada"}), 404
+        service = get_calendar_service()
+        if not service: return jsonify({"error": "Configura google_calendar_key.json"}), 500
+        start_time = f"{cita[4]}T{cita[5]}:00"
+        dt_start = datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S")
+        end_time = (dt_start + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%S")
+        event = {
+            'summary': f'Cita Inmobiliaria: {cita[1]}',
+            'location': cita[6],
+            'description': f'Tel: {cita[3]}\nEmail: {cita[2]}\nNotas: {cita[7]}',
+            'start': {'dateTime': start_time, 'timeZone': 'America/Argentina/Buenos_Aires'},
+            'end': {'dateTime': end_time, 'timeZone': 'America/Argentina/Buenos_Aires'},
+        }
+        event = service.events().insert(calendarId='primary', body=event).execute()
+        return jsonify({"status": "success", "link": event.get('htmlLink')})
+    except Exception as e: return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

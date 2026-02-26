@@ -1790,17 +1790,17 @@
         async function sincronizarCitas() {
             const statusDiv = document.getElementById('sync-status');
             statusDiv.innerHTML = '🔄 Sincronizando...';
-            
+
             try {
                 const urlParams = new URLSearchParams(window.location.search);
                 const key = urlParams.get('key');
-                
+
                 const response = await fetch(`/api/sincronizar/citas?key=${key}`, {
                     method: 'POST'
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.status === 'success') {
                     statusDiv.innerHTML = `
                         <div style="background: #d1fae5; color: #065f46; padding: 10px; border-radius: 5px;">
@@ -1825,7 +1825,7 @@
                     </div>
                 `;
             }
-            
+
             // Limpiar mensaje después de 5 segundos
             setTimeout(() => {
                 statusDiv.innerHTML = '';
@@ -1991,17 +1991,17 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             let fileName = '';
 
             if (tipo === 'citas') {
-                url = `/api/exportar/citas?key=${adminKey}`;
+                url = `${window.location.origin}/api/exportar/citas?key=${adminKey}`;
                 if (desde) url += `&desde=${desde}`;
                 if (hasta) url += `&hasta=${hasta}`;
                 fileName = `citas_dante_${new Date().toISOString().split('T')[0]}.xlsx`;
             } else if (tipo === 'leads') {
-                url = `/api/exportar/leads?key=${adminKey}`;
+                url = `${window.location.origin}/api/exportar/leads?key=${adminKey}`;
                 if (desde) url += `&desde=${desde}`;
                 if (hasta) url += `&hasta=${hasta}`;
                 fileName = `leads_dante_${new Date().toISOString().split('T')[0]}.xlsx`;
             } else if (tipo === 'excel' || tipo === 'unificados') {
-                url = `/api/exportar/unificados?key=${adminKey}`;
+                url = `${window.location.origin}/api/exportar/unificados?key=${adminKey}`;
                 fileName = `datos_unificados_dante_${new Date().toISOString().split('T')[0]}.xlsx`;
             }
 
@@ -2018,7 +2018,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 const response = await fetchConClave(`/api/calendar/sync/${citaId}`, {
                     method: 'POST'
                 });
-                
+
                 if (response.status === 'success') {
                     mostrarToast('✅ Sincronizado correctamente', 'success');
                     if (response.link) {
