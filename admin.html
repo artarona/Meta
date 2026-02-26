@@ -1403,6 +1403,10 @@
                                     🗑️ Eliminar
                                 </button>
                             `}
+
+                            <button class="btn btn-outline" onclick="sincronizarConGoogle('${cita.id}')" title="Sincronizar con Google Calendar" style="background: #fdfdfd; border-color: #4285F4; color: #4285F4;">
+                                🗓️ Google Cal
+                            </button>
                         </div>
                     </div>
                 `;
@@ -1980,47 +1984,54 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         // Exportar datos
         function exportarDatos() {
             const tipo = document.getElementById('export-type').value;
+            const desde = document.getElementById('export-fecha-desde').value;
+            const hasta = document.getElementById('export-fecha-hasta').value;
 
-            if (tipo === 'excel') {
-                // Descargar archivo Excel completo
-                window.open(`/api/leads-file?key=${adminKey}`, '_blank');
-                mostrarToast('📥 Descargando archivo Excel...', 'success');
-            } else if (tipo === 'citas') {
-                // Crear CSV de citas
-                const csvContent = "data:text/csv;charset=utf-8,"
-                    + "ID,Nombre,Telefono,Email,Fecha,Hora,Propiedad,Estado,Notas\n"
-                    + todasLasCitas.map(c =>
-                        `"${c.id || ''}","${c.nombre || ''}","${c.telefono || ''}","${c.email || ''}",`
-                        + `"${c.fecha || ''}","${c.hora || ''}","${c.propiedad_titulo || c.propiedad_id || ''}",`
-                        + `"${c.estado || ''}","${c.notas || ''}"`
-                    ).join("\n");
+            let url = '';
+            let fileName = '';
 
-                const encodedUri = encodeURI(csvContent);
-                const link = document.createElement("a");
-                link.setAttribute("href", encodedUri);
-                link.setAttribute("download", `citas_dante_${new Date().toISOString().split('T')[0]}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-
-                mostrarToast('📥 Archivo CSV descargado', 'success');
+            if (tipo === 'citas') {
+                url = `/api/exportar/citas?key=${adminKey}`;
+                if (desde) url += `&desde=${desde}`;
+                if (hasta) url += `&hasta=${hasta}`;
+                fileName = `citas_dante_${new Date().toISOString().split('T')[0]}.xlsx`;
             } else if (tipo === 'leads') {
-                // Crear CSV de leads
-                const csvContent = "data:text/csv;charset=utf-8,"
-                    + "Telefono,Accion,Detalle,Fecha\n"
-                    + todosLosLeads.map(l =>
-                        `"${l.user_id || ''}","${l.accion || ''}","${l.detalle || ''}","${l.timestamp || ''}"`
-                    ).join("\n");
+                url = `/api/exportar/leads?key=${adminKey}`;
+                if (desde) url += `&desde=${desde}`;
+                if (hasta) url += `&hasta=${hasta}`;
+                fileName = `leads_dante_${new Date().toISOString().split('T')[0]}.xlsx`;
+            } else if (tipo === 'excel' || tipo === 'unificados') {
+                url = `/api/exportar/unificados?key=${adminKey}`;
+                fileName = `datos_unificados_dante_${new Date().toISOString().split('T')[0]}.xlsx`;
+            }
 
-                const encodedUri = encodeURI(csvContent);
-                const link = document.createElement("a");
-                link.setAttribute("href", encodedUri);
-                link.setAttribute("download", `leads_dante_${new Date().toISOString().split('T')[0]}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+            if (url) {
+                mostrarToast('📥 Generando archivo Excel...', 'info');
+                // Usar window.location para descargar
+                window.location.href = url;
+            }
+        }
 
-                mostrarToast('📥 Archivo CSV descargado', 'success');
+        async function sincronizarConGoogle(citaId) {
+            try {
+                mostrarToast('🔄 Sincronizando con Google Calendar...', 'info');
+                const response = await fetchConClave(`/api/calendar/sync/${citaId}`, {
+                    method: 'POST'
+                });
+                
+                if (response.status === 'success') {
+                    mostrarToast('✅ Sincronizado correctamente', 'success');
+                    if (response.link) {
+                        if (confirm('¿Deseas ver el evento en Google Calendar?')) {
+                            window.open(response.link, '_blank');
+                        }
+                    }
+                } else {
+                    mostrarToast('❌ ' + (response.error || 'Error al sincronizar'), 'error');
+                }
+            } catch (error) {
+                console.error('Error sincronizando:', error);
+                mostrarToast('❌ Error de conexión con el servidor', 'error');
             }
         }
 

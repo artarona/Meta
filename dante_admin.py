@@ -993,6 +993,9 @@ def exportar_leads():
         return jsonify({"error": "Acceso no autorizado"}), 401
     
     try:
+        desde = request.args.get('desde')
+        hasta = request.args.get('hasta')
+        
         conn = get_db_connection()
         
         query = """
@@ -1001,10 +1004,19 @@ def exportar_leads():
                 propiedad_id, propiedad_titulo, accion, detalles
             FROM leads 
             WHERE telefono IS NOT NULL 
-            ORDER BY fecha DESC
         """
         
-        df = pd.read_sql_query(query, conn)
+        params = []
+        if desde:
+            query += " AND fecha >= %s"
+            params.append(desde)
+        if hasta:
+            query += " AND fecha <= %s"
+            params.append(f"{hasta} 23:59:59")
+            
+        query += " ORDER BY fecha DESC"
+        
+        df = pd.read_sql_query(query, conn, params=params)
         conn.close()
         
         # Crear archivo Excel
@@ -1033,6 +1045,9 @@ def exportar_citas():
         return jsonify({"error": "Acceso no autorizado"}), 401
     
     try:
+        desde = request.args.get('desde')
+        hasta = request.args.get('hasta')
+        
         conn = get_db_connection()
         
         query = """
@@ -1041,10 +1056,20 @@ def exportar_citas():
                 propiedad_id, propiedad_titulo, estado, notas,
                 fecha_creacion as creacion, modificacion
             FROM citas 
-            ORDER BY fecha_cita DESC, hora_cita DESC
+            WHERE 1=1
         """
         
-        df = pd.read_sql_query(query, conn)
+        params = []
+        if desde:
+            query += " AND fecha_cita >= %s"
+            params.append(desde)
+        if hasta:
+            query += " AND fecha_cita <= %s"
+            params.append(hasta)
+            
+        query += " ORDER BY fecha_cita DESC, hora_cita DESC"
+        
+        df = pd.read_sql_query(query, conn, params=params)
         conn.close()
         
         output = BytesIO()
