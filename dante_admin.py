@@ -1160,6 +1160,31 @@ def run_daily_tasks():
         logger.error(f"Error ejecutando tareas diarias: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/admin/sync-calendar-all', methods=['POST'])
+def sync_calendar_all():
+    """Ejecutar la sincronización masiva de citas con Google Calendar"""
+    key = request.args.get('key')
+    if not validar_admin_key(key):
+        return jsonify({"error": "Acceso no autorizado"}), 401
+    
+    try:
+        import subprocess
+        logger.info("👨‍💻 Administrador inició sincronización masiva con Google Calendar")
+        
+        # Ejecutar en segundo plano
+        if os.name == 'nt':
+            subprocess.Popen(['python', 'sincronizar_calendar.py'], creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+        else:
+            subprocess.Popen(['python', 'sincronizar_calendar.py'], preexec_fn=os.setpgrp)
+            
+        return jsonify({
+            "status": "success", 
+            "message": "La sincronización masiva con Google Calendar ha comenzado en segundo plano."
+        })
+    except Exception as e:
+        logger.error(f"Error ejecutando sincronización de calendario: {e}")
+        return jsonify({"error": str(e)}), 500
+
 # ========== RUTAS DE PANEL ADMIN ==========
 
 @app.route('/admin')

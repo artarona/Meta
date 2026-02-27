@@ -856,6 +856,10 @@
                 <button onclick="sincronizarCitas()" class="btn btn-primary" style="background: #8b5cf6;">
                     🔄 Sincronizar Citas con PostgreSQL
                 </button>
+                <button onclick="sincronizarTodoGoogleCal()" class="btn btn-outline"
+                    style="min-width: 250px; background: #fdfdfd; border-color: #4285F4; color: #4285F4; margin-left: 10px;">
+                    🗓️ Sincronizar Todo con Google Calendar
+                </button>
                 <div id="sync-status" style="margin-top: 10px;"></div>
             </div>
         </div>
@@ -1407,10 +1411,6 @@
                                     🗑️ Eliminar
                                 </button>
                             `}
-
-                            <button class="btn btn-outline" onclick="sincronizarConGoogle('${cita.id}')" title="Sincronizar con Google Calendar" style="background: #fdfdfd; border-color: #4285F4; color: #4285F4;">
-                                🗓️ Google Cal
-                            </button>
                         </div>
                     </div>
                 `;
@@ -2418,6 +2418,35 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             } catch (error) {
                 console.error("Error:", error);
                 mostrarToast("Error de conexión al iniciar las tareas", "error");
+            }
+        }
+
+        // Ejecutar Sincronizacion global con Google Calendar
+        async function sincronizarTodoGoogleCal() {
+            if (!confirm("¿Desea iniciar la sincronización masiva de todas las citas activas con Google Calendar?")) {
+                return;
+            }
+
+            mostrarToast("Iniciando sincronización con Google Calendar...", "info");
+
+            try {
+                const adminKeyData = localStorage.getItem('dante_admin_key');
+                const adminKey = adminKeyData || new URLSearchParams(window.location.search).get('key') || '';
+
+                const response = await fetch(`/api/admin/sync-calendar-all?key=${adminKey}`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    mostrarToast(data.message || "Sincronización iniciada.", "success");
+                } else {
+                    mostrarToast(data.error || "Error al iniciar sincronización", "error");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                mostrarToast("Error de conexión al sincronizar calendario", "error");
             }
         }
     </script>
