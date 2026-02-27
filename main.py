@@ -4389,6 +4389,52 @@ def sync_calendar_main(cita_id):
         return jsonify({"status": "success", "link": event.get('htmlLink')})
     except Exception as e: return jsonify({"error": str(e)}), 500
 
+@app.route("/debug/calendar-key-status", methods=["GET"])
+def debug_calendar_key_status():
+    """Verifica el estado de la clave de Google Calendar"""
+    import base64, json
+    
+    result = {
+        "env_var_exists": False,
+        "valid_base64": False,
+        "valid_json": False,
+        "has_private_key": False,
+        "details": {}
+    }
+    
+    b64_data = os.environ.get("GOOGLE_CALENDAR_KEY_B64")
+    if b64_data:
+        result["env_var_exists"] = True
+        result["raw_length"] = len(b64_data)
+        result["padding"] = len(b64_data) % 4
+        
+        try:
+            # Intentar decodificar tal cual
+            decoded = base64.b64decode(b64_data).decode('utf-8')
+            creds = json.loads(decoded)
+            result["valid_base64"] = True
+            result["valid_json"] = True
+            result["has_private_key"] = "private_key" in creds
+            result["details"]["client_email"] = creds.get("client_email")
+        except Exception as e:
+            result["error"] = str(e)
+            
+            # Intentar con corrección de padding
+            try:
+                b64_fixed = b64_data.strip()
+                missing = len(b64_fixed) % 4
+                if missing:
+                    b64_fixed += '=' * (4 - missing)
+                decoded = base64.b64decode(b64_fixed).decode('utf-8')
+                creds = json.loads(decoded)
+                result["fixed_works"] = True
+                result["fixed_padding_added"] = 4 - missing if missing else 0
+            except:
+                result["fixed_works"] = False
+    
+    return jsonify(result)
+
+
 
 if __name__ == "__main__":
 
