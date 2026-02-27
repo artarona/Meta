@@ -85,7 +85,7 @@ VERIFY_TOKEN = "mi_token_secreto_123"
 # 🔥 CAMBIO IMPORTANTE: Usar variable de entorno para el token
 
 
-ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQzUtrpGYgWgF6dKqvgxVn6hcjwHcKoqCZB25OvGZB8fuPcZCcGYtrrZAjMphah7antm0TvQsrGtBhgD2ZB0emniBJUZC9ghhgVwWmQbBQnZCym2bphEtDf8LdlKTGZCY5Oo2dyg7czrWiJtbnzh4Qj4aNEtHR06Xx6aXE5JIG1DaUTG3YlQti1mIPLF8i1yZAs4jgc6MCblA3h6GUeUwQQd0ZCrvbwBGKrzL3a39ShHbsIAT4XvVLtPFcBS4EQ7WcC72MywiZCthT8yUWciuXVZBJK1XCTwZD")
+ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQz1HTjDMFHrPTx8rd2t7hZATbXYJ8Ta6EDDPYQE7pzlXNzZBBYBXHR5aZCd9Cs0dHp7MGAyQusJkNcOBGN3SsRo2ZAGzogPOnmBI0QqxbKJBOJydZA8SOsqkSuSFQhUZCfZBkcjMGXrDP22oapvRXNkm8cZAQN455p48IMSjnRhmad7z0rBJ7ULf53neztpaNqW3jB7yPFyq8ZCgWX2xkXZA2ZBYTpFdIZCIqAuSe7D9QqOQBPiWKM5Fz1TFEjy1eXiZCXW6212PSXWZA7WgkGRUPQTLVNP4IZD")
 
 
 
@@ -1282,18 +1282,7 @@ def manejar_nombre_lead(text, estado_usuario, user_id):
         estado_usuario['paso'] = 'ofrecer_cita'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        return f"""✅ *¡Perfecto {nombre_cliente}!*
-
-Hemos registrado tu interés en:
-🏠 *{propiedad_titulo}*
-
-📅 *¿Te gustaría agendar una cita para visitar la propiedad?*
-
-1️⃣ *SÍ, AGENDAR CITA* 📅 (Recomendado)
-2️⃣ *No por ahora, solo información* 📋
-3️⃣ *Ya la vi, quiero ofertar* 💰
-9️⃣ *Volver al menú principal*
-0️⃣ *Salir del chat* ❌"""
+        return f"OFFER_MEETING_TRIGGER|{propiedad_titulo}"
     else:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
@@ -1553,16 +1542,7 @@ def manejar_email_cita(text, estado_usuario, user_id):
     hora = estado_usuario['hora_cita']
     email = estado_usuario.get('email_cliente', 'No proporcionado')
     
-    return f"""📅 *RESUMEN DE TU VISITA*
-            
-📅 Fecha: *{fecha_display}*
-⏰ Hora: *{hora} hs*
-📧 Email: *{email}*
-
-¿Confirmas la cita?
-1️⃣ *SÍ, Confirmar* ✅
-2️⃣ *Cambiar fecha/hora* 🔄
-0️⃣ *Cancelar* ❌"""
+    return f"CONFIRM_MEETING_TRIGGER|{fecha_display}|{hora}|{email}"
 
 def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
     """Paso final de confirmación explícita"""
@@ -1951,27 +1931,177 @@ def send_whatsapp_image(to_number, image_url, caption=""):
         log(f"🔥 Error enviando imagen: {str(e)}")
         return False
 
+def send_whatsapp_interactive_buttons(to_number, text_body, buttons, header_text=None, footer_text=None):
+    """Envía un mensaje con botones interactivos (máximo 3 botones).
+    buttons: list de dicts [{"id": "btn_1", "title": "Opción 1"}, ...]"""
+    try:
+        token_valid, _ = check_token_validity()
+        if not token_valid:
+            log("❌ Token inválido - No se puede enviar botones", "ERROR")
+            return {"status": "error", "error_message": "Token inválido"}
+
+        transformed_number = normalizar_numero_argentina(to_number)
+        
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        
+        # Validar máximo 3 botones
+        if len(buttons) > 3:
+            log("⚠️ Se intentó mandar más de 3 botones. Recortando a 3.", "WARNING")
+            buttons = buttons[:3]
+
+        interactive_content = {
+            "type": "button",
+            "body": {"text": text_body[:1024]},
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": btn.get("id")[:256],
+                            "title": btn.get("title")[:20]
+                        }
+                    } for btn in buttons
+                ]
+            }
+        }
+        
+        if header_text:
+            interactive_content["header"] = {"type": "text", "text": header_text[:60]}
+        if footer_text:
+            interactive_content["footer"] = {"text": footer_text[:60]}
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": transformed_number,
+            "type": "interactive",
+            "interactive": interactive_content
+        }
+        
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        
+        if response.status_code == 200:
+            result = response.json()
+            message_id = result.get('messages', [{}])[0].get('id', 'N/A')
+            log(f"✅ Botones interactivos enviados a {transformed_number} - ID: {message_id}")
+            return {"status": "success", "message_id": message_id}
+        else:
+            error_data = response.json() if response.content else {}
+            error_msg = error_data.get('error', {}).get('message', 'Error desconocido')
+            log(f"❌ Error API WhatsApp (Botones): {error_msg}", "ERROR")
+            return {"status": "error", "error_message": error_msg}
+            
+    except Exception as e:
+        log(f"🔥 Error enviando botones interactivos: {str(e)}", "ERROR")
+        return {"status": "error", "error": str(e)}
+
+def send_whatsapp_list_menu(to_number, text_body, button_text, sections, header_text=None, footer_text=None):
+    """Envía un menú de lista desplegable (hasta 10 opciones).
+    sections: list de dicts [{"title": "Sección 1", "rows": [{"id": "id1", "title": "Op 1", "description": "Desc"}]}]"""
+    try:
+        token_valid, _ = check_token_validity()
+        if not token_valid:
+            log("❌ Token inválido - No se puede enviar lista", "ERROR")
+            return {"status": "error", "error_message": "Token inválido"}
+
+        transformed_number = normalizar_numero_argentina(to_number)
+        
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        
+        interactive_content = {
+            "type": "list",
+            "body": {"text": text_body[:1024]},
+            "action": {
+                "button": button_text[:20],
+                "sections": []
+            }
+        }
+        
+        for idx, sec in enumerate(sections[:10]):
+            section_data = {
+                "title": sec.get("title", f"Sección {idx+1}")[:24],
+                "rows": []
+            }
+            for row in sec.get("rows", [])[:10]:
+                row_data = {
+                    "id": row.get("id")[:200],
+                    "title": row.get("title")[:24]
+                }
+                if "description" in row and row["description"]:
+                    row_data["description"] = row["description"][:72]
+                section_data["rows"].append(row_data)
+            interactive_content["action"]["sections"].append(section_data)
+
+        if header_text:
+            interactive_content["header"] = {"type": "text", "text": header_text[:60]}
+        if footer_text:
+            interactive_content["footer"] = {"text": footer_text[:60]}
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": transformed_number,
+            "type": "interactive",
+            "interactive": interactive_content
+        }
+        
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        
+        if response.status_code == 200:
+            result = response.json()
+            message_id = result.get('messages', [{}])[0].get('id', 'N/A')
+            log(f"✅ Lista interactiva enviada a {transformed_number} - ID: {message_id}")
+            return {"status": "success", "message_id": message_id}
+        else:
+            error_data = response.json() if response.content else {}
+            error_msg = error_data.get('error', {}).get('message', 'Error desconocido')
+            log(f"❌ Error API WhatsApp (Lista): {error_msg}", "ERROR")
+            return {"status": "error", "error_message": error_msg}
+            
+    except Exception as e:
+        log(f"🔥 Error enviando lista interactiva: {str(e)}", "ERROR")
+        return {"status": "error", "error": str(e)}
+
 def send_welcome_flow(user_id):
-    """Envía el flujo completo de bienvenida"""
-    welcome_message = """🏠🗝️ *DANTE PROPIEDADES*
+    """Envía el flujo completo de bienvenida usando un Menú de Lista Interactivo"""
+    text_body = """🏠🗝️ *DANTE PROPIEDADES*
 
 ¡Hola! Soy el asistente inmobiliario de Dante Propiedades.
-
-*¿Cómo podemos ayudarte hoy?*
-Elegí el número de tu opción:
-
-1️⃣ *Inmuebles en Venta* 🏠
-2️⃣ *Inmuebles en Alquiler* 🔑
-3️⃣ *Visitar nuestro sitio web* 🌐
-4️⃣ *Ver mis citas programadas* 📋
-5️⃣ *Hablar con un asesor* 👤
-
-9️⃣ *Volver al menú principal*
-0️⃣ *Salir del chat*
-
-Para seleccionar, solo enviá el número."""
+*¿Cómo podemos ayudarte hoy?*"""
     
-    return send_whatsapp_message(user_id, welcome_message)
+    sections = [
+        {
+            "title": "Propiedades",
+            "rows": [
+                {"id": "opcion_1", "title": "🏠 En Venta", "description": "Ver inmuebles disponibles para compra"},
+                {"id": "opcion_2", "title": "🔑 En Alquiler", "description": "Ver inmuebles disponibles para alquiler"}
+            ]
+        },
+        {
+            "title": "Gestión y Contacto",
+            "rows": [
+                {"id": "opcion_4", "title": "📋 Mis Citas", "description": "Ver mis visitas programadas"},
+                {"id": "opcion_5", "title": "👤 Hablar con asesor", "description": "Contacto directo con un humano"},
+                {"id": "opcion_3", "title": "🌐 Sitio Web", "description": "Visitar dantepropiedades.com.ar"}
+            ]
+        }
+    ]
+    
+    return send_whatsapp_list_menu(
+        to_number=user_id,
+        text_body=text_body,
+        button_text="Opciones",
+        sections=sections,
+        footer_text="Selecciona una opción del menú 👇"
+    )
 
 # ========== RUTAS PRINCIPALES ==========
 @app.route('/favicon.ico')
@@ -2272,49 +2402,104 @@ def webhook():
                         messages = value["messages"]
                         
                         for message in messages:
+                            message_id = message.get("id")
+                            
+                            if message_id in processed_message_ids:
+                                log(f"🛑 Mensaje duplicado ignorado: {message_id}")
+                                continue
+                                
+                            processed_message_ids.append(message_id)
+                            
+                            from_number = message.get("from")
+                            message_text = ""
+                            
+                            # Procesar mensajes de texto plano
                             if message.get("type") == "text":
-                                message_id = message.get("id")
-                                
-                                if message_id in processed_message_ids:
-                                    log(f"🛑 Mensaje duplicado ignorado: {message_id}")
-                                    continue
-                                    
-                                processed_message_ids.append(message_id)
-                                
-                                from_number = message.get("from")
                                 message_text = message.get("text", {}).get("body", "")
+                            
+                            # Procesar mensajes interactivos (Botones nativos o Listas)
+                            elif message.get("type") == "interactive":
+                                interactive = message.get("interactive", {})
+                                int_type = interactive.get("type")
                                 
-                                if from_number and message_text:
-                                    log(f"👤 Usuario: {from_number}, Texto: {message_text}")
+                                if int_type == "button_reply":
+                                    # El usuario tocó un botón
+                                    message_text = interactive.get("button_reply", {}).get("id", "")
+                                    log(f"🔘 Botón presionado: {message_text}")
                                     
-                                    response_text = get_bot_response(message_text, from_number)
+                                elif int_type == "list_reply":
+                                    # El usuario seleccionó de una lista
+                                    message_text = interactive.get("list_reply", {}).get("id", "")
+                                    log(f"📋 Opción de lista seleccionada: {message_text}")
+                            
+                            if from_number and message_text:
+                                # Convertir IDs de botones a los comandos originales numéricos para compatibilidad
+                                boton_a_numero = {
+                                    "opcion_1": "1",  # Ventas
+                                    "opcion_2": "2",  # Alquiler
+                                    "opcion_3": "3",  # Sitio Web
+                                    "opcion_4": "4",  # Mis Citas
+                                    "opcion_5": "5",  # Hablar Asesor
+                                    "volver_menu": "9",
+                                    "salir_chat": "0"
+                                }
+                                
+                                # Si el mensaje fue un botón/lista del menú principal, traducirlo
+                                if message_text in boton_a_numero:
+                                    message_text = boton_a_numero[message_text]
+                                
+                                log(f"👤 Usuario: {from_number}, Input Procesado: {message_text}")
+                                
+                                response_text = get_bot_response(message_text, from_number)
+                                
+                                if response_text == "WELCOME_FLOW_TRIGGER":
+                                    log("🎯 Enviando flujo de bienvenida interactivo")
+                                    result = send_welcome_flow(from_number)
+                                elif response_text and response_text.startswith("OFFER_MEETING_TRIGGER|"):
+                                    prop_titulo = response_text.split("|")[1]
+                                    text_body = f"✅ *¡Perfecto!*\n\nHemos registrado tu interés en:\n🏠 *{prop_titulo}*\n\n📅 *¿Te gustaría agendar una cita para visitar la propiedad?*"
+                                    botones = [
+                                        {"id": "agendar", "title": "📅 SÍ, AGENDAR CITA"},
+                                        {"id": "solo info", "title": "📋 Solo información"},
+                                        {"id": "ofertar", "title": "💰 Quiero ofertar"}
+                                    ]
+                                    result = send_whatsapp_interactive_buttons(from_number, text_body, botones)
+                                elif response_text and response_text.startswith("CONFIRM_MEETING_TRIGGER|"):
+                                    partes = response_text.split("|")
+                                    fecha_display = partes[1]
+                                    hora = partes[2]
+                                    email = partes[3]
                                     
-                                    if response_text == "WELCOME_FLOW_TRIGGER":
-                                        log("🎯 Enviando flujo de bienvenida")
-                                        result = send_welcome_flow(from_number)
-                                    elif response_text.startswith("PHOTOS_TRIGGER|"):
-                                        prop_id = response_text.split("|")[1]
-                                        base_url = request.host_url.rstrip('/')
-                                        if "onrender.com" in base_url and not base_url.startswith("https"):
-                                            base_url = base_url.replace("http://", "https://")
-                                        
-                                        log(f"🚀 Iniciando hilo de fotos para propiedad {prop_id}")
-                                        thread = threading.Thread(target=send_photos_async, args=(from_number, prop_id, base_url))
-                                        thread.start()
-                                        
-                                        confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'Hola' para volver al menú."
-                                        result = send_whatsapp_message(from_number, confirmacion)
-                                    elif response_text:
-                                        result = send_whatsapp_message(from_number, response_text)
-                                    else:
-                                        result = {"status": "skipped", "reason": "empty_response"}
+                                    text_body = f"📅 *RESUMEN DE TU VISITA*\n\n📅 Fecha: *{fecha_display}*\n⏰ Hora: *{hora} hs*\n📧 Email: *{email}*\n\n¿Confirmas la cita?"
+                                    botones = [
+                                        {"id": "confirmar", "title": "✅ Confirmar cita"},
+                                        {"id": "cambiar", "title": "🔄 Cambiar hora"},
+                                        {"id": "cancelar", "title": "❌ Cancelar"}
+                                    ]
+                                    result = send_whatsapp_interactive_buttons(from_number, text_body, botones)
+                                elif response_text and response_text.startswith("PHOTOS_TRIGGER|"):
+                                    prop_id = response_text.split("|")[1]
+                                    base_url = request.host_url.rstrip('/')
+                                    if "onrender.com" in base_url and not base_url.startswith("https"):
+                                        base_url = base_url.replace("http://", "https://")
                                     
-                                    log(f"📊 Resultado: {result.get('status')}")
-                                    return jsonify({
-                                        "status": "processed",
-                                        "user": from_number,
-                                        "result": result
-                                    }), 200
+                                    log(f"🚀 Iniciando hilo de fotos para propiedad {prop_id}")
+                                    thread = threading.Thread(target=send_photos_async, args=(from_number, prop_id, base_url))
+                                    thread.start()
+                                    
+                                    confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'Hola' para volver al menú."
+                                    result = send_whatsapp_message(from_number, confirmacion)
+                                elif response_text:
+                                    result = send_whatsapp_message(from_number, response_text)
+                                else:
+                                    result = {"status": "skipped", "reason": "empty_response"}
+                                
+                                log(f"📊 Resultado: {result.get('status')}")
+                                return jsonify({
+                                    "status": "processed",
+                                    "user": from_number,
+                                    "result": result
+                                }), 200
                     
                     elif "statuses" in value:
                         for status in value["statuses"]:
