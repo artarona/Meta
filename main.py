@@ -85,7 +85,7 @@ VERIFY_TOKEN = "mi_token_secreto_123"
 # 🔥 CAMBIO IMPORTANTE: Usar variable de entorno para el token
 
 
-ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQz1HTjDMFHrPTx8rd2t7hZATbXYJ8Ta6EDDPYQE7pzlXNzZBBYBXHR5aZCd9Cs0dHp7MGAyQusJkNcOBGN3SsRo2ZAGzogPOnmBI0QqxbKJBOJydZA8SOsqkSuSFQhUZCfZBkcjMGXrDP22oapvRXNkm8cZAQN455p48IMSjnRhmad7z0rBJ7ULf53neztpaNqW3jB7yPFyq8ZCgWX2xkXZA2ZBYTpFdIZCIqAuSe7D9QqOQBPiWKM5Fz1TFEjy1eXiZCXW6212PSXWZA7WgkGRUPQTLVNP4IZD")
+ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQyzTZACzbXSEEjII40AopHlQxiUmrZAzOdJ09X6t7Kb5kicNzqtHxiUtWKQ7UXZCKXgWla40TwLYbAKhLO92cTquHJtaZAXGZCLyPnzuNSCR99tgaUjFvXctYjk9hVJLJ4ZCNJ2K132L7ZADQSmedZC5c0ZAVon8vukfwUrDGlvL46GHZB1m9XDX5gw5MqZC9Fl7Jb1EBlpGOWTx5CEZBdcnSWOHk6F6U3WlL7xZCedHa7r2hJPg2BURLNNQtyku9LW4VAfj8fbu10gHAetBXJ1kjrIZBFDwZDZD")
 
 
 
@@ -849,7 +849,7 @@ def get_bot_response(text, user_id):
                 'propiedades_filtradas': []
             })
             actualizar_estado_usuario(user_id, estado_usuario)
-            return "Gracias por contactarte con Dante Propiedades. ¡Que tengas un excelente día! 🏠🗝️"
+            return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
 
         # Comandos de compatibilidad
         if text_lower in ["hola", "hi", "hello", "volver", "atras"]:
@@ -1011,7 +1011,7 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
         
     elif text_lower == "0":
         # Salir
-        return "Gracias por contactarte con Dante Propiedades. ¡Que tengas un excelente día! 🏠🗝️"
+        return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
 
     elif text_lower == "8" and user_id == ADMIN_NUMBER.lstrip('549'):
         # Panel admin (solo para número autorizado)
@@ -1377,7 +1377,7 @@ Un asesor te contactará en los próximos **15 minutos** para gestionar tu ofert
             'nombre_cliente': None
         })
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "👋 ¡Gracias por contactarnos! Para volver al menú, envía 'Hola'. Dante Propiedades! 🏠🗝️"
+        return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
     
     else:
         return """❌ Opción no válida. Por favor selecciona:
