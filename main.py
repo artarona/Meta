@@ -3119,6 +3119,56 @@ def cambiar_estado_cita(cita_id):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/admin/run-daily-tasks', methods=['POST'])
+def run_daily_tasks():
+    """Ejecutar las tareas diarias manualmente"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        import subprocess
+        log("👨‍💻 Administrador inició ejecución manual de tareas diarias")
+        
+        if os.name == 'nt':
+            subprocess.Popen(['python', 'cron_diario.py'], creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+        else:
+            subprocess.Popen(['python', 'cron_diario.py'], preexec_fn=os.setpgrp)
+            
+        return jsonify({
+            "status": "success", 
+            "message": "Las tareas diarias (recordatorios y seguimientos) han comenzado a ejecutarse en segundo plano."
+        })
+    except Exception as e:
+        log(f"Error ejecutando tareas diarias: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/admin/sync-calendar-all', methods=['POST'])
+def sync_calendar_all():
+    """Ejecutar la sincronización masiva de citas con Google Calendar"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        import subprocess
+        log("👨‍💻 Administrador inició sincronización masiva con Google Calendar")
+        
+        if os.name == 'nt':
+            subprocess.Popen(['python', 'sincronizar_calendar.py'], creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+        else:
+            subprocess.Popen(['python', 'sincronizar_calendar.py'], preexec_fn=os.setpgrp)
+            
+        return jsonify({
+            "status": "success", 
+            "message": "La sincronización masiva con Google Calendar ha comenzado en segundo plano."
+        })
+    except Exception as e:
+        log(f"Error ejecutando sincronización de calendario: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/admin")
 def admin_panel():
     """Sirve el panel de administración con mejor manejo de errores"""
