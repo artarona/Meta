@@ -1126,6 +1126,40 @@ def exportar_unificados():
         logger.error(f"Error exportando unificados: {e}")
         return jsonify({"error": str(e)}), 500
 
+# ========== RUTAS DE EJECUCIÓN MANUAL DE TAREAS ==========
+
+@app.route('/api/admin/run-daily-tasks', methods=['POST'])
+def run_daily_tasks():
+    """Ejecutar las tareas diarias manualmente"""
+    key = request.args.get('key')
+    if not validar_admin_key(key):
+        return jsonify({"error": "Acceso no autorizado"}), 401
+    
+    try:
+        import subprocess
+        logger.info("👨‍💻 Administrador inició ejecución manual de tareas diarias")
+        
+        # Ejecutar el script (usamos un timeout razonable para no bloquear demasiado, 
+        # aunque las tareas de envío de mensajes en cron_diario tienen sleep)
+        # Si el proceso tarda más de 2 minutos puede dar timeout web, por eso se ejecuta
+        # idealmente de forma asíncrona pero Render puede matar el hilo, por lo que bloqueamos o hacemos un proceso hijo simple
+        
+        # Ejecutar en segundo plano en Windows/Linux fire-and-forget
+        if os.name == 'nt':
+            # Windows
+            subprocess.Popen(['python', 'cron_diario.py'], creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+        else:
+            # Linux/Mac
+            subprocess.Popen(['python', 'cron_diario.py'], preexec_fn=os.setpgrp)
+            
+        return jsonify({
+            "status": "success", 
+            "message": "Las tareas diarias (recordatorios y seguimientos) han comenzado a ejecutarse en segundo plano."
+        })
+    except Exception as e:
+        logger.error(f"Error ejecutando tareas diarias: {e}")
+        return jsonify({"error": str(e)}), 500
+
 # ========== RUTAS DE PANEL ADMIN ==========
 
 @app.route('/admin')

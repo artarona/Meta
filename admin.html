@@ -985,6 +985,10 @@
                     <button class="btn btn-primary" onclick="guardarConfiguracion()">
                         💾 Guardar Configuración
                     </button>
+                    <button class="btn" style="background-color: var(--warning); color: white; margin-left: 1rem;"
+                        onclick="ejecutarTareasDiarias()">
+                        🚀 Ejecutar Tareas Diarias
+                    </button>
                 </div>
             </div>
         </div>
@@ -2386,6 +2390,36 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         window.addEventListener('offline', () => {
             mostrarToast('⚠️ Sin conexión a internet', 'warning');
         });
+
+        // Ejecutar Tareas Diarias
+        async function ejecutarTareasDiarias() {
+            if (!confirm("¿Está seguro de querer ejecutar las tareas diarias ahora? Esto enviará recordatorios y seguimientos pendientes.")) {
+                return;
+            }
+
+            mostrarToast("Iniciando tareas diarias en segundo plano...", "warning");
+
+            try {
+                // Obtener apiKey del localStorage o variable global de admin.html
+                const adminKeyData = localStorage.getItem('dante_admin_key');
+                const adminKey = adminKeyData || new URLSearchParams(window.location.search).get('key') || '';
+
+                const response = await fetch(`/api/admin/run-daily-tasks?key=${adminKey}`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    mostrarToast(data.message || "Tareas iniciadas exitosamente.", "success");
+                } else {
+                    mostrarToast(data.error || "Error al iniciar las tareas", "error");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                mostrarToast("Error de conexión al iniciar las tareas", "error");
+            }
+        }
     </script>
 </body>
 
