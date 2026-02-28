@@ -4312,6 +4312,65 @@ def debug_files():
 
 
 
+
+@app.route('/api/enviar-seguimiento-manual', methods=['POST'])
+def enviar_seguimiento_manual():
+    """Endpoint para activar manualmente el envío de seguimientos post-visita"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        import subprocess
+        log("👨‍💻 Iniciando seguimiento post-visita manualmente")
+        
+        # Ejecutar seguimiento_citas.py en segundo plano
+        if os.name == 'nt':
+            subprocess.Popen(['python', 'seguimiento_citas.py'], 
+                           creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+        else:
+            subprocess.Popen(['python', 'seguimiento_citas.py'], 
+                           preexec_fn=os.setpgrp)
+        
+        return jsonify({
+            "status": "success",
+            "message": "Proceso de seguimiento post-visita iniciado en segundo plano."
+        })
+        
+    except Exception as e:
+        log(f"❌ Error: {e}")
+        return jsonify({"error": str(e)}), 500
+    
+    
+    @app.route('/api/ejecutar-cron-diario', methods=['POST'])
+def ejecutar_cron_diario():
+    """Ejecuta el proceso diario completo (recordatorios + seguimiento)"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        import subprocess
+        import os
+        log("📅 Ejecutando CRON DIARIO completo (recordatorios + seguimiento)")
+        
+        # Ejecutar cron_diario.py en segundo plano
+        if os.name == 'nt':  # Windows
+            subprocess.Popen(['python', 'cron_diario.py'], 
+                           creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+        else:  # Linux/Mac (Render)
+            subprocess.Popen(['python', 'cron_diario.py'], 
+                           preexec_fn=os.setpgrp)
+        
+        return jsonify({
+            "status": "success",
+            "message": "Cron diario iniciado (recordatorios + seguimiento)"
+        })
+        
+    except Exception as e:
+        log(f"❌ Error ejecutando cron diario: {e}")
+        return jsonify({"error": str(e)}), 500
+
 # ========== RUTAS DE EXPORTACIÓN Y CALENDARIO ADICIONALES ==========
 
 @app.route('/api/exportar/leads', methods=['GET'])
