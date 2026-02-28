@@ -4324,7 +4324,6 @@ def enviar_seguimiento_manual():
         import subprocess
         log("👨‍💻 Iniciando seguimiento post-visita manualmente")
         
-        # Ejecutar seguimiento_citas.py en segundo plano
         if os.name == 'nt':
             subprocess.Popen(['python', 'seguimiento_citas.py'], 
                            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
@@ -4340,9 +4339,9 @@ def enviar_seguimiento_manual():
     except Exception as e:
         log(f"❌ Error: {e}")
         return jsonify({"error": str(e)}), 500
-    
-    
-    @app.route('/api/ejecutar-cron-diario', methods=['POST'])
+
+# ✅ CORRECCIÓN: El decorador debe estar al mismo nivel que la función
+@app.route('/api/ejecutar-cron-diario', methods=['POST'])
 def ejecutar_cron_diario():
     """Ejecuta el proceso diario completo (recordatorios + seguimiento)"""
     key = request.args.get('key')
@@ -4354,11 +4353,10 @@ def ejecutar_cron_diario():
         import os
         log("📅 Ejecutando CRON DIARIO completo (recordatorios + seguimiento)")
         
-        # Ejecutar cron_diario.py en segundo plano
-        if os.name == 'nt':  # Windows
+        if os.name == 'nt':
             subprocess.Popen(['python', 'cron_diario.py'], 
                            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
-        else:  # Linux/Mac (Render)
+        else:
             subprocess.Popen(['python', 'cron_diario.py'], 
                            preexec_fn=os.setpgrp)
         
