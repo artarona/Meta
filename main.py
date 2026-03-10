@@ -3465,6 +3465,68 @@ def api_leads():
         log(f"❌ Error en api_leads: {e}", "ERROR")
         return jsonify({"error": str(e), "leads": []}), 500
 
+@app.route('/api/leads/<string:lead_id>', methods=['DELETE'])
+def eliminar_lead(lead_id):
+    """Eliminar un lead"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        # Manejar prefijo pg_
+        if lead_id.startswith('pg_'):
+            internal_id = lead_id[3:]
+        else:
+            internal_id = lead_id
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "No db connection"}), 500
+            
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM leads WHERE id = %s", (internal_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({"status": "success", "message": f"Lead #{lead_id} eliminado"})
+    except Exception as e:
+        log(f"Error eliminando lead: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/leads/<string:lead_id>', methods=['PUT'])
+def actualizar_lead(lead_id):
+    """Actualizar datos de un lead"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        # Manejar prefijo pg_
+        if lead_id.startswith('pg_'):
+            internal_id = lead_id[3:]
+        else:
+            internal_id = lead_id
+
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "No db connection"}), 500
+            
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE leads 
+            SET nombre = %s, detalles = %s
+            WHERE id = %s
+        """, (data.get('nombre'), data.get('detalles'), internal_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({"status": "success", "message": f"Lead #{lead_id} actualizado"})
+    except Exception as e:
+        log(f"Error actualizando lead: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+
 
 
 @app.route("/imgs/<path:filename>")
