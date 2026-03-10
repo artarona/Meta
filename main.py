@@ -85,7 +85,7 @@ VERIFY_TOKEN = "mi_token_secreto_123"
 # 🔥 CAMBIO IMPORTANTE: Usar variable de entorno para el token
 
 
-ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQZBeuomHgRfRG9zeZC0FqjNnSlhEdVflvf8ZAaGvd3xCGhOIkmAMAwIFivqw1j00ydOnc7auzfIM3uxAzo2kknuUl3G7MYrjbJVuhd5ZAUgxIZCFgIMGMwP3bc1Kcrr3wHeYW3PkjRGkJ17ZBVvYss0ZAcoKw9zcTmJ8bf4p8MKbfBpI5NXDiSjEv3JPNQk77gZCaMUWfqTLI0xJoJxCFQcwNsKWO8ZCKhdTSVRr2fRqAxZA4ZCBCUnLQksOBnb9SyP776NAVZAdHMLyrbiSDgw7J5HEvQZDZD")
+ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQ7dj2ZBexsebYWaxQNaZAxDZB3gv0myaIZBJlBEZAbUcZCTwUcFbfLlu3M6NApKnxIgaExuFOHXO08eJo3NZAA7cgIMZAvvP8HXLk4qPnV8LuXWSDYAlpVzEHWT6CmX5XbOI74m3jpQlwSxZBOIXzINy1GlC9Q9jYcA97nr9VIBThE8HnX1m6gaGO51RtpWLEJnty5XZCm7KJzS0BpDVybHU6MsB1dOLmSDpdAMPvSEbusQQvFTSQqZC7xgrWjViuhD1P5aNotGTWpRHxOfsqzzszuPMgZDZD")
 
 
 
@@ -137,8 +137,10 @@ def get_db_connection(max_retries=5):
     # Sanitizar la URL de conexión
     database_url = database_url.strip()
     # Algunas configuraciones incluyen el nombre de la variable en el valor
-    if database_url.startswith("DATABASE_URL="):
-        database_url = database_url[len("DATABASE_URL="):]
+    # Manejar: "DATABASE_URL=...", "DATABASE_URL =...", "DATABASE_URL = ..." etc.
+    if database_url.upper().startswith("DATABASE_URL"):
+        # Quitar "DATABASE_URL" y luego "=" y espacios
+        database_url = database_url[len("DATABASE_URL"):].lstrip().lstrip("=").lstrip()
     # psycopg2 requiere "postgresql://" en vez de "postgres://"
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
