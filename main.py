@@ -134,6 +134,17 @@ def get_db_connection(max_retries=5):
         log("❌ DATABASE_URL no encontrada", "ERROR")
         return None
 
+    # Sanitizar la URL de conexión
+    database_url = database_url.strip()
+    # Algunas configuraciones incluyen el nombre de la variable en el valor
+    if database_url.startswith("DATABASE_URL="):
+        database_url = database_url[len("DATABASE_URL="):]
+    # psycopg2 requiere "postgresql://" en vez de "postgres://"
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+    
+    log(f"🔗 DSN formato: {database_url[:30]}...")
+
     for i in range(max_retries):
         try:
             conn = psycopg2.connect(
