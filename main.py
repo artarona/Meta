@@ -665,17 +665,31 @@ def registrar_lead(user_id, propiedad_id, accion, detalle=""):
         # 2. GUARDAR EN POSTGRESQL - FIX CRÍTICO
         log("🔄 INICIANDO GUARDADO EN POSTGRESQL...")
         
-        # Extraer nombre del cliente si está en el detalle
+        # Obtener el nombre del usuario desde su estado
+        estado_usuario = obtener_estado_usuario(user_id)
+        nombre_usuario_bd = estado_usuario.get('nombre_cliente', '')
+        
+        # Extraer nombre del cliente si está en el detalle (prioridad alta si viene específico para esta accion)
         nombre_cliente = "Cliente WhatsApp"
+        
+        if nombre_usuario_bd and nombre_usuario_bd.lower() != 'ninguno':
+            nombre_cliente = nombre_usuario_bd
+            
         if "Nombre:" in detalle:
             try:
                 nombre_partes = detalle.split("Nombre:")[1].strip()
                 if " - " in nombre_partes:
-                    nombre_cliente = nombre_partes.split(" - ")[0]
+                    nombre_extraido = nombre_partes.split(" - ")[0]
                 else:
-                    nombre_cliente = nombre_partes
+                    nombre_extraido = nombre_partes
+                if nombre_extraido and nombre_extraido.lower() != 'ninguno':
+                    nombre_cliente = nombre_extraido
             except:
-                nombre_cliente = "Cliente"
+                pass
+                
+        # Si sigue siendo genérico, intentar ponerle los últimos 4 dígitos
+        if nombre_cliente == "Cliente WhatsApp" and len(str(user_id)) >= 4:
+            nombre_cliente = f"Cliente {str(user_id)[-4:]}"
         
         detalles_completos = f"{detalle} | Propiedad: {nombre_propiedad} (ID: {propiedad_id})"
         
