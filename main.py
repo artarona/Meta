@@ -467,11 +467,10 @@ def cargar_propiedades_cached():
 
 def obtener_estado_usuario(user_id):
     """Obtiene o crea el estado de un usuario (Cache + PostgreSQL)"""
-    # 1. Intentar desde caché en memoria (DESHABILITADO para consistencia en Render)
-    # if user_id in estados_usuarios:
-    #     return estados_usuarios[user_id]
+    # 1. Guardar referencia al caché en memoria como FALLBACK
+    cached_state = estados_usuarios.get(user_id)
         
-    # 2. Intentar desde PostgreSQL
+    # 2. Intentar desde PostgreSQL (fuente primaria)
     conn = None
     try:
         conn = get_db_connection()
@@ -528,6 +527,10 @@ def obtener_estado_usuario(user_id):
                 return estado
     except Exception as e:
         log(f"⚠️ Error recuperando estado de DB: {e}")
+        # FALLBACK: Si PostgreSQL falla, usar caché en memoria
+        if cached_state:
+            log(f"🔄 Usando estado cacheado como fallback para {user_id} (paso: {cached_state.get('paso')})")
+            return cached_state
     finally:
         if conn: conn.close()
         
@@ -542,6 +545,18 @@ def obtener_estado_usuario(user_id):
     }
     estados_usuarios[user_id] = estado_nuevo
     return estado_nuevo
+
+def _strip_media_fields(propiedades_list):
+    """Elimina campos pesados (fotos, videos, etc.) de las propiedades antes de serializar a DB.
+    Los datos multimedia se pueden volver a cargar de propiedades.json cuando se necesiten."""
+    if not propiedades_list or not isinstance(propiedades_list, list):
+        return propiedades_list
+    campos_a_eliminar = ('fotos', 'videos', 'documentos', 'imagenes_360', 'info_multimedia')
+    return [
+        {k: v for k, v in p.items() if k not in campos_a_eliminar}
+        for p in propiedades_list
+        if isinstance(p, dict)
+    ]
 
 def actualizar_estado_usuario(user_id, nuevo_estado):
     """Actualiza el estado de un usuario en caché y PostgreSQL"""
@@ -576,7 +591,7 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                 user_id, 
                 nuevo_estado.get('paso'),
                 nuevo_estado.get('operacion_seleccionada'),
-                json.dumps(nuevo_estado.get('propiedades_filtradas', [])),
+                json.dumps(_strip_media_fields(nuevo_estado.get('propiedades_filtradas', []))),
                 nuevo_estado.get('ultimo_indice_preguntado'),
                 nuevo_estado.get('nombre_cliente'),
                 nuevo_estado.get('email_cliente'),
@@ -587,8 +602,11 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                 nuevo_estado.get('timestamp')
             ))
             conn.commit()
+            log(f"✅ Estado persistido en DB para {user_id} (paso: {nuevo_estado.get('paso')})")
     except Exception as e:
-        log(f"⚠️ Error persistiendo estado en DB: {e}")
+        log(f"🔥 Error persistiendo estado en DB para {user_id} (paso: {nuevo_estado.get('paso')}): {e}", "ERROR")
+        import traceback
+        log(f"🔍 Traceback: {traceback.format_exc()}", "ERROR")
     finally:
         if conn:
             conn.close()
