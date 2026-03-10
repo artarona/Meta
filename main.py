@@ -952,6 +952,12 @@ def get_bot_response(text, user_id):
         elif paso == 'submenu_asesor':
             return manejar_submenu_asesor(text_lower, estado_usuario, user_id)
 
+        elif paso == 'filtro_tipo':
+            return manejar_filtro_tipo(text_lower, estado_usuario, user_id)
+            
+        elif paso == 'filtro_ambientes':
+            return manejar_filtro_ambientes(text_lower, estado_usuario, user_id)
+
         elif paso == 'listado_propiedades':
             return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
         
@@ -1050,6 +1056,25 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
 9️⃣ Volver al menú principal
 0️⃣ Salir"""
 
+    elif text_lower == "6":
+        # FAQs
+        return """❓ *REQUISITOS Y PREGUNTAS FRECUENTES*
+
+*Para Alquilar:*
+• Mes de adelanto
+• Mes de depósito (en USD)
+• Garantía propietaria (CABA/GBA) o Seguro de Caución (Finaer)
+• Demostración de ingresos (últimos 3 recibos)
+
+*¿Aceptan Mascotas?*
+Depende estrictamente de la propiedad y el consorcio. Consultalo en el detalle de cada departamento.
+
+*¿Toman propiedades en parte de pago?*
+Sí, evaluamos permutas caso por caso. Escribinos para tasación.
+
+9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*
+0️⃣ *❌ SALIR*"""
+
     elif text_lower == "9":
         # Volver al menú
         return "WELCOME_FLOW_TRIGGER"
@@ -1070,6 +1095,7 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
 3️⃣ *Visitar nuestro sitio web* 🌐
 4️⃣ *Ver mis citas programadas* 📋
 5️⃣ *Hablar con un asesor* 👤
+6️⃣ *Requisitos y FAQs* ❓
 
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*"""
@@ -1154,35 +1180,166 @@ def manejar_submenu_asesor(text_lower, estado_usuario, user_id):
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*"""
 
+def manejar_filtro_tipo(text_lower, estado_usuario, user_id):
+    """Maneja el filtro de tipo de propiedad"""
+    tipos = {
+        "1": "departamento",
+        "2": "casa",
+        "3": "ph",
+        "4": "oficina",
+        "5": "terreno"
+    }
+    
+    if text_lower in tipos:
+        tipo_seleccionado = tipos[text_lower]
+        estado_usuario['tipo_seleccionado'] = tipo_seleccionado
+        estado_usuario['paso'] = 'filtro_ambientes'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        # Verificar rápido si hay propiedades antes de preguntar ambientes
+        operacion = estado_usuario.get('operacion_seleccionada', '')
+        todas = cargar_propiedades_cached()
+        
+        # Filtrado laxo temporal para chequear disponibilidad
+        filtradas_temp = []
+        for p in todas:
+            if str(p.get('operacion', '')).lower() == operacion.lower():
+                tipo_bd = str(p.get('tipo', '')).lower()
+                if tipo_seleccionado == 'oficina' and 'oficina' in tipo_bd:
+                    filtradas_temp.append(p)
+                elif tipo_seleccionado == 'terreno' and ('terreno' in tipo_bd or 'lote' in tipo_bd):
+                    filtradas_temp.append(p)
+                elif tipo_seleccionado == tipo_bd or (tipo_seleccionado == 'departamento' and 'departam' in tipo_bd):
+                    filtradas_temp.append(p)
+                    
+        if not filtradas_temp:
+             estado_usuario['paso'] = 'listado_propiedades'
+             estado_usuario['propiedades_filtradas'] = []
+             actualizar_estado_usuario(user_id, estado_usuario)
+             return f"📭 Lo siento, no tenemos {tipo_seleccionado}s disponibles para {operacion} en este momento.\n\n9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*\n0️⃣ *❌ SALIR*"
+
+        return f"""🔢 *¿CUÁNTOS AMBIENTES?*
+
+Por favor, elegí la cantidad de ambientes:
+1️⃣ 1 Ambiente
+2️⃣ 2 Ambientes
+3️⃣ 3 Ambientes
+4️⃣ 4 o más Ambientes
+5️⃣ Cualquiera / Sin preferencia
+
+9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*
+0️⃣ *❌ SALIR*"""
+    else:
+        return "⚠️ Por favor, elegí una opción válida (1 al 5) o enviá 9 para volver al menú."
+
+def manejar_filtro_ambientes(text_lower, estado_usuario, user_id):
+    """Maneja el filtro de cantidad de ambientes y muestra el resultado final"""
+    ambientes_map = {
+        "1": 1,
+        "2": 2,
+        "3": 3,
+        "4": 4, # 4 o más
+        "5": None # Cualquiera
+    }
+    
+    if text_lower in ambientes_map:
+        ambientes_sel = ambientes_map[text_lower]
+        operacion = estado_usuario.get('operacion_seleccionada', '')
+        tipo = estado_usuario.get('tipo_seleccionado', '')
+        
+        todas = cargar_propiedades_cached()
+        propiedades_filtradas = []
+        
+        for p in todas:
+            # 1. Filtro Operación
+            if str(p.get('operacion', '')).lower() != operacion.lower():
+                continue
+            
+            # 2. Filtro Tipo
+            tipo_bd = str(p.get('tipo', '')).lower()
+            if tipo == 'oficina' and 'oficina' not in tipo_bd:
+                continue
+            elif tipo == 'terreno' and 'terreno' not in tipo_bd and 'lote' not in tipo_bd:
+                continue
+            elif tipo in ['departamento', 'casa', 'ph']:
+                if tipo == 'departamento' and 'departam' not in tipo_bd:
+                    continue
+                elif tipo != 'departamento' and tipo != tipo_bd:
+                    continue
+            
+            # 3. Filtro Ambientes
+            if ambientes_sel is not None:
+                try:
+                    amb_bd = int(p.get('ambientes', 0))
+                except:
+                    amb_bd = 0
+                    
+                if ambientes_sel == 4 and amb_bd < 4:
+                    continue
+                elif ambientes_sel != 4 and amb_bd != ambientes_sel:
+                    continue
+                    
+            propiedades_filtradas.append(p)
+            
+        estado_usuario.update({
+            'paso': 'listado_propiedades',
+            'ambientes_seleccionados': ambientes_sel,
+            'propiedades_filtradas': propiedades_filtradas
+        })
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        if not propiedades_filtradas:
+            return f"📭 No encontramos propiedades con esas características exactas.\n\n9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*\n0️⃣ *❌ SALIR*"
+        
+        titulo_op = "💰 *VENTA*" if operacion == "venta" else "🔑 *ALQUILER*"
+        tipo_str = tipo.title()
+        amb_str = f"de {ambientes_sel} amb." if ambientes_sel else ""
+        if ambientes_sel == 4: amb_str = "de 4+ amb."
+        
+        return f"{titulo_op}\nBuscando: {tipo_str} {amb_str}\nEncontramos *{len(propiedades_filtradas)}* opciones:\n\n" + generar_listado_propiedades(propiedades_filtradas)
+    
+    else:
+         return "⚠️ Por favor, elegí una opción válida (1 al 5) o enviá 9 para volver al menú."
+
 def procesar_opcion_venta(estado_usuario, user_id):
-    """Procesa la opción de venta"""
+    """Procesa la opción de venta preguntando el tipo de propiedad"""
     estado_usuario.update({
-        'paso': 'listado_propiedades',
-        'operacion_seleccionada': 'venta',
-        'propiedades_filtradas': filtrar_propiedades_por_operacion('venta')
+        'paso': 'filtro_tipo',
+        'operacion_seleccionada': 'venta'
     })
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    propiedades = estado_usuario['propiedades_filtradas']
-    if not propiedades:
-        return "📭 No hay propiedades en venta por ahora.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
-    
-    return f"💰 *PROPIEDADES EN VENTA*\nEncontramos *{len(propiedades)}* disponibles:\n\n" + generar_listado_propiedades(propiedades)
+    return """🏡 *¿QUÉ TIPO DE PROPIEDAD BUSCÁS?*
+
+Por favor, elegí un número:
+1️⃣ Departamento
+2️⃣ Casa
+3️⃣ PH
+4️⃣ Oficina / Local
+5️⃣ Terreno / Lote
+
+9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*
+0️⃣ *❌ SALIR*"""
 
 def procesar_opcion_alquiler(estado_usuario, user_id):
-    """Procesa la opción de alquiler"""
+    """Procesa la opción de alquiler preguntando el tipo de propiedad"""
     estado_usuario.update({
-        'paso': 'listado_propiedades',
-        'operacion_seleccionada': 'alquiler',
-        'propiedades_filtradas': filtrar_propiedades_por_operacion('alquiler')
+        'paso': 'filtro_tipo',
+        'operacion_seleccionada': 'alquiler'
     })
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    propiedades = estado_usuario['propiedades_filtradas']
-    if not propiedades:
-        return "📭 No hay propiedades en alquiler por ahora.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
-    
-    return f"🔑 *PROPIEDADES EN ALQUILER*\nEncontramos *{len(propiedades)}* disponibles:\n\n" + generar_listado_propiedades(propiedades)
+    return """🔑 *¿QUÉ TIPO DE PROPIEDAD BUSCÁS?*
+
+Por favor, elegí un número:
+1️⃣ Departamento
+2️⃣ Casa
+3️⃣ PH
+4️⃣ Oficina / Local
+5️⃣ Terreno / Lote
+
+9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*
+0️⃣ *❌ SALIR*"""
 
 def procesar_opcion_todas(estado_usuario, user_id):
     """Procesa la opción de ver todas las propiedades"""
@@ -2134,6 +2291,7 @@ def send_welcome_flow(user_id):
             "title": "Gestión y Contacto",
             "rows": [
                 {"id": "opcion_4", "title": "📋 Mis Citas", "description": "Ver mis visitas programadas"},
+                {"id": "opcion_6", "title": "❓ Requisitos / FAQs", "description": "Dudas frecuentes al alquilar o comprar"},
                 {"id": "opcion_5", "title": "👤 Hablar con asesor", "description": "Contacto directo con un humano"},
                 {"id": "opcion_3", "title": "🌐 Sitio Web", "description": "Visitar dantepropiedades.com.ar"}
             ]
@@ -2485,6 +2643,7 @@ def webhook():
                                     "opcion_3": "3",  # Sitio Web
                                     "opcion_4": "4",  # Mis Citas
                                     "opcion_5": "5",  # Hablar Asesor
+                                    "opcion_6": "6",  # FAQs
                                     "volver_menu": "9",
                                     "salir_chat": "0"
                                 }
