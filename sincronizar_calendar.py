@@ -221,6 +221,15 @@ def create_event(service, body: dict) -> dict:
     ).execute()
 
 
+def update_event(service, event_id: str, body: dict) -> dict:
+    """Actualiza un evento existente en Google Calendar."""
+    return service.events().update(
+        calendarId=CALENDAR_ID,
+        eventId=event_id,
+        body=body
+    ).execute()
+
+
 # =============================================================================
 # MAIN
 # =============================================================================
@@ -264,8 +273,10 @@ def main():
             existing = find_existing_event(service, cita_id)
 
             if existing:
-                event_url = existing.get("htmlLink", "(sin URL)")
-                print(f"  [OK] Ya existe en Calendar -> {event_url}")
+                body = build_event_body(cita)
+                updated = update_event(service, existing["id"], body)
+                event_url = updated.get("htmlLink", "(sin URL)")
+                print(f"  [OK] Actualizado en Calendar -> {event_url}")
                 stats["ya_existian"] += 1
             else:
                 body    = build_event_body(cita)
@@ -281,9 +292,9 @@ def main():
     total = stats["creadas"] + stats["ya_existian"] + stats["errores"]
     print("\n" + sep)
     print("RESUMEN")
-    print(f"  Eventos creados:    {stats['creadas']}")
-    print(f"  Ya existian:        {stats['ya_existian']}")
-    print(f"  Errores:            {stats['errores']}")
+    print(f"  Eventos creados:        {stats['creadas']}")
+    print(f"  Eventos actualizados:   {stats['ya_existian']}")
+    print(f"  Errores:                {stats['errores']}")
     print(f"  Total procesadas:   {total} / {len(citas)}")
     print(sep)
 
