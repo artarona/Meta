@@ -19,6 +19,7 @@ Que hace:
 import io
 import os
 import sys
+import time
 from datetime import datetime, timedelta
 
 # Forzar UTF-8 en la consola de Windows para evitar UnicodeEncodeError
@@ -83,13 +84,53 @@ def get_calendar_service():
     return build("calendar", "v3", credentials=creds, cache_discovery=False)
 
 
-def get_db_connection():
-    """Abre conexion a PostgreSQL."""
-    db_url = os.environ.get("DATABASE_URL")
-    if not db_url:
+def get_db_connection(max_retries=5):
+    """Obtiene conexión a PostgreSQL con reintentos y sanitización de URL"""
+    import re
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
         print("[ERROR] DATABASE_URL no encontrada en .env")
         sys.exit(1)
-    return psycopg2.connect(db_url, sslmode="require", connect_timeout=15)
+
+    # Extraer estrictamente la URL
+    match = re.search(r'(postgres|postgresql)://\S+', database_url)
+    if match:
+        database_url = match.group(0).strip()
+    else:
+        print(f"[ERROR] No se pudo encontrar una URL de DB en: {database_url}")
+        sys.exit(1)
+        
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+    for i in range(max_retries):
+        try:
+            conn = psycopg2.connect(
+                database_url,
+                sslmode='require',
+                connect_timeout=15,
+                keepalives=1,
+                keepalives_idle=30,
+                keepalives_interval=10,
+                keepalives_count=5,
+                options='-c statement_timeout=30000'
+            )
+            return conn
+            
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            error_str = str(e)
+            if "SSL connection has been closed unexpectedly" in error_str or "connection to server at" in error_str:
+                print(f"[WARN] Error de conexión (Intento {i+1}/{max_retries}): {error_str}")
+                if i < max_retries - 1:
+                    time.sleep(2)
+                    continue
+            print(f"[ERROR] Error fatal conectando a PostgreSQL: {e}")
+            break
+        except Exception as e:
+            print(f"[ERROR] Error inesperado conectando a PostgreSQL: {e}")
+            break
+            
+    sys.exit(1)
 
 
 def fetch_citas_activas(conn):
