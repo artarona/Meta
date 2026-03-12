@@ -110,8 +110,14 @@ def save_json_atomic(filepath, data):
     """Guarda un archivo JSON de forma atómica usando un archivo temporal"""
     temp_file = f"{filepath}.tmp"
     try:
+        class DateTimeEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if hasattr(obj, 'isoformat'):
+                    return obj.isoformat()
+                return super().default(obj)
+
         with open(temp_file, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
+            json.dump(data, f, indent=4, ensure_ascii=False, cls=DateTimeEncoder)
         # Reemplazo atómico (en Windows os.replace es atómico para archivos)
         os.replace(temp_file, filepath)
         return True
