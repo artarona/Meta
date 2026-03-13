@@ -6,10 +6,13 @@ from datetime import datetime
 class PropertyPDF(FPDF):
     def header(self):
         # Logo de la empresa
-        logo_path = 'llave.png'
+        # Usar ruta absoluta relativa al script para robustez en Flask/Render
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        logo_path = os.path.join(base_dir, 'llave.png')
+        
         if os.path.exists(logo_path):
             try:
-                # Ajustamos el alto a 10mm (la mitad del ancho anterior aprox)
+                # Ajustamos el alto a 10mm (proporcional)
                 self.image(logo_path, 10, 8, h=10) 
                 self.set_x(32) # Espacio para el logo
             except:
