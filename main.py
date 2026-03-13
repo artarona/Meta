@@ -15,6 +15,8 @@ import pandas as pd
 from io import BytesIO
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
+from pdf_generator import generar_pdf_propiedad
+
 
 # ========== CONFIGURACIÓN GOOGLE CALENDAR ==========
 SCOPES = ['https://www.googleapis.com/auth/calendar']
@@ -92,11 +94,15 @@ ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQZCiBCKVlXYutbdZAE
 
 PHONE_NUMBER_ID = "1000705633118215"
 ADMIN_NUMBER = "5491151511579"
+BASE_URL = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")
 LEADS_FILE = "leads.json"
 # ADMIN_ACCESS_KEY = "dante2026"
 ADMIN_ACCESS_KEY = os.getenv('ADMIN_KEY', 'dante2026')
 CITAS_FILE = "citas.json"
 HORARIOS_FILE = "dias-horarios-visitas.json"
+FICHAS_DIR = "fichas"
+os.makedirs(FICHAS_DIR, exist_ok=True)
+
 
 # ========== CONFIGURACIÓN DE CITAS ==========
 CITAS_DISPONIBLES = [
@@ -127,6 +133,30 @@ def save_json_atomic(filepath, data):
             try: os.remove(temp_file)
             except: pass
         return False
+
+# ========== ENDPOINT PARA FICHAS PDF ==========
+@app.route('/fichas/<prop_id>')
+def serve_ficha_pdf(prop_id):
+    """Genera y sirve la ficha técnica en PDF de una propiedad"""
+    try:
+        # Limpiar el ID por si viene con .pdf
+        prop_id = prop_id.replace('.pdf', '')
+        filepath = os.path.join(FICHAS_DIR, f"{prop_id}.pdf")
+        
+        # Si no existe, intentar generarlo ahora
+        if not os.path.exists(filepath):
+            propiedades = cargar_propiedades_cached()
+            propiedad = next((p for p in propiedades if p.get('id_temporal') == prop_id), None)
+            if not propiedad:
+                return "Propiedad no encontrada", 404
+            
+            generar_pdf_propiedad(propiedad, filepath)
+        
+        return send_file(filepath, mimetype='application/pdf')
+    except Exception as e:
+        log(f"❌ Error sirviendo PDF {prop_id}: {e}", "ERROR")
+        return "Error generando el documento", 500
+
 
 # ========== GESTIÓN DE ESTADO DE USUARIOS ==========
 estados_usuarios = {}
@@ -865,8 +895,14 @@ def formatear_detalle_propiedad(propiedad):
         detalle += "*Amenities:* " + " | ".join(amenities) + "\n"
     
     detalle += f"\n📝 *Descripción:*\n{propiedad.get('descripcion', 'Sin descripción')[:500]}...\n\n"
+    
+    # Agregar link a Ficha PDF
+    prop_id = propiedad.get('id_temporal')
+    if prop_id:
+        detalle += f"📄 *FICHA TÉCNICA PDF:*\n{BASE_URL}/fichas/{prop_id}\n\n"
+        
     detalle += "────────────────────\n"
-    detalle += "📷 *FOTOS* (Escribe 'F') | 8️⃣ *ME INTERESA*\n"
+    detalle += "📷 *FOTOS* (F) | 📄 *PDF* (P) | 8️⃣ *ME INTERESA*\n"
     detalle += "1️⃣ *VOLVER* | 0️⃣ *❌ SALIR*"
     
     return detalle
@@ -945,6 +981,16 @@ def get_bot_response(text, user_id):
                 return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
             else:
                 return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
+        
+        if text_lower == "p":
+            indice = estado_usuario.get('ultimo_indice_preguntado')
+            propiedades = estado_usuario.get('propiedades_filtradas', [])
+            if indice and 1 <= indice <= len(propiedades):
+                propiedad = propiedades[indice - 1]
+                prop_id = propiedad.get('id_temporal')
+                return f"📄 *Aquí tenés la ficha técnica de {prop_id}:*\n{BASE_URL}/fichas/{prop_id}"
+            else:
+                return "⚠️ Por favor, primero selecciona una propiedad del listado para obtener el PDF."
         
         # 3. LÓGICA POR ESTADO
         paso = estado_usuario['paso']
