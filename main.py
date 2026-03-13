@@ -392,6 +392,8 @@ def init_db(conn):
                 fecha_cita DATE,
                 hora_cita VARCHAR(10),
                 horarios_disponibles TEXT,
+                tipo_seleccionado VARCHAR(50),
+                ambientes_seleccionados INTEGER,
                 data TEXT,
                 timestamp TIMESTAMP
             );
@@ -433,6 +435,10 @@ def init_db(conn):
         -- Nuevas columnas para feedback
         ALTER TABLE citas ADD COLUMN IF NOT EXISTS feedback_enviado BOOLEAN DEFAULT FALSE;
         ALTER TABLE citas ADD COLUMN IF NOT EXISTS feedback_enviado_en TIMESTAMP;
+        
+        -- Columnas para user_states si la tabla ya existía
+        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS tipo_seleccionado VARCHAR(50);
+        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS ambientes_seleccionados INTEGER;
     """)
         
         # 3. Asegurar secuencias para tablas existentes
@@ -525,7 +531,7 @@ def obtener_estado_usuario(user_id):
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data FROM user_states WHERE user_id = %s", (user_id,))
+            cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data, tipo_seleccionado, ambientes_seleccionados FROM user_states WHERE user_id = %s", (user_id,))
             res = cursor.fetchone()
             if res:
                 # Función auxiliar para parseo seguro y profundo
@@ -570,6 +576,8 @@ def obtener_estado_usuario(user_id):
                     'hora_cita': res[7],
                     'horarios_disponibles': safe_json_loads(res[8], []),
                     'data': safe_json_loads(res[9], {}),
+                    'tipo_seleccionado': res[10],
+                    'ambientes_seleccionados': res[11],
                     'timestamp': datetime.now().isoformat()
                 }
                 estados_usuarios[user_id] = estado
@@ -589,6 +597,8 @@ def obtener_estado_usuario(user_id):
         'operacion_seleccionada': None,
         'propiedades_filtradas': [],
         'ultimo_indice_preguntado': None,
+        'tipo_seleccionado': None,
+        'ambientes_seleccionados': None,
         'timestamp': datetime.now().isoformat(),
         'data': {}
     }
@@ -622,8 +632,9 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                 INSERT INTO user_states (
                     user_id, paso, operacion_seleccionada, propiedades_filtradas, 
                     ultimo_indice_preguntado, nombre_cliente, email_cliente, 
-                    fecha_cita, hora_cita, horarios_disponibles, data, timestamp
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    fecha_cita, hora_cita, horarios_disponibles, data, 
+                    tipo_seleccionado, ambientes_seleccionados, timestamp
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (user_id) DO UPDATE SET
                     paso = EXCLUDED.paso,
                     operacion_seleccionada = EXCLUDED.operacion_seleccionada,
@@ -635,6 +646,8 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                     hora_cita = EXCLUDED.hora_cita,
                     horarios_disponibles = EXCLUDED.horarios_disponibles,
                     data = EXCLUDED.data,
+                    tipo_seleccionado = EXCLUDED.tipo_seleccionado,
+                    ambientes_seleccionados = EXCLUDED.ambientes_seleccionados,
                     timestamp = EXCLUDED.timestamp
             """, (
                 user_id, 
@@ -648,6 +661,8 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                 nuevo_estado.get('hora_cita'),
                 json.dumps(nuevo_estado.get('horarios_disponibles', [])),
                 json.dumps(nuevo_estado.get('data', {})),
+                nuevo_estado.get('tipo_seleccionado'),
+                nuevo_estado.get('ambientes_seleccionados'),
                 nuevo_estado.get('timestamp')
             ))
             conn.commit()
