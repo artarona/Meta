@@ -100,7 +100,7 @@ LEADS_FILE = "leads.json"
 ADMIN_ACCESS_KEY = os.getenv('ADMIN_KEY', 'dante2026')
 CITAS_FILE = "citas.json"
 HORARIOS_FILE = "dias-horarios-visitas.json"
-FICHAS_DIR = "fichas"
+FICHAS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fichas")
 os.makedirs(FICHAS_DIR, exist_ok=True)
 
 
@@ -141,15 +141,31 @@ def serve_ficha_pdf(prop_id):
     try:
         # Limpiar el ID por si viene con .pdf
         prop_id = prop_id.replace('.pdf', '')
-        filepath = os.path.join(FICHAS_DIR, f"{prop_id}.pdf")
         
-        # Intentar con prefijo FICHA_ si no existe el directo
-        if not os.path.exists(filepath):
-            filepath = os.path.join(FICHAS_DIR, f"FICHA_{prop_id}.pdf")
+        # Intentar varias combinaciones de nombres
+        posibles_rutas = [
+            os.path.join(FICHAS_DIR, f"{prop_id}.pdf"),
+            os.path.join(FICHAS_DIR, f"FICHA_{prop_id}.pdf"),
+            os.path.join(FICHAS_DIR, f"{prop_id.upper()}.pdf"),
+            os.path.join(FICHAS_DIR, f"FICHA_{prop_id.upper()}.pdf")
+        ]
+        
+        filepath = None
+        for ruta in posibles_rutas:
+            log(f"🔍 Buscando ficha en: {ruta}")
+            if os.path.exists(ruta):
+                filepath = ruta
+                break
         
         # Verificar si existe el archivo
-        if not os.path.exists(filepath):
-            log(f"⚠️ Ficha PDF no encontrada para: {prop_id}", "WARNING")
+        if not filepath:
+            log(f"❌ FICHA NO ENCONTRADA tras agotar opciones para: {prop_id}", "ERROR")
+            # Listar qué archivos hay para depurar
+            try:
+                archivos = os.listdir(FICHAS_DIR)
+                log(f"📁 Archivos disponibles en {FICHAS_DIR}: {archivos[:10]}...")
+            except: pass
+            
             return f"La ficha técnica para {prop_id} no está disponible actualmente. Un asesor puede enviártela manualmente.", 404
         
         return send_file(filepath, mimetype='application/pdf')
