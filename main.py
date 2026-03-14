@@ -87,7 +87,7 @@ VERIFY_TOKEN = "mi_token_secreto_123"
 # 🔥 CAMBIO IMPORTANTE: Usar variable de entorno para el token
 
 
-ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQ85zbRdqGfEavVMHvE5Me0S8BOGx379tiXdWqKuZB4qfnova5t3wLwGLlxAjTtEoaHWoEx6zHatKqa236fCInpcoxgdJavo0007GDgLtnWHzcbVhFgWQGuQtFiTZA9aOhqKbiMcQ1RWU9qd8CGoInSj4kVqLWjczY8owZBR4TKbbuGybTqSVeV99u4kPy0o3J0AL3GIBLbyxEZBzuwY32J73g1iCVe29JFPoPO01RxghU2TCk5YZCWxmEoE9JkExBKpyy2xCAnZBHtdZCNRFVpRQQZDZD")
+ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQ7XtrhDO5dk7kfkQWXCNNX08M40gxd5X45ZBSJBCznLKSwZAUCJMWRK4IY8PxuRZBVQjzlyVBqIn2iZAsRusPzOd1xms7qB4J1DqJh87f7RZCJ86uXM0JhXU47rAKAavOUYq86uuUYroscFZCmIiHhI7ifZByiT2ff317uWG7asS82PWeQt0RodRp4zZBYXdeTFhftRCbZC1uspIHgCJA0zjJ8ZBF8obsK0XxUDZC1HGCJZAzxuNGZCZBiWj3Ykh3smX7hU3AZCMHEitbBqJZCGcEMP54UPYtwZDZD")
 
 
 
@@ -1305,37 +1305,28 @@ Sí, evaluamos permutas caso por caso. Escribinos para tasación.
 def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado):
     """Obtiene una valoración estimada usando el backend de IA"""
     try:
-        # 1. Obtener estadísticas del barrio del backend
-        url = f"{BASE_URL_AI}/market/analysis"
-        payload = {"barrio": barrio}
-        log(f"🧠 Consultando IA para tasación en {barrio}...")
-        response = requests.post(url, json=payload, timeout=10)
+        # 1. Llamar al nuevo endpoint de valoración del backend
+        url = f"{BASE_URL_AI}/api/valoracion"
+        payload = {
+            "barrio": barrio,
+            "tipo": tipo,
+            "m2": float(m2),
+            "ambientes": int(ambientes),
+            "estado": estado
+        }
+        log(f"🧠 Solicitando valoración IA para {tipo} en {barrio} ({m2}m2)...")
+        response = requests.post(url, json=payload, timeout=15)
         
         if response.status_code == 200:
             data = response.json()
             if data.get("success"):
-                analysis = data.get("analysis", {})
-                precio_m2 = analysis.get("precio_m2_promedio")
-                
-                if precio_m2:
-                    # Ajuste rudimentario por estado (esto debería hacerse en el backend idealmente)
-                    multiplicadores_estado = {
-                        "Excelente": 1.1,
-                        "Muy bueno": 1.05,
-                        "Bueno": 1.0,
-                        "Regular": 0.9,
-                        "A refaccionar": 0.7
-                    }
-                    coef = multiplicadores_estado.get(estado, 1.0)
-                    
-                    valor_base = precio_m2 * float(m2) * coef
-                    
-                    return {
-                        "valor_estimado": valor_base,
-                        "precio_m2": precio_m2,
-                        "moneda": "USD",
-                        "fuente": "IA Market Analysis"
-                    }
+                return {
+                    "valor_estimado": data.get("valor_estimado"),
+                    "precio_m2": data.get("precio_m2_referencia"),
+                    "moneda": data.get("moneda", "USD"),
+                    "fuente": "Dante AI Valuation",
+                    "detalles": data.get("detalles", {})
+                }
         
         return None
     except Exception as e:
