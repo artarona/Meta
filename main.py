@@ -143,6 +143,10 @@ def serve_ficha_pdf(prop_id):
         prop_id = prop_id.replace('.pdf', '')
         filepath = os.path.join(FICHAS_DIR, f"{prop_id}.pdf")
         
+        # Intentar con prefijo FICHA_ si no existe el directo
+        if not os.path.exists(filepath):
+            filepath = os.path.join(FICHAS_DIR, f"FICHA_{prop_id}.pdf")
+        
         # Verificar si existe el archivo
         if not os.path.exists(filepath):
             log(f"⚠️ Ficha PDF no encontrada para: {prop_id}", "WARNING")
@@ -995,10 +999,10 @@ def formatear_detalle_propiedad(propiedad):
     
     detalle += f"\n📝 *Descripción:*\n{propiedad.get('descripcion', 'Sin descripción')[:500]}...\n\n"
     
-    # Agregar link a Ficha PDF
+    # Mencionar Ficha PDF
     prop_id = propiedad.get('id_temporal')
     if prop_id:
-        detalle += f"📄 *FICHA TÉCNICA (PDF):*\n{BASE_URL}/fichas/{prop_id}\n\n"
+        detalle += "📄 *FICHA TÉCNICA (PDF)*\n\n"
         
     detalle += "────────────────────\n"
     detalle += "📷 *FOTOS* (F) | 📄 *PDF* (P) | 8️⃣ *ME INTERESA*\n"
