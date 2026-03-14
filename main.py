@@ -1302,10 +1302,56 @@ Sí, evaluamos permutas caso por caso. Escribinos para tasación.
 
 # ========== MANEJADORES DE TASACIÓN ==========
 
-def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado):
-    """Obtiene una valoración estimada usando el backend de IA"""
+def obtener_tasacion_local(barrio, tipo):
+    """Fallback local: busca promedios en propiedades.json"""
     try:
-        # 1. Llamar al nuevo endpoint de valoración del backend
+        path = os.path.join(os.path.dirname(__file__), "propiedades.json")
+        if not os.path.exists(path):
+            return None
+            
+        with open(path, 'r', encoding='utf-8') as f:
+            propiedades = json.load(f)
+            
+        precios_m2 = []
+        precios_barrio_solo = []
+        
+        for p in propiedades:
+            barrio_match = p.get('barrio', '').lower() == barrio.lower()
+            operacion_match = p.get('operacion', '').lower() == 'venta'
+            tipo_match = p.get('tipo', '').lower() == tipo.lower()
+            
+            if barrio_match and operacion_match:
+                m2 = float(p.get('metros_cuadrados', 0))
+                precio = float(p.get('precio', 0))
+                if m2 > 5 and precio > 0:
+                    val_m2 = (precio / 1050) / m2 if p.get('moneda_precio') == 'ARS' else precio / m2
+                    precios_barrio_solo.append(val_m2)
+                    if tipo_match:
+                        precios_m2.append(val_m2)
+        
+        # Priorizar match exacto de tipo, sino usar promedio de barrio
+        final_list = precios_m2 if precios_m2 else precios_barrio_solo
+        
+        if not final_list:
+            return None
+            
+        avg_m2 = sum(final_list) / len(final_list)
+        return {
+            "valor_estimado": None, # Se calcula en base a m2 del request
+            "precio_m2": avg_m2,
+            "moneda": "USD",
+            "is_fallback": True,
+            "fuentes": ["Base de datos propia"],
+            "muestra": len(precios_m2)
+        }
+    except Exception as e:
+        log(f"⚠️ Error en tasación local: {e}")
+        return None
+
+def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado):
+    """Obtiene una valoración estimada usando el backend de IA con fallback local"""
+    try:
+        # 1. Intentar con el backend de IA
         url = f"{BASE_URL_AI}/api/valoracion"
         payload = {
             "barrio": barrio,
@@ -1315,25 +1361,40 @@ def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado):
             "estado": estado
         }
         log(f"🧠 Solicitando valoración IA para {tipo} en {barrio} ({m2}m2)...")
-        response = requests.post(url, json=payload, timeout=15)
         
-        if response.status_code == 200:
-            data = response.json()
-            if data.get("success"):
-                return {
-                    "valor_estimado": data.get("valor_estimado"),
-                    "precio_m2": data.get("precio_m2_referencia"),
-                    "moneda": data.get("moneda", "USD"),
-                    "is_fallback": data.get("is_fallback"),
-                    "fuentes": data.get("fuentes", []),
-                    "muestra": data.get("muestra_size", 0),
-                    "fuente": "Dante AI Valuation",
-                    "detalles": data.get("detalles", {})
-                }
-        
+        try:
+            response = requests.post(url, json=payload, timeout=8)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("success"):
+                    return {
+                        "valor_estimado": data.get("valor_estimado"),
+                        "precio_m2": data.get("precio_m2_referencia"),
+                        "moneda": data.get("moneda", "USD"),
+                        "is_fallback": data.get("is_fallback"),
+                        "fuentes": data.get("fuentes", []),
+                        "muestra": data.get("muestra_size", 0),
+                        "fuente": "Dante AI Valuation",
+                        "detalles": data.get("detalles", {})
+                    }
+        except Exception as conn_err:
+            log(f"📡 Backend IA no alcanzable, usando fallback local: {conn_err}")
+
+        # 2. Fallback local si el backend falla o no tiene datos específicos
+        local_data = obtener_tasacion_local(barrio, tipo)
+        if local_data:
+            valor = local_data['precio_m2'] * float(m2)
+            # Aplicar ajustes básicos de estado
+            ajustes = {"Excelente": 1.1, "Muy bueno": 1.05, "Bueno": 1.0, "Regular": 0.85, "A refaccionar": 0.75}
+            valor = valor * ajustes.get(estado, 1.0)
+            
+            local_data['valor_estimado'] = valor
+            local_data['fuente'] = "Local Database Fallback"
+            return local_data
+
         return None
     except Exception as e:
-        log(f"⚠️ Error obteniendo tasación IA: {e}")
+        log(f"⚠️ Error crítico en obtención de tasación: {e}")
         return None
 
 def manejar_menu_tasacion(text_lower, estado_usuario, user_id):
