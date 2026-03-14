@@ -1325,6 +1325,8 @@ def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado):
                     "precio_m2": data.get("precio_m2_referencia"),
                     "moneda": data.get("moneda", "USD"),
                     "is_fallback": data.get("is_fallback"),
+                    "fuentes": data.get("fuentes", []),
+                    "muestra": data.get("muestra_size", 0),
                     "fuente": "Dante AI Valuation",
                     "detalles": data.get("detalles", {})
                 }
@@ -1468,6 +1470,11 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
             if tasacion.get("is_fallback"):
                 intro_mercado = "Basado en el promedio general del mercado inmobiliario actual (ya que aún estamos recolectando datos específicos de tu zona):"
                 
+            # 4. Info de Fuentes
+            fuentes_str = ", ".join(tasacion.get("fuentes", ["Mercado Local"]))
+            muestra = tasacion.get("muestra", 0)
+            info_fuentes = f"\n🔍 *Análisis:* basado en {muestra} propiedades de {fuentes_str}."
+
             mensaje = f"""📊 *RESULTADO DE TU TASACIÓN VIRTUAL*
 
 {intro_mercado}
@@ -1476,6 +1483,7 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
 📏 *Superficie:* {datos['m2']} m²
 💰 *Valor estimado:* {tasacion['moneda']} ${tasacion['valor_estimado']:,.0f}
 📈 *Precio promedio m²:* {tasacion['moneda']} ${tasacion['precio_m2']:,.0f}
+{info_fuentes}
 
 ⚠️ *Nota:* Esta es una estimación orientativa basada en datos de mercado. Para una tasación profesional y exacta, un asesor debe visitar la propiedad.
 
