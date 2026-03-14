@@ -1208,6 +1208,10 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
         # INMUEBLES EN ALQUILER
         return procesar_opcion_alquiler(estado_usuario, user_id)
         
+    elif text_lower == "7":
+        # TODOS LOS INMUEBLES
+        return procesar_opcion_todas(estado_usuario, user_id)
+        
     elif text_lower == "3":
         # Visitar sitio web
         return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
@@ -1264,6 +1268,7 @@ Sí, evaluamos permutas caso por caso. Escribinos para tasación.
 
 1️⃣ *Inmuebles en Venta* 🏠
 2️⃣ *Inmuebles en Alquiler* 🔑
+7️⃣ *Todos los Inmuebles* 🏢
 3️⃣ *Visitar nuestro sitio web* 🌐
 4️⃣ *Ver mis citas programadas* 📋
 5️⃣ *Hablar con un asesor* 👤
@@ -2456,7 +2461,8 @@ def send_welcome_flow(user_id):
             "title": "Propiedades",
             "rows": [
                 {"id": "opcion_1", "title": "🏠 En Venta", "description": "Ver inmuebles disponibles para compra"},
-                {"id": "opcion_2", "title": "🔑 En Alquiler", "description": "Ver inmuebles disponibles para alquiler"}
+                {"id": "opcion_2", "title": "🔑 En Alquiler", "description": "Ver inmuebles disponibles para alquiler"},
+                {"id": "opcion_7", "title": "🏢 Todos los Inmuebles", "description": "Ver catálogo completo de propiedades"}
             ]
         },
         {
@@ -2816,6 +2822,7 @@ def webhook():
                                     "opcion_4": "4",  # Mis Citas
                                     "opcion_5": "5",  # Hablar Asesor
                                     "opcion_6": "6",  # FAQs
+                                    "opcion_7": "7",  # Todos los Inmuebles
                                     "volver_menu": "9",
                                     "salir_chat": "0"
                                 }
