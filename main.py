@@ -139,12 +139,13 @@ def save_json_atomic(filepath, data):
 def serve_ficha_pdf(prop_id):
     """Genera y sirve la ficha técnica en PDF de una propiedad"""
     try:
+        refresh = request.args.get('refresh') == '1'
         # Limpiar el ID por si viene con .pdf
         prop_id = prop_id.replace('.pdf', '')
         filepath = os.path.join(FICHAS_DIR, f"{prop_id}.pdf")
         
-        # Si no existe, intentar generarlo ahora
-        if not os.path.exists(filepath):
+        # Si no existe o se solicita refrescar, generar el PDF
+        if not os.path.exists(filepath) or refresh:
             propiedades = cargar_propiedades_cached()
             propiedad = next((p for p in propiedades if p.get('id_temporal') == prop_id), None)
             if not propiedad:
