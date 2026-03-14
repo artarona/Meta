@@ -1324,6 +1324,7 @@ def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado):
                     "valor_estimado": data.get("valor_estimado"),
                     "precio_m2": data.get("precio_m2_referencia"),
                     "moneda": data.get("moneda", "USD"),
+                    "is_fallback": data.get("is_fallback"),
                     "fuente": "Dante AI Valuation",
                     "detalles": data.get("detalles", {})
                 }
@@ -1463,16 +1464,20 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
         
         # 3. Respuesta al usuario
         if tasacion:
+            intro_mercado = f"Basado en el análisis de mercado actual en *{datos['barrio']}*:"
+            if tasacion.get("is_fallback"):
+                intro_mercado = "Basado en el promedio general del mercado inmobiliario actual (ya que aún estamos recolectando datos específicos de tu zona):"
+                
             mensaje = f"""📊 *RESULTADO DE TU TASACIÓN VIRTUAL*
 
-Basado en el análisis de mercado actual en *{datos['barrio']}*:
+{intro_mercado}
 
 🏠 *Propiedad:* {datos['tipo']}
 📏 *Superficie:* {datos['m2']} m²
-💰 *Valor estimado:* USD ${tasacion['valor_estimado']:,.0f}
-📈 *Precio promedio m²:* USD ${tasacion['precio_m2']:,.0f}
+💰 *Valor estimado:* {tasacion['moneda']} ${tasacion['valor_estimado']:,.0f}
+📈 *Precio promedio m²:* {tasacion['moneda']} ${tasacion['precio_m2']:,.0f}
 
-⚠️ *Nota:* Esta es una estimación basada en datos de mercado. Para una tasación profesional y exacta, un asesor debe visitar la propiedad.
+⚠️ *Nota:* Esta es una estimación orientativa basada en datos de mercado. Para una tasación profesional y exacta, un asesor debe visitar la propiedad.
 
 ¿Te gustaría que un tasador te contacte para una visita formal?
 1️⃣ Sí, quiero una tasación profesional
