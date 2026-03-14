@@ -139,8 +139,9 @@ def save_json_atomic(filepath, data):
 def serve_ficha_pdf(prop_id):
     """Sirve la ficha técnica en PDF de una propiedad (debe estar pre-generada)"""
     try:
-        # Limpiar el ID por si viene con .pdf
-        prop_id = prop_id.replace('.pdf', '')
+        # Limpiar el ID por si viene con .pdf o espacios
+        prop_id = prop_id.replace('.pdf', '').strip()
+        log(f"📂 Solicitud de ficha para: '{prop_id}' (DIR: {FICHAS_DIR})")
         
         # Intentar varias combinaciones de nombres
         posibles_rutas = [
@@ -1015,10 +1016,10 @@ def formatear_detalle_propiedad(propiedad):
     
     detalle += f"\n📝 *Descripción:*\n{propiedad.get('descripcion', 'Sin descripción')[:500]}...\n\n"
     
-    # Mencionar Ficha PDF
+    # Agregar link a Ficha PDF
     prop_id = propiedad.get('id_temporal')
     if prop_id:
-        detalle += "📄 *FICHA TÉCNICA (PDF)*\n\n"
+        detalle += f"📄 *FICHA TÉCNICA (PDF):*\n{BASE_URL}/fichas/{prop_id}\n\n"
         
     detalle += "────────────────────\n"
     detalle += "📷 *FOTOS* (F) | 📄 *PDF* (P) | 8️⃣ *ME INTERESA*\n"
