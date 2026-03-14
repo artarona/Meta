@@ -3853,14 +3853,6 @@ def actualizar_lead(lead_id):
 
 
 
-@app.route("/imgs/<path:filename>")
-def serve_image(filename):
-    """Sirve imágenes desde la carpeta imgs"""
-    try:
-        return send_from_directory('imgs', filename)
-    except Exception as e:
-        log(f"🔥 Error sirviendo imagen {filename}: {e}")
-        return "Imagen no encontrada", 404
 
 # ========== RUTAS DE PRUEBA ==========
 @app.route("/test", methods=["GET"])
