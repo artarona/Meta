@@ -95,6 +95,7 @@ ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQ5NmRLwpFQX1YELA0D
 PHONE_NUMBER_ID = "1000705633118215"
 ADMIN_NUMBER = "5491151511579"
 BASE_URL = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")
+BASE_URL_AI = os.environ.get("BASE_URL_AI", "http://localhost:8001")
 LEADS_FILE = "leads.json"
 # ADMIN_ACCESS_KEY = "dante2026"
 ADMIN_ACCESS_KEY = os.getenv('ADMIN_KEY', 'dante2026')
@@ -1160,6 +1161,24 @@ def get_bot_response(text, user_id):
         elif paso == 'esperando_confirmacion_recordatorio':
             return manejar_confirmacion_recordatorio(text, estado_usuario, user_id)
         
+        elif paso == 'tasacion_barrio':
+            return manejar_tasacion_barrio(text, estado_usuario, user_id)
+            
+        elif paso == 'tasacion_tipo':
+            return manejar_tasacion_tipo(text_lower, estado_usuario, user_id)
+            
+        elif paso == 'tasacion_m2':
+            return manejar_tasacion_m2(text, estado_usuario, user_id)
+            
+        elif paso == 'tasacion_ambientes':
+            return manejar_tasacion_ambientes(text, estado_usuario, user_id)
+            
+        elif paso == 'tasacion_estado':
+            return manejar_tasacion_estado(text_lower, estado_usuario, user_id)
+            
+        elif paso == 'tasacion_esperando_contacto':
+            return manejar_tasacion_contacto(text_lower, estado_usuario, user_id)
+        
         elif paso == 'vista_fotos':
             return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
 
@@ -1263,6 +1282,10 @@ Sí, evaluamos permutas caso por caso. Escribinos para tasación.
         # Panel admin (solo para número autorizado)
         return mostrar_panel_admin()
     
+    elif text_lower == "10":
+        # TASACION VIRTUAL
+        return manejar_menu_tasacion(text_lower, estado_usuario, user_id)
+    
     else:
         return """No pude identificar esa opción. Por favor elegí un número del menú.
 
@@ -1276,6 +1299,225 @@ Sí, evaluamos permutas caso por caso. Escribinos para tasación.
 
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*"""
+
+# ========== MANEJADORES DE TASACIÓN ==========
+
+def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado):
+    """Obtiene una valoración estimada usando el backend de IA"""
+    try:
+        # 1. Obtener estadísticas del barrio del backend
+        url = f"{BASE_URL_AI}/market/analysis"
+        payload = {"barrio": barrio}
+        log(f"🧠 Consultando IA para tasación en {barrio}...")
+        response = requests.post(url, json=payload, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("success"):
+                analysis = data.get("analysis", {})
+                precio_m2 = analysis.get("precio_m2_promedio")
+                
+                if precio_m2:
+                    # Ajuste rudimentario por estado (esto debería hacerse en el backend idealmente)
+                    multiplicadores_estado = {
+                        "Excelente": 1.1,
+                        "Muy bueno": 1.05,
+                        "Bueno": 1.0,
+                        "Regular": 0.9,
+                        "A refaccionar": 0.7
+                    }
+                    coef = multiplicadores_estado.get(estado, 1.0)
+                    
+                    valor_base = precio_m2 * float(m2) * coef
+                    
+                    return {
+                        "valor_estimado": valor_base,
+                        "precio_m2": precio_m2,
+                        "moneda": "USD",
+                        "fuente": "IA Market Analysis"
+                    }
+        
+        return None
+    except Exception as e:
+        log(f"⚠️ Error obteniendo tasación IA: {e}")
+        return None
+
+def manejar_menu_tasacion(text_lower, estado_usuario, user_id):
+    """Inicia el flujo de tasación"""
+    # Usar el campo 'data' para persistencia segura en DB
+    if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
+        estado_usuario['data'] = {}
+        
+    estado_usuario['data']['datos_tasacion'] = {}
+    estado_usuario['paso'] = 'tasacion_barrio'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    return "📈 *TASACIÓN VIRTUAL*\n\nPara comenzar, por favor decime: *¿En qué barrio se encuentra la propiedad?* (ej: Palermo, Belgrano, Tigre...)"
+
+def manejar_tasacion_barrio(text, estado_usuario, user_id):
+    """Guarda el barrio e inicia la selección de tipo"""
+    if 'datos_tasacion' not in estado_usuario['data']:
+        estado_usuario['data']['datos_tasacion'] = {}
+        
+    estado_usuario['data']['datos_tasacion']['barrio'] = text.strip()
+    estado_usuario['paso'] = 'tasacion_tipo'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    return """🏠 *¿Qué tipo de propiedad es?*
+
+1️⃣ Departamento
+2️⃣ Casa
+3️⃣ PH
+4️⃣ Oficina / Local
+5️⃣ Terreno
+
+9️⃣ Volver al menú
+0️⃣ Salir"""
+
+def manejar_tasacion_tipo(text_lower, estado_usuario, user_id):
+    """Guarda el tipo e inicia la carga de m2"""
+    tipos = {
+        "1": "Departamento",
+        "2": "Casa",
+        "3": "PH",
+        "4": "Oficina",
+        "5": "Terreno"
+    }
+    
+    if text_lower in tipos:
+        if 'datos_tasacion' not in estado_usuario['data']:
+            estado_usuario['data']['datos_tasacion'] = {}
+            
+        estado_usuario['data']['datos_tasacion']['tipo'] = tipos[text_lower]
+        estado_usuario['paso'] = 'tasacion_m2'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "📏 *¿Cuántos m² cubiertos tiene la propiedad?* (Ingresá solo el número, ej: 65)"
+    else:
+        return "⚠️ Por favor, elegí una opción válida (1 al 5)."
+
+def manejar_tasacion_m2(text, estado_usuario, user_id):
+    """Guarda los m2 e inicia la carga de ambientes"""
+    try:
+        m2_str = text.replace(',', '.').strip()
+        m2 = float(m2_str)
+        
+        if 'datos_tasacion' not in estado_usuario['data']:
+            estado_usuario['data']['datos_tasacion'] = {}
+            
+        estado_usuario['data']['datos_tasacion']['m2'] = m2
+        estado_usuario['paso'] = 'tasacion_ambientes'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "🔢 *¿Cuántos ambientes tiene?* (ej: 3)"
+    except:
+        return "⚠️ Por favor, ingresá un número válido para los metros cuadrados."
+
+def manejar_tasacion_ambientes(text, estado_usuario, user_id):
+    """Guarda ambientes e inicia la carga de estado"""
+    try:
+        amb_str = "".join(filter(str.isdigit, text))
+        ambientes = int(amb_str) if amb_str else 0
+        
+        if 'datos_tasacion' not in estado_usuario['data']:
+            estado_usuario['data']['datos_tasacion'] = {}
+            
+        estado_usuario['data']['datos_tasacion']['ambientes'] = ambientes
+        estado_usuario['paso'] = 'tasacion_estado'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        return """🏗️ *¿En qué estado se encuentra la propiedad?*
+
+1️⃣ Excelente / A estrenar
+2️⃣ Muy bueno
+3️⃣ Bueno
+4️⃣ Regular
+5️⃣ A refaccionar
+
+9️⃣ Volver al menú
+0️⃣ Salir"""
+    except:
+        return "⚠️ Por favor, ingresá un número para los ambientes."
+
+def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
+    """Finaliza la recolección de datos y muestra la tasación"""
+    estados = {
+        "1": "Excelente",
+        "2": "Muy bueno",
+        "3": "Bueno",
+        "4": "Regular",
+        "5": "A refaccionar"
+    }
+    
+    if text_lower in estados:
+        if 'datos_tasacion' not in estado_usuario['data']:
+             return "⚠️ Ocurrió un error en el flujo. Por favor, enviá 'Hola' para comenzar de nuevo."
+             
+        estado_usuario['data']['datos_tasacion']['estado'] = estados[text_lower]
+        datos = estado_usuario['data']['datos_tasacion']
+        
+        # 1. Obtener tasación
+        tasacion = obtener_tasacion_ia(
+            datos['barrio'], 
+            datos['tipo'], 
+            datos['m2'], 
+            datos['ambientes'], 
+            datos['estado']
+        )
+        
+        # 2. Registrar Lead
+        detalles = f"Tasación solicitada: {datos['tipo']} en {datos['barrio']}, {datos['m2']}m2, {datos['ambientes']} amb, estado {datos['estado']}."
+        if tasacion:
+            detalles += f" Resultado IA: {tasacion['valor_estimado']:,.0f} {tasacion['moneda']}"
+            
+        registrar_lead(user_id, "TASACION_VIRTUAL", "tasacion", detalles)
+        notificar_agente(f"📈 *NUEVO LEAD DE TASACIÓN*\n📞 Tel: +{user_id}\n📝 {detalles}")
+        
+        # 3. Respuesta al usuario
+        if tasacion:
+            mensaje = f"""📊 *RESULTADO DE TU TASACIÓN VIRTUAL*
+
+Basado en el análisis de mercado actual en *{datos['barrio']}*:
+
+🏠 *Propiedad:* {datos['tipo']}
+📏 *Superficie:* {datos['m2']} m²
+💰 *Valor estimado:* USD ${tasacion['valor_estimado']:,.0f}
+📈 *Precio promedio m²:* USD ${tasacion['precio_m2']:,.0f}
+
+⚠️ *Nota:* Esta es una estimación basada en datos de mercado. Para una tasación profesional y exacta, un asesor debe visitar la propiedad.
+
+¿Te gustaría que un tasador te contacte para una visita formal?
+1️⃣ Sí, quiero una tasación profesional
+2️⃣ No por ahora, gracias
+
+9️⃣ Volver al menú
+0️⃣ Salir"""
+        else:
+            mensaje = f"""✅ *¡Datos recibidos!*
+
+Aún no tenemos suficientes datos comparativos en *{datos['barrio']}* para darte una cifra automática exacta, pero un asesor experto va a analizar tu caso personalmente.
+
+¿Te gustaría que un tasador te contacte para coordinar una visita y darte el valor real?
+1️⃣ Sí, por favor
+2️⃣ No por ahora
+
+9️⃣ Volver al menú
+0️⃣ Salir"""
+            
+        estado_usuario['paso'] = 'tasacion_esperando_contacto'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return mensaje
+    else:
+        return "⚠️ Por favor, elegí una opción válida (1 al 5)."
+
+def manejar_tasacion_contacto(text_lower, estado_usuario, user_id):
+    """Maneja la respuesta final del flujo de tasación"""
+    if text_lower == "1":
+        notificar_agente(f"📞 *SOLICITUD DE TASACIÓN PROFESIONAL*\n📞 Tel: +{user_id}\nEl cliente solicitó contacto humano después de la tasación virtual.")
+        estado_usuario['paso'] = 'menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "✅ ¡Perfecto! Un asesor se pondrá en contacto con vos a la brevedad para coordinar la visita. ¡Gracias por confiar en nosotros! 🏠🗝️"
+    else:
+        estado_usuario['paso'] = 'menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "Entendido. Si necesitás algo más, acá estoy. 😊\n\n9️⃣ Volver al menú"
 
 # ========== MANEJADORES DE SUBMENÚS ==========
 
@@ -2462,7 +2704,8 @@ def send_welcome_flow(user_id):
             "rows": [
                 {"id": "opcion_1", "title": "🏠 En Venta", "description": "Ver inmuebles disponibles para compra"},
                 {"id": "opcion_2", "title": "🔑 En Alquiler", "description": "Ver inmuebles disponibles para alquiler"},
-                {"id": "opcion_7", "title": "🏢 Todos los Inmuebles", "description": "Ver catálogo completo de propiedades"}
+                {"id": "opcion_7", "title": "🏢 Todos los Inmuebles", "description": "Ver catálogo completo de propiedades"},
+                {"id": "opcion_tasacion", "title": "📈 Tasación Virtual", "description": "Valora tu propiedad con nuestra IA"}
             ]
         },
         {
@@ -2823,6 +3066,7 @@ def webhook():
                                     "opcion_5": "5",  # Hablar Asesor
                                     "opcion_6": "6",  # FAQs
                                     "opcion_7": "7",  # Todos los Inmuebles
+                                    "opcion_tasacion": "10", # Tasación
                                     "volver_menu": "9",
                                     "salir_chat": "0"
                                 }
