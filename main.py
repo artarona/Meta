@@ -158,6 +158,94 @@ def serve_ficha_pdf(prop_id):
         log(f"❌ Error sirviendo PDF {prop_id}: {e}", "ERROR")
         return "Error generando el documento", 500
 
+# ========== SERVIDOR DE IMÁGENES PARA CATÁLOGO ==========
+@app.route('/imgs/<path:filename>')
+def serve_image(filename):
+    """Sirve imágenes de la carpeta imgs/ para que Meta las pueda descargar"""
+    return send_from_directory('imgs', filename)
+
+# ========== DATA FEED PARA CATÁLOGO DE META ==========
+@app.route('/api/catalog/feed')
+def catalog_feed():
+    """Genera un archivo CSV compatible con Meta Commerce Manager (Home Listings)"""
+    try:
+        import csv
+        from io import StringIO
+        
+        propiedades = cargar_propiedades_cached()
+        
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        # Encabezados oficiales de Meta para Inmuebles (Home Listings)
+        headers = [
+            'home_listing_id', 'name', 'availability', 'address', 'neighborhood',
+            'city', 'region', 'country', 'price', 'image_link', 'link',
+            'description', 'property_type', 'num_rooms', 'area_size', 'area_unit'
+        ]
+        writer.writerow(headers)
+        
+        for p in propiedades:
+            # Mapeo de campos
+            pid = p.get('id_temporal', '')
+            name = p.get('titulo', 'Sin Titulo')
+            
+            # Disponibilidad
+            op = p.get('operacion', '').lower()
+            availability = 'for_sale' if op == 'venta' else 'for_rent' if op == 'alquiler' else 'for_sale'
+            
+            # Precio (Formato: 100000.00 USD)
+            precio = p.get('precio', 0)
+            moneda = p.get('moneda_precio', 'USD')
+            price_str = f"{precio:.2f} {moneda}"
+            
+            # Imagen (Usar la primera foto si existe)
+            fotos = p.get('fotos', [])
+            image_link = ""
+            if fotos:
+                # Fotos suelen venir como "imgs/nombre.jpg"
+                foto_name = os.path.basename(fotos[0])
+                image_link = f"{BASE_URL}/imgs/{foto_name}"
+            
+            # Link a la ficha (usamos el PDF como destino)
+            link = f"{BASE_URL}/fichas/{pid}"
+            
+            # Ubicación
+            direccion = p.get('direccion_completa', p.get('direccion', 'Capital Federal, Argentina'))
+            barrio = p.get('barrio', 'Buenos Aires')
+            
+            # Tipo de propiedad (Mapeo a valores Meta)
+            tipo_orig = p.get('tipo', '').lower()
+            if 'departam' in tipo_orig: p_type = 'apartment'
+            elif 'casa' in tipo_orig: p_type = 'house'
+            elif 'ph' in tipo_orig: p_type = 'house' # O 'apartment'
+            elif 'terreno' in tipo_orig: p_type = 'land'
+            else: p_type = 'other'
+            
+            writer.writerow([
+                pid,
+                name,
+                availability,
+                direccion,
+                barrio,
+                'Buenos Aires', 'CABA', 'AR', # Valores por defecto para la zona
+                price_str,
+                image_link,
+                link,
+                p.get('descripcion', '')[:1000], # Limitar descripción
+                p_type,
+                p.get('ambientes', 1),
+                p.get('metros_cuadrados', 0),
+                'sq m'
+            ])
+            
+        csv_data = output.getvalue()
+        return csv_data, 200, {'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename=catalog_feed.csv'}
+        
+    except Exception as e:
+        log(f"❌ Error generando Feed de Catálogo: {e}", "ERROR")
+        return "Error interno", 500
+
 
 # ========== GESTIÓN DE ESTADO DE USUARIOS ==========
 estados_usuarios = {}
