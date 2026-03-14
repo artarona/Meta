@@ -22,7 +22,9 @@
     "acepta_mascotas": "Si",
     "aire_acondicionado": "Si",
     "info_multimedia": "Set de 10 fotos de alta calidad, Fotos de exteriores",
-    "documentos": [],
+    "documentos": [
+      "fichas/FICHA_UF000.pdf"
+    ],
     "videos": [],
     "fotos": [
       "imgs/UF000-1.jpeg",
@@ -76,6 +78,7 @@
     "aire_acondicionado": "Sí",
     "info_multimedia": "Set de 7 fotos de alta calidad, Fotos de exteriores",
     "documentos": [
+      "fichas/FICHA_UF001.pdf",
       "imgs/ENTORNO.pdf",
       "imgs/PREFACTIBILIDAD.pdf",
       "imgs/MANZANA.pdf",
@@ -122,7 +125,9 @@
     "acepta_mascotas": "Sí",
     "aire_acondicionado": "Sí",
     "info_multimedia": "Fotos profesionales disponibles",
-    "documentos": [],
+    "documentos": [
+      "fichas/FICHA_UF002.pdf"
+    ],
     "videos": [],
     "fotos": [
       "imgs/UF023-1.jpg",
@@ -161,7 +166,9 @@
     "acepta_mascotas": "Sí",
     "aire_acondicionado": "Sí",
     "info_multimedia": "Fotos panorámicas disponibles",
-    "documentos": [],
+    "documentos": [
+      "fichas/FICHA_UF003.pdf"
+    ],
     "videos": [],
     "fotos": [
       "imgs/OFI-1.jpg",
@@ -178,7 +185,7 @@
       "imgs/OFI-12.jpg",
       "imgs/OFI-13.jpg"
     ],
-       "imagenes_360": [],
+    "imagenes_360": [],
     "fecha_procesamiento": "2025-11-07T10:45:20.789123"
   },
   {
@@ -206,7 +213,9 @@
     "acepta_mascotas": "Sí",
     "aire_acondicionado": "Si",
     "info_multimedia": "Fotos de la propiedad y terraza",
-    "documentos": [],
+    "documentos": [
+      "fichas/FICHA_UF004.pdf"
+    ],
     "videos": [],
     "fotos": [
       "imgs/UF004-1.jpg",
@@ -262,7 +271,9 @@
     "acepta_mascotas": "Sí",
     "aire_acondicionado": "Si",
     "info_multimedia": "Fotos de la propiedad y terraza",
-    "documentos": [],
+    "documentos": [
+      "fichas/FICHA_UF005.pdf"
+    ],
     "videos": [],
     "fotos": [
       "imgs/UF005-1.jpeg",
@@ -276,7 +287,7 @@
       "imgs/UF005-9.jpeg",
       "imgs/UF005-10.jpeg",
       "imgs/UF005-11.jpeg",
-      "imgs/UF005-12.jpeg",  
+      "imgs/UF005-12.jpeg",
       "imgs/UF005-13.jpeg",
       "imgs/UF005-14.jpeg",
       "imgs/UF005-15.jpeg",
@@ -318,7 +329,9 @@
     "acepta_mascotas": "Sí",
     "aire_acondicionado": "No",
     "info_multimedia": "Fotos de la propiedad y terraza",
-    "documentos": [],
+    "documentos": [
+      "fichas/FICHA_UF006.pdf"
+    ],
     "videos": [],
     "fotos": [
       "imgs/UF006-0.jpg",
@@ -335,12 +348,12 @@
       "imgs/UF006-11.JPG",
       "imgs/UF006-12.JPG",
       "imgs/UF006-13.JPG",
-      "imgs/UF006-14.JPG", 
+      "imgs/UF006-14.JPG",
       "imgs/UF006-15.JPG",
       "imgs/UF006-16.JPG",
       "imgs/UF006-17.JPG",
       "imgs/UF006-18.JPG",
-      "imgs/UF006-19.JPG", 
+      "imgs/UF006-19.JPG",
       "imgs/UF006-20.JPG",
       "imgs/UF006-21.JPG"
     ],
@@ -381,7 +394,9 @@
     "acepta_mascotas": "Sí",
     "aire_acondicionado": "No",
     "info_multimedia": "Fotos de la propiedad y terraza",
-    "documentos": [],
+    "documentos": [
+      "fichas/FICHA_UF007.pdf"
+    ],
     "videos": [],
     "fotos": [
       "INSTITUCIONALES/INSTITUCIONAL 1.png",

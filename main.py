@@ -15,7 +15,7 @@ import pandas as pd
 from io import BytesIO
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
-from pdf_generator import generar_pdf_propiedad
+# from pdf_generator import generar_pdf_propiedad
 
 
 # ========== CONFIGURACIÓN GOOGLE CALENDAR ==========
@@ -137,26 +137,21 @@ def save_json_atomic(filepath, data):
 # ========== ENDPOINT PARA FICHAS PDF ==========
 @app.route('/fichas/<prop_id>')
 def serve_ficha_pdf(prop_id):
-    """Genera y sirve la ficha técnica en PDF de una propiedad"""
+    """Sirve la ficha técnica en PDF de una propiedad (debe estar pre-generada)"""
     try:
-        refresh = request.args.get('refresh') == '1'
         # Limpiar el ID por si viene con .pdf
         prop_id = prop_id.replace('.pdf', '')
         filepath = os.path.join(FICHAS_DIR, f"{prop_id}.pdf")
         
-        # Si no existe o se solicita refrescar, generar el PDF
-        if not os.path.exists(filepath) or refresh:
-            propiedades = cargar_propiedades_cached()
-            propiedad = next((p for p in propiedades if p.get('id_temporal') == prop_id), None)
-            if not propiedad:
-                return "Propiedad no encontrada", 404
-            
-            generar_pdf_propiedad(propiedad, filepath)
+        # Verificar si existe el archivo
+        if not os.path.exists(filepath):
+            log(f"⚠️ Ficha PDF no encontrada para: {prop_id}", "WARNING")
+            return f"La ficha técnica para {prop_id} no está disponible actualmente. Un asesor puede enviártela manualmente.", 404
         
         return send_file(filepath, mimetype='application/pdf')
     except Exception as e:
         log(f"❌ Error sirviendo PDF {prop_id}: {e}", "ERROR")
-        return "Error generando el documento", 500
+        return "Error al acceder al documento", 500
 
 # ========== SERVIDOR DE IMÁGENES PARA CATÁLOGO ==========
 @app.route('/imgs/<path:filename>')
@@ -1003,7 +998,7 @@ def formatear_detalle_propiedad(propiedad):
     # Agregar link a Ficha PDF
     prop_id = propiedad.get('id_temporal')
     if prop_id:
-        detalle += f"📄 *FICHA TÉCNICA PDF:*\n{BASE_URL}/fichas/{prop_id}\n\n"
+        detalle += f"📄 *FICHA TÉCNICA (PDF):*\n{BASE_URL}/fichas/{prop_id}\n\n"
         
     detalle += "────────────────────\n"
     detalle += "📷 *FOTOS* (F) | 📄 *PDF* (P) | 8️⃣ *ME INTERESA*\n"
@@ -1092,7 +1087,7 @@ def get_bot_response(text, user_id):
             if indice and 1 <= indice <= len(propiedades):
                 propiedad = propiedades[indice - 1]
                 prop_id = propiedad.get('id_temporal')
-                return f"📄 *Aquí tenés la ficha técnica de {prop_id}:*\n{BASE_URL}/fichas/{prop_id}"
+                return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
             else:
                 return "⚠️ Por favor, primero selecciona una propiedad del listado para obtener el PDF."
         
