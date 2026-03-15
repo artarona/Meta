@@ -87,7 +87,7 @@ VERIFY_TOKEN = "mi_token_secreto_123"
 # 🔥 CAMBIO IMPORTANTE: Usar variable de entorno para el token
 
 
-ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQ7XtrhDO5dk7kfkQWXCNNX08M40gxd5X45ZBSJBCznLKSwZAUCJMWRK4IY8PxuRZBVQjzlyVBqIn2iZAsRusPzOd1xms7qB4J1DqJh87f7RZCJ86uXM0JhXU47rAKAavOUYq86uuUYroscFZCmIiHhI7ifZByiT2ff317uWG7asS82PWeQt0RodRp4zZBYXdeTFhftRCbZC1uspIHgCJA0zjJ8ZBF8obsK0XxUDZC1HGCJZAzxuNGZCZBiWj3Ykh3smX7hU3AZCMHEitbBqJZCGcEMP54UPYtwZDZD")
+ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQZB5EHtUtvR0AAmaXqwPZCqIZASP77HgZCaqSRaxHbY931aTC9EZBngygNhorMdCN4BCYJYclYkRH5QvZBPDCJ7GxPGG3tEuKVbGIO32Vy8ZCZAL8ATpYfGOCo3rHU36Xyxc0C73wSr2dbyfG09eDgIShr20hpwIcNw71yhBwbiiu1V3bWDXZBCvhqxaUdGeZC7g1JeLoUk7SNODrfEOCkcI8hXOtymeFspMhvvZAilamtAnYZCjNiVPvzE3KoVGcsMai9WJfCKHN0DxtZChECZBTk3A5gtgZDZD")
 
 
 
@@ -1302,9 +1302,44 @@ Sí, evaluamos permutas caso por caso. Escribinos para tasación.
 
 # ========== MANEJADORES DE TASACIÓN ==========
 
-def obtener_tasacion_local(barrio, tipo):
-    """Fallback local: busca promedios en propiedades.json"""
+def obtener_tasacion_local(barrio, tipo, estado="Bueno"):
+    """Fallback local: usa promedios estadísticos de market_valuation_map.json"""
     try:
+        # 1. Intentar cargar el mapa de valoración estadística (Consolidado)
+        map_path = os.path.join(os.path.dirname(__file__), "market_valuation_map.json")
+        
+        # Si no está en METAPATH, intentar buscarlo en la carpeta del backend si es local
+        if not os.path.exists(map_path):
+            backend_map = os.path.join(os.path.dirname(os.path.dirname(__file__)), "PAGINA WEB-IA", "BACKEND", "market_valuation_map.json")
+            if os.path.exists(backend_map):
+                map_path = backend_map
+
+        if os.path.exists(map_path):
+            with open(map_path, 'r', encoding='utf-8') as f:
+                vmap = json.load(f)
+                
+            barrio_key = barrio.lower().strip()
+            tipo_key = tipo.lower().strip()
+            
+            if barrio_key in vmap:
+                # Buscar promedio para el tipo específico, o promedio general del barrio si no existe el tipo
+                stats = vmap[barrio_key].get(tipo_key)
+                if not stats and vmap[barrio_key]:
+                    # Fallback al primer tipo disponible en ese barrio
+                    primer_tipo = next(iter(vmap[barrio_key]))
+                    stats = vmap[barrio_key][primer_tipo]
+                
+                if stats:
+                    avg_m2 = stats['avg_m2']
+                    return {
+                        "precio_m2": avg_m2,
+                        "moneda": "USD",
+                        "is_fallback": True,
+                        "fuentes": ["Estadísticas de Mercado (Consolidado)"],
+                        "muestra": stats.get('muestra', 0)
+                    }
+
+        # 2. Fallback Secundario: buscar en propiedades.json (raw data)
         path = os.path.join(os.path.dirname(__file__), "propiedades.json")
         if not os.path.exists(path):
             return None
@@ -1316,9 +1351,9 @@ def obtener_tasacion_local(barrio, tipo):
         precios_barrio_solo = []
         
         for p in propiedades:
-            barrio_match = p.get('barrio', '').lower() == barrio.lower()
+            barrio_match = p.get('barrio', '').lower().strip() == barrio.lower().strip()
             operacion_match = p.get('operacion', '').lower() == 'venta'
-            tipo_match = p.get('tipo', '').lower() == tipo.lower()
+            tipo_match = p.get('tipo', '').lower().strip() == tipo.lower().strip()
             
             if barrio_match and operacion_match:
                 m2 = float(p.get('metros_cuadrados', 0))
@@ -1329,20 +1364,16 @@ def obtener_tasacion_local(barrio, tipo):
                     if tipo_match:
                         precios_m2.append(val_m2)
         
-        # Priorizar match exacto de tipo, sino usar promedio de barrio
         final_list = precios_m2 if precios_m2 else precios_barrio_solo
-        
-        if not final_list:
-            return None
+        if not final_list: return None
             
         avg_m2 = sum(final_list) / len(final_list)
         return {
-            "valor_estimado": None, # Se calcula en base a m2 del request
             "precio_m2": avg_m2,
             "moneda": "USD",
             "is_fallback": True,
-            "fuentes": ["Base de datos propia"],
-            "muestra": len(precios_m2)
+            "fuentes": ["Base de datos local"],
+            "muestra": len(final_list)
         }
     except Exception as e:
         log(f"⚠️ Error en tasación local: {e}")
@@ -1381,18 +1412,39 @@ def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado):
             log(f"📡 Backend IA no alcanzable, usando fallback local: {conn_err}")
 
         # 2. Fallback local si el backend falla o no tiene datos específicos
-        local_data = obtener_tasacion_local(barrio, tipo)
-        if local_data:
-            valor = local_data['precio_m2'] * float(m2)
-            # Aplicar ajustes básicos de estado
-            ajustes = {"Excelente": 1.1, "Muy bueno": 1.05, "Bueno": 1.0, "Regular": 0.85, "A refaccionar": 0.75}
-            valor = valor * ajustes.get(estado, 1.0)
-            
-            local_data['valor_estimado'] = valor
-            local_data['fuente'] = "Local Database Fallback"
-            return local_data
-
-        return None
+        local_data = obtener_tasacion_local(barrio, tipo, estado)
+        if not local_data:
+            # Fallback final: Promedio referencial CABA si no hay NADA de info
+            local_data = {
+                "precio_m2": 2150.0,
+                "moneda": "USD",
+                "is_fallback": True,
+                "fuentes": ["Referencia General Gral. CABA"],
+                "muestra": 0
+            }
+        
+        # Calcular valor final basado en promedio obtenido (IA o Local)
+        # Aplicar ajustes de estado (Refined factors)
+        ajustes = {
+            "Excelente": 1.10, 
+            "Muy bueno": 1.05, 
+            "Bueno": 1.00, 
+            "Regular": 0.85, 
+            "A refaccionar": 0.70
+        }
+        factor = ajustes.get(estado, 1.0)
+        
+        valor = local_data['precio_m2'] * float(m2) * factor
+        
+        return {
+            "valor_estimado": round(valor, -2),
+            "precio_m2": local_data['precio_m2'],
+            "moneda": local_data.get('moneda', 'USD'),
+            "is_fallback": True,
+            "fuentes": local_data.get("fuentes", []),
+            "muestra": local_data.get("muestra", 0),
+            "fuente": local_data.get("fuente", "Statistical Fallback")
+        }
     except Exception as e:
         log(f"⚠️ Error crítico en obtención de tasación: {e}")
         return None
