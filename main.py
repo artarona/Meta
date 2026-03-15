@@ -1161,6 +1161,9 @@ def get_bot_response(text, user_id):
         elif paso == 'esperando_confirmacion_recordatorio':
             return manejar_confirmacion_recordatorio(text, estado_usuario, user_id)
         
+        elif paso == 'tasacion_operacion':
+            return manejar_tasacion_operacion(text_lower, estado_usuario, user_id)
+        
         elif paso == 'tasacion_barrio':
             return manejar_tasacion_barrio(text, estado_usuario, user_id)
             
@@ -1302,10 +1305,10 @@ Sí, evaluamos permutas caso por caso. Escribinos para tasación.
 
 # ========== MANEJADORES DE TASACIÓN ==========
 
-def obtener_tasacion_local(barrio, tipo, estado="Bueno"):
-    """Fallback local: usa promedios estadísticos de market_valuation_map.json"""
+def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
+    """Busca valoración en el mapa estadístico o BD local (Venta/Alquiler)"""
     try:
-        # 1. Intentar cargar el mapa de valoración estadística (Consolidado)
+        # 1. Intentar con el mapa de valoración consolidado (Estadísticas 2026)
         map_path = os.path.join(os.path.dirname(__file__), "market_valuation_map.json")
         
         # Si no está en METAPATH, intentar buscarlo en la carpeta del backend si es local
@@ -1320,28 +1323,35 @@ def obtener_tasacion_local(barrio, tipo, estado="Bueno"):
                 vmap = json.load(f)
                 
             barrio_key = barrio.lower().strip()
+            op_key = operacion.lower().strip()
             tipo_key = tipo.lower().strip()
-            log(f"🔎 Buscando en mapa: '{barrio_key}' - '{tipo_key}'")
+            log(f"🔎 Buscando en mapa: '{barrio_key}' - '{op_key}' - '{tipo_key}'")
             
             if barrio_key in vmap:
-                # Buscar promedio para el tipo específico, o promedio general del barrio si no existe el tipo
-                stats = vmap[barrio_key].get(tipo_key)
-                if not stats and vmap[barrio_key]:
-                    # Fallback al primer tipo disponible en ese barrio
-                    primer_tipo = next(iter(vmap[barrio_key]))
-                    stats = vmap[barrio_key][primer_tipo]
-                    log(f"⚠️ Tipo '{tipo_key}' no hallado, usamos '{primer_tipo}'")
+                # Acceder a la operación (venta/alquiler)
+                op_data = vmap[barrio_key].get(op_key)
+                if not op_data and op_key == 'venta': # Compatibilidad con mapas viejos sin 'venta' key
+                    op_data = vmap[barrio_key] 
                 
-                if stats:
-                    avg_m2 = stats['avg_m2']
-                    log(f"✅ Éxito: Promedio hallado {avg_m2} USD/m2")
-                    return {
-                        "precio_m2": avg_m2,
-                        "moneda": "USD",
-                        "is_fallback": False, # CAMBIO: El mapa NO es fallback genérico, es data específica
-                        "fuentes": ["Estadísticas de Mercado (Consolidado)"],
-                        "muestra": stats.get('muestra', 0)
-                    }
+                if op_data:
+                    stats = op_data.get(tipo_key)
+                    if not stats and op_data:
+                        # Fallback al primer tipo disponible en ese barrio/operacion
+                        primer_tipo = next(iter(op_data))
+                        stats = op_data[primer_tipo]
+                        log(f"⚠️ Tipo '{tipo_key}' no hallado, usamos '{primer_tipo}'")
+                    
+                    if stats:
+                        avg_m2 = stats['avg_m2']
+                        moneda = stats.get('currency', 'USD' if op_key == 'venta' else 'ARS')
+                        log(f"✅ Éxito: Promedio hallado {avg_m2} {moneda}/m2")
+                        return {
+                            "precio_m2": avg_m2,
+                            "moneda": moneda,
+                            "is_fallback": False,
+                            "fuentes": ["Estadísticas de Mercado (Consolidado)"],
+                            "muestra": stats.get('muestra', 0)
+                        }
             else:
                 log(f"❌ Barrio '{barrio_key}' no está en el mapa consolidado.")
         else:
@@ -1356,17 +1366,21 @@ def obtener_tasacion_local(barrio, tipo, estado="Bueno"):
                 if resp.status_code == 200:
                     vmap = resp.json()
                     barrio_key = barrio.lower().strip()
+                    op_key = operacion.lower().strip()
                     tipo_key = tipo.lower().strip()
+                    
                     if barrio_key in vmap:
-                        stats = vmap[barrio_key].get(tipo_key) or (next(iter(vmap[barrio_key].values())) if vmap[barrio_key] else None)
-                        if stats:
-                            return {
-                                "precio_m2": stats['avg_m2'],
-                                "moneda": "USD",
-                                "is_fallback": True,
-                                "fuentes": ["Estadísticas Remotas (GitHub Pages)"],
-                                "muestra": stats.get('muestra', 0)
-                            }
+                        op_data = vmap[barrio_key].get(op_key) or (vmap[barrio_key] if op_key == 'venta' else None)
+                        if op_data:
+                            stats = op_data.get(tipo_key) or (next(iter(op_data.values())) if op_data else None)
+                            if stats:
+                                return {
+                                    "precio_m2": stats['avg_m2'],
+                                    "moneda": stats.get('currency', 'USD' if op_key == 'venta' else 'ARS'),
+                                    "is_fallback": False,
+                                    "fuentes": ["Estadísticas Remotas (GitHub Pages)"],
+                                    "muestra": stats.get('muestra', 0)
+                                }
             except Exception as e:
                 log(f"⚠️ Error cargando mapa remoto: {str(e)}")
 
@@ -1381,16 +1395,19 @@ def obtener_tasacion_local(barrio, tipo, estado="Bueno"):
         precios_m2 = []
         precios_barrio_solo = []
         
+        op_key = operacion.lower().strip() # Ensure op_key is defined for this section
+        
         for p in propiedades:
             barrio_match = p.get('barrio', '').lower().strip() == barrio.lower().strip()
-            operacion_match = p.get('operacion', '').lower() == 'venta'
+            operacion_match = p.get('operacion', '').lower() == op_key
             tipo_match = p.get('tipo', '').lower().strip() == tipo.lower().strip()
             
             if barrio_match and operacion_match:
                 m2 = float(p.get('metros_cuadrados', 0))
                 precio = float(p.get('precio', 0))
                 if m2 > 5 and precio > 0:
-                    val_m2 = (precio / 1050) / m2 if p.get('moneda_precio') == 'ARS' else precio / m2
+                    # Normalización simple para pesos
+                    val_m2 = (precio / 1050) / m2 if p.get('moneda_precio') == 'ARS' and op_key == 'venta' else precio / m2
                     precios_barrio_solo.append(val_m2)
                     if tipo_match:
                         precios_m2.append(val_m2)
@@ -1401,7 +1418,7 @@ def obtener_tasacion_local(barrio, tipo, estado="Bueno"):
         avg_m2 = sum(final_list) / len(final_list)
         return {
             "precio_m2": avg_m2,
-            "moneda": "USD",
+            "moneda": "USD" if op_key == 'venta' else "ARS",
             "is_fallback": True,
             "fuentes": ["Base de datos local"],
             "muestra": len(final_list)
@@ -1410,7 +1427,7 @@ def obtener_tasacion_local(barrio, tipo, estado="Bueno"):
         log(f"⚠️ Error en tasación local: {e}")
         return None
 
-def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado):
+def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado, operacion='venta'):
     """Obtiene una valoración estimada usando el backend de IA con fallback local"""
     try:
         # 1. Intentar con el backend de IA
@@ -1420,7 +1437,8 @@ def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado):
             "tipo": tipo,
             "m2": float(m2),
             "ambientes": int(ambientes),
-            "estado": estado
+            "estado": estado,
+            "operacion": operacion
         }
         log(f"🧠 Solicitando valoración IA para {tipo} en {barrio} ({m2}m2)...")
         
@@ -1443,14 +1461,14 @@ def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado):
             log(f"📡 Backend IA no alcanzable, usando fallback local: {conn_err}")
 
         # 2. Fallback local si el backend falla o no tiene datos específicos
-        local_data = obtener_tasacion_local(barrio, tipo, estado)
+        local_data = obtener_tasacion_local(barrio, tipo, estado, operacion)
         if not local_data:
             # Fallback final: Promedio referencial CABA si no hay NADA de info
             local_data = {
-                "precio_m2": 2150.0,
-                "moneda": "USD",
+                "precio_m2": 2150.0 if operacion == 'venta' else 8500.0,
+                "moneda": "USD" if operacion == 'venta' else "ARS",
                 "is_fallback": True,
-                "fuentes": ["Referencia General Gral. CABA"],
+                "fuentes": [f"Promedio General CABA ({operacion.upper()})"],
                 "muestra": 0
             }
         
@@ -1487,9 +1505,31 @@ def manejar_menu_tasacion(text_lower, estado_usuario, user_id):
         estado_usuario['data'] = {}
         
     estado_usuario['data']['datos_tasacion'] = {}
-    estado_usuario['paso'] = 'tasacion_barrio'
+    estado_usuario['paso'] = 'tasacion_operacion'
     actualizar_estado_usuario(user_id, estado_usuario)
-    return "📈 *TASACIÓN VIRTUAL*\n\nPara comenzar, por favor decime: *¿En qué barrio se encuentra la propiedad?* (ej: Palermo, Belgrano, Tigre...)"
+    return """📊 *TASACIÓN VIRTUAL*
+
+¿Qué tipo de operación te interesa tasar?
+
+1️⃣ Venta 🏠
+2️⃣ Alquiler 🗝️
+
+9️⃣ Volver al menú
+0️⃣ Salir"""
+
+def manejar_tasacion_operacion(text_lower, estado_usuario, user_id):
+    """Guarda la operación e inicia la carga del barrio"""
+    ops = {"1": "venta", "2": "alquiler"}
+    if text_lower in ops:
+        if 'datos_tasacion' not in estado_usuario['data']:
+            estado_usuario['data']['datos_tasacion'] = {}
+            
+        estado_usuario['data']['datos_tasacion']['operacion'] = ops[text_lower]
+        estado_usuario['paso'] = 'tasacion_barrio'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "📍 *¿En qué barrio se encuentra la propiedad?* (ej: Palermo, Belgrano, Tigre...)"
+    else:
+        return "⚠️ Por favor, elegí 1 para Venta o 2 para Alquiler."
 
 def manejar_tasacion_barrio(text, estado_usuario, user_id):
     """Guarda el barrio e inicia la selección de tipo"""
@@ -1597,7 +1637,8 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
             datos['tipo'], 
             datos['m2'], 
             datos['ambientes'], 
-            datos['estado']
+            datos['estado'],
+            datos.get('operacion', 'venta')
         )
         
         # 2. Registrar Lead
