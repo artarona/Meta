@@ -21,6 +21,15 @@
       "muestra": 189,
       "last_update": "2026-03-14 21:48",
       "source": "scraping.json"
+    },
+    "alquiler": {
+      "departamento": {
+        "avg_m2": 13777.58,
+        "muestra": 159,
+        "last_update": "2026-03-14 22:33",
+        "source": "scraping.json",
+        "currency": "ARS"
+      }
     }
   },
   "parque avellaneda": {
