@@ -1,0 +1,42 @@
+{
+  "palermo": {
+    "departamento": {
+      "avg_m2": 3664.87,
+      "muestra": 185,
+      "last_update": "2026-03-14 21:36",
+      "source": "scraping.json"
+    }
+  },
+  "balvanera": {
+    "departamento": {
+      "avg_m2": 1735.85,
+      "muestra": 189,
+      "last_update": "2026-03-14 21:46",
+      "source": "scraping.json"
+    }
+  },
+  "microcentro": {
+    "departamento": {
+      "avg_m2": 1605.86,
+      "muestra": 189,
+      "last_update": "2026-03-14 21:48",
+      "source": "scraping.json"
+    }
+  },
+  "parque avellaneda": {
+    "departamento": {
+      "avg_m2": 1500.06,
+      "muestra": 189,
+      "last_update": "2026-03-14 21:51",
+      "source": "scraping.json"
+    }
+  },
+  "villa lugano": {
+    "departamento": {
+      "avg_m2": 1372.97,
+      "muestra": 189,
+      "last_update": "2026-03-14 21:52",
+      "source": "scraping.json"
+    }
+  }
+}
