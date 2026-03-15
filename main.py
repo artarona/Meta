@@ -1315,11 +1315,13 @@ def obtener_tasacion_local(barrio, tipo, estado="Bueno"):
                 map_path = backend_map
 
         if os.path.exists(map_path):
+            log(f"📂 Archivo de mapa encontrado en: {map_path}")
             with open(map_path, 'r', encoding='utf-8') as f:
                 vmap = json.load(f)
                 
             barrio_key = barrio.lower().strip()
             tipo_key = tipo.lower().strip()
+            log(f"🔎 Buscando en mapa: '{barrio_key}' - '{tipo_key}'")
             
             if barrio_key in vmap:
                 # Buscar promedio para el tipo específico, o promedio general del barrio si no existe el tipo
@@ -1328,16 +1330,45 @@ def obtener_tasacion_local(barrio, tipo, estado="Bueno"):
                     # Fallback al primer tipo disponible en ese barrio
                     primer_tipo = next(iter(vmap[barrio_key]))
                     stats = vmap[barrio_key][primer_tipo]
+                    log(f"⚠️ Tipo '{tipo_key}' no hallado, usamos '{primer_tipo}'")
                 
                 if stats:
                     avg_m2 = stats['avg_m2']
+                    log(f"✅ Éxito: Promedio hallado {avg_m2} USD/m2")
                     return {
                         "precio_m2": avg_m2,
                         "moneda": "USD",
-                        "is_fallback": True,
+                        "is_fallback": False, # CAMBIO: El mapa NO es fallback genérico, es data específica
                         "fuentes": ["Estadísticas de Mercado (Consolidado)"],
                         "muestra": stats.get('muestra', 0)
                     }
+            else:
+                log(f"❌ Barrio '{barrio_key}' no está en el mapa consolidado.")
+        else:
+            log(f"🚫 No se halló el archivo market_valuation_map.json en ninguna ruta local.")
+        
+        # 1.5 Intentar cargar desde URL (GitHub Pages o similar)
+        remote_url = os.environ.get("VALUATION_MAP_URL")
+        if remote_url:
+            try:
+                log(f"🌐 Intentando buscar mapa estadístico en URL remota: {remote_url}")
+                resp = requests.get(remote_url, timeout=5)
+                if resp.status_code == 200:
+                    vmap = resp.json()
+                    barrio_key = barrio.lower().strip()
+                    tipo_key = tipo.lower().strip()
+                    if barrio_key in vmap:
+                        stats = vmap[barrio_key].get(tipo_key) or (next(iter(vmap[barrio_key].values())) if vmap[barrio_key] else None)
+                        if stats:
+                            return {
+                                "precio_m2": stats['avg_m2'],
+                                "moneda": "USD",
+                                "is_fallback": True,
+                                "fuentes": ["Estadísticas Remotas (GitHub Pages)"],
+                                "muestra": stats.get('muestra', 0)
+                            }
+            except Exception as e:
+                log(f"⚠️ Error cargando mapa remoto: {str(e)}")
 
         # 2. Fallback Secundario: buscar en propiedades.json (raw data)
         path = os.path.join(os.path.dirname(__file__), "propiedades.json")
@@ -1440,7 +1471,7 @@ def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado):
             "valor_estimado": round(valor, -2),
             "precio_m2": local_data['precio_m2'],
             "moneda": local_data.get('moneda', 'USD'),
-            "is_fallback": True,
+            "is_fallback": local_data.get("is_fallback", True),
             "fuentes": local_data.get("fuentes", []),
             "muestra": local_data.get("muestra", 0),
             "fuente": local_data.get("fuente", "Statistical Fallback")
@@ -1579,9 +1610,9 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
         
         # 3. Respuesta al usuario
         if tasacion:
-            intro_mercado = f"Basado en el análisis de mercado actual en *{datos['barrio']}*:"
-            if tasacion.get("is_fallback"):
-                intro_mercado = "Basado en el promedio general del mercado inmobiliario actual (ya que aún estamos recolectando datos específicos de tu zona):"
+            intro_mercado = f"Basado en el análisis estadístico de mercado para *{datos['barrio']}*:"
+            if tasacion.get("is_fallback") and tasacion.get("muestra", 0) <= 1:
+                intro_mercado = "Basado en el promedio general del mercado inmobiliario (estamos recolectando más datos específicos de tu zona):"
                 
             # 4. Info de Fuentes
             fuentes_str = ", ".join(tasacion.get("fuentes", ["Mercado Local"]))
