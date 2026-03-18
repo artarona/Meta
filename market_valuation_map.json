@@ -51,7 +51,18 @@
       "departamento": {
         "avg_m2": 1439.06,
         "muestra": 189,
-        "last_update": "2026-03-17 22:56",
+        "last_update": "2026-03-17 23:16",
+        "source": "scraping.json",
+        "currency": "USD"
+      }
+    }
+  },
+  "once": {
+    "venta": {
+      "departamento": {
+        "avg_m2": 1742.16,
+        "muestra": 189,
+        "last_update": "2026-03-17 23:26",
         "source": "scraping.json",
         "currency": "USD"
       }
