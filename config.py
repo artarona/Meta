@@ -21,6 +21,7 @@ BASE_URL_AI = os.environ.get("BASE_URL_AI", "http://localhost:8001")
 LEADS_FILE = "leads.json"
 ADMIN_ACCESS_KEY = os.getenv('ADMIN_KEY', 'dante2026')
 CITAS_FILE = "citas.json"
+PROPIEDADES_FILE = "propiedades.json"
 HORARIOS_FILE = "dias-horarios-visitas.json"
 FICHAS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fichas")
 os.makedirs(FICHAS_DIR, exist_ok=True)

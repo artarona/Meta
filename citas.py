@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 import json
+import os
 from config import *
 from database import *
 from utils import log, analizar_hora, analizar_fecha

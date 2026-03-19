@@ -4,6 +4,8 @@ from whatsapp_api import *
 from citas import *
 from config import *
 import time
+import os
+import json
 from datetime import datetime
 
 def manejar_menu_principal(text_lower, estado_usuario, user_id):

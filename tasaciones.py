@@ -4,6 +4,7 @@ from database import *
 from whatsapp_api import *
 import json
 import requests
+import os
 
 def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
     """Busca valoración en el mapa estadístico o BD local (Venta/Alquiler)"""
