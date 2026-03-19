@@ -2,9 +2,9 @@ import requests
 import json
 import time
 from config import *
-from utils import log
+from utils import log, normalizar_numero_argentina
 from io import BytesIO
-from database import registrar_lead
+from database import registrar_lead, cargar_propiedades_cached
 
 processed_message_ids = set()
 
@@ -308,3 +308,41 @@ def send_welcome_flow(user_id):
     )
 
 
+
+
+def check_token_validity():
+    """Verifica si el token de acceso es válido"""
+    try:
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}?fields=verified_name"
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+
+        response = requests.get(url, headers=headers, timeout=10)
+
+        if response.status_code == 200:
+            data = response.json()
+            log(f"✅ Token válido. Verified name: {data.get('verified_name', 'N/A')}")
+            return True, data
+
+        else:
+            error_data = response.json() if response.content else {}
+            log(f"❌ Token inválido o sin permisos. Status {response.status_code}")
+            log(f"Detalles: {error_data}")
+            return False, error_data
+
+    except Exception as e:
+        log(f"🔥 Error verificando token: {e}")
+        return False, {"error": str(e)}
+
+
+def notificar_agente(mensaje):
+    """Envía una notificación al número de Dante (ADMIN_NUMBER)"""
+    log(f"📢 Preparando notificación para el agente ({ADMIN_NUMBER}): {mensaje[:50]}...")
+    resultado = send_whatsapp_message(ADMIN_NUMBER, f"🔔 *ALERTA DANTE-INSIGHTS*\n{mensaje}")
+    if resultado.get("status") == "success":
+        log(f"✅ Notificación enviada al agente: {resultado.get('message_id')}")
+    else:
+        log(f"❌ Error notificando al agente: {resultado.get('error_message')}", "ERROR")
+    return resultado

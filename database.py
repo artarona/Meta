@@ -411,6 +411,7 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
 
 
 def registrar_lead(user_id, propiedad_id, accion, detalle=""):
+    from whatsapp_api import notificar_agente
     """Registra una interacción de lead en archivo JSON y PostgreSQL - VERSIÓN FIX"""
     try:
         log(f"📝 INICIANDO registrar_lead: {user_id}, {propiedad_id}, {accion}")
