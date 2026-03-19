@@ -66,6 +66,15 @@
         "source": "scraping.json",
         "currency": "USD"
       }
+    },
+    "alquiler": {
+      "departamento": {
+        "avg_m2": 13993.59,
+        "muestra": 148,
+        "last_update": "2026-03-19 19:34",
+        "source": "scraping.json",
+        "currency": "ARS"
+      }
     }
   }
 }
