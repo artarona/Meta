@@ -1,6 +1,7 @@
 from utils import *
 from database import *
 from whatsapp_api import *
+from tasaciones import *
 from citas import *
 from config import *
 import time
