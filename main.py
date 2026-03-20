@@ -58,7 +58,7 @@ BASE_URL = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")
 BASE_URL_AI = os.environ.get("BASE_URL_AI", "http://localhost:8001")
 LEADS_FILE = "leads.json"
 # ADMIN_ACCESS_KEY = "dante2026"
-ADMIN_ACCESS_KEY = os.getenv('ADMIN_KEY', 'dante2026')
+ADMIN_ACCESS_KEY = os.getenv('ADMIN_KEY', 'dante_admin_2024')
 CITAS_FILE = "citas.json"
 HORARIOS_FILE = "dias-horarios-visitas.json"
 FICHAS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fichas")
@@ -2441,17 +2441,43 @@ def api_propiedades():
                     "id": p.get("id_temporal"),
                     "titulo": p.get("titulo"),
                     "direccion": p.get("direccion"),
+                    "barrio": p.get("barrio"),
                     "tipo": p.get("tipo"),
-                    "operacion": p.get("operacion")
+                    "operacion": p.get("operacion"),
+                    "precio": p.get("precio"),
+                    "moneda": p.get("moneda_precio"),
+                    "m2": p.get("metros_cuadrados"),
+                    "ambientes": p.get("ambientes")
                 })
             
             return jsonify(propiedades_simplificadas)
         else:
             return jsonify([])
             
-    except Exception as e:
-        log(f"❌ Error en api_propiedades: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
+
+@app.route("/send-message", methods=["POST"])
+def api_send_manual_message_main():
+    """Endpoint para enviar mensajes manuales vía WhatsApp"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    data = request.json
+    if not data or 'to' not in data or 'message' not in data:
+        return jsonify({"error": "Datos incompletos"}), 400
+    
+    # send_whatsapp_message ya está disponible por el import global
+    to_number = data['to']
+    message_text = data['message']
+    
+    log(f"📝 Envío manual solicitado para {to_number}")
+    resultado = send_whatsapp_message(to_number, message_text)
+    
+    if resultado.get("status") == "success":
+        return jsonify(resultado), 200
+    else:
+        return jsonify(resultado), 500
 
 @app.route("/api/config/horarios", methods=["GET"])
 def api_config_horarios():
