@@ -52,18 +52,8 @@ whatsapp_token_cache = {"valid": False, "expires_at": 0}
 whatsapp_token_lock = threading.Lock()
 
 
-# ========== CONFIGURACIÓN ==========
-VERIFY_TOKEN = "mi_token_secreto_123"
-# 🔥 CAMBIO IMPORTANTE: Usar variable de entorno para el token
-
-
-ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQ6Ku2KCqbcehj7AKAvSvOnbRdYZAU3lAp360oAje3GxZCEZAyDXvotcCy7uRXPdsLSKDSXOMiuVJwLEbnOn10xQPgotRV4NKHYPBGeYf2JtDp2pPWyekv3BdqX6Hf04Ov7uOeZCkCjrBiSV27D2ly2JySNkXgvc6quandytHXl4BdEKvNmHUpU5o75Xw80Pih1oQzZBkmlAmhsEtmwt5aslRS42VrjA5WoZCEdZAqRZAXz80f2VkDZCjXljBmBOwTRWEwNUGKApAHZAdlCRw7ZCAfZBGcZC6W")
-
-
-
-
-PHONE_NUMBER_ID = "1000705633118215"
-ADMIN_NUMBER = "5491151511579"
+# Los valores de configuración se importan desde 'config.py'
+# VERIFY_TOKEN, ACCESS_TOKEN, PHONE_NUMBER_ID, ADMIN_NUMBER, etc.
 BASE_URL = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")
 BASE_URL_AI = os.environ.get("BASE_URL_AI", "http://localhost:8001")
 LEADS_FILE = "leads.json"
