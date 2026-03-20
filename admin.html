@@ -1189,6 +1189,39 @@
         </div>
     </div>
 
+    <!-- Modal Mensaje Manual -->
+    <div class="modal" id="modal-mensaje-manual">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin: 0;">💬 Enviar Mensaje (API WhatsApp)</h3>
+                <button class="modal-close" onclick="cerrarModal('modal-mensaje-manual')">×</button>
+            </div>
+            <div id="mensaje-manual-content" style="padding-top: 1rem;">
+                <div class="form-group">
+                    <label class="form-label">Para:</label>
+                    <p id="msg-manual-destinatario" style="font-weight: 600;"></p>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Mensaje Libre:</label>
+                    <textarea class="form-control" id="texto-mensaje-manual" rows="6" placeholder="Escribe tu respuesta aquí..."></textarea>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                        ⚠️ Recuerda que si pasaron más de 24h desde el último mensaje del cliente, Meta podría rechazar el envío si no es una plantilla.
+                    </p>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="cerrarModal('modal-mensaje-manual')">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" style="flex: 1;" onclick="enviarMensajeManual()">
+                        📤 Enviar por API
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;"></div>
 
@@ -1443,6 +1476,10 @@
                                     🗑️ Eliminar
                                 </button>
                             `}
+                            
+                            <button class="btn btn-primary" onclick="abrirModalMensaje('${cita.telefono}', '${cita.nombre}')" title="Chat Manual">
+                                💬 Responder
+                            </button>
                         </div>
                     </div>
                 `;
@@ -1501,7 +1538,10 @@
                         
                         <div class="card-actions">
                             <button class="btn btn-primary" onclick="contactarLead('${lead.user_id}')">
-                                📞 Contactar
+                                📞 WA Personal
+                            </button>
+                            <button class="btn btn-primary" onclick="abrirModalMensaje('${lead.user_id}', 'Cliente ${lead.user_id ? lead.user_id.slice(-4) : ''}')" style="background: #059669;">
+                                💬 Responder API
                             </button>
                             <button class="btn btn-outline" onclick="abrirEditarLead('${lead.id || lead.user_id}')">
                                 📝 Editar
@@ -2107,6 +2147,47 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             });
 
             mostrarLeads(leadsFiltrados);
+        }
+
+        let currentMsgDest = '';
+
+        function abrirModalMensaje(telefono, nombre) {
+            currentMsgDest = telefono;
+            document.getElementById('msg-manual-destinatario').textContent = `${nombre} (${telefono})`;
+            document.getElementById('texto-mensaje-manual').value = '';
+            document.getElementById('modal-mensaje-manual').classList.add('active');
+        }
+
+        async function enviarMensajeManual() {
+            const mensaje = document.getElementById('texto-mensaje-manual').value;
+            if (!mensaje.trim()) {
+                mostrarToast('⚠️ El mensaje no puede estar vacío', 'warning');
+                return;
+            }
+
+            try {
+                mostrarToast('Enviando mensaje...', 'info');
+                const response = await fetchConClave('/send-message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        to: currentMsgDest,
+                        message: mensaje
+                    })
+                });
+
+                if (response.ok) {
+                    mostrarToast('✅ Mensaje enviado exitosamente', 'success');
+                    cerrarModal('modal-mensaje-manual');
+                } else {
+                    const err = await response.json();
+                    const errorMsg = err.error_message || err.error || 'Fallo en el envío';
+                    mostrarToast(`❌ Error: ${errorMsg}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                mostrarToast('❌ Error de conexión', 'error');
+            }
         }
 
         // Exportar datos
