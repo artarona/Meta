@@ -1,0 +1,2660 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Unificado - Dante Propiedades</title>
+    <!-- FullCalendar CSS/JS -->
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/es.js'></script>
+
+    <!-- Flatpickr CSS/JS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+    <style>
+        :root {
+            --primary: #232deb;
+            --primary-dark: #1a23b9;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ff0101;
+            --danger-dark: #cc0000;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --border-light: #f1f5f9;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 12px;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #232deb 0%, #1a23b9 100%);
+            color: white;
+            padding: 2.5rem 2rem;
+            border-radius: var(--radius-lg);
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-md);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #232deb, #10b981);
+        }
+
+        .header h1 {
+            margin: 0 0 0.5rem 0;
+            font-size: 2.2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .user-info {
+            position: absolute;
+            top: 1.5rem;
+            right: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-md);
+            backdrop-filter: blur(10px);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--border-light);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--primary);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #1e3c72, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-trend {
+            font-size: 0.875rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--radius-sm);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .stat-trend.up {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .stat-trend.down {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .tabs {
+            display: flex;
+            background: white;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 1.25rem 2rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            background: none;
+            border: none;
+            font-size: 1rem;
+            color: var(--text-muted);
+        }
+
+        .tab:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: -2px;
+        }
+
+        .tab.active {
+            border-bottom-color: var(--primary);
+            background: #eff6ff;
+            color: var(--primary);
+        }
+
+        .tab:hover:not(.active) {
+            background: #f8fafc;
+            color: var(--text-main);
+        }
+
+        .tab-content {
+            display: none;
+            background: white;
+            padding: 2rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .tab-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .filters {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .search-box {
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            width: 300px;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .select-filter {
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            background: white;
+            font-size: 0.95rem;
+            min-width: 150px;
+        }
+
+        .citas-grid,
+        .leads-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .cita-card,
+        .lead-card {
+            background: white;
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cita-card::before,
+        .lead-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--success));
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .cita-card:hover::before,
+        .lead-card:hover::before {
+            opacity: 1;
+        }
+
+        .cita-card:hover,
+        .lead-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .card-id {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-family: 'Courier New', monospace;
+            background: var(--bg);
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--radius-sm);
+        }
+
+        .status-badge {
+            padding: 0.4rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .status-pendiente {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-confirmada {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-cancelada {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-completada {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .card-content {
+            margin-bottom: 1.5rem;
+        }
+
+        .card-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+        }
+
+        .card-row i {
+            width: 20px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .property-info {
+            background: #f0f9ff;
+            padding: 1rem;
+            border-radius: var(--radius-sm);
+            margin: 1rem 0;
+            border-left: 3px solid var(--primary);
+        }
+
+        .card-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.25rem;
+            border-radius: var(--radius-md);
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            text-align: center;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #0da271;
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: var(--danger-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: white;
+            color: var(--text-main);
+            border: 1px solid var(--border);
+        }
+
+        .btn-outline:hover:not(:disabled) {
+            background: var(--bg);
+            border-color: var(--primary);
+        }
+
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem;
+            color: var(--text-muted);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-muted);
+            grid-column: 1 / -1;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .page-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border);
+            background: white;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .page-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .page-btn:hover:not(.active) {
+            background: var(--bg);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
+            padding: 0.5rem;
+            border-radius: var(--radius-sm);
+        }
+
+        .modal-close:hover {
+            background: var(--bg);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .search-results-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 1000;
+            margin-top: 5px;
+        }
+
+        .search-result-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .search-result-item:hover {
+            background: var(--bg);
+        }
+
+        .search-result-item .prop-id {
+            font-size: 0.8rem;
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        .search-result-title {
+            font-size: 0.95rem;
+            font-weight: 500;
+            display: block;
+        }
+
+        .search-result-address {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            z-index: 1001;
+            animation: slideIn 0.3s ease;
+            border-left: 4px solid var(--primary);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast.success {
+            border-left-color: var(--success);
+        }
+
+        .toast.error {
+            border-left-color: var(--danger);
+        }
+
+        .toast.warning {
+            border-left-color: var(--warning);
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: var(--text-muted);
+            padding: 0.25rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .header {
+                padding: 1.5rem;
+            }
+
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .user-info {
+                position: static;
+                margin-top: 1rem;
+                width: fit-content;
+            }
+
+            .tabs {
+                flex-direction: column;
+            }
+
+            .tab {
+                padding: 1rem;
+                justify-content: flex-start;
+            }
+
+            .tab-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filters {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .search-box,
+            .select-filter {
+                width: 100%;
+            }
+
+            .citas-grid,
+            .leads-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .card-actions {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Estilos Calendario */
+        #calendar-container {
+            display: none;
+            margin-top: 1rem;
+            min-height: 600px;
+            background: white;
+            padding: 1.5rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+        }
+
+        .fc-event {
+            cursor: pointer;
+            padding: 2px 4px;
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn-toggle {
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: white;
+            cursor: pointer;
+        }
+
+        .btn-toggle.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .modal-content {
+                width: 95%;
+                padding: 1.5rem;
+            }
+        }
+
+        /* Fix for Flatpickr on Modals */
+        .flatpickr-calendar {
+            z-index: 9999 !important;
+        }
+
+        .modal {
+            z-index: 2000;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 style="display: flex; align-items: center; gap: 1rem;">
+                <img src="imgs/llave.png" alt="Logo"
+                    style="height: 45px; width: auto; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">
+                Dante Propiedades - Panel Unificado
+            </h1>
+            <p>Gestión completa de leads y citas en un solo lugar</p>
+            <div class="user-info" id="user-info">
+                <!-- Usuario cargado dinámicamente -->
+            </div>
+        </div>
+
+        <div class="stats-grid" id="stats-grid">
+            <!-- Estadísticas cargadas dinámicamente -->
+        </div>
+
+        <div class="tabs" role="tablist">
+            <button class="tab active" onclick="mostrarTab('citas')" role="tab" aria-selected="true"
+                aria-controls="tab-citas">
+                <span>📅</span> Citas Agendadas
+            </button>
+            <button class="tab" onclick="mostrarTab('leads')" role="tab" aria-selected="false"
+                aria-controls="tab-leads">
+                <span>👥</span> Todos los Leads
+            </button>
+            <button class="tab" onclick="mostrarTab('propiedades')" role="tab" aria-selected="false"
+                aria-controls="tab-propiedades">
+                <span>🏠</span> Propiedades
+            </button>
+            <button class="tab" onclick="mostrarTab('exportar')" role="tab" aria-selected="false"
+                aria-controls="tab-exportar">
+                <span>📤</span> Exportar Datos
+            </button>
+            <button class="tab" onclick="mostrarTab('configuracion')" role="tab" aria-selected="false"
+                aria-controls="tab-configuracion">
+                <span>⚙️</span> Configuración
+            </button>
+
+            <div style="margin-bottom: 20px; text-align: right;">
+                <button onclick="sincronizarCitas()" class="btn btn-primary" style="background: #8b5cf6;">
+                    🔄 Sincronizar Citas con PostgreSQL
+                </button>
+                <button onclick="sincronizarTodoGoogleCal()" class="btn btn-outline"
+                    style="min-width: 250px; background: #fdfdfd; border-color: #4285F4; color: #4285F4; margin-left: 10px;">
+                    🗓️ Sincronizar Todo con Google Calendar
+                </button>
+                <div id="sync-status" style="margin-top: 10px;"></div>
+            </div>
+        </div>
+
+        <!-- Tab Citas -->
+        <div id="tab-citas" class="tab-content active" role="tabpanel" aria-labelledby="citas-tab">
+            <div class="tab-header">
+                <h2>📅 Citas Agendadas</h2>
+                <div class="filters">
+                    <div class="view-toggle">
+                        <button class="btn-toggle active" id="view-grid" onclick="cambiarVistaCitas('grid')">🔲
+                            Cuadrícula</button>
+                        <button class="btn-toggle" id="view-calendar" onclick="cambiarVistaCitas('calendar')">📅
+                            Calendario</button>
+                    </div>
+                    <input type="text" class="search-box" placeholder="🔍 Buscar citas..."
+                        oninput="filtrarCitas(this.value)">
+                    <select class="select-filter" onchange="filtrarCitasPorEstado(this.value)">
+                        <option value="">Todos los estados</option>
+                        <option value="pendiente">Pendiente</option>
+                        <option value="confirmada">Confirmada</option>
+                        <option value="completada">Completada</option>
+                        <option value="cancelada">Cancelada</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="mostrarModalNuevaCita()">
+                        <span>➕</span> Nueva Cita
+                    </button>
+                </div>
+            </div>
+
+            <div id="calendar-container">
+                <div id="calendar"></div>
+            </div>
+
+            <div class="citas-grid" id="citas-container">
+                <!-- Citas cargadas dinámicamente -->
+            </div>
+            <div class="pagination" id="citas-pagination"></div>
+        </div>
+
+        <!-- Tab Leads -->
+        <div id="tab-leads" class="tab-content" role="tabpanel" aria-labelledby="leads-tab">
+            <div class="tab-header">
+                <h2>👥 Todos los Leads</h2>
+                <div class="filters">
+                    <input type="text" class="search-box" placeholder="🔍 Buscar leads..."
+                        oninput="filtrarLeads(this.value)">
+                    <select class="select-filter" onchange="filtrarLeadsPorFuente(this.value)">
+                        <option value="">Todas las fuentes</option>
+                        <option value="whatsapp">WhatsApp</option>
+                        <option value="telefono">Teléfono</option>
+                        <option value="web">Web</option>
+                        <option value="referido">Referido</option>
+                    </select>
+                </div>
+            </div>
+            <div class="leads-grid" id="leads-container">
+                <!-- Leads cargados dinámicamente -->
+            </div>
+            <div class="pagination" id="leads-pagination"></div>
+        </div>
+
+        <!-- Tab Propiedades -->
+        <div id="tab-propiedades" class="tab-content" role="tabpanel" aria-labelledby="propiedades-tab">
+            <div class="tab-header">
+                <h2>🏠 Inventario de Propiedades</h2>
+                <div class="filters">
+                    <input type="text" class="search-box" placeholder="🔍 Buscar propiedades..."
+                        oninput="filtrarPropiedades(this.value)">
+                    <select class="select-filter" onchange="filtrarPropiedadesPorTipo(this.value)">
+                        <option value="">Todos los tipos</option>
+                        <option value="Departamento">Departamento</option>
+                        <option value="Casa">Casa</option>
+                        <option value="PH">PH</option>
+                        <option value="Terreno">Terreno</option>
+                        <option value="Oficina">Oficina</option>
+                    </select>
+                    <select class="select-filter" onchange="filtrarPropiedadesPorOperacion(this.value)">
+                        <option value="">Operación</option>
+                        <option value="venta">Venta</option>
+                        <option value="alquiler">Alquiler</option>
+                    </select>
+                </div>
+            </div>
+            <div class="citas-grid" id="propiedades-container">
+                <!-- Propiedades cargadas dinámicamente -->
+            </div>
+            <div class="pagination" id="propiedades-pagination"></div>
+        </div>
+
+        <!-- Tab Exportar -->
+        <div id="tab-exportar" class="tab-content" role="tabpanel" aria-labelledby="exportar-tab">
+            <h2>📤 Exportar Datos</h2>
+            <div style="max-width: 600px; margin: 0 auto;">
+                <div class="form-group">
+                    <label class="form-label">Tipo de datos:</label>
+                    <select class="form-control" id="export-type">
+                        <option value="citas">Citas Agendadas</option>
+                        <option value="leads">Todos los Leads</option>
+                        <option value="excel">Leads.xlsx (Completo)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Rango de fechas:</label>
+                    <div style="display: flex; gap: 1rem;">
+                        <input type="date" class="form-control" id="export-fecha-desde">
+                        <input type="date" class="form-control" id="export-fecha-hasta">
+                    </div>
+                </div>
+
+                <div style="text-align: center; padding: 2rem;">
+                    <button class="btn btn-primary" onclick="exportarDatos()"
+                        style="padding: 1rem 2rem; font-size: 1.1rem;">
+                        📥 Generar y Descargar
+                    </button>
+                    <p style="margin-top: 1rem; color: var(--text-muted); font-size: 0.9rem;">
+                        Los datos se generarán según los filtros seleccionados
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Configuración -->
+        <div id="tab-configuracion" class="tab-content" role="tabpanel" aria-labelledby="configuracion-tab">
+            <h2>⚙️ Configuración</h2>
+            <div style="max-width: 600px; margin: 0 auto;">
+                <div class="form-group">
+                    <label class="form-label">Auto-refresh:</label>
+                    <select class="form-control" id="refresh-interval" onchange="actualizarRefreshInterval()">
+                        <option value="0">Desactivado</option>
+                        <option value="30">Cada 30 segundos</option>
+                        <option value="60" selected>Cada 1 minuto</option>
+                        <option value="300">Cada 5 minutos</option>
+                        <option value="600">Cada 10 minutos</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notificaciones:</label>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="notif-citas" checked> Nuevas citas
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="notif-leads" checked> Nuevos leads
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="notif-recordatorios" checked> Recordatorios
+                        </label>
+                    </div>
+                </div>
+
+                <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border);">
+                    <button class="btn btn-primary" onclick="guardarConfiguracion()">
+                        💾 Guardar Configuración
+                    </button>
+                    <button class="btn" style="background-color: var(--warning); color: white; margin-left: 1rem;"
+                        onclick="ejecutarTareasDiarias()">
+                        🚀 Ejecutar Tareas Diarias
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nueva Cita -->
+    <div class="modal" id="modal-nueva-cita">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin: 0;">➕ Nueva Cita</h3>
+                <button class="modal-close" onclick="cerrarModal('modal-nueva-cita')">×</button>
+            </div>
+            <form id="form-nueva-cita" onsubmit="crearNuevaCita(event)">
+                <div class="form-group">
+                    <label class="form-label">Nombre del cliente *</label>
+                    <input type="text" class="form-control" id="nuevo-nombre" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Teléfono *</label>
+                    <input type="tel" class="form-control" id="nuevo-telefono" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" id="nuevo-email">
+                </div>
+
+                <div class="form-group">
+                    <div id="quick-date-buttons" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <button type="button" class="btn btn-outline" style="flex: 1; padding: 0.4rem;"
+                            onclick="setQuickDate('today')">Hoy</button>
+                        <button type="button" class="btn btn-outline" style="flex: 1; padding: 0.4rem;"
+                            onclick="setQuickDate('tomorrow')">Mañana</button>
+                    </div>
+                    <div style="display: flex; gap: 1rem;">
+                        <div style="flex: 1;">
+                            <label class="form-label">Fecha *</label>
+                            <input type="text" class="form-control" id="nuevo-fecha" placeholder="Seleccionar fecha"
+                                required>
+                        </div>
+                        <div style="flex: 1;">
+                            <label class="form-label">Hora *</label>
+                            <select class="form-control" id="nuevo-hora" required>
+                                <option value="">Seleccionar</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="position: relative;">
+                    <label class="form-label">Propiedad *</label>
+                    <input type="text" class="form-control" id="nuevo-propiedad-search"
+                        placeholder="🔍 Buscar por nombre o dirección..." autocomplete="off">
+                    <input type="hidden" id="nuevo-propiedad-id" required>
+                    <div id="propiedad-results" class="search-results-dropdown" style="display: none;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notas adicionales</label>
+                    <textarea class="form-control" id="nuevo-notas" rows="3"
+                        placeholder="Detalles de la visita..."></textarea>
+                </div>
+
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-outline" style="flex: 1;"
+                        onclick="cerrarModal('modal-nueva-cita')">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">
+                        Agendar Cita
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Editar Cita -->
+    <div class="modal" id="modal-editar-cita">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin: 0;">📝 Editar Cita</h3>
+                <button class="modal-close" onclick="cerrarModal('modal-editar-cita')">×</button>
+            </div>
+            <form id="form-editar-cita" onsubmit="guardarEdicionCita(event)">
+                <input type="hidden" id="edit-cita-id">
+                <div class="form-group">
+                    <label class="form-label">Nombre del cliente</label>
+                    <input type="text" class="form-control" id="edit-cita-nombre" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email (Opcional)</label>
+                    <input type="email" class="form-control" id="edit-cita-email">
+                </div>
+                <div class="form-group">
+                    <div style="display: flex; gap: 1rem;">
+                        <div style="flex: 1;">
+                            <label class="form-label">Fecha</label>
+                            <input type="text" class="form-control" id="edit-cita-fecha" placeholder="Seleccionar fecha"
+                                required>
+                        </div>
+                        <div style="flex: 1;">
+                            <label class="form-label">Hora</label>
+                            <select class="form-control" id="edit-cita-hora" required>
+                                <option value="">Seleccionar</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group" style="position: relative;">
+                    <label class="form-label">Propiedad</label>
+                    <input type="text" class="form-control" id="edit-cita-propiedad-search"
+                        placeholder="🔍 Buscar propiedad..." autocomplete="off">
+                    <input type="hidden" id="edit-cita-propiedad-id">
+                    <div id="edit-propiedad-results" class="search-results-dropdown" style="display: none;"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Estado</label>
+                    <select class="form-control" id="edit-cita-estado">
+                        <option value="pendiente">Pendiente</option>
+                        <option value="confirmada">Confirmada</option>
+                        <option value="completada">Completada</option>
+                        <option value="cancelada">Cancelada</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notas</label>
+                    <textarea class="form-control" id="edit-cita-notas" rows="3"></textarea>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-outline" style="flex: 1;"
+                        onclick="cerrarModal('modal-editar-cita')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Editar Lead -->
+    <div class="modal" id="modal-editar-lead">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin: 0;">👥 Editar Lead</h3>
+                <button class="modal-close" onclick="cerrarModal('modal-editar-lead')">×</button>
+            </div>
+            <form id="form-editar-lead" onsubmit="guardarEdicionLead(event)">
+                <input type="hidden" id="edit-lead-id">
+                <div class="form-group">
+                    <label class="form-label">Nombre / Alias</label>
+                    <input type="text" class="form-control" id="edit-lead-nombre">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Detalles / Notas</label>
+                    <textarea class="form-control" id="edit-lead-detalles" rows="4"></textarea>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-outline" style="flex: 1;"
+                        onclick="cerrarModal('modal-editar-lead')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Mensaje Manual -->
+    <div class="modal" id="modal-mensaje-manual">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin: 0;">💬 Enviar Mensaje (API WhatsApp)</h3>
+                <button class="modal-close" onclick="cerrarModal('modal-mensaje-manual')">×</button>
+            </div>
+            <div id="mensaje-manual-content" style="padding-top: 1rem;">
+                <div class="form-group">
+                    <label class="form-label">Para:</label>
+                    <p id="msg-manual-destinatario" style="font-weight: 600;"></p>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Mensaje Libre:</label>
+                    <textarea class="form-control" id="texto-mensaje-manual" rows="6" placeholder="Escribe tu respuesta aquí..."></textarea>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                        ⚠️ Recuerda que si pasaron más de 24h desde el último mensaje del cliente, Meta podría rechazar el envío si no es una plantilla.
+                    </p>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="cerrarModal('modal-mensaje-manual')">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" style="flex: 1;" onclick="enviarMensajeManual()">
+                        📤 Enviar por API
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;"></div>
+
+    <script>
+        // Variables globales
+        let todasLasCitas = [];
+        let todosLosLeads = [];
+        let todasLasPropiedades = [];
+        let refreshInterval = null;
+        let adminKey = '';
+        let currentCitaId = '';
+        let flatpickrFecha = null;
+        let flatpickrHora = null; // Mantener variable por compatibilidad si se usa en otro lado
+        let flatpickrEditFecha = null;
+        let listaHorariosGlobales = []; // Nueva lista global
+
+        // Configuración por defecto
+        let configuracion = {
+            autoRefresh: 60,
+            notificaciones: {
+                citas: true,
+                leads: true,
+                recordatorios: true
+            }
+        };
+
+        // Obtener clave de la URL
+        function obtenerClaveURL() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('key');
+        }
+
+        // Validar acceso
+        function validarAcceso() {
+            adminKey = obtenerClaveURL();
+            if (!adminKey) {
+                alert('⚠️ Acceso no autorizado. Se requiere clave de acceso.');
+                window.location.href = '/';
+                return false;
+            }
+            return true;
+        }
+
+        // Helper para fetch con clave
+        async function fetchConClave(url, options = {}) {
+            const urlConClave = url.includes('?') ? `${url}&key=${adminKey}` : `${url}?key=${adminKey}`;
+
+            try {
+                const response = await fetch(urlConClave, options);
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('Fetch error:', error);
+                mostrarToast(`❌ Error: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        // Formatear fechas
+        // Formatear fechas
+        function formatearFecha(fechaISO) {
+            if (!fechaISO) return '';
+            try {
+                // Si viene como fecha completa ISO (2023-10-25T...) o solo fecha (2023-10-25)
+                const partes = fechaISO.split('T')[0].split('-');
+                if (partes.length === 3) {
+                    const anio = parseInt(partes[0]);
+                    const mes = parseInt(partes[1]) - 1; // Meses en JS son 0-11
+                    const dia = parseInt(partes[2]);
+
+                    const fecha = new Date(anio, mes, dia);
+                    return fecha.toLocaleDateString('es-ES', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    }).replace(/^\w/, c => c.toUpperCase());
+                }
+
+                const fecha = new Date(fechaISO);
+                return fecha.toLocaleDateString('es-ES', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                }).replace(/^\w/, c => c.toUpperCase());
+            } catch {
+                return fechaISO;
+            }
+        }
+
+        function formatearHora(hora) {
+            return hora.replace(/^(\d{1,2}):(\d{2})$/, (match, h, m) => {
+                const horas = parseInt(h);
+                return `${horas.toString().padStart(2, '0')}:${m} hs`;
+            });
+        }
+
+        // Mostrar mensajes toast
+        function mostrarToast(mensaje, tipo = 'success', duracion = 5000) {
+            const container = document.getElementById('toast-container');
+            const toastId = 'toast-' + Date.now();
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${tipo}`;
+            toast.id = toastId;
+            toast.innerHTML = `
+                <div style="flex: 1;">
+                    <strong>${tipo === 'success' ? '✅' : tipo === 'error' ? '❌' : '⚠️'} ${mensaje}</strong>
+                </div>
+                <button class="toast-close" onclick="document.getElementById('${toastId}').remove()">×</button>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                const elem = document.getElementById(toastId);
+                if (elem) elem.remove();
+            }, duracion);
+        }
+
+        // Cargar datos iniciales
+        async function cargarDatos() {
+            if (!validarAcceso()) return;
+
+            try {
+                // Cargar metadatos de propiedades para el buscador
+                const props = await fetchConClave('/api/propiedades');
+                todasLasPropiedades = props;
+                initPropertySearch();
+
+                mostrarLoading('citas-container', 'Cargando citas...');
+                mostrarLoading('leads-container', 'Cargando leads...');
+
+                // Cargar citas
+                const citasResponse = await fetchConClave('/api/citas');
+                todasLasCitas = Array.isArray(citasResponse) ? citasResponse : [];
+
+                // Cargar leads
+                const leadsResponse = await fetchConClave('/api/leads');
+                todosLosLeads = Array.isArray(leadsResponse.leads) ? leadsResponse.leads : [];
+
+                // Mostrar datos
+                mostrarCitas(todasLasCitas);
+                mostrarLeads(todosLosLeads);
+                mostrarPropiedades(todasLasPropiedades);
+                actualizarEstadisticas();
+
+                // Inicializar controles avanzados
+                initFlatpickr();
+
+            } catch (error) {
+                console.error('Error cargando datos:', error);
+                mostrarEmptyState('citas-container', 'Error al cargar citas', '❌');
+                mostrarEmptyState('leads-container', 'Error al cargar leads', '❌');
+            }
+        }
+
+        // Mostrar citas
+        function mostrarCitas(citas) {
+            const container = document.getElementById('citas-container');
+
+            if (!citas || citas.length === 0) {
+                mostrarEmptyState('citas-container', 'No hay citas agendadas', '📭');
+                return;
+            }
+
+            let html = '';
+            citas.forEach(cita => {
+                const fechaFormateada = formatearFecha(cita.fecha);
+                const horaFormateada = formatearHora(cita.hora);
+
+                html += `
+                    <div class="cita-card" data-id="${cita.id}" data-estado="${cita.estado}">
+                        <div class="card-header">
+                            <span class="card-id">#${cita.id || 'N/A'}</span>
+                            <span class="status-badge status-${cita.estado || 'pendiente'}">
+                                ${cita.estado === 'pendiente' ? '⏳' :
+                        cita.estado === 'confirmada' ? '✅' :
+                            cita.estado === 'completada' ? '🏁' : '❌'}
+                                ${(cita.estado || 'pendiente').toUpperCase()}
+                            </span>
+                        </div>
+                        
+                        <div class="card-content">
+                            <h3 style="margin: 0 0 1rem 0; font-size: 1.2rem;">${cita.nombre || 'Sin nombre'}</h3>
+                            
+                            <div class="card-row">
+                                <span>📞</span>
+                                <span>${cita.telefono || 'N/A'}</span>
+                            </div>
+                            
+                            ${cita.email ? `
+                            <div class="card-row">
+                                <span>📧</span>
+                                <span>${cita.email}</span>
+                            </div>
+                            ` : ''}
+                            
+                            <div class="card-row">
+                                <span>📅</span>
+                                <span>${fechaFormateada}</span>
+                            </div>
+                            
+                            <div class="card-row">
+                                <span>⏰</span>
+                                <span>${horaFormateada}</span>
+                            </div>
+                            
+                            ${cita.propiedad_id || cita.propiedad_titulo ? `
+                            <div class="property-info">
+                                <strong>🏠 Propiedad:</strong><br>
+                                ${cita.propiedad_id || cita.propiedad_titulo || 'N/A'}
+                            </div>
+                            ` : ''}
+                            
+                            ${cita.notas ? `
+                            <div style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 6px; font-size: 0.9rem;">
+                                <strong>📝 Notas:</strong><br>
+                                ${cita.notas}
+                            </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="card-actions">
+                            ${(!cita.estado || cita.estado === 'pendiente') ? `
+                                <button class="btn btn-success" onclick="cambiarEstadoCita('${cita.id}', 'confirmada')">
+                                    ✅ Confirmar
+                                </button>
+                            ` : cita.estado === 'confirmada' ? `
+                                <button class="btn btn-primary" onclick="cambiarEstadoCita('${cita.id}', 'completada')">
+                                    🏁 Completar
+                                </button>
+                            ` : ''}
+                            
+                            <button class="btn btn-outline" onclick="abrirEditarCita('${cita.id}')" title="Editar cita">
+                                📝 Editar
+                            </button>
+                            
+                            <button class="btn btn-outline" onclick="mostrarModalRecordatorio('${cita.id}')" title="Enviar recordatorio">
+                                🔔 Recordatorio
+                            </button>
+                            
+                            ${cita.estado !== 'cancelada' && cita.estado !== 'completada' ? `
+                                <button class="btn btn-danger" onclick="cambiarEstadoCita('${cita.id}', 'cancelada')" title="Cancelar cita">
+                                    ❌ Cancelar
+                                </button>
+                            ` : `
+                                <button class="btn btn-danger" onclick="eliminarCita('${cita.id}')" title="Eliminar permanentemente">
+                                    🗑️ Eliminar
+                                </button>
+                            `}
+                            
+                             <button class="btn btn-primary" onclick="abrirModalMensaje('${cita.telefono}', '${cita.nombre}')" style="background: #059669;" title="Chat Manual">
+                                 💬 Responder
+                             </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Mostrar leads
+        function mostrarLeads(leads) {
+            const container = document.getElementById('leads-container');
+
+            if (!leads || leads.length === 0) {
+                mostrarEmptyState('leads-container', 'No hay leads registrados', '👤');
+                return;
+            }
+
+            let html = '';
+            leads.forEach(lead => {
+                const fecha = lead.timestamp ? formatearFecha(lead.timestamp) : 'Fecha no disponible';
+
+                html += `
+                    <div class="lead-card" data-id="${lead.user_id || lead.id}">
+                        <div class="card-header">
+                            <span class="card-id">#${lead.user_id ? lead.user_id.slice(-6) : 'N/A'}</span>
+                            <span class="status-badge ${lead.accion === 'lead_completo' ? 'status-confirmada' : 'status-pendiente'}">
+                                ${lead.accion === 'lead_completo' ? '📞 CONTACTADO' : '🆕 NUEVO'}
+                            </span>
+                        </div>
+                        
+                        <div class="card-content">
+                            <h3 style="margin: 0 0 1rem 0; font-size: 1.2rem;">Cliente ${lead.user_id ? lead.user_id.slice(-4) : 'N/A'}</h3>
+                            
+                            <div class="card-row">
+                                <span>📞</span>
+                                <span>${lead.user_id || 'N/A'}</span>
+                            </div>
+                            
+                            <div class="card-row">
+                                <span>📅</span>
+                                <span>${fecha}</span>
+                            </div>
+                            
+                            <div class="card-row">
+                                <span>📊</span>
+                                <span>Acción: ${lead.accion || 'N/A'}</span>
+                            </div>
+                            
+                            ${lead.detalle ? `
+                            <div style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 6px; font-size: 0.9rem;">
+                                <strong>📝 Detalle:</strong><br>
+                                ${lead.detalle}
+                            </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="card-actions">
+                            <button class="btn btn-primary" onclick="contactarLead('${lead.user_id}')">
+                                📞 WA Personal
+                            </button>
+                            <button class="btn btn-primary" onclick="abrirModalMensaje('${lead.user_id}', 'Cliente ${lead.user_id ? lead.user_id.slice(-4) : ''}')" style="background: #059669;">
+                                💬 Responder API
+                            </button>
+                            <button class="btn btn-outline" onclick="abrirEditarLead('${lead.id || lead.user_id}')">
+                                📝 Editar
+                            </button>
+                            <button class="btn btn-outline" onclick="agendarCitaDesdeLead('${lead.user_id}')">
+                                📅 Cita
+                            </button>
+                            <button class="btn btn-danger" onclick="eliminarLead('${lead.id || lead.user_id}')">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Mostrar propiedades
+        function mostrarPropiedades(propiedades) {
+            const container = document.getElementById('propiedades-container');
+
+            if (!container) return; // Por si se llama antes de cargar el HTML
+
+            if (!propiedades || propiedades.length === 0) {
+                mostrarEmptyState('propiedades-container', 'No hay propiedades en el inventario', '🏠');
+                return;
+            }
+
+            let html = '';
+            propiedades.forEach(p => {
+                const precioValue = Number(p.precio);
+                const precio = !isNaN(precioValue) && precioValue > 0 ? 
+                    `${p.moneda || 'USD'} $${precioValue.toLocaleString('es-AR')}` : 'Consultar';
+                
+                html += `
+                    <div class="cita-card property-card" data-id="${p.id}">
+                        <div class="card-header">
+                            <span class="card-id">ID: ${p.id}</span>
+                            <span class="status-badge ${p.operacion === 'venta' ? 'status-confirmada' : 'status-completada'}">
+                                ${p.operacion.toUpperCase()}
+                            </span>
+                        </div>
+                        
+                        <div class="card-content">
+                            <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem; color: var(--primary);">${p.titulo || 'Sin título'}</h3>
+                            <div style="font-size: 1.4rem; font-weight: 800; margin-bottom: 1rem; color: var(--text-main);">
+                                ${precio}
+                            </div>
+                            
+                            <div class="card-row">
+                                <span>📍</span>
+                                <span>${p.direccion || ''} ${p.barrio ? `(${p.barrio})` : ''}</span>
+                            </div>
+                            
+                            <div class="card-row">
+                                <span>🏠</span>
+                                <span>${p.tipo} | ${p.ambientes || '?'} amb | ${p.m2 || '?'} m²</span>
+                            </div>
+                        </div>
+                        
+                        <div class="card-actions" style="grid-template-columns: 1fr;">
+                            <button class="btn btn-outline" onclick="copiarID('${p.id}')">
+                                📋 Copiar ID para Bot
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function copiarID(id) {
+            navigator.clipboard.writeText(id).then(() => {
+                mostrarToast(`✅ ID ${id} copiado al portapapeles`, 'success', 2000);
+            });
+        }
+
+        // Funciones de filtrado de propiedades
+        function filtrarPropiedades(termino) {
+            const busqueda = termino.toLowerCase();
+            const filtradas = todasLasPropiedades.filter(p => 
+                (p.titulo && p.titulo.toLowerCase().includes(busqueda)) ||
+                (p.direccion && p.direccion.toLowerCase().includes(busqueda)) ||
+                (p.barrio && p.barrio.toLowerCase().includes(busqueda)) ||
+                (p.id && (p.id.toString()).toLowerCase().includes(busqueda))
+            );
+            mostrarPropiedades(filtradas);
+        }
+
+        function filtrarPropiedadesPorTipo(tipo) {
+            if (!tipo) {
+                mostrarPropiedades(todasLasPropiedades);
+                return;
+            }
+            const filtradas = todasLasPropiedades.filter(p => p.tipo === tipo);
+            mostrarPropiedades(filtradas);
+        }
+
+        function filtrarPropiedadesPorOperacion(op) {
+            if (!op) {
+                mostrarPropiedades(todasLasPropiedades);
+                return;
+            }
+            const filtradas = todasLasPropiedades.filter(p => p.operacion && p.operacion.toLowerCase() === op.toLowerCase());
+            mostrarPropiedades(filtradas);
+        }
+
+
+        // Actualizar estadísticas
+        function actualizarEstadisticas() {
+            const hoy = new Date().toISOString().split('T')[0];
+
+            const estadisticas = {
+                totalCitas: todasLasCitas.length,
+                citasPendientes: todasLasCitas.filter(c => c.estado === 'pendiente').length,
+                citasHoy: todasLasCitas.filter(c => c.fecha === hoy).length,
+                totalLeads: todosLosLeads.length,
+                leadsHoy: todosLosLeads.filter(l => l.timestamp && l.timestamp.startsWith(hoy)).length,
+                conversionRate: todasLasCitas.length > 0 && todosLosLeads.length > 0 ?
+                    (todasLasCitas.length / todosLosLeads.length * 100).toFixed(1) : 0
+            };
+
+            const statsHTML = `
+                <div class="stat-card">
+                    <div class="stat-number">${estadisticas.totalCitas}</div>
+                    <div>Total Citas</div>
+                    <div class="stat-trend ${estadisticas.citasHoy > 0 ? 'up' : ''}">
+                        ${estadisticas.citasHoy > 0 ? '↗' : ''} ${estadisticas.citasHoy} hoy
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${estadisticas.citasPendientes}</div>
+                    <div>Citas Pendientes</div>
+                    <div class="stat-trend ${estadisticas.citasPendientes > 5 ? 'warning' : 'up'}">
+                        ${estadisticas.citasPendientes > 5 ? '⚠️' : ''} 
+                        ${estadisticas.citasPendientes > 5 ? 'Revisar' : 'Al día'}
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${estadisticas.totalLeads}</div>
+                    <div>Total Leads</div>
+                    <div class="stat-trend ${estadisticas.leadsHoy > 0 ? 'up' : ''}">
+                        ${estadisticas.leadsHoy > 0 ? '↗' : ''} ${estadisticas.leadsHoy} hoy
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${estadisticas.conversionRate}%</div>
+                    <div>Tasa Conversión</div>
+                    <div class="stat-trend ${estadisticas.conversionRate > 30 ? 'up' : 'down'}">
+                        ${estadisticas.conversionRate > 30 ? '↗ Excelente' : '↗ Mejorable'}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('stats-grid').innerHTML = statsHTML;
+        }
+
+        // Inicializar Flatpickr
+        async function initFlatpickr() {
+            // Cargar horarios primero
+            if (listaHorariosGlobales.length === 0) {
+                await cargarHorariosConfig();
+            }
+
+            // Flatpickr para nueva cita
+            if (!flatpickrFecha) {
+                flatpickrFecha = flatpickr("#nuevo-fecha", {
+                    locale: "es",
+                    dateFormat: "Y-m-d",
+                    minDate: "today",
+                    altInput: true,
+                    altFormat: "j \\de F, Y",
+                    allowInput: false // Cambiado a false para evitar problemas de selección manual que bloquean el calendario
+                });
+            }
+
+            // Flatpickr para edición
+            if (!flatpickrEditFecha) {
+                flatpickrEditFecha = flatpickr("#edit-cita-fecha", {
+                    locale: "es",
+                    dateFormat: "Y-m-d",
+                    minDate: "today",
+                    altInput: true,
+                    altFormat: "j \\de F, Y",
+                    allowInput: false
+                });
+            }
+        }
+
+        // Nueva función para cargar horarios desde el servidor
+        async function cargarHorariosConfig() {
+            try {
+                const config = await fetchConClave('/api/config/horarios');
+                if (config && config.configuracion_global && config.configuracion_global.horarios) {
+                    listaHorariosGlobales = config.configuracion_global.horarios;
+
+                    // Poblar selects
+                    poblarSelectHoras('nuevo-hora');
+                    poblarSelectHoras('edit-cita-hora');
+
+                    console.log('✅ Horarios cargados:', listaHorariosGlobales.length);
+                }
+            } catch (error) {
+                console.error('Error cargando horarios:', error);
+                // Fallback si falla la API
+                listaHorariosGlobales = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
+                poblarSelectHoras('nuevo-hora');
+                poblarSelectHoras('edit-cita-hora');
+            }
+        }
+
+        function poblarSelectHoras(selectId) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+
+            const valorActual = select.value;
+            select.innerHTML = '<option value="">Seleccionar</option>';
+
+            listaHorariosGlobales.forEach(hora => {
+                const option = document.createElement('option');
+                option.value = hora;
+                option.textContent = `${hora} hs`;
+                select.appendChild(option);
+            });
+
+            if (valorActual) select.value = valorActual;
+        }
+
+        // Acceso rápido a fechas
+        function setQuickDate(type) {
+            const date = new Date();
+            if (type === 'tomorrow') {
+                date.setDate(date.getDate() + 1);
+            }
+            if (flatpickrFecha) flatpickrFecha.setDate(date, true);
+        }
+
+        // Buscador de Propiedades
+        function initPropertySearch() {
+            const searchInput = document.getElementById('nuevo-propiedad-search');
+            const resultsDiv = document.getElementById('propiedad-results');
+            if (searchInput && resultsDiv) {
+                searchInput.addEventListener('input', (e) => manejarBusquedaPropiedad(e, resultsDiv, 'nuevo'));
+            }
+
+            const editSearchInput = document.getElementById('edit-cita-propiedad-search');
+            const editResultsDiv = document.getElementById('edit-propiedad-results');
+            if (editSearchInput && editResultsDiv) {
+                editSearchInput.addEventListener('input', (e) => manejarBusquedaPropiedad(e, editResultsDiv, 'edit'));
+            }
+
+            // Cerrar al hacer click afuera
+            document.addEventListener('click', (e) => {
+                if (searchInput && !searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
+                    resultsDiv.style.display = 'none';
+                }
+                if (editSearchInput && !editSearchInput.contains(e.target) && !editResultsDiv.contains(e.target)) {
+                    editResultsDiv.style.display = 'none';
+                }
+            });
+        }
+
+        function manejarBusquedaPropiedad(e, div, prefix = 'nuevo') {
+            const term = e.target.value.toLowerCase().trim();
+            if (term.length < 2) {
+                div.style.display = 'none';
+                return;
+            }
+
+            const filtered = todasLasPropiedades.filter(p =>
+                (p.titulo && p.titulo.toLowerCase().includes(term)) ||
+                (p.direccion && p.direccion.toLowerCase().includes(term)) ||
+                (p.id && p.id.toLowerCase().includes(term))
+            ).slice(0, 10);
+
+            if (filtered.length > 0) {
+                div.innerHTML = filtered.map(p => `
+                    <div class="search-result-item" onclick="selectProperty('${p.id}', '${(p.titulo || '').replace(/'/g, "\\'")}', '${prefix}')">
+                        <span class="prop-id">${p.id}</span>
+                        <span class="search-result-title">${p.titulo || 'Sin título'}</span>
+                        <span class="search-result-address">${p.direccion || ''}</span>
+                    </div>
+                `).join('');
+                div.style.display = 'block';
+            } else {
+                div.style.display = 'none';
+            }
+        }
+
+        function selectProperty(id, title, prefix = 'nuevo') {
+            const idInput = prefix === 'nuevo' ? 'nuevo-propiedad-id' : 'edit-cita-propiedad-id';
+            const searchInput = prefix === 'nuevo' ? 'nuevo-propiedad-search' : 'edit-cita-propiedad-search';
+            const resultsDiv = prefix === 'nuevo' ? 'propiedad-results' : 'edit-propiedad-results';
+
+            document.getElementById(idInput).value = id;
+            document.getElementById(searchInput).value = `${id} - ${title}`;
+            document.getElementById(resultsDiv).style.display = 'none';
+        }
+
+        // Estados loading/empty
+        function mostrarLoading(containerId, mensaje = 'Cargando...') {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>${mensaje}</p>
+                </div>
+            `;
+        }
+
+        function mostrarEmptyState(containerId, mensaje = 'No hay datos disponibles', icon = '📭') {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div>${icon}</div>
+                    <h3 style="margin-bottom: 0.5rem;">${mensaje}</h3>
+                    <p style="color: var(--text-muted); font-size: 0.95rem;">Intenta cambiar los filtros o crear nuevos registros</p>
+                </div>
+            `;
+        }
+
+        // Funciones de gestión
+        async function cambiarEstadoCita(citaId, nuevoEstado) {
+            if (!confirm(`¿Cambiar estado de la cita #${citaId} a ${nuevoEstado}?`)) return;
+
+            try {
+                mostrarToast('Actualizando estado...', 'info');
+
+                await fetchConClave(`/api/citas/${citaId}/estado?estado=${nuevoEstado}`, {
+                    method: 'PUT'
+                });
+
+                // Actualizar localmente
+                const index = todasLasCitas.findIndex(c => c.id === citaId);
+                if (index !== -1) {
+                    todasLasCitas[index].estado = nuevoEstado;
+                    todasLasCitas[index].ultima_actualizacion = new Date().toISOString();
+                    mostrarCitas(todasLasCitas);
+                    actualizarEstadisticas();
+                }
+
+                mostrarToast(`✅ Estado cambiado a ${nuevoEstado}`, 'success');
+
+            } catch (error) {
+                console.error('Error cambiando estado:', error);
+            }
+        }
+
+        async function crearNuevaCita(event) {
+            event.preventDefault();
+
+            const propId = document.getElementById('nuevo-propiedad-id').value;
+            const propSearch = document.getElementById('nuevo-propiedad-search').value;
+
+            if (!propId) {
+                mostrarToast('❌ Por favor selecciona una propiedad de la lista', 'error');
+                return;
+            }
+
+            const formData = {
+                nombre: document.getElementById('nuevo-nombre').value,
+                telefono: document.getElementById('nuevo-telefono').value,
+                email: document.getElementById('nuevo-email').value,
+                fecha: document.getElementById('nuevo-fecha').value,
+                hora: document.getElementById('nuevo-hora').value,
+                propiedad: propId,
+                propiedad_titulo: propSearch.includes(' - ') ? propSearch.split(' - ')[1] : propSearch,
+                notas: document.getElementById('nuevo-notas').value
+            };
+
+            // Validar datos
+            if (!formData.nombre || !formData.telefono || !formData.fecha || !formData.hora) {
+                mostrarToast('❌ Por favor completa todos los campos obligatorios', 'error');
+                return;
+            }
+
+            try {
+                mostrarToast('Creando cita...', 'info');
+
+                const response = await fetchConClave('/api/panel/citas/nueva', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                if (response.status === 'success') {
+                    mostrarToast(`✅ Cita agendada para ${formData.nombre}`, 'success');
+                    cerrarModal('modal-nueva-cita');
+                    event.target.reset();
+                    document.getElementById('nuevo-propiedad-id').value = '';
+
+                    cargarDatos();
+                    mostrarTab('citas');
+                } else {
+                    mostrarToast(`❌ Error: ${response.error}`, 'error');
+                }
+
+            } catch (error) {
+                console.error('Error creando cita:', error);
+                mostrarToast('❌ Error al crear la cita', 'error');
+            }
+        }
+
+        function contactarLead(telefono) {
+            if (telefono) {
+                window.open(`https://wa.me/${telefono}`, '_blank');
+            }
+        }
+
+
+
+        async function sincronizarCitas() {
+            const statusDiv = document.getElementById('sync-status');
+            statusDiv.innerHTML = '🔄 Sincronizando...';
+
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const key = urlParams.get('key');
+
+                const response = await fetch(`/api/sincronizar/citas?key=${key}`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    statusDiv.innerHTML = `
+                        <div style="background: #d1fae5; color: #065f46; padding: 10px; border-radius: 5px;">
+                            ✅ Sincronización completada<br>
+                            <strong>Creadas:</strong> ${data.creadas}<br>
+                            <strong>Actualizadas:</strong> ${data.actualizadas}
+                        </div>
+                    `;
+                    // Recargar la lista de citas
+                    cargarDatos();
+                } else {
+                    statusDiv.innerHTML = `
+                        <div style="background: #fee2e2; color: #991b1b; padding: 10px; border-radius: 5px;">
+                            ❌ Error: ${data.error || 'Error desconocido'}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div style="background: #fee2e2; color: #991b1b; padding: 10px; border-radius: 5px;">
+                        ❌ Error de conexión: ${error}
+                    </div>
+                `;
+            }
+
+            // Limpiar mensaje después de 5 segundos
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
+
+
+
+
+        async function agendarCitaDesdeLead(telefono) {
+            if (telefono) {
+                document.getElementById('nuevo-telefono').value = telefono;
+                await mostrarModalNuevaCita();
+
+                // Ocultar botones de hoy/mañana para leads como pidió el usuario
+                const quickButtons = document.getElementById('quick-date-buttons');
+                if (quickButtons) quickButtons.style.display = 'none';
+            }
+        }
+
+        async function mostrarModalRecordatorio(citaId) {
+            currentCitaId = citaId;
+            const cita = todasLasCitas.find(c => c.id === citaId);
+
+            if (!cita) {
+                mostrarToast('❌ Cita no encontrada', 'error');
+                return;
+            }
+
+            const content = `
+                <div class="form-group">
+                    <label class="form-label">Cliente:</label>
+                    <p><strong>${cita.nombre}</strong></p>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Teléfono:</label>
+                    <p><strong>${cita.telefono}</strong></p>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Mensaje de recordatorio:</label>
+                    <textarea class="form-control" id="mensaje-recordatorio" rows="4">
+🔔 *RECORDATORIO DANTE PROPIEDADES*
+
+Hola ${cita.nombre}, este es un recordatorio de tu cita:
+
+📅 Fecha: ${formatearFecha(cita.fecha)}
+⏰ Hora: ${formatearHora(cita.hora)}
+🏠 Propiedad: ${cita.propiedad_titulo || cita.propiedad_id || 'Propiedad seleccionada'}
+
+📍 Por favor, llega 10 minutos antes.
+📱 Para cambios, contacta al +5491151511579
+
+¡Te esperamos! 🏠🗝️
+                    </textarea>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="cerrarModal('modal-recordatorio')">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" style="flex: 1;" onclick="enviarRecordatorio()">
+                        📤 Enviar WhatsApp
+                    </button>
+                </div>
+            `;
+
+            document.getElementById('recordatorio-content').innerHTML = content;
+            document.getElementById('modal-recordatorio').classList.add('active');
+        }
+
+        async function enviarRecordatorio() {
+            const mensaje = document.getElementById('mensaje-recordatorio').value;
+
+            try {
+                // Usar la función send_whatsapp_message del backend
+                const cita = todasLasCitas.find(c => c.id === currentCitaId);
+
+                const response = await fetchConClave('/send-message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        to: cita.telefono,
+                        message: mensaje
+                    })
+                });
+
+                if (response.ok) {
+                    mostrarToast('✅ Recordatorio enviado', 'success');
+                    cerrarModal('modal-recordatorio');
+                } else {
+                    mostrarToast('❌ Error enviando recordatorio', 'error');
+                }
+
+            } catch (error) {
+                console.error('Error enviando recordatorio:', error);
+                mostrarToast('❌ Error enviando recordatorio', 'error');
+            }
+        }
+
+        // Funciones de filtrado
+        function filtrarCitas(termino) {
+            const citasFiltradas = todasLasCitas.filter(cita => {
+                const busqueda = termino.toLowerCase();
+                return (
+                    (cita.nombre && cita.nombre.toLowerCase().includes(busqueda)) ||
+                    (cita.telefono && cita.telefono.includes(busqueda)) ||
+                    (cita.propiedad_titulo && cita.propiedad_titulo.toLowerCase().includes(busqueda)) ||
+                    (cita.propiedad_id && cita.propiedad_id.toLowerCase().includes(busqueda))
+                );
+            });
+
+            mostrarCitas(citasFiltradas);
+        }
+
+        function filtrarCitasPorEstado(estado) {
+            if (!estado) {
+                mostrarCitas(todasLasCitas);
+                return;
+            }
+
+            const citasFiltradas = todasLasCitas.filter(cita => cita.estado === estado);
+            mostrarCitas(citasFiltradas);
+        }
+
+        function filtrarLeads(termino) {
+            const leadsFiltrados = todosLosLeads.filter(lead => {
+                const busqueda = termino.toLowerCase();
+                return (
+                    (lead.user_id && lead.user_id.includes(busqueda)) ||
+                    (lead.detalle && lead.detalle.toLowerCase().includes(busqueda)) ||
+                    (lead.accion && lead.accion.toLowerCase().includes(busqueda))
+                );
+            });
+
+            mostrarLeads(leadsFiltrados);
+        }
+
+        function filtrarLeadsPorFuente(fuente) {
+            if (!fuente) {
+                mostrarLeads(todosLosLeads);
+                return;
+            }
+
+            const leadsFiltrados = todosLosLeads.filter(lead => {
+                // Simular fuentes basadas en la acción
+                if (fuente === 'whatsapp') return true; // Todos son de WhatsApp
+                if (fuente === 'telefono') return lead.accion === 'lead_caliente_oferta';
+                return false;
+            });
+
+            mostrarLeads(leadsFiltrados);
+        }
+
+        let currentMsgDest = '';
+
+        function abrirModalMensaje(telefono, nombre) {
+            currentMsgDest = telefono;
+            document.getElementById('msg-manual-destinatario').textContent = `${nombre} (${telefono})`;
+            document.getElementById('texto-mensaje-manual').value = '';
+            document.getElementById('modal-mensaje-manual').classList.add('active');
+        }
+
+        async function enviarMensajeManual() {
+            const mensaje = document.getElementById('texto-mensaje-manual').value;
+            if (!mensaje.trim()) {
+                mostrarToast('⚠️ El mensaje no puede estar vacío', 'warning');
+                return;
+            }
+
+            try {
+                mostrarToast('Enviando mensaje...', 'info');
+                const response = await fetchConClave('/send-message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        to: currentMsgDest,
+                        message: mensaje
+                    })
+                });
+
+                if (response.ok) {
+                    mostrarToast('✅ Mensaje enviado exitosamente', 'success');
+                    cerrarModal('modal-mensaje-manual');
+                } else {
+                    const err = await response.json();
+                    const errorMsg = err.error_message || err.error || 'Fallo en el envío';
+                    mostrarToast(`❌ Error: ${errorMsg}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                mostrarToast('❌ Error de conexión', 'error');
+            }
+        }
+
+        // Exportar datos
+        function exportarDatos() {
+            const tipo = document.getElementById('export-type').value;
+            const desde = document.getElementById('export-fecha-desde').value;
+            const hasta = document.getElementById('export-fecha-hasta').value;
+
+            let url = '';
+            let fileName = '';
+
+            if (tipo === 'citas') {
+                url = `${window.location.origin}/api/exportar/citas?key=${adminKey}`;
+                if (desde) url += `&desde=${desde}`;
+                if (hasta) url += `&hasta=${hasta}`;
+                fileName = `citas_dante_${new Date().toISOString().split('T')[0]}.xlsx`;
+            } else if (tipo === 'leads') {
+                url = `${window.location.origin}/api/exportar/leads?key=${adminKey}`;
+                if (desde) url += `&desde=${desde}`;
+                if (hasta) url += `&hasta=${hasta}`;
+                fileName = `leads_dante_${new Date().toISOString().split('T')[0]}.xlsx`;
+            } else if (tipo === 'excel' || tipo === 'unificados') {
+                url = `${window.location.origin}/api/exportar/unificados?key=${adminKey}`;
+                fileName = `datos_unificados_dante_${new Date().toISOString().split('T')[0]}.xlsx`;
+            }
+
+            if (url) {
+                mostrarToast('📥 Generando archivo Excel...', 'info');
+                // Usar window.location para descargar
+                window.location.href = url;
+            }
+        }
+
+        async function sincronizarConGoogle(citaId) {
+            try {
+                mostrarToast('🔄 Sincronizando con Google Calendar...', 'info');
+                const response = await fetchConClave(`/api/calendar/sync/${citaId}`, {
+                    method: 'POST'
+                });
+
+                if (response.status === 'success') {
+                    mostrarToast('✅ Sincronizado correctamente', 'success');
+                    if (response.link) {
+                        if (confirm('¿Deseas ver el evento en Google Calendar?')) {
+                            window.open(response.link, '_blank');
+                        }
+                    }
+                } else {
+                    mostrarToast('❌ ' + (response.error || 'Error al sincronizar'), 'error');
+                }
+            } catch (error) {
+                console.error('Error sincronizando:', error);
+                mostrarToast('❌ Error de conexión con el servidor', 'error');
+            }
+        }
+
+        // Funciones de UI
+        function mostrarTab(tabName) {
+            // Actualizar tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Mostrar tab seleccionado
+            const tabContent = document.getElementById(`tab-${tabName}`);
+            const tabButton = document.querySelector(`.tab[onclick="mostrarTab('${tabName}')"]`);
+
+            if (tabContent && tabButton) {
+                tabContent.classList.add('active');
+                tabButton.classList.add('active');
+            }
+
+            // Guardar última tab visitada
+            localStorage.setItem('ultima_tab', tabName);
+        }
+
+        async function mostrarModalNuevaCita() {
+            await initFlatpickr();
+
+            // Mostrar botones de hoy/mañana (por si estaban ocultos por abrir desde un lead)
+            const quickButtons = document.getElementById('quick-date-buttons');
+            if (quickButtons) quickButtons.style.display = 'flex';
+
+            // Setear fecha mínima a hoy
+            const hoy = new Date().toISOString().split('T')[0];
+            if (flatpickrFecha) {
+                flatpickrFecha.set('minDate', 'today');
+                flatpickrFecha.setDate(hoy, true);
+            } else {
+                document.getElementById('nuevo-fecha').value = hoy;
+            }
+
+            // Setear hora por defecto (si existe en los horarios)
+            const selectHora = document.getElementById('nuevo-hora');
+            if (selectHora) selectHora.value = '09:00';
+
+            document.getElementById('modal-nueva-cita').classList.add('active');
+        }
+
+        function cerrarModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function guardarConfiguracion() {
+            const refreshValue = parseInt(document.getElementById('refresh-interval').value);
+            const notifCitas = document.getElementById('notif-citas').checked;
+            const notifLeads = document.getElementById('notif-leads').checked;
+            const notifRecordatorios = document.getElementById('notif-recordatorios').checked;
+
+            configuracion = {
+                autoRefresh: refreshValue,
+                notificaciones: {
+                    citas: notifCitas,
+                    leads: notifLeads,
+                    recordatorios: notifRecordatorios
+                }
+            };
+
+            localStorage.setItem('configuracion_panel', JSON.stringify(configuracion));
+            actualizarRefreshInterval();
+
+            mostrarToast('✅ Configuración guardada', 'success');
+        }
+
+        function cargarConfiguracion() {
+            const savedConfig = localStorage.getItem('configuracion_panel');
+            if (savedConfig) {
+                configuracion = JSON.parse(savedConfig);
+
+                document.getElementById('refresh-interval').value = configuracion.autoRefresh;
+                document.getElementById('notif-citas').checked = configuracion.notificaciones.citas;
+                document.getElementById('notif-leads').checked = configuracion.notificaciones.leads;
+                document.getElementById('notif-recordatorios').checked = configuracion.notificaciones.recordatorios;
+            }
+        }
+
+        function actualizarRefreshInterval() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+
+            const interval = parseInt(document.getElementById('refresh-interval').value) * 1000;
+            if (interval > 0) {
+                refreshInterval = setInterval(cargarDatos, interval);
+                console.log(`Auto-refresh configurado a ${interval / 1000} segundos`);
+            }
+        }
+
+        // Gestión de Vistas y Calendario
+        let calendar = null;
+
+        function cambiarVistaCitas(vista) {
+            const grid = document.getElementById('citas-container');
+            const calendarEl = document.getElementById('calendar-container');
+            const btnGrid = document.getElementById('view-grid');
+            const btnCalendar = document.getElementById('view-calendar');
+
+            if (vista === 'calendar') {
+                grid.style.display = 'none';
+                calendarEl.style.display = 'block';
+                btnGrid.classList.remove('active');
+                btnCalendar.classList.add('active');
+
+                if (!calendar) {
+                    initCalendar();
+                } else {
+                    calendar.render();
+                    actualizarEventosCalendario();
+                }
+            } else {
+                grid.style.display = 'grid';
+                calendarEl.style.display = 'none';
+                btnGrid.classList.add('active');
+                btnCalendar.classList.remove('active');
+            }
+        }
+
+        function initCalendar() {
+            const calendarEl = document.getElementById('calendar');
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'es',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                buttonText: {
+                    today: 'Hoy',
+                    month: 'Mes',
+                    week: 'Semana',
+                    day: 'Día'
+                },
+                eventTimeFormat: {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                },
+                events: transformCitasToEvents(todasLasCitas),
+                eventClick: function (info) {
+                    abrirEditarCita(info.event.id);
+                },
+                height: 'auto'
+            });
+            calendar.render();
+        }
+
+        function transformCitasToEvents(citas) {
+            return citas.map(c => ({
+                id: c.id,
+                title: `${c.nombre}`,
+                start: `${c.fecha}T${c.hora}`,
+                backgroundColor: c.estado === 'confirmada' ? '#10b981' :
+                    c.estado === 'completada' ? '#3b82f6' :
+                        c.estado === 'cancelada' ? '#ef4444' : '#f59e0b',
+                borderColor: 'transparent'
+            }));
+        }
+
+        function actualizarEventosCalendario() {
+            if (calendar) {
+                calendar.removeAllEvents();
+                calendar.addEventSource(transformCitasToEvents(todasLasCitas));
+            }
+        }
+
+        // Gestión de Leads (Editar/Eliminar)
+        function abrirEditarLead(leadId) {
+            const lead = todosLosLeads.find(l => (l.id == leadId || l.user_id == leadId));
+            if (!lead) return;
+
+            document.getElementById('edit-lead-id').value = lead.id || lead.user_id;
+            document.getElementById('edit-lead-nombre').value = lead.nombre || '';
+            document.getElementById('edit-lead-detalles').value = lead.detalle || '';
+
+            document.getElementById('modal-editar-lead').classList.add('active');
+        }
+
+        async function guardarEdicionLead(event) {
+            event.preventDefault();
+            const leadId = document.getElementById('edit-lead-id').value;
+            const data = {
+                nombre: document.getElementById('edit-lead-nombre').value,
+                detalles: document.getElementById('edit-lead-detalles').value
+            };
+
+            try {
+                await fetchConClave(`/api/leads/${leadId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                mostrarToast('✅ Lead actualizado', 'success');
+                cerrarModal('modal-editar-lead');
+                cargarDatos();
+            } catch (error) {
+                console.error('Error editando lead:', error);
+            }
+        }
+
+        async function eliminarLead(leadId) {
+            if (!confirm('¿Estás seguro de eliminar este lead permanentemente?')) return;
+
+            try {
+                await fetchConClave(`/api/leads/${leadId}`, { method: 'DELETE' });
+                mostrarToast('✅ Lead eliminado', 'success');
+                cargarDatos();
+            } catch (error) {
+                console.error('Error eliminando lead:', error);
+            }
+        }
+
+        // Gestión de Citas (Editar/Eliminar)
+        async function abrirEditarCita(citaId) {
+            const cita = todasLasCitas.find(c => c.id == citaId);
+            if (!cita) return;
+
+            await initFlatpickr();
+
+            document.getElementById('edit-cita-id').value = cita.id;
+            document.getElementById('edit-cita-nombre').value = cita.nombre;
+            document.getElementById('edit-cita-email').value = cita.email || '';
+
+            // Setear valores en fecha y hora
+            if (flatpickrEditFecha) {
+                flatpickrEditFecha.setDate(cita.fecha, true);
+            } else {
+                document.getElementById('edit-cita-fecha').value = cita.fecha;
+            }
+
+            const selectHora = document.getElementById('edit-cita-hora');
+            if (selectHora) {
+                seleccionarHoraEnSelect(selectHora, cita.hora);
+            }
+
+            document.getElementById('edit-cita-estado').value = cita.estado || 'pendiente';
+            document.getElementById('edit-cita-notas').value = cita.notas || '';
+
+            // Cargar propiedad en el buscador
+            if (cita.propiedad_id) {
+                document.getElementById('edit-cita-propiedad-id').value = cita.propiedad_id;
+                document.getElementById('edit-cita-propiedad-search').value = `${cita.propiedad_id} - ${cita.propiedad_titulo || ''}`;
+            }
+
+            document.getElementById('modal-editar-cita').classList.add('active');
+        }
+
+        function seleccionarHoraEnSelect(select, hora) {
+            // Buscar si la hora existe en las opciones
+            let existe = Array.from(select.options).some(opt => opt.value === hora);
+
+            if (!existe && hora) {
+                // Agregar opción personalizada si la cita tiene una hora que no está en la configuración global
+                const option = document.createElement('option');
+                option.value = hora;
+                option.textContent = `${hora} hs (Personalizada)`;
+                select.appendChild(option);
+            }
+
+            select.value = hora;
+        }
+
+        async function guardarEdicionCita(event) {
+            event.preventDefault();
+            const citaId = document.getElementById('edit-cita-id').value;
+            const propId = document.getElementById('edit-cita-propiedad-id').value;
+            const propSearch = document.getElementById('edit-cita-propiedad-search').value;
+
+            const data = {
+                nombre: document.getElementById('edit-cita-nombre').value,
+                email: document.getElementById('edit-cita-email').value,
+                fecha: document.getElementById('edit-cita-fecha').value,
+                hora: document.getElementById('edit-cita-hora').value,
+                estado: document.getElementById('edit-cita-estado').value,
+                notas: document.getElementById('edit-cita-notas').value,
+                propiedad_id: propId,
+                propiedad_titulo: propSearch.includes(' - ') ? propSearch.split(' - ')[1] : propSearch
+            };
+
+            try {
+                mostrarToast('Actualizando cita...', 'info');
+                await fetchConClave(`/api/citas/${citaId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                mostrarToast('✅ Cita actualizada', 'success');
+                cerrarModal('modal-editar-cita');
+                cargarDatos();
+            } catch (error) {
+                console.error('Error editando cita:', error);
+                mostrarToast('❌ Error al actualizar la cita', 'error');
+            }
+        }
+
+
+
+
+
+        async function eliminarCita(citaId) {
+            if (!confirm('¿Estás seguro de eliminar esta cita permanentemente?')) return;
+
+            try {
+                await fetchConClave(`/api/citas/${citaId}`, { method: 'DELETE' });
+                mostrarToast('✅ Cita eliminada', 'success');
+                cargarDatos();
+            } catch (error) {
+                console.error('Error eliminando cita:', error);
+            }
+        }
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', () => {
+            if (validarAcceso()) {
+                initFlatpickr(); // Ahora carga también los horarios
+                cargarConfiguracion();
+                cargarDatos();
+                actualizarRefreshInterval();
+
+                // Mostrar tab guardada
+                const ultimaTab = localStorage.getItem('ultima_tab') || 'resumen';
+                mostrarTab(ultimaTab);
+
+                // Info usuario
+                document.getElementById('user-info').innerHTML = `
+                    <span>👤 Dante Propiedades</span>
+                    <span style="opacity: 0.7;">Administrador</span>
+                `;
+            }
+        });
+
+        // Manejar conexión/desconexión
+        window.addEventListener('online', () => {
+            mostrarToast('✅ Conexión restablecida', 'success');
+            cargarDatos();
+        });
+
+        window.addEventListener('offline', () => {
+            mostrarToast('⚠️ Sin conexión a internet', 'warning');
+        });
+
+        // Ejecutar Tareas Diarias
+        async function ejecutarTareasDiarias() {
+            if (!confirm("¿Está seguro de querer ejecutar las tareas diarias ahora? Esto enviará recordatorios y seguimientos pendientes.")) {
+                return;
+            }
+
+            mostrarToast("Iniciando tareas diarias en segundo plano...", "warning");
+
+            try {
+                // Obtener apiKey del localStorage o variable global de admin.html
+                const adminKeyData = localStorage.getItem('dante_admin_key');
+                const adminKey = adminKeyData || new URLSearchParams(window.location.search).get('key') || '';
+
+                const response = await fetch(`/api/admin/run-daily-tasks?key=${adminKey}`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    mostrarToast(data.message || "Tareas iniciadas exitosamente.", "success");
+                } else {
+                    mostrarToast(data.error || "Error al iniciar las tareas", "error");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                mostrarToast("Error de conexión al iniciar las tareas", "error");
+            }
+        }
+
+        // Ejecutar Sincronizacion global con Google Calendar
+        async function sincronizarTodoGoogleCal() {
+            if (!confirm("¿Desea iniciar la sincronización masiva de todas las citas activas con Google Calendar?")) {
+                return;
+            }
+
+            mostrarToast("Iniciando sincronización con Google Calendar...", "info");
+
+            try {
+                const adminKeyData = localStorage.getItem('dante_admin_key');
+                const adminKey = adminKeyData || new URLSearchParams(window.location.search).get('key') || '';
+
+                const response = await fetch(`/api/admin/sync-calendar-all?key=${adminKey}`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    mostrarToast(data.message || "Sincronización iniciada.", "success");
+                } else {
+                    mostrarToast(data.error || "Error al iniciar sincronización", "error");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                mostrarToast("Error de conexión al sincronizar calendario", "error");
+            }
+        }
+    </script>
+</body>
+
+</html>
