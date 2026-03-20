@@ -2167,7 +2167,9 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
 
             try {
                 mostrarToast('Enviando mensaje...', 'info');
-                const response = await fetchConClave('/send-message', {
+                // Al usar fetchConClave, si la respuesta no es OK lanza una excepción.
+                // Si tiene éxito, devuelve directamente el JSON.
+                const result = await fetchConClave('/send-message', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2176,17 +2178,12 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                     })
                 });
 
-                if (response.ok) {
-                    mostrarToast('✅ Mensaje enviado exitosamente', 'success');
-                    cerrarModal('modal-mensaje-manual');
-                } else {
-                    const err = await response.json();
-                    const errorMsg = err.error_message || err.error || 'Fallo en el envío';
-                    mostrarToast(`❌ Error: ${errorMsg}`, 'error');
-                }
+                console.log('Envío manual exitoso:', result);
+                mostrarToast('✅ Mensaje enviado exitosamente', 'success');
+                cerrarModal('modal-mensaje-manual');
             } catch (error) {
-                console.error('Error:', error);
-                mostrarToast('❌ Error de conexión', 'error');
+                console.error('Error al enviar mensaje:', error);
+                // El error ya lo muestra fetchConClave via Toast, no hace falta repetir
             }
         }
 
