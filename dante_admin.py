@@ -557,13 +557,20 @@ def obtener_propiedades_metadata():
             
             # Solo enviar lo necesario para el buscador para ahorrar ancho de banda
             metadata = []
+            # Para el panel admin, enviamos más detalles
+            metadata = []
             for p in propiedades:
                 metadata.append({
-                    "id": p.get("id_temporal"),
+                    "id": p.get("id_temporal") or p.get("id"),
                     "titulo": p.get("titulo"),
                     "direccion": p.get("direccion"),
+                    "barrio": p.get("barrio"),
                     "tipo": p.get("tipo"),
-                    "operacion": p.get("operacion")
+                    "operacion": p.get("operacion"),
+                    "precio": p.get("precio"),
+                    "moneda": p.get("moneda_precio"),
+                    "m2": p.get("metros_cuadrados"),
+                    "ambientes": p.get("ambientes")
                 })
             return jsonify(metadata)
         return jsonify([])

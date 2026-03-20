@@ -843,6 +843,10 @@
                 aria-controls="tab-leads">
                 <span>👥</span> Todos los Leads
             </button>
+            <button class="tab" onclick="mostrarTab('propiedades')" role="tab" aria-selected="false"
+                aria-controls="tab-propiedades">
+                <span>🏠</span> Propiedades
+            </button>
             <button class="tab" onclick="mostrarTab('exportar')" role="tab" aria-selected="false"
                 aria-controls="tab-exportar">
                 <span>📤</span> Exportar Datos
@@ -920,6 +924,34 @@
                 <!-- Leads cargados dinámicamente -->
             </div>
             <div class="pagination" id="leads-pagination"></div>
+        </div>
+
+        <!-- Tab Propiedades -->
+        <div id="tab-propiedades" class="tab-content" role="tabpanel" aria-labelledby="propiedades-tab">
+            <div class="tab-header">
+                <h2>🏠 Inventario de Propiedades</h2>
+                <div class="filters">
+                    <input type="text" class="search-box" placeholder="🔍 Buscar propiedades..."
+                        oninput="filtrarPropiedades(this.value)">
+                    <select class="select-filter" onchange="filtrarPropiedadesPorTipo(this.value)">
+                        <option value="">Todos los tipos</option>
+                        <option value="Departamento">Departamento</option>
+                        <option value="Casa">Casa</option>
+                        <option value="PH">PH</option>
+                        <option value="Terreno">Terreno</option>
+                        <option value="Oficina">Oficina</option>
+                    </select>
+                    <select class="select-filter" onchange="filtrarPropiedadesPorOperacion(this.value)">
+                        <option value="">Operación</option>
+                        <option value="venta">Venta</option>
+                        <option value="alquiler">Alquiler</option>
+                    </select>
+                </div>
+            </div>
+            <div class="citas-grid" id="propiedades-container">
+                <!-- Propiedades cargadas dinámicamente -->
+            </div>
+            <div class="pagination" id="propiedades-pagination"></div>
         </div>
 
         <!-- Tab Exportar -->
@@ -1286,10 +1318,9 @@
 
             try {
                 // Cargar metadatos de propiedades para el buscador
-                fetchConClave('/api/propiedades').then(props => {
-                    todasLasPropiedades = props;
-                    initPropertySearch();
-                });
+                const props = await fetchConClave('/api/propiedades');
+                todasLasPropiedades = props;
+                initPropertySearch();
 
                 mostrarLoading('citas-container', 'Cargando citas...');
                 mostrarLoading('leads-container', 'Cargando leads...');
@@ -1305,6 +1336,7 @@
                 // Mostrar datos
                 mostrarCitas(todasLasCitas);
                 mostrarLeads(todosLosLeads);
+                mostrarPropiedades(todasLasPropiedades);
                 actualizarEstadisticas();
 
                 // Inicializar controles avanzados
@@ -1487,6 +1519,98 @@
 
             container.innerHTML = html;
         }
+
+        // Mostrar propiedades
+        function mostrarPropiedades(propiedades) {
+            const container = document.getElementById('propiedades-container');
+
+            if (!container) return; // Por si se llama antes de cargar el HTML
+
+            if (!propiedades || propiedades.length === 0) {
+                mostrarEmptyState('propiedades-container', 'No hay propiedades en el inventario', '🏠');
+                return;
+            }
+
+            let html = '';
+            propiedades.forEach(p => {
+                const precioValue = Number(p.precio);
+                const precio = !isNaN(precioValue) && precioValue > 0 ? 
+                    `${p.moneda || 'USD'} $${precioValue.toLocaleString('es-AR')}` : 'Consultar';
+                
+                html += `
+                    <div class="cita-card property-card" data-id="${p.id}">
+                        <div class="card-header">
+                            <span class="card-id">ID: ${p.id}</span>
+                            <span class="status-badge ${p.operacion === 'venta' ? 'status-confirmada' : 'status-completada'}">
+                                ${p.operacion.toUpperCase()}
+                            </span>
+                        </div>
+                        
+                        <div class="card-content">
+                            <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem; color: var(--primary);">${p.titulo || 'Sin título'}</h3>
+                            <div style="font-size: 1.4rem; font-weight: 800; margin-bottom: 1rem; color: var(--text-main);">
+                                ${precio}
+                            </div>
+                            
+                            <div class="card-row">
+                                <span>📍</span>
+                                <span>${p.direccion || ''} ${p.barrio ? `(${p.barrio})` : ''}</span>
+                            </div>
+                            
+                            <div class="card-row">
+                                <span>🏠</span>
+                                <span>${p.tipo} | ${p.ambientes || '?'} amb | ${p.m2 || '?'} m²</span>
+                            </div>
+                        </div>
+                        
+                        <div class="card-actions" style="grid-template-columns: 1fr;">
+                            <button class="btn btn-outline" onclick="copiarID('${p.id}')">
+                                📋 Copiar ID para Bot
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function copiarID(id) {
+            navigator.clipboard.writeText(id).then(() => {
+                mostrarToast(`✅ ID ${id} copiado al portapapeles`, 'success', 2000);
+            });
+        }
+
+        // Funciones de filtrado de propiedades
+        function filtrarPropiedades(termino) {
+            const busqueda = termino.toLowerCase();
+            const filtradas = todasLasPropiedades.filter(p => 
+                (p.titulo && p.titulo.toLowerCase().includes(busqueda)) ||
+                (p.direccion && p.direccion.toLowerCase().includes(busqueda)) ||
+                (p.barrio && p.barrio.toLowerCase().includes(busqueda)) ||
+                (p.id && (p.id.toString()).toLowerCase().includes(busqueda))
+            );
+            mostrarPropiedades(filtradas);
+        }
+
+        function filtrarPropiedadesPorTipo(tipo) {
+            if (!tipo) {
+                mostrarPropiedades(todasLasPropiedades);
+                return;
+            }
+            const filtradas = todasLasPropiedades.filter(p => p.tipo === tipo);
+            mostrarPropiedades(filtradas);
+        }
+
+        function filtrarPropiedadesPorOperacion(op) {
+            if (!op) {
+                mostrarPropiedades(todasLasPropiedades);
+                return;
+            }
+            const filtradas = todasLasPropiedades.filter(p => p.operacion && p.operacion.toLowerCase() === op.toLowerCase());
+            mostrarPropiedades(filtradas);
+        }
+
 
         // Actualizar estadísticas
         function actualizarEstadisticas() {
