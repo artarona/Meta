@@ -6,13 +6,17 @@ from config import *
 
 def normalizar_numero_argentina(numero):
     """
-    Convierte número argentino al formato que espera la API de WhatsApp (sandbox).
-    El usuario verificó que el Sandbox espera: 54 + Area + 15 + Numero
-    Ejemplo: 5491151511579 -> 54111551511579
+    Normaliza el número para la API de WhatsApp.
+    En producción (E.164), se prefiere mantener el formato original sin el '15' 
+    que se usaba en el Sandbox de Meta.
     """
-    if numero and numero.startswith('549') and len(numero) == 13:
-        # Asumiendo código de área de 2 dígitos (como 11 para BA)
-        return '54' + numero[3:5] + '15' + numero[5:]
+    if not numero:
+        return numero
+    
+    # Limpiar caracteres no numéricos
+    numero = ''.join(filter(str.isdigit, str(numero)))
+    
+    # Si viene con el '9' intermedio (549...), lo dejamos como está para producción
     return numero
 
 

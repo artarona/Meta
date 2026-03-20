@@ -90,13 +90,9 @@ def send_whatsapp_image(to_number, image_url, caption=""):
         
         # 🔥 MISMA TRANSFORMACIÓN PARA IMÁGENES
         def transform_number(number):
-            if number.startswith("549") and len(number) == 13:
-                country = number[:2]
-                area = number[3:5]
-                rest = number[5:]
-                return f"{country}{area}15{rest}"
-            return number
-        
+            # En producción usamos el número tal cual (formato E.164)
+            return ''.join(filter(str.isdigit, str(number)))
+
         transformed_number = transform_number(to_number)
         
         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
