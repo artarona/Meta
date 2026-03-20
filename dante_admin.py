@@ -74,8 +74,9 @@ logger = logging.getLogger(__name__)
 
 def validar_admin_key(key):
     """Validar clave de administrador"""
-    # 🔥 COMENTAR TEMPORALMENTE PARA PRUEBAS
-    # return key == ADMIN_KEY
+    # 🔥 DESCOMENTAR PARA PRODUCCIÓN
+    # admin_key_env = os.getenv('ADMIN_KEY', 'dante_admin_2024')
+    # return key == admin_key_env
     return True  # Siempre válido para pruebas
 
 def log_event(telefono, accion, detalles="", propiedad_id="", propiedad_titulo=""):
@@ -578,28 +579,7 @@ def obtener_propiedades_metadata():
         logger.error(f"Error cargando propiedades: {e}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/send-message', methods=['POST'])
-def api_send_manual_message():
-    """Endpoint para enviar mensajes manuales vía WhatsApp"""
-    key = request.args.get('key')
-    if not validar_admin_key(key):
-        return jsonify({"error": "Acceso no autorizado"}), 401
-    
-    data = request.json
-    if not data or 'to' not in data or 'message' not in data:
-        return jsonify({"error": "Datos incompletos"}), 400
-    
-    from whatsapp_api import send_whatsapp_message
-    
-    to_number = data['to']
-    message_text = data['message']
-    
-    resultado = send_whatsapp_message(to_number, message_text)
-    
-    if resultado.get("status") == "success":
-        return jsonify(resultado), 200
-    else:
-        return jsonify(resultado), 500
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/panel/citas/nueva', methods=['POST'])
 def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None, notas=""):

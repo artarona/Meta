@@ -2454,6 +2454,8 @@ def api_propiedades():
         else:
             return jsonify([])
             
+    except Exception as e:
+        log(f"❌ Error en api_propiedades: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/send-message", methods=["POST"])
