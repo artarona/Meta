@@ -2158,6 +2158,68 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         }
 
         function abrirModalMensaje(telefono, nombre) {
+            // Validar que el teléfono existe
+            if (!telefono) {
+                console.error('Teléfono no proporcionado');
+                mostrarToast('⚠️ No se pudo obtener el número de teléfono', 'error');
+                return;
+            }
+            
+            currentMsgDest = telefono;
+            
+            // Verificar y asignar destinatario
+            const destinatarioElem = document.getElementById('msg-manual-destinatario');
+            if (destinatarioElem) {
+                destinatarioElem.textContent = `${nombre || 'Cliente'} (${telefono})`;
+            } else {
+                console.error('Elemento msg-manual-destinatario no encontrado');
+            }
+            
+            // Verificar y asignar campo de texto
+            const textoElem = document.getElementById('texto-mensaje-manual');
+            if (textoElem) {
+                textoElem.value = '';
+            } else {
+                console.error('Elemento texto-mensaje-manual no encontrado');
+            }
+            
+            // Verificar y asignar campo de plantilla
+            const plantillaElem = document.getElementById('nombre-plantilla-manual');
+            if (plantillaElem) {
+                plantillaElem.value = '';
+            } else {
+                console.error('Elemento nombre-plantilla-manual no encontrado');
+            }
+            
+            // Verificar y asignar tipo de envío
+            const tipoElem = document.getElementById('tipo-envio-manual');
+            if (tipoElem) {
+                tipoElem.value = 'texto';
+            } else {
+                console.error('Elemento tipo-envio-manual no encontrado');
+            }
+            
+            // Verificar que la función toggleTipoEnvio exista
+            if (typeof toggleTipoEnvio === 'function') {
+                toggleTipoEnvio();
+            } else {
+                console.error('toggleTipoEnvio no está definida');
+            }
+            
+            // Verificar y mostrar modal
+            const modalElem = document.getElementById('modal-mensaje-manual');
+            if (modalElem) {
+                modalElem.classList.add('active');
+            } else {
+                console.error('Elemento modal-mensaje-manual no encontrado');
+            }
+        }
+
+
+
+        
+        /* 
+        function abrirModalMensaje(telefono, nombre) {
             currentMsgDest = telefono;
             document.getElementById('msg-manual-destinatario').textContent = `${nombre} (${telefono})`;
             document.getElementById('texto-mensaje-manual').value = '';
@@ -2165,7 +2227,9 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             document.getElementById('tipo-envio-manual').value = 'texto';
             toggleTipoEnvio();
             document.getElementById('modal-mensaje-manual').classList.add('active');
-        }
+        } */
+
+
 
         async function enviarMensajeManual() {
             const tipo = document.getElementById('tipo-envio-manual').value;
@@ -2218,6 +2282,8 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 mostrarToast('❌ Error de conexión al servidor', 'error');
             }
         }
+
+        
 
         // Exportar datos
         function exportarDatos() {
