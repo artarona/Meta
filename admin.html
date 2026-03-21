@@ -1189,7 +1189,7 @@
         </div>
     </div>
 
-    <!-- Modal Mensaje Manual -->
+    <!-- Modal Mensaje Manual MEJORADO -->
     <div class="modal" id="modal-mensaje-manual">
         <div class="modal-content">
             <div class="modal-header">
@@ -1202,12 +1202,43 @@
                     <p id="msg-manual-destinatario" style="font-weight: 600;"></p>
                 </div>
                 
+                <!-- Selector de tipo de envío -->
                 <div class="form-group">
-                    <label class="form-label">Mensaje Libre:</label>
-                    <textarea class="form-control" id="texto-mensaje-manual" rows="6" placeholder="Escribe tu respuesta aquí..."></textarea>
-                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
-                        ⚠️ Recuerda que si pasaron más de 24h desde el último mensaje del cliente, Meta podría rechazar el envío si no es una plantilla.
-                    </p>
+                    <label class="form-label">Tipo de mensaje:</label>
+                    <select class="form-control" id="tipo-envio-manual" onchange="toggleTipoEnvio()">
+                        <option value="texto">📝 Texto libre</option>
+                        <option value="plantilla">📋 Usar plantilla</option>
+                    </select>
+                </div>
+                
+                <!-- Contenedor para texto libre -->
+                <div id="contenedor-texto-manual">
+                    <div class="form-group">
+                        <label class="form-label">Mensaje:</label>
+                        <textarea class="form-control" id="texto-mensaje-manual" rows="6" placeholder="Escribe tu mensaje aquí..."></textarea>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                            ⚠️ Recuerda que si pasaron más de 24h desde el último mensaje del cliente, Meta podría rechazar el envío si no es una plantilla.
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Contenedor para plantillas (inicialmente oculto) -->
+                <div id="contenedor-plantilla-manual" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Seleccionar plantilla:</label>
+                        <select class="form-control" id="nombre-plantilla-manual">
+                            <option value="">-- Seleccionar plantilla --</option>
+                            <option value="bienvenida">👋 Bienvenida</option>
+                            <option value="recordatorio_cita">🔔 Recordatorio de cita</option>
+                            <option value="confirmacion_visita">✅ Confirmación de visita</option>
+                            <option value="seguimiento_propiedad">🏠 Seguimiento de propiedad</option>
+                            <option value="agradecimiento">🙏 Agradecimiento</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Personalizar mensaje:</label>
+                        <textarea class="form-control" id="texto-plantilla-personalizado" rows="4" placeholder="Puedes personalizar el mensaje de la plantilla aquí..."></textarea>
+                    </div>
                 </div>
                 
                 <div style="display: flex; gap: 1rem; margin-top: 2rem;">
@@ -1234,9 +1265,10 @@
         let adminKey = '';
         let currentCitaId = '';
         let flatpickrFecha = null;
-        let flatpickrHora = null; // Mantener variable por compatibilidad si se usa en otro lado
+        let flatpickrHora = null;
         let flatpickrEditFecha = null;
-        let listaHorariosGlobales = []; // Nueva lista global
+        let listaHorariosGlobales = [];
+        let currentMsgDest = '';
 
         // Configuración por defecto
         let configuracion = {
@@ -1283,15 +1315,13 @@
         }
 
         // Formatear fechas
-        // Formatear fechas
         function formatearFecha(fechaISO) {
             if (!fechaISO) return '';
             try {
-                // Si viene como fecha completa ISO (2023-10-25T...) o solo fecha (2023-10-25)
                 const partes = fechaISO.split('T')[0].split('-');
                 if (partes.length === 3) {
                     const anio = parseInt(partes[0]);
-                    const mes = parseInt(partes[1]) - 1; // Meses en JS son 0-11
+                    const mes = parseInt(partes[1]) - 1;
                     const dia = parseInt(partes[2]);
 
                     const fecha = new Date(anio, mes, dia);
@@ -1350,7 +1380,6 @@
             if (!validarAcceso()) return;
 
             try {
-                // Cargar metadatos de propiedades para el buscador
                 const props = await fetchConClave('/api/propiedades');
                 todasLasPropiedades = props;
                 initPropertySearch();
@@ -1358,21 +1387,17 @@
                 mostrarLoading('citas-container', 'Cargando citas...');
                 mostrarLoading('leads-container', 'Cargando leads...');
 
-                // Cargar citas
                 const citasResponse = await fetchConClave('/api/citas');
                 todasLasCitas = Array.isArray(citasResponse) ? citasResponse : [];
 
-                // Cargar leads
                 const leadsResponse = await fetchConClave('/api/leads');
                 todosLosLeads = Array.isArray(leadsResponse.leads) ? leadsResponse.leads : [];
 
-                // Mostrar datos
                 mostrarCitas(todasLasCitas);
                 mostrarLeads(todosLosLeads);
                 mostrarPropiedades(todasLasPropiedades);
                 actualizarEstadisticas();
 
-                // Inicializar controles avanzados
                 initFlatpickr();
 
             } catch (error) {
@@ -1564,7 +1589,7 @@
         function mostrarPropiedades(propiedades) {
             const container = document.getElementById('propiedades-container');
 
-            if (!container) return; // Por si se llama antes de cargar el HTML
+            if (!container) return;
 
             if (!propiedades || propiedades.length === 0) {
                 mostrarEmptyState('propiedades-container', 'No hay propiedades en el inventario', '🏠');
@@ -1651,7 +1676,6 @@
             mostrarPropiedades(filtradas);
         }
 
-
         // Actualizar estadísticas
         function actualizarEstadisticas() {
             const hoy = new Date().toISOString().split('T')[0];
@@ -1703,12 +1727,10 @@
 
         // Inicializar Flatpickr
         async function initFlatpickr() {
-            // Cargar horarios primero
             if (listaHorariosGlobales.length === 0) {
                 await cargarHorariosConfig();
             }
 
-            // Flatpickr para nueva cita
             if (!flatpickrFecha) {
                 flatpickrFecha = flatpickr("#nuevo-fecha", {
                     locale: "es",
@@ -1716,11 +1738,10 @@
                     minDate: "today",
                     altInput: true,
                     altFormat: "j \\de F, Y",
-                    allowInput: false // Cambiado a false para evitar problemas de selección manual que bloquean el calendario
+                    allowInput: false
                 });
             }
 
-            // Flatpickr para edición
             if (!flatpickrEditFecha) {
                 flatpickrEditFecha = flatpickr("#edit-cita-fecha", {
                     locale: "es",
@@ -1733,22 +1754,17 @@
             }
         }
 
-        // Nueva función para cargar horarios desde el servidor
         async function cargarHorariosConfig() {
             try {
                 const config = await fetchConClave('/api/config/horarios');
                 if (config && config.configuracion_global && config.configuracion_global.horarios) {
                     listaHorariosGlobales = config.configuracion_global.horarios;
-
-                    // Poblar selects
                     poblarSelectHoras('nuevo-hora');
                     poblarSelectHoras('edit-cita-hora');
-
                     console.log('✅ Horarios cargados:', listaHorariosGlobales.length);
                 }
             } catch (error) {
                 console.error('Error cargando horarios:', error);
-                // Fallback si falla la API
                 listaHorariosGlobales = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
                 poblarSelectHoras('nuevo-hora');
                 poblarSelectHoras('edit-cita-hora');
@@ -1772,7 +1788,6 @@
             if (valorActual) select.value = valorActual;
         }
 
-        // Acceso rápido a fechas
         function setQuickDate(type) {
             const date = new Date();
             if (type === 'tomorrow') {
@@ -1781,7 +1796,6 @@
             if (flatpickrFecha) flatpickrFecha.setDate(date, true);
         }
 
-        // Buscador de Propiedades
         function initPropertySearch() {
             const searchInput = document.getElementById('nuevo-propiedad-search');
             const resultsDiv = document.getElementById('propiedad-results');
@@ -1795,7 +1809,6 @@
                 editSearchInput.addEventListener('input', (e) => manejarBusquedaPropiedad(e, editResultsDiv, 'edit'));
             }
 
-            // Cerrar al hacer click afuera
             document.addEventListener('click', (e) => {
                 if (searchInput && !searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
                     resultsDiv.style.display = 'none';
@@ -1843,7 +1856,6 @@
             document.getElementById(resultsDiv).style.display = 'none';
         }
 
-        // Estados loading/empty
         function mostrarLoading(containerId, mensaje = 'Cargando...') {
             const container = document.getElementById(containerId);
             container.innerHTML = `
@@ -1865,7 +1877,6 @@
             `;
         }
 
-        // Funciones de gestión
         async function cambiarEstadoCita(citaId, nuevoEstado) {
             if (!confirm(`¿Cambiar estado de la cita #${citaId} a ${nuevoEstado}?`)) return;
 
@@ -1876,7 +1887,6 @@
                     method: 'PUT'
                 });
 
-                // Actualizar localmente
                 const index = todasLasCitas.findIndex(c => c.id === citaId);
                 if (index !== -1) {
                     todasLasCitas[index].estado = nuevoEstado;
@@ -1914,7 +1924,6 @@
                 notas: document.getElementById('nuevo-notas').value
             };
 
-            // Validar datos
             if (!formData.nombre || !formData.telefono || !formData.fecha || !formData.hora) {
                 mostrarToast('❌ Por favor completa todos los campos obligatorios', 'error');
                 return;
@@ -1953,8 +1962,6 @@
             }
         }
 
-
-
         async function sincronizarCitas() {
             const statusDiv = document.getElementById('sync-status');
             statusDiv.innerHTML = '🔄 Sincronizando...';
@@ -1977,7 +1984,6 @@
                             <strong>Actualizadas:</strong> ${data.actualizadas}
                         </div>
                     `;
-                    // Recargar la lista de citas
                     cargarDatos();
                 } else {
                     statusDiv.innerHTML = `
@@ -1994,21 +2000,15 @@
                 `;
             }
 
-            // Limpiar mensaje después de 5 segundos
             setTimeout(() => {
                 statusDiv.innerHTML = '';
             }, 5000);
         }
 
-
-
-
         async function agendarCitaDesdeLead(telefono) {
             if (telefono) {
                 document.getElementById('nuevo-telefono').value = telefono;
                 await mostrarModalNuevaCita();
-
-                // Ocultar botones de hoy/mañana para leads como pidió el usuario
                 const quickButtons = document.getElementById('quick-date-buttons');
                 if (quickButtons) quickButtons.style.display = 'none';
             }
@@ -2062,6 +2062,14 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 </div>
             `;
 
+            if (!document.getElementById('modal-recordatorio')) {
+                const modal = document.createElement('div');
+                modal.id = 'modal-recordatorio';
+                modal.className = 'modal';
+                modal.innerHTML = `<div class="modal-content"><div id="recordatorio-content"></div></div>`;
+                document.body.appendChild(modal);
+            }
+
             document.getElementById('recordatorio-content').innerHTML = content;
             document.getElementById('modal-recordatorio').classList.add('active');
         }
@@ -2070,7 +2078,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             const mensaje = document.getElementById('mensaje-recordatorio').value;
 
             try {
-                // Usar la función send_whatsapp_message del backend
                 const cita = todasLasCitas.find(c => c.id === currentCitaId);
 
                 const response = await fetchConClave('/send-message', {
@@ -2095,7 +2102,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
 
-        // Funciones de filtrado
         function filtrarCitas(termino) {
             const citasFiltradas = todasLasCitas.filter(cita => {
                 const busqueda = termino.toLowerCase();
@@ -2140,8 +2146,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
 
             const leadsFiltrados = todosLosLeads.filter(lead => {
-                // Simular fuentes basadas en la acción
-                if (fuente === 'whatsapp') return true; // Todos son de WhatsApp
+                if (fuente === 'whatsapp') return true;
                 if (fuente === 'telefono') return lead.accion === 'lead_caliente_oferta';
                 return false;
             });
@@ -2149,24 +2154,130 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             mostrarLeads(leadsFiltrados);
         }
 
-        let currentMsgDest = '';
+        // Funciones para el modal de mensajes mejorado
+        function toggleTipoEnvio() {
+            const tipo = document.getElementById('tipo-envio-manual');
+            const contenedorTexto = document.getElementById('contenedor-texto-manual');
+            const contenedorPlantilla = document.getElementById('contenedor-plantilla-manual');
+            
+            if (!tipo) {
+                console.error('Elemento tipo-envio-manual no encontrado');
+                return;
+            }
+            
+            if (tipo.value === 'texto') {
+                if (contenedorTexto) contenedorTexto.style.display = 'block';
+                if (contenedorPlantilla) contenedorPlantilla.style.display = 'none';
+            } else {
+                if (contenedorTexto) contenedorTexto.style.display = 'none';
+                if (contenedorPlantilla) contenedorPlantilla.style.display = 'block';
+            }
+        }
 
         function abrirModalMensaje(telefono, nombre) {
+            if (!telefono) {
+                mostrarToast('⚠️ No se pudo obtener el número de teléfono', 'error');
+                return;
+            }
+            
             currentMsgDest = telefono;
-            document.getElementById('msg-manual-destinatario').textContent = `${nombre} (${telefono})`;
-            document.getElementById('texto-mensaje-manual').value = '';
-            document.getElementById('modal-mensaje-manual').classList.add('active');
+            
+            const destinatarioElem = document.getElementById('msg-manual-destinatario');
+            if (destinatarioElem) {
+                destinatarioElem.textContent = `${nombre || 'Cliente'} (${telefono})`;
+            }
+            
+            const textoElem = document.getElementById('texto-mensaje-manual');
+            if (textoElem) textoElem.value = '';
+            
+            const tipoElem = document.getElementById('tipo-envio-manual');
+            if (tipoElem) tipoElem.value = 'texto';
+            
+            const plantillaElem = document.getElementById('nombre-plantilla-manual');
+            if (plantillaElem) plantillaElem.value = '';
+            
+            const textoPlantillaElem = document.getElementById('texto-plantilla-personalizado');
+            if (textoPlantillaElem) textoPlantillaElem.value = '';
+            
+            const contenedorTexto = document.getElementById('contenedor-texto-manual');
+            const contenedorPlantilla = document.getElementById('contenedor-plantilla-manual');
+            if (contenedorTexto) contenedorTexto.style.display = 'block';
+            if (contenedorPlantilla) contenedorPlantilla.style.display = 'none';
+            
+            const modal = document.getElementById('modal-mensaje-manual');
+            if (modal) {
+                modal.classList.add('active');
+            } else {
+                mostrarToast('Error: No se puede abrir el modal de mensajes', 'error');
+            }
+        }
+
+        function obtenerMensajePlantilla(tipo) {
+            const plantillas = {
+                'bienvenida': '👋 ¡Bienvenido/a a Dante Propiedades! 🏠\n\n¿En qué podemos ayudarte hoy? Estamos para asesorarte en la búsqueda de tu próximo hogar.\n\n📱 Para más información, contáctanos al +5491151511579',
+                'recordatorio_cita': '🔔 *RECORDATORIO DANTE PROPIEDADES*\n\nHola {nombre}, te recordamos tu cita programada.\n\n📍 Te esperamos puntualmente.\n📱 Ante cualquier cambio, contáctanos.\n\n¡Gracias por confiar en nosotros! 🏠✨',
+                'confirmacion_visita': '✅ *CONFIRMACIÓN DE VISITA*\n\nHola {nombre}, confirmamos tu visita.\n\n🏠 Propiedad: la seleccionada\n📅 Fecha y hora: según lo acordado\n\nCualquier duda, estamos disponibles. ¡Te esperamos!',
+                'seguimiento_propiedad': '🏠 *SEGUIMIENTO DE PROPIEDAD*\n\nHola {nombre}, ¿cómo estás? Queríamos consultarte si aún estás interesado/a en la propiedad que viste.\n\nTenemos nuevas opciones que podrían interesarte. ¿Te gustaría conocerlas?\n\n¡Esperamos tu respuesta! 📱',
+                'agradecimiento': '🙏 ¡Gracias por contactarte con Dante Propiedades!\n\nValoramos mucho tu interés. Si necesitas más información o querés agendar una visita, no dudes en escribirnos.\n\n¡Estamos para ayudarte! 🏠✨'
+            };
+            return plantillas[tipo] || 'Hola, te contactamos de Dante Propiedades. ¿En qué podemos ayudarte?';
         }
 
         async function enviarMensajeManual() {
-            const mensaje = document.getElementById('texto-mensaje-manual').value;
-            if (!mensaje.trim()) {
-                mostrarToast('⚠️ El mensaje no puede estar vacío', 'warning');
+            const tipo = document.getElementById('tipo-envio-manual');
+            let mensaje = '';
+            
+            if (!tipo) {
+                mostrarToast('Error: Tipo de envío no definido', 'error');
                 return;
             }
-
+            
+            if (tipo.value === 'texto') {
+                const texto = document.getElementById('texto-mensaje-manual');
+                if (!texto) {
+                    mostrarToast('Error: Campo de texto no encontrado', 'error');
+                    return;
+                }
+                mensaje = texto.value.trim();
+                
+                if (!mensaje) {
+                    mostrarToast('⚠️ Por favor escribe un mensaje', 'warning');
+                    return;
+                }
+            } else {
+                const plantillaSelect = document.getElementById('nombre-plantilla-manual');
+                if (!plantillaSelect || !plantillaSelect.value) {
+                    mostrarToast('⚠️ Por favor selecciona una plantilla', 'warning');
+                    return;
+                }
+                
+                const textoPersonalizado = document.getElementById('texto-plantilla-personalizado');
+                const plantillaBase = obtenerMensajePlantilla(plantillaSelect.value);
+                
+                if (textoPersonalizado && textoPersonalizado.value.trim()) {
+                    mensaje = textoPersonalizado.value.trim();
+                } else {
+                    mensaje = plantillaBase;
+                }
+                
+                const destinatarioText = document.getElementById('msg-manual-destinatario').textContent;
+                const clienteNombre = destinatarioText.split('(')[0].trim();
+                mensaje = mensaje.replace(/{nombre}/g, clienteNombre);
+                mensaje = mensaje.replace(/{telefono}/g, currentMsgDest);
+            }
+            
+            if (!currentMsgDest) {
+                mostrarToast('⚠️ No hay destinatario seleccionado', 'warning');
+                return;
+            }
+            
+            if (!confirm(`¿Enviar mensaje a ${currentMsgDest}?\n\n${mensaje.substring(0, 150)}${mensaje.length > 150 ? '...' : ''}`)) {
+                return;
+            }
+            
             try {
-                mostrarToast('Enviando mensaje...', 'info');
+                mostrarToast('📤 Enviando mensaje...', 'info');
+                
                 const response = await fetchConClave('/send-message', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2175,18 +2286,19 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                         message: mensaje
                     })
                 });
-
+                
                 if (response.ok) {
                     mostrarToast('✅ Mensaje enviado exitosamente', 'success');
                     cerrarModal('modal-mensaje-manual');
                 } else {
-                    const err = await response.json();
-                    const errorMsg = err.error_message || err.error || 'Fallo en el envío';
+                    const errorData = await response.json();
+                    const errorMsg = errorData.error_message || errorData.error || 'Error al enviar';
                     mostrarToast(`❌ Error: ${errorMsg}`, 'error');
                 }
+                
             } catch (error) {
-                console.error('Error:', error);
-                mostrarToast('❌ Error de conexión', 'error');
+                console.error('Error enviando mensaje:', error);
+                mostrarToast('❌ Error de conexión al servidor', 'error');
             }
         }
 
@@ -2216,7 +2328,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
 
             if (url) {
                 mostrarToast('📥 Generando archivo Excel...', 'info');
-                // Usar window.location para descargar
                 window.location.href = url;
             }
         }
@@ -2244,9 +2355,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
 
-        // Funciones de UI
         function mostrarTab(tabName) {
-            // Actualizar tabs
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
             });
@@ -2255,7 +2364,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 tab.classList.remove('active');
             });
 
-            // Mostrar tab seleccionado
             const tabContent = document.getElementById(`tab-${tabName}`);
             const tabButton = document.querySelector(`.tab[onclick="mostrarTab('${tabName}')"]`);
 
@@ -2264,18 +2372,15 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 tabButton.classList.add('active');
             }
 
-            // Guardar última tab visitada
             localStorage.setItem('ultima_tab', tabName);
         }
 
         async function mostrarModalNuevaCita() {
             await initFlatpickr();
 
-            // Mostrar botones de hoy/mañana (por si estaban ocultos por abrir desde un lead)
             const quickButtons = document.getElementById('quick-date-buttons');
             if (quickButtons) quickButtons.style.display = 'flex';
 
-            // Setear fecha mínima a hoy
             const hoy = new Date().toISOString().split('T')[0];
             if (flatpickrFecha) {
                 flatpickrFecha.set('minDate', 'today');
@@ -2284,7 +2389,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 document.getElementById('nuevo-fecha').value = hoy;
             }
 
-            // Setear hora por defecto (si existe en los horarios)
             const selectHora = document.getElementById('nuevo-hora');
             if (selectHora) selectHora.value = '09:00';
 
@@ -2292,7 +2396,10 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         }
 
         function cerrarModal(modalId) {
-            document.getElementById(modalId).classList.remove('active');
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('active');
+            }
         }
 
         function guardarConfiguracion() {
@@ -2341,7 +2448,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
 
-        // Gestión de Vistas y Calendario
         let calendar = null;
 
         function cambiarVistaCitas(vista) {
@@ -2419,7 +2525,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
 
-        // Gestión de Leads (Editar/Eliminar)
         function abrirEditarLead(leadId) {
             const lead = todosLosLeads.find(l => (l.id == leadId || l.user_id == leadId));
             if (!lead) return;
@@ -2466,7 +2571,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
 
-        // Gestión de Citas (Editar/Eliminar)
         async function abrirEditarCita(citaId) {
             const cita = todasLasCitas.find(c => c.id == citaId);
             if (!cita) return;
@@ -2477,7 +2581,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             document.getElementById('edit-cita-nombre').value = cita.nombre;
             document.getElementById('edit-cita-email').value = cita.email || '';
 
-            // Setear valores en fecha y hora
             if (flatpickrEditFecha) {
                 flatpickrEditFecha.setDate(cita.fecha, true);
             } else {
@@ -2486,34 +2589,25 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
 
             const selectHora = document.getElementById('edit-cita-hora');
             if (selectHora) {
-                seleccionarHoraEnSelect(selectHora, cita.hora);
+                let existe = Array.from(selectHora.options).some(opt => opt.value === cita.hora);
+                if (!existe && cita.hora) {
+                    const option = document.createElement('option');
+                    option.value = cita.hora;
+                    option.textContent = `${cita.hora} hs (Personalizada)`;
+                    selectHora.appendChild(option);
+                }
+                selectHora.value = cita.hora;
             }
 
             document.getElementById('edit-cita-estado').value = cita.estado || 'pendiente';
             document.getElementById('edit-cita-notas').value = cita.notas || '';
 
-            // Cargar propiedad en el buscador
             if (cita.propiedad_id) {
                 document.getElementById('edit-cita-propiedad-id').value = cita.propiedad_id;
                 document.getElementById('edit-cita-propiedad-search').value = `${cita.propiedad_id} - ${cita.propiedad_titulo || ''}`;
             }
 
             document.getElementById('modal-editar-cita').classList.add('active');
-        }
-
-        function seleccionarHoraEnSelect(select, hora) {
-            // Buscar si la hora existe en las opciones
-            let existe = Array.from(select.options).some(opt => opt.value === hora);
-
-            if (!existe && hora) {
-                // Agregar opción personalizada si la cita tiene una hora que no está en la configuración global
-                const option = document.createElement('option');
-                option.value = hora;
-                option.textContent = `${hora} hs (Personalizada)`;
-                select.appendChild(option);
-            }
-
-            select.value = hora;
         }
 
         async function guardarEdicionCita(event) {
@@ -2550,10 +2644,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
 
-
-
-
-
         async function eliminarCita(citaId) {
             if (!confirm('¿Estás seguro de eliminar esta cita permanentemente?')) return;
 
@@ -2566,19 +2656,16 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
 
-        // Inicialización
         document.addEventListener('DOMContentLoaded', () => {
             if (validarAcceso()) {
-                initFlatpickr(); // Ahora carga también los horarios
+                initFlatpickr();
                 cargarConfiguracion();
                 cargarDatos();
                 actualizarRefreshInterval();
 
-                // Mostrar tab guardada
                 const ultimaTab = localStorage.getItem('ultima_tab') || 'resumen';
                 mostrarTab(ultimaTab);
 
-                // Info usuario
                 document.getElementById('user-info').innerHTML = `
                     <span>👤 Dante Propiedades</span>
                     <span style="opacity: 0.7;">Administrador</span>
@@ -2586,7 +2673,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         });
 
-        // Manejar conexión/desconexión
         window.addEventListener('online', () => {
             mostrarToast('✅ Conexión restablecida', 'success');
             cargarDatos();
@@ -2596,7 +2682,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             mostrarToast('⚠️ Sin conexión a internet', 'warning');
         });
 
-        // Ejecutar Tareas Diarias
         async function ejecutarTareasDiarias() {
             if (!confirm("¿Está seguro de querer ejecutar las tareas diarias ahora? Esto enviará recordatorios y seguimientos pendientes.")) {
                 return;
@@ -2605,7 +2690,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             mostrarToast("Iniciando tareas diarias en segundo plano...", "warning");
 
             try {
-                // Obtener apiKey del localStorage o variable global de admin.html
                 const adminKeyData = localStorage.getItem('dante_admin_key');
                 const adminKey = adminKeyData || new URLSearchParams(window.location.search).get('key') || '';
 
@@ -2626,7 +2710,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
 
-        // Ejecutar Sincronizacion global con Google Calendar
         async function sincronizarTodoGoogleCal() {
             if (!confirm("¿Desea iniciar la sincronización masiva de todas las citas activas con Google Calendar?")) {
                 return;
