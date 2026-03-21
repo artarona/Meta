@@ -304,8 +304,6 @@ def send_welcome_flow(user_id):
     )
 
 
-
-
 def check_token_validity():
     """Verifica si el token de acceso es válido"""
     try:
