@@ -1306,7 +1306,9 @@
                 if (!response.ok) {
                     throw new Error(`Error ${response.status}: ${response.statusText}`);
                 }
-                return await response.json();
+                // La respuesta se parsea como JSON automáticamente
+                const data = await response.json();
+                return data;
             } catch (error) {
                 console.error('Fetch error:', error);
                 mostrarToast(`❌ Error: ${error.message}`, 'error');
@@ -1314,6 +1316,8 @@
             }
         }
 
+
+        
         // Formatear fechas
         function formatearFecha(fechaISO) {
             if (!fechaISO) return '';
@@ -2278,6 +2282,8 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             try {
                 mostrarToast('📤 Enviando mensaje...', 'info');
                 
+                // CORRECCIÓN: fetchConClave ya devuelve el JSON parseado
+                // No debemos usar .json() nuevamente
                 const response = await fetchConClave('/send-message', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2287,12 +2293,12 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                     })
                 });
                 
-                if (response.ok) {
+                // fetchConClave devuelve los datos directamente, no el objeto Response
+                if (response && response.status !== 'error') {
                     mostrarToast('✅ Mensaje enviado exitosamente', 'success');
                     cerrarModal('modal-mensaje-manual');
                 } else {
-                    const errorData = await response.json();
-                    const errorMsg = errorData.error_message || errorData.error || 'Error al enviar';
+                    const errorMsg = response?.error || 'Error al enviar';
                     mostrarToast(`❌ Error: ${errorMsg}`, 'error');
                 }
                 
@@ -2301,6 +2307,9 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 mostrarToast('❌ Error de conexión al servidor', 'error');
             }
         }
+
+
+
 
         // Exportar datos
         function exportarDatos() {
