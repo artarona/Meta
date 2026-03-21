@@ -267,41 +267,65 @@ def send_whatsapp_list_menu(to_number, text_body, button_text, sections, header_
         return {"status": "error", "error": str(e)}
 
 
+# def send_welcome_flow(user_id):
+#     """Envía el flujo completo de bienvenida usando un Menú de Lista Interactivo"""
+#     text_body = """🏠🗝️ *DANTE PROPIEDADES*
+
+# ¡Hola! Soy el asistente inmobiliario de Dante Propiedades.
+# *¿Cómo podemos ayudarte hoy?*"""
+    
+#     sections = [
+#         {
+#             "title": "Propiedades",
+#             "rows": [
+#                 {"id": "opcion_1", "title": "🏠 En Venta", "description": "Ver inmuebles disponibles para compra"},
+#                 {"id": "opcion_2", "title": "🔑 En Alquiler", "description": "Ver inmuebles disponibles para alquiler"},
+#                 {"id": "opcion_7", "title": "🏢 Todos los Inmuebles", "description": "Ver catálogo completo de propiedades"},
+#                 {"id": "opcion_tasacion", "title": "📈 Tasación Virtual", "description": "Valora tu propiedad con nuestra IA"}
+#             ]
+#         },
+#         {
+#             "title": "Gestión y Contacto",
+#             "rows": [
+#                 {"id": "opcion_4", "title": "📋 Mis Citas", "description": "Ver mis visitas programadas"},
+#                 {"id": "opcion_6", "title": "❓ Requisitos / FAQs", "description": "Dudas frecuentes al alquilar o comprar"},
+#                 {"id": "opcion_5", "title": "👤 Hablar con asesor", "description": "Contacto directo con un humano"},
+#                 {"id": "opcion_3", "title": "🌐 Sitio Web", "description": "Visitar dantepropiedades.com.ar"}
+#             ]
+#         }
+#     ]
+    
+#     return send_whatsapp_list_menu(
+#         to_number=user_id,
+#         text_body=text_body,
+#         button_text="Opciones",
+#         sections=sections,
+#         footer_text="Selecciona una opción del menú 👇"
+#     )
+
+
 def send_welcome_flow(user_id):
-    """Envía el flujo completo de bienvenida usando un Menú de Lista Interactivo"""
-    text_body = """🏠🗝️ *DANTE PROPIEDADES*
+    """Envía el flujo de bienvenida con un mensaje de texto simple"""
+    mensaje = """🏠🗝️ *DANTE PROPIEDADES*
 
 ¡Hola! Soy el asistente inmobiliario de Dante Propiedades.
-*¿Cómo podemos ayudarte hoy?*"""
+*¿Cómo podemos ayudarte hoy?*
+
+Seleccioná una opción:
+
+1️⃣ *VENTAS* - Inmuebles disponibles para compra
+2️⃣ *ALQUILERES* - Inmuebles disponibles para alquiler  
+7️⃣ *TODOS LOS INMUEBLES* - Catálogo completo
+8️⃣ *TASACIÓN VIRTUAL* - Valorá tu propiedad con IA
+4️⃣ *MIS CITAS* - Ver mis visitas programadas
+6️⃣ *FAQS* - Requisitos y preguntas frecuentes
+5️⃣ *HABLAR CON ASESOR* - Contacto directo con un humano
+3️⃣ *SITIO WEB* - dantepropiedades.com.ar
+
+👉 Respondé con el número de la opción que desees."""
     
-    sections = [
-        {
-            "title": "Propiedades",
-            "rows": [
-                {"id": "opcion_1", "title": "🏠 En Venta", "description": "Ver inmuebles disponibles para compra"},
-                {"id": "opcion_2", "title": "🔑 En Alquiler", "description": "Ver inmuebles disponibles para alquiler"},
-                {"id": "opcion_7", "title": "🏢 Todos los Inmuebles", "description": "Ver catálogo completo de propiedades"},
-                {"id": "opcion_tasacion", "title": "📈 Tasación Virtual", "description": "Valora tu propiedad con nuestra IA"}
-            ]
-        },
-        {
-            "title": "Gestión y Contacto",
-            "rows": [
-                {"id": "opcion_4", "title": "📋 Mis Citas", "description": "Ver mis visitas programadas"},
-                {"id": "opcion_6", "title": "❓ Requisitos / FAQs", "description": "Dudas frecuentes al alquilar o comprar"},
-                {"id": "opcion_5", "title": "👤 Hablar con asesor", "description": "Contacto directo con un humano"},
-                {"id": "opcion_3", "title": "🌐 Sitio Web", "description": "Visitar dantepropiedades.com.ar"}
-            ]
-        }
-    ]
-    
-    return send_whatsapp_list_menu(
-        to_number=user_id,
-        text_body=text_body,
-        button_text="Opciones",
-        sections=sections,
-        footer_text="Selecciona una opción del menú 👇"
-    )
+    return send_whatsapp_message(user_id, mensaje)
+
 
 
 def check_token_validity():
