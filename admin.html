@@ -2151,136 +2151,44 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
 
         let currentMsgDest = '';
 
-        function toggleTipoEnvio() {
-            const tipo = document.getElementById('tipo-envio-manual').value;
-            document.getElementById('group-mensaje-libre').style.display = tipo === 'texto' ? 'block' : 'none';
-            document.getElementById('group-plantilla').style.display = tipo === 'plantilla' ? 'block' : 'none';
-        }
-
-        function abrirModalMensaje(telefono, nombre) {
-            if (!telefono) {
-                console.error('Teléfono no proporcionado');
-                mostrarToast('⚠️ No se pudo obtener el número de teléfono', 'error');
-                return;
-            }
-            
-            currentMsgDest = telefono;
-            
-            // Verificar cada elemento antes de usarlo
-            const destinatarioElem = document.getElementById('msg-manual-destinatario');
-            if (destinatarioElem) {
-                destinatarioElem.textContent = `${nombre || 'Cliente'} (${telefono})`;
-            } else {
-                console.error('Elemento msg-manual-destinatario no encontrado');
-                // No retornar, continuar con otros elementos
-            }
-            
-            const textoElem = document.getElementById('texto-mensaje-manual');
-            if (textoElem) {
-                textoElem.value = '';
-            } else {
-                console.error('Elemento texto-mensaje-manual no encontrado');
-            }
-            
-            const plantillaElem = document.getElementById('nombre-plantilla-manual');
-            if (plantillaElem) {
-                plantillaElem.value = '';
-            } else {
-                console.error('Elemento nombre-plantilla-manual no encontrado');
-            }
-            
-            const tipoElem = document.getElementById('tipo-envio-manual');
-            if (tipoElem) {
-                tipoElem.value = 'texto';
-            } else {
-                console.error('Elemento tipo-envio-manual no encontrado');
-            }
-            
-            if (typeof toggleTipoEnvio === 'function') {
-                toggleTipoEnvio();
-            } else {
-                console.error('toggleTipoEnvio no está definida');
-            }
-            
-            const modalElem = document.getElementById('modal-mensaje-manual');
-            if (modalElem) {
-                modalElem.classList.add('active');
-            } else {
-                console.error('Elemento modal-mensaje-manual no encontrado');
-                // Mostrar un mensaje alternativo
-                mostrarToast('Error: No se puede abrir el modal de mensajes', 'error');
-            }
-        }
-
-
-
-        
-        /* 
         function abrirModalMensaje(telefono, nombre) {
             currentMsgDest = telefono;
             document.getElementById('msg-manual-destinatario').textContent = `${nombre} (${telefono})`;
             document.getElementById('texto-mensaje-manual').value = '';
-            document.getElementById('nombre-plantilla-manual').value = '';
-            document.getElementById('tipo-envio-manual').value = 'texto';
-            toggleTipoEnvio();
             document.getElementById('modal-mensaje-manual').classList.add('active');
-        } */
-
-
+        }
 
         async function enviarMensajeManual() {
-            const tipo = document.getElementById('tipo-envio-manual').value;
             const mensaje = document.getElementById('texto-mensaje-manual').value;
-            const plantilla = document.getElementById('nombre-plantilla-manual').value;
-
-            const payload = { to: currentMsgDest };
-
-            if (tipo === 'texto') {
-                if (!mensaje.trim()) {
-                    mostrarToast('⚠️ El mensaje no puede estar vacío', 'warning');
-                    return;
-                }
-                payload.message = mensaje;
-            } else {
-                if (!plantilla.trim()) {
-                    mostrarToast('⚠️ Debe ingresar el nombre de la plantilla', 'warning');
-                    return;
-                }
-                payload.template = plantilla;
+            if (!mensaje.trim()) {
+                mostrarToast('⚠️ El mensaje no puede estar vacío', 'warning');
+                return;
             }
 
             try {
-                mostrarToast('Enviando...', 'info');
-                
-                const response = await fetch(`${window.location.origin}/send-message?key=${adminKey}`, {
+                mostrarToast('Enviando mensaje...', 'info');
+                const response = await fetchConClave('/send-message', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({
+                        to: currentMsgDest,
+                        message: mensaje
+                    })
                 });
 
-                const result = await response.json();
-
                 if (response.ok) {
-                    console.log('Envío manual exitoso:', result);
                     mostrarToast('✅ Mensaje enviado exitosamente', 'success');
                     cerrarModal('modal-mensaje-manual');
                 } else {
-                    if (result.code === 'WINDOW_CLOSED') {
-                        mostrarToast('🚫 Ventana de 24h cerrada. ¡Usa una Plantilla!', 'error');
-                        // Cambiar automáticamente a modo plantilla para ayudar al usuario
-                        document.getElementById('tipo-envio-manual').value = 'plantilla';
-                        toggleTipoEnvio();
-                    } else {
-                        mostrarToast('❌ Error: ' + (result.error_message || 'Fallo el envío'), 'error');
-                    }
+                    const err = await response.json();
+                    const errorMsg = err.error_message || err.error || 'Fallo en el envío';
+                    mostrarToast(`❌ Error: ${errorMsg}`, 'error');
                 }
             } catch (error) {
-                console.error('Error al enviar mensaje:', error);
-                mostrarToast('❌ Error de conexión al servidor', 'error');
+                console.error('Error:', error);
+                mostrarToast('❌ Error de conexión', 'error');
             }
         }
-
-        
 
         // Exportar datos
         function exportarDatos() {
