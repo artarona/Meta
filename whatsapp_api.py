@@ -305,54 +305,41 @@ def send_whatsapp_list_menu(to_number, text_body, button_text, sections, header_
 
 
 def send_welcome_flow(user_id):
-    """Envía el flujo de bienvenida con un mensaje de texto simple"""
-    mensaje = """🏠🗝️ *DANTE PROPIEDADES*
+    """Envía el flujo completo de bienvenida usando un Menú de Lista Interactivo"""
+    text_body = """🏠🗝️ *DANTE PROPIEDADES*
 
 ¡Hola! Soy el asistente inmobiliario de Dante Propiedades.
-*¿Cómo podemos ayudarte hoy?*
-
-Seleccioná una opción:
-
-1️⃣ *VENTAS* - Inmuebles disponibles para compra
-2️⃣ *ALQUILERES* - Inmuebles disponibles para alquiler  
-7️⃣ *TODOS LOS INMUEBLES* - Catálogo completo
-8️⃣ *TASACIÓN VIRTUAL* - Valorá tu propiedad con IA
-4️⃣ *MIS CITAS* - Ver mis visitas programadas
-6️⃣ *FAQS* - Requisitos y preguntas frecuentes
-5️⃣ *HABLAR CON ASESOR* - Contacto directo con un humano
-3️⃣ *SITIO WEB* - dantepropiedades.com.ar
-
-👉 Respondé con el número de la opción que desees."""
+*¿Cómo podemos ayudarte hoy?*"""
     
-    return send_whatsapp_message(user_id, mensaje)
-
-
-
-def check_token_validity():
-    """Verifica si el token de acceso es válido"""
-    try:
-        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}?fields=verified_name"
-        headers = {
-            "Authorization": f"Bearer {ACCESS_TOKEN}",
-            "Content-Type": "application/json"
+    sections = [
+        {
+            "title": "Propiedades",
+            "rows": [
+                {"id": "opcion_1", "title": "🏠 En Venta", "description": "Ver inmuebles disponibles para compra"},
+                {"id": "opcion_2", "title": "🔑 En Alquiler", "description": "Ver inmuebles disponibles para alquiler"},
+                {"id": "opcion_7", "title": "🏢 Todos los Inmuebles", "description": "Ver catálogo completo de propiedades"},
+                {"id": "opcion_tasacion", "title": "📈 Tasación Virtual", "description": "Valora tu propiedad con nuestra IA"}
+            ]
+        },
+        {
+            "title": "Gestión y Contacto",
+            "rows": [
+                {"id": "opcion_4", "title": "📋 Mis Citas", "description": "Ver mis visitas programadas"},
+                {"id": "opcion_6", "title": "❓ Requisitos / FAQs", "description": "Dudas frecuentes al alquilar o comprar"},
+                {"id": "opcion_5", "title": "👤 Hablar con asesor", "description": "Contacto directo con un humano"},
+                {"id": "opcion_3", "title": "🌐 Sitio Web", "description": "Visitar dantepropiedades.com.ar"}
+            ]
         }
+    ]
+    
+    return send_whatsapp_list_menu(
+        to_number=user_id,
+        text_body=text_body,
+        button_text="Opciones",
+        sections=sections,
+        footer_text="Selecciona una opción del menú 👇"
+    )
 
-        response = requests.get(url, headers=headers, timeout=10)
-
-        if response.status_code == 200:
-            data = response.json()
-            log(f"✅ Token válido. Verified name: {data.get('verified_name', 'N/A')}")
-            return True, data
-
-        else:
-            error_data = response.json() if response.content else {}
-            log(f"❌ Token inválido o sin permisos. Status {response.status_code}")
-            log(f"Detalles: {error_data}")
-            return False, error_data
-
-    except Exception as e:
-        log(f"🔥 Error verificando token: {e}")
-        return False, {"error": str(e)}
 
 
 def notificar_agente(mensaje):
