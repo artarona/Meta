@@ -613,54 +613,54 @@ def check_token_validity():
     
 
 
-# def notificar_agente(mensaje):
-#     """Envía una notificación al número de Dante (ADMIN_NUMBER)"""
-#     log(f"📢 Preparando notificación para el agente ({ADMIN_NUMBER}): {mensaje[:50]}...")
-#     resultado = send_whatsapp_message(ADMIN_NUMBER, f"🔔 *ALERTA DANTE-INSIGHTS*\n{mensaje}")
-#     if resultado.get("status") == "success":
-#         log(f"✅ Notificación enviada al agente: {resultado.get('message_id')}")
-#     else:
-#         log(f"❌ Error notificando al agente: {resultado.get('error_message')}", "ERROR")
-#     return resultado
-
-
-
 def notificar_agente(mensaje):
-    """
-    Envía una notificación al Agente (Dante).
-    Prioriza la variable de Render, luego la de config, y finalmente el hardcode.
-    """
-    # 1. Intentamos leer de Render directamente para evitar cache del config
-    # 2. Si no está en Render, buscamos si existe en el objeto config
-    # 3. Si todo falla, usamos tu número personal directamente.
-    
-    try:
-        from config import AGENT_NUMBER
-    except ImportError:
-        AGENT_NUMBER = "5491136809319"
-
-    # VALIDACIÓN DINÁMICA: 
-    # Si la variable es igual al emisor, la forzamos al número correcto.
-    destino = os.getenv("AGENT_NUMBER", AGENT_NUMBER)
-    
-    if destino == ADMIN_NUMBER or destino == "5491176596523":
-        log(f"⚠️ Detectado conflicto de números. Forzando destino al personal.")
-        destino = "5491136809319"
-
-    log(f"📢 Preparando notificación para el agente ({destino}): {mensaje[:30]}...")
-    
-    # Armamos el texto final
-    texto_alerta = f"🔔 *ALERTA DANTE PROPIEDADES*\n\n{mensaje}"
-    
-    # Llamamos a la función de envío original
-    resultado = send_whatsapp_message(destino, texto_alerta)
-    
+    """Envía una notificación al número de Dante (ADMIN_NUMBER)"""
+    log(f"📢 Preparando notificación para el agente ({ADMIN_NUMBER}): {mensaje[:50]}...")
+    resultado = send_whatsapp_message(ADMIN_NUMBER, f"🔔 *ALERTA DANTE*\n{mensaje}")
     if resultado.get("status") == "success":
         log(f"✅ Notificación enviada al agente: {resultado.get('message_id')}")
     else:
         log(f"❌ Error notificando al agente: {resultado.get('error_message')}", "ERROR")
-        
     return resultado
+
+
+
+# def notificar_agente(mensaje):
+#     """
+#     Envía una notificación al Agente (Dante).
+#     Prioriza la variable de Render, luego la de config, y finalmente el hardcode.
+#     """
+#     # 1. Intentamos leer de Render directamente para evitar cache del config
+#     # 2. Si no está en Render, buscamos si existe en el objeto config
+#     # 3. Si todo falla, usamos tu número personal directamente.
+    
+#     try:
+#         from config import AGENT_NUMBER
+#     except ImportError:
+#         AGENT_NUMBER = "5491136809319"
+
+#     # VALIDACIÓN DINÁMICA: 
+#     # Si la variable es igual al emisor, la forzamos al número correcto.
+#     destino = os.getenv("AGENT_NUMBER", AGENT_NUMBER)
+    
+#     if destino == ADMIN_NUMBER or destino == "5491176596523":
+#         log(f"⚠️ Detectado conflicto de números. Forzando destino al personal.")
+#         destino = "5491136809319"
+
+#     log(f"📢 Preparando notificación para el agente ({destino}): {mensaje[:30]}...")
+    
+#     # Armamos el texto final
+#     texto_alerta = f"🔔 *ALERTA DANTE PROPIEDADES*\n\n{mensaje}"
+    
+#     # Llamamos a la función de envío original
+#     resultado = send_whatsapp_message(destino, texto_alerta)
+    
+#     if resultado.get("status") == "success":
+#         log(f"✅ Notificación enviada al agente: {resultado.get('message_id')}")
+#     else:
+#         log(f"❌ Error notificando al agente: {resultado.get('error_message')}", "ERROR")
+        
+#     return resultado
 
 
 
