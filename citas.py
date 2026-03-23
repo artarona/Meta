@@ -294,7 +294,7 @@ Esto nos permite enviarte recordatorios y más detalles de la propiedad.
 
 
 def manejar_email_cita(text, estado_usuario, user_id):
-    """Maneja la captura del email (opcional)"""
+    """Maneja la captura del email (opcional) y presenta opciones de confirmación"""
     text_lower = text.lower().strip()
     
     if text_lower in ["2", "no", "saltar", "skip", "n", "noup"]:
@@ -324,84 +324,46 @@ def manejar_email_cita(text, estado_usuario, user_id):
     hora = estado_usuario['hora_cita']
     email = estado_usuario.get('email_cliente', 'No proporcionado')
     
-    return f"CONFIRMAR_CITA|{fecha_display}|{hora}|{email}"
+    # Mostrar resumen con opciones de confirmación
+    return f"""
+📅 *RESUMEN DE TU VISITA*
+
+📍 *Propiedad:* {obtener_titulo_propiedad(estado_usuario)}
+👤 *Nombre:* {estado_usuario.get('nombre_cliente', 'Cliente')}
+📞 *Teléfono:* +{user_id}
+📧 *Email:* {email if email else 'No proporcionado'}
+📅 *Fecha:* {fecha_display}
+⏰ *Hora:* {hora} hs
+
+━━━━━━━━━━━━━━━━━━━━
+
+✅ *¿Qué deseas hacer?*
+
+1️⃣ *CONFIRMAR CITA* ✅
+2️⃣ *MODIFICAR FECHA/HORA* 🔄
+3️⃣ *CANCELAR CITA* ❌
+
+👉 Respondé con el número de la opción que desees.
+"""
 
 
-def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
-    """Paso final de confirmación explícita"""
-    if text_lower in ["1", "si", "sí", "confirmar", "ok", "dale"]:
-        # Guardar cita
-        fecha = estado_usuario.get('fecha_cita')
-        hora = estado_usuario.get('hora_cita')
-        nombre = estado_usuario.get('nombre_cliente', 'Cliente')
-        email = estado_usuario.get('email_cliente')
-        
-        # Obtener propiedad
+def obtener_titulo_propiedad(estado_usuario):
+    """Obtiene el título de la propiedad del estado del usuario"""
+    try:
         indice = estado_usuario.get('ultimo_indice_preguntado')
         propiedades_lista = estado_usuario.get('propiedades_filtradas', [])
-        propiedad_id = "N/A"
-        propiedad_titulo = "Propiedad"
         
-        # Verificar que propiedades_lista sea una lista y tenga elementos
         if propiedades_lista and isinstance(propiedades_lista, list) and indice and 1 <= indice <= len(propiedades_lista):
             propiedad = propiedades_lista[indice - 1]
-            # Verificar que propiedad sea un diccionario
             if isinstance(propiedad, dict):
-                propiedad_id = propiedad.get('id_temporal', 'N/A')
-                propiedad_titulo = propiedad.get('titulo', 'Propiedad')
+                return propiedad.get('titulo', 'Propiedad')
             else:
-                # Si es un string, usarlo directamente
-                propiedad_id = str(propiedad)
-                propiedad_titulo = str(propiedad)
-
-        # LLAMAR a la función crear_cita
-        crear_cita(
-            user_id=user_id,
-            nombre=nombre,
-            telefono=user_id,
-            fecha=fecha,
-            hora=hora,
-            propiedad_id=propiedad_id,
-            email=email,
-            notas="Agendado vía Bot"
-        )
-        
-        # Resetear estado
-        estado_usuario['paso'] = 'menu_principal'
-        estado_usuario['fecha_cita'] = None
-        estado_usuario['hora_cita'] = None
-        actualizar_estado_usuario(user_id, estado_usuario)
-        
-        # Mensaje de confirmación
-        if hasattr(fecha, 'strftime'):
-            fecha_f = fecha.strftime("%d-%m-%Y")
-        else:
-            try:
-                fecha_f = datetime.strptime(str(fecha), "%Y-%m-%d").strftime("%d-%m-%Y")
-            except:
-                fecha_f = str(fecha)
-        
-        return f"""✅ *¡VISITA AGENDADA!*
-        
-Hemos confirmado tu visita para:
-📅 *{fecha_f}*
-⏰ *{hora} hs*
-🏠 {propiedad_titulo}
-
-Te esperamos. Si necesitas cancelar, por favor avísanos.
-👋 ¡Gracias!"""
-
-    elif text_lower in ["2", "cambiar", "no"]:
-        estado_usuario['paso'] = 'solicitar_fecha_cita'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "🔄 Ok, cambiemos la fecha. ¿Cuándo te gustaría venir? (ej: 'mañana 10am')"
-        
-    else:
-        # Cancelar
-        estado_usuario['paso'] = 'menu_principal'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "❌ Operación cancelada.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
-
+                return str(propiedad)
+        return "Propiedad seleccionada"
+    except:
+        return "Propiedad seleccionada"
+    
+    
 
 def manejar_ofrecer_cita(text_lower, estado_usuario, user_id):
     """Maneja la oferta de cita"""
