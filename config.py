@@ -18,10 +18,13 @@ ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQz2NpRHUAItiHE0Gzn
 
 # Número que recibirá las alertas (Dante Agente)
 # Usamos el nuevo número que definiste: 5491136809319
+
+# CAMBIAR EN R E N D E R
 AGENT_NUMBER = os.getenv("AGENT_NUMBER", "5491136809319")
+ADMIN_NUMBER = "5491176596523"
 
 PHONE_NUMBER_ID = "1061691623689167"
-ADMIN_NUMBER = "5491176596523"
+
 BASE_URL = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")
 BASE_URL_AI = os.environ.get("BASE_URL_AI", "http://localhost:8001")
 LEADS_FILE = "leads.json"

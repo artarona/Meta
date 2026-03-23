@@ -620,30 +620,18 @@ def check_token_validity():
 #     return resultado
 
 
-
 def notificar_agente(mensaje):
-    """
-    Envía una notificación al número del Agente (Dante).
-    Usa el número de prueba: 5491136809319
-    """
-    # Definimos el número aquí mismo para no tocar otros módulos
-    DESTINO_AGENTE = "5491136809319"
+    # Ahora 'destino' tomará el valor ...9319 que acabás de crear en Render
+    destino = AGENT_NUMBER 
     
-    log(f"📢 Preparando notificación para el agente ({DESTINO_AGENTE}): {mensaje[:50]}...")
+    log(f"📢 Enviando alerta al celular personal: {destino}")
     
-    # Armamos el texto final
-    texto_alerta = f"🔔 *ALERTA DANTE PROPIEDADES*\n{mensaje}"
+    texto_alerta = f"🔔 *ALERTA DANTE PROPIEDADES*\n\n{mensaje}"
     
-    # Llamamos a tu función existente de envío
-    resultado = send_whatsapp_message(DESTINO_AGENTE, texto_alerta)
-    
-    if resultado.get("status") == "success":
-        log(f"✅ Notificación enviada al agente: {resultado.get('message_id')}")
-    else:
-        # Aquí veremos si el error (#100) desaparece con el nuevo número
-        log(f"❌ Error notificando al agente: {resultado.get('error_message')}", "ERROR")
-        
-    return resultado
+    # Enviamos al agente, NO al admin de la cuenta
+    return send_whatsapp_message(destino, texto_alerta)
+
+
 
 
 
