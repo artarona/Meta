@@ -14,6 +14,12 @@ VERIFY_TOKEN = "mi_token_secreto_123"
 # 🔥 CAMBIO IMPORTANTE: Usar variable de entorno para el token
 ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQz2NpRHUAItiHE0GznHoZBd6Mk8BarPC2ny5Ih2PgPtp2qGneVhDI5KTs5ejmlVoP9vsCTZA0csphcsBtjSOpExZCWKWni1OcgEA7KfMHwpZBg0Mkvb7SWBu0Kg8ar0PRNohAmZAKeOmvW61LZA1qOXemD8HVce0vZBNLSqqZAstYO2vlNiTDQZDZD")
 
+# config.py
+
+# Número que recibirá las alertas (Dante Agente)
+# Usamos el nuevo número que definiste: 5491136809319
+AGENT_NUMBER = os.getenv("AGENT_NUMBER", "5491136809319")
+
 PHONE_NUMBER_ID = "1061691623689167"
 ADMIN_NUMBER = "5491176596523"
 BASE_URL = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")

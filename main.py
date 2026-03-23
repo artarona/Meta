@@ -9,7 +9,7 @@ from menu_handlers import *
     # if key != ADMIN_ACCESS_KEY:
     #     return jsonify({"error": "Unauthorized"}), 403
 
-
+from config import AGENT_NUMBER
 from flask import Flask, request, jsonify, send_from_directory, send_file
 import requests
 import os
@@ -609,17 +609,41 @@ def check_token_validity():
     
 
 
+# def notificar_agente(mensaje):
+#     """Envía una notificación al número de Dante (ADMIN_NUMBER)"""
+#     log(f"📢 Preparando notificación para el agente ({ADMIN_NUMBER}): {mensaje[:50]}...")
+#     resultado = send_whatsapp_message(ADMIN_NUMBER, f"🔔 *ALERTA DANTE-INSIGHTS*\n{mensaje}")
+#     if resultado.get("status") == "success":
+#         log(f"✅ Notificación enviada al agente: {resultado.get('message_id')}")
+#     else:
+#         log(f"❌ Error notificando al agente: {resultado.get('error_message')}", "ERROR")
+#     return resultado
+
+
+
 def notificar_agente(mensaje):
-    """Envía una notificación al número de Dante (ADMIN_NUMBER)"""
-    log(f"📢 Preparando notificación para el agente ({ADMIN_NUMBER}): {mensaje[:50]}...")
-    resultado = send_whatsapp_message(ADMIN_NUMBER, f"🔔 *ALERTA DANTE-INSIGHTS*\n{mensaje}")
+    """
+    Envía una notificación al número del Agente (Dante).
+    Usa el número de prueba: 5491136809319
+    """
+    # Definimos el número aquí mismo para no tocar otros módulos
+    DESTINO_AGENTE = "5491136809319"
+    
+    log(f"📢 Preparando notificación para el agente ({DESTINO_AGENTE}): {mensaje[:50]}...")
+    
+    # Armamos el texto final
+    texto_alerta = f"🔔 *ALERTA DANTE PROPIEDADES*\n{mensaje}"
+    
+    # Llamamos a tu función existente de envío
+    resultado = send_whatsapp_message(DESTINO_AGENTE, texto_alerta)
+    
     if resultado.get("status") == "success":
         log(f"✅ Notificación enviada al agente: {resultado.get('message_id')}")
     else:
+        # Aquí veremos si el error (#100) desaparece con el nuevo número
         log(f"❌ Error notificando al agente: {resultado.get('error_message')}", "ERROR")
+        
     return resultado
-
-
 
 
 
