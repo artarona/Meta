@@ -5,6 +5,9 @@ from config import *
 from utils import log, normalizar_numero_argentina
 from io import BytesIO
 from database import registrar_lead, cargar_propiedades_cached
+from config import ADMIN_NUMBER
+
+
 
 processed_message_ids = set()
 
@@ -334,9 +337,10 @@ def check_token_validity():
 
 
 def notificar_agente(mensaje):
-    """Envía una notificación al número de Dante (ADMIN_NUMBER)"""
-    log(f"📢 Preparando notificación para el agente ({ADMIN_NUMBER}): {mensaje[:50]}...")
-    resultado = send_whatsapp_message(ADMIN_NUMBER, f"🔔 *ALERTA DANTE-INSIGHTS*\n{mensaje}")
+    """Envía una notificación al número del agente (AGENT_NUMBER)"""
+    from config import AGENT_NUMBER  # Importar AGENT_NUMBER
+    log(f"📢 Preparando notificación para el agente ({AGENT_NUMBER}): {mensaje[:50]}...")
+    resultado = send_whatsapp_message(AGENT_NUMBER, f"🔔 *ALERTA DANTE*\n{mensaje}")
     if resultado.get("status") == "success":
         log(f"✅ Notificación enviada al agente: {resultado.get('message_id')}")
     else:

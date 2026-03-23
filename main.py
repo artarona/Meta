@@ -13,7 +13,6 @@ from menu_handlers import *
 
 
 from config import ADMIN_NUMBER # El emisor (...6523)
-from config import AGENT_NUMBER
 from flask import Flask, request, jsonify, send_from_directory, send_file
 import requests
 import os
@@ -610,19 +609,6 @@ def check_token_validity():
         return False, {"error": str(e)}
     
     
-    
-
-
-def notificar_agente(mensaje):
-    """Envía una notificación al número del agente (AGENT_NUMBER)"""
-    from config import AGENT_NUMBER  # Asegúrate de importar AGENT_NUMBER
-    log(f"📢 Preparando notificación para el agente ({AGENT_NUMBER}): {mensaje[:50]}...")
-    resultado = send_whatsapp_message(AGENT_NUMBER, f"🔔 *ALERTA DANTE*\n{mensaje}")
-    if resultado.get("status") == "success":
-        log(f"✅ Notificación enviada al agente: {resultado.get('message_id')}")
-    else:
-        log(f"❌ Error notificando al agente: {resultado.get('error_message')}", "ERROR")
-    return resultado
 
 
 # def notificar_agente(mensaje):
