@@ -238,33 +238,138 @@ Por favor, escribí uno de los horarios disponibles:
 def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
     """Paso final de confirmación explícita con opciones de modificación"""
     
+    # Depuración inicial
+    log(f"🔍 DEBUG: manejar_confirmar_cita llamada con text_lower='{text_lower}', user_id={user_id}")
+    log(f"🔍 DEBUG: estado_usuario actual: {json.dumps(estado_usuario, default=str)}")
+    
     # Opción 1: Confirmar cita
     if text_lower in ["1", "si", "sí", "confirmar", "ok", "dale"]:
-        # ... tu código existente para confirmar
-        pass
+        log("✅ Opción 1 seleccionada - Confirmando cita")
+        
+        # Obtener datos del estado
+        fecha = estado_usuario.get('fecha_cita')
+        hora = estado_usuario.get('hora_cita')
+        nombre = estado_usuario.get('nombre_cliente', 'Cliente')
+        email = estado_usuario.get('email_cliente')
+        
+        log(f"📝 Datos de cita: fecha={fecha}, hora={hora}, nombre={nombre}, email={email}")
+        
+        # Obtener propiedad
+        indice = estado_usuario.get('ultimo_indice_preguntado')
+        propiedades_lista = estado_usuario.get('propiedades_filtradas', [])
+        propiedad_id = "N/A"
+        propiedad_titulo = "Propiedad"
+        
+        if propiedades_lista and isinstance(propiedades_lista, list) and indice and 1 <= indice <= len(propiedades_lista):
+            propiedad = propiedades_lista[indice - 1]
+            if isinstance(propiedad, dict):
+                propiedad_id = propiedad.get('id_temporal', 'N/A')
+                propiedad_titulo = propiedad.get('titulo', 'Propiedad')
+                log(f"🏠 Propiedad encontrada: {propiedad_id} - {propiedad_titulo}")
+            else:
+                propiedad_id = str(propiedad)
+                propiedad_titulo = str(propiedad)
+                log(f"🏠 Propiedad (string): {propiedad_id}")
+
+        # Verificar que tenemos los datos mínimos necesarios
+        if not fecha or not hora:
+            log("❌ Error: Fecha u hora no están en estado_usuario")
+            return "❌ *Error interno*: No pude recuperar los datos de la cita. Por favor, intentá agendar nuevamente.\n\n1️⃣ *VOLVER AL MENÚ* 🏠"
+
+        # Crear la cita
+        log("🔄 Llamando a crear_cita...")
+        cita_resultado = crear_cita(
+            user_id=user_id,
+            nombre=nombre,
+            telefono=user_id,
+            fecha=fecha,
+            hora=hora,
+            propiedad_id=propiedad_id,
+            email=email,
+            notas="Agendado vía Bot"
+        )
+        
+        if not cita_resultado:
+            log("❌ Error: crear_cita devolvió None")
+            return "❌ *Error al agendar la cita*\n\nPor favor, intentá nuevamente más tarde o contactá a un asesor.\n\n1️⃣ *VOLVER AL MENÚ* 🏠"
+        
+        log(f"✅ Cita creada exitosamente: {cita_resultado}")
+        
+        # Resetear estado
+        estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['fecha_cita'] = None
+        estado_usuario['hora_cita'] = None
+        estado_usuario['email_cliente'] = None
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        # Formatear fecha para el mensaje
+        try:
+            if hasattr(fecha, 'strftime'):
+                fecha_f = fecha.strftime("%d-%m-%Y")
+            else:
+                fecha_f = datetime.strptime(str(fecha), "%Y-%m-%d").strftime("%d-%m-%Y")
+        except:
+            fecha_f = str(fecha)
+        
+        # Mensaje de confirmación
+        mensaje_confirmacion = f"""
+✅ *¡VISITA CONFIRMADA!*
+
+━━━━━━━━━━━━━━━━━━━━
+📅 *Fecha:* {fecha_f}
+⏰ *Hora:* {hora} hs
+🏠 *Propiedad:* {propiedad_titulo}
+👤 *Nombre:* {nombre}
+📞 *Teléfono:* +{user_id}
+📧 *Email:* {email if email else 'No proporcionado'}
+━━━━━━━━━━━━━━━━━━━━
+
+📍 *Te esperamos.* Si necesitas cancelar o modificar, podes:
+• Enviar *'MIS CITAS'* para ver tus visitas
+• Responder a los recordatorios que recibirás
+
+👋 *¡Muchas gracias por confiar en Dante Propiedades!*
+
+1️⃣ *VOLVER AL MENÚ* 🏠
+0️⃣ *❌ SALIR*
+"""
+        return mensaje_confirmacion
     
     # Opción 2: Modificar fecha/hora
     elif text_lower in ["2", "modificar", "cambiar", "cambiar fecha"]:
+        log("🔄 Opción 2 seleccionada - Modificando cita")
         estado_usuario['paso'] = 'solicitar_fecha_cita'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "🔄 *Perfecto! Vamos a modificar tu visita.*\n\n📅 Enviá la nueva fecha que prefieras (ej: 'mañana 10am', 'jueves 14:30'):"
     
     # Opción 3: Cancelar cita
     elif text_lower in ["3", "cancelar", "anular", "no", "no quiero"]:
-        # Registrar la cancelación
-        guardar_en_postgresql(
-            telefono=user_id,
-            nombre=estado_usuario.get('nombre_cliente', 'Cliente'),
-            accion="cita_cancelada",
-            detalles=f"Cita cancelada por el usuario antes de confirmar"
-        )
+        log("❌ Opción 3 seleccionada - Cancelando cita")
         
-        notificar_agente(f"❌ *CITA CANCELADA POR EL USUARIO*\n👤 {estado_usuario.get('nombre_cliente', 'Cliente')}\n📞 +{user_id}\n🗓️ Cancelada antes de confirmar")
+        # Registrar la cancelación
+        try:
+            guardar_en_postgresql(
+                telefono=user_id,
+                nombre=estado_usuario.get('nombre_cliente', 'Cliente'),
+                accion="cita_cancelada",
+                detalles=f"Cita cancelada por el usuario antes de confirmar. Fecha: {estado_usuario.get('fecha_cita')} Hora: {estado_usuario.get('hora_cita')}"
+            )
+            log("✅ Cancelación registrada en PostgreSQL")
+        except Exception as e:
+            log(f"⚠️ Error registrando cancelación: {e}")
+        
+        # Notificar al agente
+        try:
+            notificar_agente(f"❌ *CITA CANCELADA POR EL USUARIO*\n👤 {estado_usuario.get('nombre_cliente', 'Cliente')}\n📞 +{user_id}\n🗓️ Cancelada antes de confirmar")
+            log("✅ Notificación de cancelación enviada al agente")
+        except Exception as e:
+            log(f"⚠️ Error notificando cancelación: {e}")
         
         # Resetear estado
         estado_usuario['paso'] = 'menu_principal'
         estado_usuario['fecha_cita'] = None
         estado_usuario['hora_cita'] = None
+        estado_usuario['email_cliente'] = None
         actualizar_estado_usuario(user_id, estado_usuario)
         
         return f"""
@@ -277,7 +382,8 @@ Si en otro momento deseas agendar una visita, podes volver a empezar.
 """
         
     else:
-        # Mensaje de ayuda
+        # Mensaje de ayuda para opción no válida
+        log(f"⚠️ Opción no reconocida: '{text_lower}'")
         return f"""
 ❌ *Opción no válida*
 
