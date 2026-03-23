@@ -235,6 +235,64 @@ Por favor, escribí uno de los horarios disponibles:
     return mostrar_seleccion_horarios(fecha_display, horarios_disponibles)
 
 
+def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
+    """Paso final de confirmación explícita con opciones de modificación"""
+    
+    # Opción 1: Confirmar cita
+    if text_lower in ["1", "si", "sí", "confirmar", "ok", "dale"]:
+        # ... tu código existente para confirmar
+        pass
+    
+    # Opción 2: Modificar fecha/hora
+    elif text_lower in ["2", "modificar", "cambiar", "cambiar fecha"]:
+        estado_usuario['paso'] = 'solicitar_fecha_cita'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "🔄 *Perfecto! Vamos a modificar tu visita.*\n\n📅 Enviá la nueva fecha que prefieras (ej: 'mañana 10am', 'jueves 14:30'):"
+    
+    # Opción 3: Cancelar cita
+    elif text_lower in ["3", "cancelar", "anular", "no", "no quiero"]:
+        # Registrar la cancelación
+        guardar_en_postgresql(
+            telefono=user_id,
+            nombre=estado_usuario.get('nombre_cliente', 'Cliente'),
+            accion="cita_cancelada",
+            detalles=f"Cita cancelada por el usuario antes de confirmar"
+        )
+        
+        notificar_agente(f"❌ *CITA CANCELADA POR EL USUARIO*\n👤 {estado_usuario.get('nombre_cliente', 'Cliente')}\n📞 +{user_id}\n🗓️ Cancelada antes de confirmar")
+        
+        # Resetear estado
+        estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['fecha_cita'] = None
+        estado_usuario['hora_cita'] = None
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        return f"""
+❌ *Cita cancelada correctamente*
+
+Si en otro momento deseas agendar una visita, podes volver a empezar.
+
+1️⃣ *VOLVER AL MENÚ* 🏠
+0️⃣ *❌ SALIR*
+"""
+        
+    else:
+        # Mensaje de ayuda
+        return f"""
+❌ *Opción no válida*
+
+Por favor elegí una de las siguientes opciones:
+
+1️⃣ *CONFIRMAR CITA* ✅
+2️⃣ *MODIFICAR FECHA/HORA* 🔄
+3️⃣ *CANCELAR CITA* ❌
+
+👉 Respondé con el número (1, 2 o 3)
+"""
+
+
+
+
 def mostrar_seleccion_horarios(fecha_display, horarios):
     mensaje = f"📅 *Fecha:* **{fecha_display}**\n\n"
     mensaje += "⏰ *HORARIOS DISPONIBLES:*\n"
