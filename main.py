@@ -9,6 +9,10 @@ from menu_handlers import *
     # if key != ADMIN_ACCESS_KEY:
     #     return jsonify({"error": "Unauthorized"}), 403
 
+
+
+
+from config import ADMIN_NUMBER # El emisor (...6523)
 from config import AGENT_NUMBER
 from flask import Flask, request, jsonify, send_from_directory, send_file
 import requests
@@ -620,16 +624,43 @@ def check_token_validity():
 #     return resultado
 
 
+
 def notificar_agente(mensaje):
-    # Ahora 'destino' tomará el valor ...9319 que acabás de crear en Render
-    destino = AGENT_NUMBER 
+    """
+    Envía una notificación al Agente (Dante).
+    Prioriza la variable de Render, luego la de config, y finalmente el hardcode.
+    """
+    # 1. Intentamos leer de Render directamente para evitar cache del config
+    # 2. Si no está en Render, buscamos si existe en el objeto config
+    # 3. Si todo falla, usamos tu número personal directamente.
     
-    log(f"📢 Enviando alerta al celular personal: {destino}")
+    try:
+        from config import AGENT_NUMBER
+    except ImportError:
+        AGENT_NUMBER = "5491136809319"
+
+    # VALIDACIÓN DINÁMICA: 
+    # Si la variable es igual al emisor, la forzamos al número correcto.
+    destino = os.getenv("AGENT_NUMBER", AGENT_NUMBER)
     
+    if destino == ADMIN_NUMBER or destino == "5491176596523":
+        log(f"⚠️ Detectado conflicto de números. Forzando destino al personal.")
+        destino = "5491136809319"
+
+    log(f"📢 Preparando notificación para el agente ({destino}): {mensaje[:30]}...")
+    
+    # Armamos el texto final
     texto_alerta = f"🔔 *ALERTA DANTE PROPIEDADES*\n\n{mensaje}"
     
-    # Enviamos al agente, NO al admin de la cuenta
-    return send_whatsapp_message(destino, texto_alerta)
+    # Llamamos a la función de envío original
+    resultado = send_whatsapp_message(destino, texto_alerta)
+    
+    if resultado.get("status") == "success":
+        log(f"✅ Notificación enviada al agente: {resultado.get('message_id')}")
+    else:
+        log(f"❌ Error notificando al agente: {resultado.get('error_message')}", "ERROR")
+        
+    return resultado
 
 
 
