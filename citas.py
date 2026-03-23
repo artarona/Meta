@@ -324,7 +324,7 @@ def manejar_email_cita(text, estado_usuario, user_id):
     hora = estado_usuario['hora_cita']
     email = estado_usuario.get('email_cliente', 'No proporcionado')
     
-    return f"CONFIRM_MEETING_TRIGGER|{fecha_display}|{hora}|{email}"
+    return f"CONFIRMAR_CITA|{fecha_display}|{hora}|{email}"
 
 
 def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
