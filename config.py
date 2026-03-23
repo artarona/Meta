@@ -20,7 +20,8 @@ ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQz2NpRHUAItiHE0Gzn
 # Usamos el nuevo número que definiste: 5491136809319
 
 # CAMBIAR EN R E N D E R
-AGENT_NUMBER = os.getenv("AGENT_NUMBER", "541136809319")
+# En config.py, verifica que el formato sea el correcto:
+AGENT_NUMBER = os.getenv("AGENT_NUMBER", "5491136809319")  # 
 ADMIN_NUMBER = "5491176596523"
 
 PHONE_NUMBER_ID = "1061691623689167"
