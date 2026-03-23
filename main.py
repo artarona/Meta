@@ -414,12 +414,60 @@ Por favor:
             termino = text_lower.replace("buscar ", "").strip()
             return manejar_busqueda_keywords(termino, estado_usuario, user_id)
 
+        # ************** 5. OPCIONES DEL MENÚ PRINCIPAL TEMPORARIO **************
+        
         # 5. OPCIONES DEL MENÚ PRINCIPAL
         if paso == 'menu_principal':
+            # Suspensión temporal de opciones 1 y 2
+            if text_lower in ["1", "ventas", "venta"]:
+                return """🚧 *OPCIÓN TEMPORALMENTE SUSPENDIDA* 🚧
+
+        Estamos mejorando nuestro catálogo de VENTAS para ofrecerte más y mejores opciones.
+
+        ⏳ *Disculpá las molestias*. Pronto estará disponible nuevamente.
+
+        Mientras tanto, podés:
+
+        2️⃣ *ALQUILERES* 🔑
+        7️⃣ *TODOS LOS INMUEBLES* 🏢
+        8️⃣ *TASACIÓN VIRTUAL* 📈
+        5️⃣ *HABLAR CON ASESOR* 👤
+        3️⃣ *SITIO WEB* 🌐
+
+        👉 Elegí una de las opciones disponibles:
+        """
+            
+            if text_lower in ["2", "alquileres", "alquiler"]:
+                return """🚧 *OPCIÓN TEMPORALMENTE SUSPENDIDA* 🚧
+
+        Estamos mejorando nuestro catálogo de ALQUILERES para ofrecerte más y mejores opciones.
+
+        ⏳ *Disculpá las molestias*. Pronto estará disponible nuevamente.
+
+        Mientras tanto, podés:
+
+        1️⃣ *VENTAS* 🏠
+        7️⃣ *TODOS LOS INMUEBLES* 🏢
+        8️⃣ *TASACIÓN VIRTUAL* 📈
+        5️⃣ *HABLAR CON ASESOR* 👤
+        3️⃣ *SITIO WEB* 🌐
+
+        👉 Elegí una de las opciones disponibles:
+        """
+            
+            # El resto de opciones siguen funcionando normalmente
             return manejar_menu_principal(text_lower, estado_usuario, user_id)
         
-        # Respuesta por defecto
-        return """No pude identificar esa opción. Por favor elegí un número del menú.
+        
+        
+        
+        
+        # ************** 5. A N T E R I O R**************        
+        # if paso == 'menu_principal':
+        #     return manejar_menu_principal(text_lower, estado_usuario, user_id)
+        
+        # # Respuesta por defecto
+        # return """No pude identificar esa opción. Por favor elegí un número del menú.
 
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*"""
