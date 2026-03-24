@@ -240,6 +240,7 @@ PROPIEDADES_FILE = "propiedades.json"
 
 
 # ========== BOT OPTIMIZADO ==========
+# ========== BOT OPTIMIZADO ==========
 def get_bot_response(text, user_id):
     """Responde con un mensaje simple, manteniendo estado de usuario"""
     try:
@@ -414,50 +415,7 @@ Por favor:
             termino = text_lower.replace("buscar ", "").strip()
             return manejar_busqueda_keywords(termino, estado_usuario, user_id)
 
-        # ========== SUSPENSIÓN TEMPORAL DE OPCIONES 1 y 2 ==========
-        # Intercepta las opciones 1 (VENTAS) y 2 (ALQUILERES) en el menú principal
-        if paso == 'menu_principal':
-            # Opción 1: VENTAS - SUSPENDIDA
-            if text_lower in ["1", "ventas", "venta"]:
-                return """🚧 *OPCIÓN TEMPORALMENTE SUSPENDIDA* 🚧
-
-Estamos mejorando nuestro catálogo de *VENTAS* para ofrecerte más y mejores opciones.
-
-⏳ *Disculpá las molestias*. Pronto estará disponible nuevamente.
-
-━━━━━━━━━━━━━━━━━━━━
-✅ *Opciones disponibles:*
-
-2️⃣ *ALQUILERES* 🔑
-7️⃣ *TODOS LOS INMUEBLES* 🏢
-8️⃣ *TASACIÓN VIRTUAL* 📈
-5️⃣ *HABLAR CON ASESOR* 👤
-3️⃣ *SITIO WEB* 🌐
-
-👉 Elegí una de las opciones disponibles:
-"""
-            
-            # Opción 2: ALQUILERES - SUSPENDIDA
-            if text_lower in ["2", "alquileres", "alquiler"]:
-                return """🚧 *OPCIÓN TEMPORALMENTE SUSPENDIDA* 🚧
-
-Estamos mejorando nuestro catálogo de *ALQUILERES* para ofrecerte más y mejores opciones.
-
-⏳ *Disculpá las molestias*. Pronto estará disponible nuevamente.
-
-━━━━━━━━━━━━━━━━━━━━
-✅ *Opciones disponibles:*
-
-1️⃣ *VENTAS* 🏠
-7️⃣ *TODOS LOS INMUEBLES* 🏢
-8️⃣ *TASACIÓN VIRTUAL* 📈
-5️⃣ *HABLAR CON ASESOR* 👤
-3️⃣ *SITIO WEB* 🌐
-
-👉 Elegí una de las opciones disponibles:
-"""
-
-        # 5. OPCIONES DEL MENÚ PRINCIPAL (el resto de opciones siguen funcionando)
+        # 5. OPCIONES DEL MENÚ PRINCIPAL
         if paso == 'menu_principal':
             return manejar_menu_principal(text_lower, estado_usuario, user_id)
         
@@ -472,6 +430,8 @@ Estamos mejorando nuestro catálogo de *ALQUILERES* para ofrecerte más y mejore
         error_trace = traceback.format_exc()
         log(f"🔥 ERROR EN get_bot_response: {e}\n{error_trace}")
         return "❌ *Lo siento, ocurrió un error interno.*\n\nPor favor, intenta de nuevo enviando 'Hola' o contacta al administrador."
+
+
 # ========== MANEJADORES DE ESTADO ==========
 
 # ========== MANEJADORES DE TASACIÓN ==========

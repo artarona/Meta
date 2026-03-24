@@ -281,8 +281,10 @@ def send_welcome_flow(user_id):
         {
             "title": "Propiedades",
             "rows": [
-                {"id": "opcion_1", "title": "🏠 En Venta", "description": "Ver inmuebles disponibles para compra"},
-                {"id": "opcion_2", "title": "🔑 En Alquiler", "description": "Ver inmuebles disponibles para alquiler"},
+                # Opción 1: En Venta - SUSPENDIDA
+                # {"id": "opcion_1", "title": "🏠 En Venta", "description": "Ver inmuebles disponibles para compra"},
+                # Opción 2: En Alquiler - SUSPENDIDA
+                # {"id": "opcion_2", "title": "🔑 En Alquiler", "description": "Ver inmuebles disponibles para alquiler"},
                 {"id": "opcion_7", "title": "🏢 Todos los Inmuebles", "description": "Ver catálogo completo de propiedades"},
                 {"id": "opcion_tasacion", "title": "📈 Tasación Virtual", "description": "Valora tu propiedad con nuestra IA"}
             ]
@@ -305,9 +307,6 @@ def send_welcome_flow(user_id):
         sections=sections,
         footer_text="Selecciona una opción del menú 👇"
     )
-
-
-
 
 def check_token_validity():
     """Verifica si el token de acceso es válido"""
