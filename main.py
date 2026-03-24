@@ -243,9 +243,12 @@ PROPIEDADES_FILE = "propiedades.json"
 def manejar_charla_ia_portal(text, estado_usuario, user_id):
     import portal_ia
     from database import cargar_propiedades_cached
-
-    prop_id = estado_usuario.get('propiedad_ia_id')
-    historial = estado_usuario.get('historial_ia', [])
+    datos_extra = estado_usuario.get('data', {})
+    if not isinstance(datos_extra, dict):
+        datos_extra = {}
+        
+    prop_id = datos_extra.get('propiedad_ia_id')
+    historial = datos_extra.get('historial_ia', [])
     
     # Generar respuesta
     respuesta, intencion = portal_ia.generar_respuesta_ia(text, historial, prop_id)
@@ -257,7 +260,8 @@ def manejar_charla_ia_portal(text, estado_usuario, user_id):
     if intencion == "AGENDAR":
         # Limpiar estado IA para devolverlo al flujo normal pero mandar el trigger
         estado_usuario['paso'] = 'menu_principal'
-        estado_usuario['historial_ia'] = []
+        datos_extra['historial_ia'] = []
+        estado_usuario['data'] = datos_extra
         
         # Configurar la propiedad guardada para que si el cliente acepta, sepa cual es
         propiedades = cargar_propiedades_cached()
@@ -278,7 +282,8 @@ def manejar_charla_ia_portal(text, estado_usuario, user_id):
         return f"OFFER_MEETING_TRIGGER|{prop_titulo}"
 
     # Si la charla sigue, guardar historial
-    estado_usuario['historial_ia'] = historial[-10:] # Max 10 ultimos
+    datos_extra['historial_ia'] = historial[-10:] # Max 10 ultimos
+    estado_usuario['data'] = datos_extra
     actualizar_estado_usuario(user_id, estado_usuario)
     return respuesta
 
@@ -379,10 +384,15 @@ def get_bot_response(text, user_id):
                 prop_id = portal_ia.extraer_id_propiedad_con_ia(text, propiedades)
                 
                 if prop_id:
+                    datos_extra = estado_usuario.get('data', {})
+                    if not isinstance(datos_extra, dict):
+                        datos_extra = {}
+                    datos_extra['propiedad_ia_id'] = prop_id
+                    datos_extra['historial_ia'] = []
+                    
                     estado_usuario.update({
                         'paso': 'charla_ia_portal',
-                        'propiedad_ia_id': prop_id,
-                        'historial_ia': []
+                        'data': datos_extra
                     })
                     actualizar_estado_usuario(user_id, estado_usuario)
                     return manejar_charla_ia_portal(text, estado_usuario, user_id)
