@@ -258,11 +258,6 @@ def manejar_charla_ia_portal(text, estado_usuario, user_id):
     historial.append({"role": "assistant", "content": respuesta})
     
     if intencion == "AGENDAR":
-        # Limpiar estado IA para devolverlo al flujo normal pero mandar el trigger
-        estado_usuario['paso'] = 'menu_principal'
-        datos_extra['historial_ia'] = []
-        estado_usuario['data'] = datos_extra
-        
         # Configurar la propiedad guardada para que si el cliente acepta, sepa cual es
         propiedades = cargar_propiedades_cached()
         prop = next((p for p in propiedades if p.get('id_temporal') == prop_id), None)
@@ -278,10 +273,20 @@ def manejar_charla_ia_portal(text, estado_usuario, user_id):
         else:
             prop_titulo = "Propiedad seleccionada"
             
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return f"OFFER_MEETING_TRIGGER|{prop_titulo}"
-
-    # Si la charla sigue, guardar historial
+        if not estado_usuario.get('nombre_cliente') or estado_usuario.get('nombre_cliente').lower() in ['cliente', 'ninguno', 'none', '']:
+            # No tenemos el nombre, derivamos al flujo de captura de lead tradicional
+            estado_usuario['paso'] = 'esperando_nombre_lead'
+            datos_extra['historial_ia'] = []
+            estado_usuario['data'] = datos_extra
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return f"✅ ¡Genial! Me interesa que visites: *{prop_titulo}*.\n\nPor favor, decime tu *Nombre y Apellido* para que un asesor te contacte y enviarte los horarios."
+        else:
+            # Ya tenemos el nombre, lanzamos el trigger de los botones
+            estado_usuario['paso'] = 'menu_principal'
+            datos_extra['historial_ia'] = []
+            estado_usuario['data'] = datos_extra
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return f"OFFER_MEETING_TRIGGER|{prop_titulo}"
     datos_extra['historial_ia'] = historial[-10:] # Max 10 ultimos
     estado_usuario['data'] = datos_extra
     actualizar_estado_usuario(user_id, estado_usuario)
