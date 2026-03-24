@@ -331,6 +331,10 @@ def get_bot_response(text, user_id):
             return "WELCOME_FLOW_TRIGGER"
         
         # 2. ACCIONES ESPECIALES
+        if text_lower in ["agendar", "solo info", "ofertar"]:
+            estado_usuario['paso'] = 'ofrecer_cita'
+            return manejar_ofrecer_cita(text_lower, estado_usuario, user_id)
+            
         if text_lower == "8":
             indice = estado_usuario.get('ultimo_indice_preguntado')
             propiedades = estado_usuario.get('propiedades_filtradas', [])
