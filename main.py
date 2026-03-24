@@ -239,7 +239,49 @@ PROPIEDADES_FILE = "propiedades.json"
 
 
 
-# ========== BOT OPTIMIZADO ==========
+# ========== HANDLER DE IA PORTALES ==========
+def manejar_charla_ia_portal(text, estado_usuario, user_id):
+    import portal_ia
+    from database import cargar_propiedades_cached
+
+    prop_id = estado_usuario.get('propiedad_ia_id')
+    historial = estado_usuario.get('historial_ia', [])
+    
+    # Generar respuesta
+    respuesta, intencion = portal_ia.generar_respuesta_ia(text, historial, prop_id)
+    
+    # Actualizar historial
+    historial.append({"role": "user", "content": text})
+    historial.append({"role": "assistant", "content": respuesta})
+    
+    if intencion == "AGENDAR":
+        # Limpiar estado IA para devolverlo al flujo normal pero mandar el trigger
+        estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['historial_ia'] = []
+        
+        # Configurar la propiedad guardada para que si el cliente acepta, sepa cual es
+        propiedades = cargar_propiedades_cached()
+        prop = next((p for p in propiedades if p.get('id_temporal') == prop_id), None)
+        
+        if prop:
+            # Setear ultimo indice como si lo hubiera elegido en listado
+            for i, p in enumerate(propiedades, 1):
+                if p.get('id_temporal') == prop_id:
+                    estado_usuario['ultimo_indice_preguntado'] = i
+                    break
+            estado_usuario['propiedades_filtradas'] = propiedades
+            prop_titulo = prop.get('titulo')
+        else:
+            prop_titulo = "Propiedad seleccionada"
+            
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return f"OFFER_MEETING_TRIGGER|{prop_titulo}"
+
+    # Si la charla sigue, guardar historial
+    estado_usuario['historial_ia'] = historial[-10:] # Max 10 ultimos
+    actualizar_estado_usuario(user_id, estado_usuario)
+    return respuesta
+
 # ========== BOT OPTIMIZADO ==========
 def get_bot_response(text, user_id):
     """Responde con un mensaje simple, manteniendo estado de usuario"""
@@ -324,9 +366,31 @@ def get_bot_response(text, user_id):
                 return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
             else:
                 return "⚠️ Por favor, primero selecciona una propiedad del listado para obtener el PDF."
+                
+        # 2.5 LÓGICA DE PORTALES E IA
+        import portal_ia
+        paso = estado_usuario.get('paso', 'menu_principal')
+        
+        # Si entra un link de portal O el usuario está en medio de la charla IA
+        if portal_ia.es_consulta_portal(text_lower) or paso == 'charla_ia_portal':
+            if portal_ia.es_consulta_portal(text_lower):
+                from database import cargar_propiedades_cached
+                propiedades = cargar_propiedades_cached()
+                prop_id = portal_ia.extraer_id_propiedad_con_ia(text, propiedades)
+                
+                if prop_id:
+                    estado_usuario.update({
+                        'paso': 'charla_ia_portal',
+                        'propiedad_ia_id': prop_id,
+                        'historial_ia': []
+                    })
+                    actualizar_estado_usuario(user_id, estado_usuario)
+                    return manejar_charla_ia_portal(text, estado_usuario, user_id)
+                # Si falló la extracción, sigue el flujo normal como búsqueda o fallback
+            elif paso == 'charla_ia_portal':
+                return manejar_charla_ia_portal(text, estado_usuario, user_id)
         
         # 3. LÓGICA POR ESTADO
-        paso = estado_usuario['paso']
         
         if paso == 'submenu_consultar':
             return manejar_submenu_consultar(text_lower, estado_usuario, user_id)
