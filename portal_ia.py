@@ -1,12 +1,11 @@
 import os
 import json
-import openai
+from openai import OpenAI
 from database import cargar_propiedades_cached
 
 # Load OpenAI key from environment variables (must be set in Render or .env)
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-if OPENAI_API_KEY:
-    openai.api_key = OPENAI_API_KEY
+client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 def es_consulta_portal(mensaje):
     """Detecta si un mensaje parece provenir de un portal inmobiliario"""
@@ -19,7 +18,7 @@ def es_consulta_portal(mensaje):
 
 def extraer_id_propiedad_con_ia(mensaje, propiedades):
     """Usa IA (gpt-4o-mini) para detectar de qué propiedad habla el cliente."""
-    if not openai.api_key:
+    if not client:
         # Fallback básico si no hay API key
         for p in propiedades:
             if p.get('id_temporal') and p.get('id_temporal').lower() in mensaje.lower():
@@ -47,7 +46,7 @@ def extraer_id_propiedad_con_ia(mensaje, propiedades):
     )
     
     try:
-        response = openai.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "system", "content": sys_prompt}],
             max_tokens=20,
@@ -98,7 +97,7 @@ def generar_respuesta_ia(mensaje, historial_mensajes, propiedad_id):
     historial_mensajes debe ser una lista de dicts: [{'role': 'user', 'content': '...'}, ...]
     Retorna (texto_respuesta, intencion)
     """
-    if not openai.api_key:
+    if not client:
         return "⚠️ La inteligencia artificial no está configurada (Falta OPENAI_API_KEY en el servidor). Contactando a un asesor...", "FALLBACK"
         
     propiedades = cargar_propiedades_cached()
@@ -152,7 +151,7 @@ REGLAS DE ORO:
     messages.append({"role": "user", "content": mensaje})
 
     try:
-        response = openai.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
             max_tokens=300,
