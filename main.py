@@ -303,6 +303,19 @@ def get_bot_response(text, user_id):
         log(f"👤 Usuario {user_id}: {estado_usuario['paso']}")
         
         # 1. COMANDOS UNIVERSALES
+        if text_lower == "borrar mis datos":
+            estado_usuario.update({
+                'paso': 'menu_principal',
+                'operacion_seleccionada': None,
+                'propiedades_filtradas': [],
+                'ultimo_indice_preguntado': None,
+                'nombre_cliente': None,
+                'email_cliente': None,
+                'timestamp': datetime.now().isoformat()
+            })
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "✅ *Tus datos guardados (nombre, email, etc) han sido borrados de la memoria del bot.*\n\nAhora la IA te tratará como un cliente completamente nuevo. Podés mandarle el link de Zonaprop nuevamente para comenzar."
+
         if text_lower in ["9", "menu", "principal", "inicio"]:
             estado_usuario.update({
                 'paso': 'menu_principal',
