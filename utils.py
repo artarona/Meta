@@ -221,55 +221,89 @@ def generar_listado_propiedades(propiedades):
 
 
 def formatear_detalle_propiedad(propiedad):
-    """Formatea el detalle completo de una propiedad"""
-    detalle = f"🏠 *{propiedad.get('titulo', 'Sin título')}*\n\n"
+    """Formatea el detalle completo simulando el pitch de ventas de la IA (Costo 0)"""
+    titulo = propiedad.get('titulo', 'Propiedad Destacada').strip()
+    detalle = f"✨ *{titulo}* ✨\n\n"
     
-    detalle += f"📍 *Ubicación:* {propiedad.get('direccion', 'Sin dirección')}, {propiedad.get('barrio', '')}\n"
+    operacion = propiedad.get('operacion', '')
+    if operacion == 'alquiler':
+        detalle += "¡Excelente oportunidad de alquiler lista para mudarte! 🔑\n\n"
+    elif operacion == 'venta':
+        detalle += "¡Increíble oportunidad ideal para vivienda o inversión! 💰\n\n"
+        
+    detalle += f"📍 *Ubicación Estratégica:* {propiedad.get('direccion', 'Excelente zona')}, {propiedad.get('barrio', '')}\n"
     
     precio = propiedad.get('precio', 0)
     moneda = propiedad.get('moneda_precio', 'USD')
-    if moneda == 'USD':
-        detalle += f"💰 *Precio:* USD ${precio:,.0f}\n"
-    else:
-        detalle += f"💰 *Precio:* $ {precio:,.0f} ARS\n"
-    
-    detalle += f"🛏️ *Ambientes:* {propiedad.get('ambientes', 0)}\n"
-    detalle += f"📐 *Metros cuadrados:* {propiedad.get('metros_cuadrados', 0)} m²\n"
-    detalle += f"📋 *Tipo:* {propiedad.get('tipo', '').capitalize()}\n"
-    detalle += f"🏗️ *Estado:* {propiedad.get('estado', 'N/A').capitalize()}\n"
+    simbolo = "USD$" if moneda == 'USD' else "$"
+    detalle += f"💵 *Inversión:* {simbolo} {precio:,.0f}\n"
     
     expensas = propiedad.get('expensas', 0)
     if expensas > 0:
         moneda_exp = propiedad.get('moneda_expensas', 'ARS')
-        if moneda_exp == 'USD':
-            detalle += f"🏢 *Expensas:* USD ${expensas:,.0f}\n"
+        simb_exp = "USD$" if moneda_exp == 'USD' else "$"
+        if expensas < 50000 and moneda_exp == 'ARS':
+            detalle += f"📉 *¡Expensas súper bajas!* Solo {simb_exp} {expensas:,.0f}\n"
         else:
-            detalle += f"🏢 *Expensas:* $ {expensas:,.0f} ARS\n"
+            detalle += f"🏢 *Expensas:* {simb_exp} {expensas:,.0f}\n"
+            
+    detalle += f"📐 *Espacios:* {propiedad.get('ambientes', 0)} ambientes muy bien distribuidos en {propiedad.get('metros_cuadrados', 0)} m².\n"
     
-    # Amenities con validación
+    # Amenities con emojis y texto vendedor
     amenities = []
     if str(propiedad.get('cochera', 'No')).lower() in ['si', 'sí', '1', 'true', 'x']:
-        amenities.append("🚗 Cochera")
+        amenities.append("🚗 Incluye cochera")
     if str(propiedad.get('balcon', 'No')).lower() in ['si', 'sí', '1', 'true', 'x']:
-        amenities.append("🌆 Balcón")
+        amenities.append("🌆 Hermoso balcón")
     if str(propiedad.get('pileta', 'No')).lower() in ['si', 'sí', '1', 'true']:
-        amenities.append("🏊 Pileta")
+        amenities.append("🏊 Pileta para disfrutar")
     if str(propiedad.get('aire_acondicionado', 'No')).lower() in ['si', 'sí', '1', 'true']:
         amenities.append("❄️ Aire acondicionado")
     if str(propiedad.get('acepta_mascotas', 'No')).lower() in ['si', 'sí', '1', 'true']:
-        amenities.append("🐕 Acepta mascotas")
-    
+        amenities.append("🐾 ¡Es Pet Friendly (Apto Mascotas)!")
+        
     if amenities:
-        detalle += "*Amenities:* " + " | ".join(amenities) + "\n"
-    
-    detalle += f"\n📝 *Descripción:*\n{propiedad.get('descripcion', 'Sin descripción')[:500]}...\n\n"
-    
+        detalle += "\n⭐ *Highlights de la Propiedad:*\n"
+        for am in amenities:
+            detalle += f"- {am}\n"
+            
+    # Intentar cargar entorno para vender la zona
+    try:
+        import os, json
+        ruta_entorno = os.path.join(os.path.dirname(os.path.abspath(__file__)), "entorno.json")
+        if os.path.exists(ruta_entorno):
+            with open(ruta_entorno, 'r', encoding='utf-8') as f:
+                datos = json.load(f)
+            b = str(propiedad.get('barrio', '')).lower().strip()
+            entorno = None
+            for key_barrio, info_barrio in datos.items():
+                if key_barrio in b or b in key_barrio:
+                    entorno = info_barrio
+                    break
+            if entorno:
+                detalle += "\n🌳 *Beneficios del Barrio:*\n"
+                desc = entorno.get('descripcion_general', '')
+                if desc: detalle += f"- {desc}\n"
+                if 'transporte' in entorno:
+                    detalle += f"- 🚇 {entorno['transporte'].get('descripcion', '')}\n"
+                if 'seguridad' in entorno:
+                    detalle += f"- 🚓 {entorno['seguridad'].get('descripcion', '')}\n"
+    except Exception as e:
+        pass
+        
+    # Descripción original acortada
+    desc_orig = propiedad.get('descripcion', 'Sin descripción')
+    if desc_orig and len(desc_orig) > 5:
+        detalle += f"\n📝 *Más detalles:*\n{desc_orig[:250]}...\n"
+
+    detalle += "\n"
     # Agregar link a Ficha PDF
     prop_id = propiedad.get('id_temporal')
     if prop_id:
         detalle += f"📄 *FICHA TÉCNICA (PDF):*\n{BASE_URL}/fichas/{prop_id}\n\n"
         
     detalle += "────────────────────\n"
+    detalle += "¿Te gustaría que arreglemos una visita para esta semana, o querés conocer los requisitos de ingreso?\n\n"
     detalle += "📷 *FOTOS* (F) | 📄 *PDF* (P) | 8️⃣ *ME INTERESA*\n"
     detalle += "1️⃣ *VOLVER* | 0️⃣ *❌ SALIR*"
     
