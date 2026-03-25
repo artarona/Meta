@@ -287,7 +287,14 @@ def manejar_charla_ia_portal(text, estado_usuario, user_id):
             estado_usuario['data'] = datos_extra
             actualizar_estado_usuario(user_id, estado_usuario)
             return f"OFFER_MEETING_TRIGGER|{prop_titulo}"
+    # Guardar historial
     datos_extra['historial_ia'] = historial[-10:] # Max 10 ultimos
+    
+    # Si la IA decide terminar la conversación amablemente
+    if "¡Gracias por confiar" in respuesta or "🏠🗝️" in respuesta:
+        estado_usuario['paso'] = 'menu_principal'
+        datos_extra['historial_ia'] = []
+        
     estado_usuario['data'] = datos_extra
     actualizar_estado_usuario(user_id, estado_usuario)
     return respuesta

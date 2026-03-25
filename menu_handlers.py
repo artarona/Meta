@@ -376,6 +376,23 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         
         operacion = propiedad.get('operacion', '')
         titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
+        
+        try:
+            from portal_ia import generar_pitch_venta
+            pitch_ia = generar_pitch_venta(propiedad)
+            if pitch_ia:
+                texto_detalle = f"{titulo_op}\n" + "─" * 30 + "\n" + pitch_ia + "\n\n"
+                prop_id = propiedad.get('id_temporal')
+                if prop_id:
+                    texto_detalle += f"📄 *FICHA TÉCNICA (PDF):*\n{BASE_URL}/fichas/{prop_id}\n\n"
+                texto_detalle += "────────────────────\n"
+                texto_detalle += "📷 *FOTOS* (F) | 📄 *PDF* (P) | 8️⃣ *ME INTERESA*\n"
+                texto_detalle += "1️⃣ *VOLVER* | 0️⃣ *❌ SALIR*"
+                return texto_detalle
+        except Exception as e:
+            from utils import log
+            log(f"⚠️ Fallo generando pitch IA: {e}")
+            
         return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
     else:
         return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}). Elige uno o envía 9 para volver.\n0️⃣ *Salir*"
@@ -405,8 +422,25 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
             
             operacion = propiedad.get('operacion', '')
             titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
+            
+            try:
+                from portal_ia import generar_pitch_venta
+                pitch_ia = generar_pitch_venta(propiedad)
+                if pitch_ia:
+                    texto_detalle = f"{titulo_op}\n" + "─" * 30 + "\n" + pitch_ia + "\n\n"
+                    prop_id = propiedad.get('id_temporal')
+                    if prop_id:
+                        texto_detalle += f"📄 *FICHA TÉCNICA (PDF):*\n{BASE_URL}/fichas/{prop_id}\n\n"
+                    texto_detalle += "────────────────────\n"
+                    texto_detalle += "📷 *FOTOS* (F) | 📄 *PDF* (P) | 8️⃣ *ME INTERESA*\n"
+                    texto_detalle += "1️⃣ *VOLVER* | 0️⃣ *❌ SALIR*"
+                    return texto_detalle
+            except Exception as e:
+                from utils import log
+                log(f"⚠️ Fallo generando pitch IA: {e}")
+                
             return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
-    
+            
     return "📷 'F' Fotos | 8️⃣ '8' Me interesa\n9️⃣ Volver al menú | 0️⃣ *Salir*"
 
 

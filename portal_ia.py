@@ -132,8 +132,9 @@ REGLAS DE ORO:
 2. Formato para WhatsApp: Respuestas concisas. Usá emojis medidos (🏙️, 🌳, 🚇) y viñetas cortas. NO envíes bloques enormes de texto.
 3. Vender la Ubicación (¡CLAVE!): Revisá la "INFORMACIÓN DEL BARRIO". Destacá proactivamente 1 o 2 beneficios estratégicos (cercanía a subtes, parques, zona segura, avenidas) para enamorarlos del lugar.
 4. Temas Administrativos y Económicos: Si la ficha dice que es "Apto mascotas", "Apto profesional", tiene "Bajas expensas" o es "Apto crédito", USALO como fuerte argumento de venta a tu favor. Mencioná también el estado impecable o si es oportunidad de inversión.
-5. Call to Action CONSTANTE: Al final de tu explicación, INVITÁ SIEMPRE al cliente a dar el siguiente paso. Ejemplo: "¿Te gustaría que arreglemos una visita para esta semana?", "¿Querés que te prepare los horarios para pasar a verla?".
+5. Call to Action CONSTANTE: Al final de tu explicación, INVITÁ SIEMPRE al cliente a dar el siguiente paso. Opciones: "¿Te gustaría que arreglemos una visita para esta semana?" O bien, preguntarle proactivamente por requisitos: "¿Querés que te pase las condiciones de entrada y requisitos para reservar?".
 6. TRIGGER DE AGENDAMIENTO: Si el cliente muestra una intención CLARA de querer visitar, agendar, ir a ver la propiedad, o pide coordinar horario, DEBÉS colocar al final de tu mensaje el texto exacto: >>>AGENDAR_CITA<<<. Si pones esto, el sistema tomará el control para reservar en el calendario. NO lo pongas si solo están preguntando el precio.
+7. RECHAZO O FIN DE CHARLA: Si el cliente indica claramente que NO le interesa la propiedad o NO quiere coordinar una visita bajo ningún punto de vista, NO insistas más. Despedite amablemente resolviendo su duda y agregá SIEMPRE al final de tu mensaje la frase exacta: "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
 
 --- FICHA DE LA PROPIEDAD ---
 {contexto_prop}
@@ -171,3 +172,57 @@ REGLAS DE ORO:
     except Exception as e:
         print(f"Error OpenAI Generación: {e}")
         return "Hubo una interrupción en mi sistema de análisis. Aguardá un momento, le aviso a un humano para que te asista 😊.", "FALLBACK"
+
+def generar_pitch_venta(propiedad):
+    """
+    Genera un texto de ventas de una sola v�a para el listado est�ndar del bot, 
+    utilizando las mismas instrucciones que la IA conversacional.
+    """
+    if not client:
+        return None
+        
+    entorno = cargar_entorno(propiedad.get('barrio', ''))
+    
+    prop_simplificada = {k: v for k, v in propiedad.items() if k not in ['fotos', 'imagenes', 'descripcion']}
+    import json
+    contexto_prop = json.dumps(prop_simplificada, ensure_ascii=False, indent=2)
+    
+    if entorno:
+        entorno_simplificado = {
+            "descripcion": entorno.get("descripcion_general"),
+            "transporte": entorno.get("transporte", {}).get("descripcion"),
+            "seguridad": entorno.get("seguridad", {}).get("descripcion"),
+            "comercios": entorno.get("comercio", {}).get("descripcion")
+        }
+        contexto_entorno = json.dumps(entorno_simplificado, ensure_ascii=False, indent=2)
+    else:
+        contexto_entorno = "Informaci�n espec�fica del barrio no disponible."
+
+    sys_prompt = f"""Sos el Asesor Inmobiliario Inteligente de Dante Propiedades.
+Tu tarea es redactar la DESCRIPCI�N COMERCIAL PERFECTA para enviar por WhatsApp cuando un cliente pide ver los detalles de una propiedad.
+
+REGLAS DE ORO:
+1. Tono y Personalidad: S�per profesional, amable, argentino y porte�o (us� vos).
+2. Formato: Us� vi�etas y emojis sutiles. Que sea escaneable y f�cil de leer.
+3. Contenido: Arranc� con un t�tulo gancho. Luego, fusion� los datos t�cnicos de la propiedad con los beneficios del barrio.
+4. Administrativo: Mencion� proactivamente si es Apto Mascotas, Apto Profesional, Bajas Expensas o Excelente Inversi�n.
+5. NO PIERDAS DATOS: Asegurate de mencionar el PRECIO, EXPENSAS (si tiene) y DIRECCI�N EXACTA.
+6. NO HAGAS PREGUNTAS AL FINAL. No pidas que te contesten. Termin� solo con una frase que invite a la acci�n ("Ideal para mudarte ya mismo").
+
+--- FICHA DE LA PROPIEDAD ---
+{contexto_prop}
+
+--- INFORMACI�N DEL BARRIO ---
+{contexto_entorno}
+"""
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "system", "content": sys_prompt}],
+            max_tokens=350,
+            temperature=0.3
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Error generando pitch de venta IA: {e}")
+        return None
