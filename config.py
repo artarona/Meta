@@ -17,11 +17,11 @@ ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQz2NpRHUAItiHE0Gzn
 # config.py
 
 # Número que recibirá las alertas (Dante Agente)
-# Usamos el nuevo número que definiste: 5491136809319
+# Usamos el nuevo número que definiste: 549117877334
 
 # CAMBIAR EN R E N D E R
 # En config.py, verifica que el formato sea el correcto:
-AGENT_NUMBER = os.getenv("AGENT_NUMBER", "5491136809319")  # 
+AGENT_NUMBER = os.getenv("AGENT_NUMBER", "5491178877334")  # 
 ADMIN_NUMBER = "5491176596523"
 
 PHONE_NUMBER_ID = "1061691623689167"

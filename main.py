@@ -728,7 +728,7 @@ def check_token_validity():
 #     try:
 #         from config import AGENT_NUMBER
 #     except ImportError:
-#         AGENT_NUMBER = "5491136809319"
+#         AGENT_NUMBER = "5491178877334"
 
 #     # VALIDACIÓN DINÁMICA: 
 #     # Si la variable es igual al emisor, la forzamos al número correcto.
@@ -736,7 +736,7 @@ def check_token_validity():
     
 #     if destino == ADMIN_NUMBER or destino == "5491176596523":
 #         log(f"⚠️ Detectado conflicto de números. Forzando destino al personal.")
-#         destino = "5491136809319"
+#         destino = "5491178877334"
 
 #     log(f"📢 Preparando notificación para el agente ({destino}): {mensaje[:30]}...")
     
