@@ -12,7 +12,7 @@ from menu_handlers import *
 
 
 
-from config import ADMIN_NUMBER, AGENT_NUMBER # El emisor (...6523)
+from config import ADMIN_NUMBER # El emisor (...6523)
 from flask import Flask, request, jsonify, send_from_directory, send_file
 import requests
 import os
@@ -239,66 +239,7 @@ PROPIEDADES_FILE = "propiedades.json"
 
 
 
-# ========== HANDLER DE IA PORTALES ==========
-def manejar_charla_ia_portal(text, estado_usuario, user_id):
-    import portal_ia
-    from database import cargar_propiedades_cached
-    datos_extra = estado_usuario.get('data', {})
-    if not isinstance(datos_extra, dict):
-        datos_extra = {}
-        
-    prop_id = datos_extra.get('propiedad_ia_id')
-    historial = datos_extra.get('historial_ia', [])
-    
-    # Generar respuesta
-    respuesta, intencion = portal_ia.generar_respuesta_ia(text, historial, prop_id)
-    
-    # Actualizar historial
-    historial.append({"role": "user", "content": text})
-    historial.append({"role": "assistant", "content": respuesta})
-    
-    if intencion == "AGENDAR":
-        # Configurar la propiedad guardada para que si el cliente acepta, sepa cual es
-        propiedades = cargar_propiedades_cached()
-        prop = next((p for p in propiedades if p.get('id_temporal') == prop_id), None)
-        
-        if prop:
-            # Setear ultimo indice como si lo hubiera elegido en listado
-            for i, p in enumerate(propiedades, 1):
-                if p.get('id_temporal') == prop_id:
-                    estado_usuario['ultimo_indice_preguntado'] = i
-                    break
-            estado_usuario['propiedades_filtradas'] = propiedades
-            prop_titulo = prop.get('titulo')
-        else:
-            prop_titulo = "Propiedad seleccionada"
-            
-        if not estado_usuario.get('nombre_cliente') or estado_usuario.get('nombre_cliente').lower() in ['cliente', 'ninguno', 'none', '']:
-            # No tenemos el nombre, derivamos al flujo de captura de lead tradicional
-            estado_usuario['paso'] = 'esperando_nombre_lead'
-            datos_extra['historial_ia'] = []
-            estado_usuario['data'] = datos_extra
-            actualizar_estado_usuario(user_id, estado_usuario)
-            return f"✅ ¡Genial! Me interesa que visites: *{prop_titulo}*.\n\nPor favor, decime tu *Nombre y Apellido* para que un asesor te contacte y enviarte los horarios."
-        else:
-            # Ya tenemos el nombre, lanzamos el trigger de los botones
-            estado_usuario['paso'] = 'menu_principal'
-            datos_extra['historial_ia'] = []
-            estado_usuario['data'] = datos_extra
-            actualizar_estado_usuario(user_id, estado_usuario)
-            return f"OFFER_MEETING_TRIGGER|{prop_titulo}"
-    # Guardar historial
-    datos_extra['historial_ia'] = historial[-10:] # Max 10 ultimos
-    
-    # Si la IA decide terminar la conversación amablemente
-    if "¡Gracias por confiar" in respuesta or "🏠🗝️" in respuesta:
-        estado_usuario['paso'] = 'menu_principal'
-        datos_extra['historial_ia'] = []
-        
-    estado_usuario['data'] = datos_extra
-    actualizar_estado_usuario(user_id, estado_usuario)
-    return respuesta
-
+# ========== BOT OPTIMIZADO ==========
 # ========== BOT OPTIMIZADO ==========
 def get_bot_response(text, user_id):
     """Responde con un mensaje simple, manteniendo estado de usuario"""
@@ -310,19 +251,6 @@ def get_bot_response(text, user_id):
         log(f"👤 Usuario {user_id}: {estado_usuario['paso']}")
         
         # 1. COMANDOS UNIVERSALES
-        if text_lower == "borrar mis datos":
-            estado_usuario.update({
-                'paso': 'menu_principal',
-                'operacion_seleccionada': None,
-                'propiedades_filtradas': [],
-                'ultimo_indice_preguntado': None,
-                'nombre_cliente': None,
-                'email_cliente': None,
-                'timestamp': datetime.now().isoformat()
-            })
-            actualizar_estado_usuario(user_id, estado_usuario)
-            return "✅ *Tus datos guardados (nombre, email, etc) han sido borrados de la memoria del bot.*\n\nAhora la IA te tratará como un cliente completamente nuevo. Podés mandarle el link de Zonaprop nuevamente para comenzar."
-
         if text_lower in ["9", "menu", "principal", "inicio"]:
             estado_usuario.update({
                 'paso': 'menu_principal',
@@ -356,10 +284,6 @@ def get_bot_response(text, user_id):
             return "WELCOME_FLOW_TRIGGER"
         
         # 2. ACCIONES ESPECIALES
-        if text_lower in ["agendar", "solo info", "ofertar"]:
-            estado_usuario['paso'] = 'ofrecer_cita'
-            return manejar_ofrecer_cita(text_lower, estado_usuario, user_id)
-            
         if text_lower == "8":
             indice = estado_usuario.get('ultimo_indice_preguntado')
             propiedades = estado_usuario.get('propiedades_filtradas', [])
@@ -400,36 +324,9 @@ def get_bot_response(text, user_id):
                 return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
             else:
                 return "⚠️ Por favor, primero selecciona una propiedad del listado para obtener el PDF."
-                
-        # 2.5 LÓGICA DE PORTALES E IA
-        import portal_ia
-        paso = estado_usuario.get('paso', 'menu_principal')
-        
-        # Si entra un link de portal O el usuario está en medio de la charla IA
-        if portal_ia.es_consulta_portal(text_lower) or paso == 'charla_ia_portal':
-            if portal_ia.es_consulta_portal(text_lower):
-                from database import cargar_propiedades_cached
-                propiedades = cargar_propiedades_cached()
-                prop_id = portal_ia.extraer_id_propiedad_con_ia(text, propiedades)
-                
-                if prop_id:
-                    datos_extra = estado_usuario.get('data', {})
-                    if not isinstance(datos_extra, dict):
-                        datos_extra = {}
-                    datos_extra['propiedad_ia_id'] = prop_id
-                    datos_extra['historial_ia'] = []
-                    
-                    estado_usuario.update({
-                        'paso': 'charla_ia_portal',
-                        'data': datos_extra
-                    })
-                    actualizar_estado_usuario(user_id, estado_usuario)
-                    return manejar_charla_ia_portal(text, estado_usuario, user_id)
-                # Si falló la extracción, sigue el flujo normal como búsqueda o fallback
-            elif paso == 'charla_ia_portal':
-                return manejar_charla_ia_portal(text, estado_usuario, user_id)
         
         # 3. LÓGICA POR ESTADO
+        paso = estado_usuario['paso']
         
         if paso == 'submenu_consultar':
             return manejar_submenu_consultar(text_lower, estado_usuario, user_id)
@@ -728,7 +625,7 @@ def check_token_validity():
 #     try:
 #         from config import AGENT_NUMBER
 #     except ImportError:
-#         AGENT_NUMBER = "5491178877334"
+#         AGENT_NUMBER = "5491136809319"
 
 #     # VALIDACIÓN DINÁMICA: 
 #     # Si la variable es igual al emisor, la forzamos al número correcto.
@@ -736,7 +633,7 @@ def check_token_validity():
     
 #     if destino == ADMIN_NUMBER or destino == "5491176596523":
 #         log(f"⚠️ Detectado conflicto de números. Forzando destino al personal.")
-#         destino = "5491178877334"
+#         destino = "5491136809319"
 
 #     log(f"📢 Preparando notificación para el agente ({destino}): {mensaje[:30]}...")
     
@@ -3114,37 +3011,6 @@ def debug_calendar_key_status():
                 result["fixed_works"] = False
     
     return jsonify(result)
-
-
-@app.route('/limpiar-todo', methods=['GET'])
-def limpiar_todo():
-    """Elimina todos los leads - Usar con cuidado"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return "🔒 Acceso denegado", 403
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Contar antes
-        cursor.execute("SELECT COUNT(*) FROM leads")
-        antes = cursor.fetchone()[0]
-        
-        # Eliminar todos los leads
-        cursor.execute("TRUNCATE TABLE leads RESTART IDENTITY")
-        conn.commit()
-        
-        cursor.close()
-        conn.close()
-        
-        return f"✅ Eliminados {antes} leads. La tabla está vacía."
-        
-    except Exception as e:
-        return f"❌ Error: {e}"
-
-
-
 
 
 
