@@ -904,13 +904,13 @@
             <div class="pagination" id="citas-pagination"></div>
         </div>
 
-        
         <!-- Tab Leads -->
         <div id="tab-leads" class="tab-content" role="tabpanel" aria-labelledby="leads-tab">
             <div class="tab-header">
                 <h2>👥 Todos los Leads</h2>
                 <div class="filters">
-                    <input type="text" class="search-box" placeholder="🔍 Buscar leads..." oninput="filtrarLeads(this.value)">
+                    <input type="text" class="search-box" placeholder="🔍 Buscar leads..."
+                        oninput="filtrarLeads(this.value)">
                     <select class="select-filter" onchange="filtrarLeadsPorFuente(this.value)">
                         <option value="">Todas las fuentes</option>
                         <option value="whatsapp">WhatsApp</option>
@@ -918,10 +918,6 @@
                         <option value="web">Web</option>
                         <option value="referido">Referido</option>
                     </select>
-                    <!-- BOTÓN ELIMINAR TODOS LOS LEADS -->
-                    <button class="btn btn-danger" onclick="limpiarTodosLosLeads()" style="background: #dc2626; color: white; border: none; padding: 0.75rem 1.25rem; border-radius: var(--radius-md); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
-                        🗑️ Eliminar Todos los Leads
-                    </button>
                 </div>
             </div>
             <div class="leads-grid" id="leads-container">
@@ -1665,44 +1661,6 @@
             );
             mostrarPropiedades(filtradas);
         }
-
-
-        async function limpiarTodosLosLeads() {
-            // Confirmación doble para evitar eliminaciones accidentales
-            if (!confirm("⚠️ ¡ATENCIÓN! Esta acción ELIMINARÁ TODOS los leads permanentemente.\n\n¿Estás completamente seguro?")) {
-                return;
-            }
-            
-            if (!confirm("ÚLTIMA CONFIRMACIÓN: Esta acción NO se puede deshacer. ¿Eliminar todos los leads?")) {
-                return;
-            }
-            
-            try {
-                mostrarToast("🗑️ Eliminando todos los leads...", "warning");
-                
-                const response = await fetchConClave('/limpiar-todo', {
-                    method: 'GET'
-                });
-                
-                // fetchConClave ya devuelve el texto plano en este caso
-                if (response && !response.error) {
-                    mostrarToast(`✅ ${response}`, "success");
-                    // Recargar los datos
-                    setTimeout(() => {
-                        cargarDatos();
-                        mostrarTab('leads');
-                    }, 1000);
-                } else {
-                    mostrarToast(`❌ Error: ${response?.error || 'No se pudo completar'}`, "error");
-                }
-                
-            } catch (error) {
-                console.error('Error limpiando leads:', error);
-                mostrarToast('❌ Error de conexión al servidor', 'error');
-            }
-        }
-
-
 
         function filtrarPropiedadesPorTipo(tipo) {
             if (!tipo) {
