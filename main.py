@@ -12,7 +12,7 @@ from menu_handlers import *
 
 
 
-from config import ADMIN_NUMBER # El emisor (...6523)
+from config import ADMIN_NUMBER, AGENT_NUMBER # El emisor (...6523)
 from flask import Flask, request, jsonify, send_from_directory, send_file
 import requests
 import os
