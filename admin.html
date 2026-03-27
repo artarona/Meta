@@ -904,9 +904,9 @@
             <div class="pagination" id="citas-pagination"></div>
         </div>
 
+        
         <!-- Tab Leads -->
         <div id="tab-leads" class="tab-content" role="tabpanel" aria-labelledby="leads-tab">
-            
             <div class="tab-header">
                 <h2>👥 Todos los Leads</h2>
                 <div class="filters">
@@ -918,14 +918,12 @@
                         <option value="web">Web</option>
                         <option value="referido">Referido</option>
                     </select>
-                    <!-- BOTÓN NUEVO -->
-                    <button class="btn btn-danger" onclick="limpiarTodosLosLeads()" style="background: var(--danger);">
-                        🗑️ Eliminar Todos
+                    <!-- BOTÓN ELIMINAR TODOS LOS LEADS -->
+                    <button class="btn btn-danger" onclick="limpiarTodosLosLeads()" style="background: #dc2626; color: white; border: none; padding: 0.75rem 1.25rem; border-radius: var(--radius-md); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
+                        🗑️ Eliminar Todos los Leads
                     </button>
                 </div>
             </div>
-               
-            
             <div class="leads-grid" id="leads-container">
                 <!-- Leads cargados dinámicamente -->
             </div>
