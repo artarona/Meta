@@ -3060,34 +3060,6 @@ if __name__ == "__main__":
     print("=" * 60 + "\n")
     
     
-    @app.route('/limpiar-todo', methods=['GET'])
-def limpiar_todo():
-    """Elimina TODOS los leads - Útil para limpiar datos de prueba"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return "🔒 Acceso denegado", 403
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Contar antes
-        cursor.execute("SELECT COUNT(*) FROM leads")
-        antes = cursor.fetchone()[0]
-        
-        # Eliminar todos los leads
-        cursor.execute("TRUNCATE TABLE leads RESTART IDENTITY")
-        conn.commit()
-        
-        cursor.close()
-        conn.close()
-        
-        return f"✅ Eliminados {antes} leads. La tabla está vacía."
-        
-    except Exception as e:
-        return f"❌ Error: {e}"
-    
-    
     
     # if __name__ == "__main__":
     #   app.run(debug=False)
