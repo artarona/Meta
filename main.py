@@ -16,6 +16,7 @@ from config import ADMIN_NUMBER # El emisor (...6523)
 from flask import Flask, request, jsonify, send_from_directory, send_file
 import requests
 import os
+import sys
 import json
 import re
 import subprocess
@@ -3058,8 +3059,12 @@ def run_market_scrape():
     tipo = data.get('tipo', 'departamento')
 
     try:
-        # Ejecutar en segundo plano mediante subprocess para no bloquear Flask (vía Render)
-        cmd = ['python', 'scrape_market.py', '--zone', zona, '--operation', operacion, '--type', tipo]
+        # Usar rutas absolutas y sys.executable para mayor confiabilidad en Render
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        script_path = os.path.join(base_path, 'scrape_market.py')
+        
+        # Ejecutar en segundo plano mediante subprocess (usando los argumentos en español del script)
+        cmd = [sys.executable, script_path, '--zona', zona, '--operacion', operacion, '--tipo', tipo]
         
         # En Windows usamos flags para evitar ventanas, en Linux usamos setpgrp
         if os.name == 'nt':
