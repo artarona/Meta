@@ -47,29 +47,27 @@ except ImportError:
 # DETECCIÓN DE ENTORNO RENDER
 # ========================================
 
+# ========================================
+# DETECCIÓN DE ENTORNO RENDER
+# ========================================
+
 def is_render_environment():
     """Detecta si estamos ejecutando en Render.com"""
-    # Verificar variable de entorno de Render
     if os.environ.get('RENDER', False):
         return True
-    # Verificar si Chrome está disponible
     chrome_bin = os.environ.get('GOOGLE_CHROME_BIN')
     if chrome_bin and os.path.exists(chrome_bin):
         return False
-    # Si no hay Chrome, asumir Render
     return True
 
 # Configuración global - DESACTIVAR SELENIUM EN RENDER
 USE_SELENIUM = not is_render_environment()
 
-# Mensaje informativo (se verá en los logs)
+# Mensaje informativo al cargar
 print("=" * 60)
 print(f"🌍 Entorno: {'Render.com' if is_render_environment() else 'Local'}")
-print(f"🕷️ Selenium: {'ACTIVADO' if USE_SELENIUM else 'DESACTIVADO'}")
-if not USE_SELENIUM:
-    print("📡 Usando solo requests para scraping (más rápido y confiable)")
+print(f"🕷️ Selenium: {'ACTIVADO' if USE_SELENIUM else 'DESACTIVADO (solo requests)'}")
 print("=" * 60)
-
 
 # Agregar después de los imports, antes de la clase BaseScraper
 def _is_render_environment() -> bool:
@@ -428,11 +426,10 @@ class BaseScraper(ABC):
         """
         # SI ESTAMOS EN RENDER, NO INTENTAR SELENIUM
         if not USE_SELENIUM:
-            logger.debug(f"[{self.source_name}] Selenium desactivado en este entorno")
             return None
-        
+    
         if not SELENIUM_AVAILABLE:
-            logger.error(f"[{self.source_name}] Selenium no está disponible en las dependencias")
+            logger.error(f"[{self.source_name}] Selenium no disponible")
             return None
 
         driver = None
@@ -1382,10 +1379,8 @@ class ScrapingManager:
     
     
     def scrape_market(self, zone: str, operation: str = "venta", 
-                  property_type: str = "departamento") -> Dict[str, Any]:
-        """
-        Realiza scraping de mercado inmobiliario optimizado para Render
-        """
+                    property_type: str = "departamento") -> Dict[str, Any]:
+        """Realiza scraping optimizado para Render"""
         search_zone = zone
         if "lugano" in zone.lower() and "villa" not in zone.lower():
             search_zone = "villa lugano"
@@ -1396,71 +1391,61 @@ class ScrapingManager:
         errors = []
         is_render = is_render_environment()
         
-        # 1. Argenprop (más estable, funciona con requests)
+        # 1. Argenprop
         try:
             self.argenprop.target_zone = search_zone
-            argenprop_url = self.argenprop.build_url(search_zone, operation, property_type)
-            logger.info(f"[Argenprop] URL: {argenprop_url}")
+            url = self.argenprop.build_url(search_zone, operation, property_type)
+            logger.info(f"[Argenprop] URL: {url}")
             
-            # En Render, usar requests directamente (evita Selenium)
+            # En Render, usar requests directamente
             if is_render:
-                logger.info("[Argenprop] Usando requests (modo Render)")
-                html = self.argenprop._make_request(argenprop_url)
+                html = self.argenprop._make_request(url)
             else:
-                html = self.argenprop._render_with_selenium(argenprop_url)
+                html = self.argenprop._render_with_selenium(url)
                 if not html:
-                    html = self.argenprop._make_request(argenprop_url)
+                    html = self.argenprop._make_request(url)
             
             if html:
                 properties = self.argenprop.parse_properties(html, operation, property_type)
                 all_properties.extend(properties)
                 logger.info(f"[Argenprop] Extraídas {len(properties)} propiedades")
-            else:
-                errors.append("Argenprop: No se pudo obtener respuesta")
         except Exception as e:
             errors.append(f"Argenprop: {str(e)}")
         
-        # 2. Zonaprop (saltado en Render porque da 403)
+        # 2. Zonaprop - saltado en Render (da 403)
         if not is_render:
             try:
                 self.zonaprop.target_zone = search_zone
-                zonaprop_url = self.zonaprop.build_url(search_zone, operation, property_type)
-                logger.info(f"[Zonaprop] URL: {zonaprop_url}")
+                url = self.zonaprop.build_url(search_zone, operation, property_type)
+                logger.info(f"[Zonaprop] URL: {url}")
                 
-                html = self.zonaprop._make_request(zonaprop_url)
-                
+                html = self.zonaprop._make_request(url)
                 if html:
                     properties = self.zonaprop.parse_properties(html, operation, property_type)
                     all_properties.extend(properties)
                     logger.info(f"[Zonaprop] Extraídas {len(properties)} propiedades")
-                else:
-                    errors.append("Zonaprop: No se pudo obtener respuesta")
             except Exception as e:
                 errors.append(f"Zonaprop: {str(e)}")
         else:
             logger.info("[Zonaprop] Saltado en Render (usualmente bloqueado)")
         
-        # 3. MercadoLibre (saltado en Render porque requiere Selenium)
-        if not is_render:
-            try:
-                self.mercadolibre.target_zone = search_zone
-                mercadolibre_url = self.mercadolibre.build_url(search_zone, operation, property_type)
-                logger.info(f"[MercadoLibre] URL: {mercadolibre_url}")
-                
-                html = self.mercadolibre._render_with_selenium(mercadolibre_url)
-                if not html:
-                    html = self.mercadolibre._make_request(mercadolibre_url)
-                
-                if html:
-                    properties = self.mercadolibre.parse_properties(html, operation, property_type)
-                    all_properties.extend(properties)
-                    logger.info(f"[MercadoLibre] Extraídas {len(properties)} propiedades")
-                else:
-                    errors.append("MercadoLibre: No se pudo obtener respuesta")
-            except Exception as e:
-                errors.append(f"MercadoLibre: {str(e)}")
-        else:
-            logger.info("[MercadoLibre] Saltado en Render (requiere Selenium)")
+        # 3. MercadoLibre - puede funcionar con requests
+        try:
+            self.mercadolibre.target_zone = search_zone
+            url = self.mercadolibre.build_url(search_zone, operation, property_type)
+            logger.info(f"[MercadoLibre] URL: {url}")
+            
+            # En Render, intentar con requests directamente
+            html = self.mercadolibre._make_request(url)
+            
+            if html:
+                properties = self.mercadolibre.parse_properties(html, operation, property_type)
+                all_properties.extend(properties)
+                logger.info(f"[MercadoLibre] Extraídas {len(properties)} propiedades")
+            else:
+                errors.append("MercadoLibre: No se pudo obtener respuesta")
+        except Exception as e:
+            errors.append(f"MercadoLibre: {str(e)}")
         
         # Calcular estadísticas
         stats = self.analyzer.calculate_stats(all_properties, search_zone, operation, property_type)
