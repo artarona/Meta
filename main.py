@@ -19,6 +19,36 @@ from logic.gemini_client import call_gemini_with_rotation
 # === CONFIGURACIÓN DE BARRIOS ===
 BARRIOS_DB_PATH = 'instance/barrios_data.db'
 
+# Importar el scraping manager
+try:
+    from logic.market_scraper import ScrapingManager
+    SCRAPER_AVAILABLE = True
+except ImportError as e:
+    SCRAPER_AVAILABLE = False
+    print(f"⚠️ Scraper no disponible: {e}")
+
+# Configurar logging
+logger = logging.getLogger(__name__)
+
+# Inicializar scraping manager
+scraping_manager = None
+if SCRAPER_AVAILABLE:
+    try:
+        scraping_manager = ScrapingManager()
+        logger.info("✅ Scraping Manager inicializado correctamente")
+    except Exception as e:
+        logger.error(f"❌ Error inicializando Scraping Manager: {e}")
+        scraping_manager = None
+
+
+
+
+
+
+
+
+
+
 def get_barrios_db_connection():
     Path(os.path.dirname(BARRIOS_DB_PATH)).mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(BARRIOS_DB_PATH, check_same_thread=False)
@@ -3454,6 +3484,332 @@ def get_market_status():
             return jsonify({"exists": True, "last_update": "Desconocida", "metadata": {}})
     
     return jsonify({"exists": False})
+
+
+# Agregar al inicio del archivo, después de los imports existentes
+import os
+import json
+import asyncio
+import logging
+from datetime import datetime
+from fastapi import Query, HTTPException
+from fastapi.responses import JSONResponse
+
+# Importar el scraping manager
+try:
+    from logic.market_scraper import ScrapingManager
+    SCRAPER_AVAILABLE = True
+except ImportError as e:
+    SCRAPER_AVAILABLE = False
+    print(f"⚠️ Scraper no disponible: {e}")
+
+# Configurar logging
+logger = logging.getLogger(__name__)
+
+# Inicializar scraping manager
+scraping_manager = None
+if SCRAPER_AVAILABLE:
+    try:
+        scraping_manager = ScrapingManager()
+        logger.info("✅ Scraping Manager inicializado correctamente")
+    except Exception as e:
+        logger.error(f"❌ Error inicializando Scraping Manager: {e}")
+        scraping_manager = None
+
+
+# ============================================
+# AGREGAR ESTOS ENDPOINTS DESPUÉS DE TUS ENDPOINTS EXISTENTES
+# ============================================
+
+# Endpoint para ejecutar scraping desde el panel admin
+@app.post("/api/market/run-scrape")
+async def run_market_scrape(
+    request: Request,
+    zona: str = Query(None, description="Barrio o zona"),
+    operacion: str = Query("venta", description="venta o alquiler"),
+    tipo: str = Query("departamento", description="tipo de propiedad")
+):
+    """
+    Endpoint para ejecutar scraping de mercado inmobiliario.
+    Se puede llamar con parámetros en URL o con body JSON.
+    """
+    # Si los parámetros vienen en el body (desde admin.html)
+    if request.method == "POST":
+        try:
+            body = await request.json()
+            zona = body.get('zona', zona)
+            operacion = body.get('operacion', operacion)
+            tipo = body.get('tipo', tipo)
+        except:
+            pass
+    
+    if not zona:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "Se requiere el parámetro 'zona'",
+                "message": "Por favor ingresa un barrio o zona para analizar"
+            }
+        )
+    
+    if not SCRAPER_AVAILABLE or scraping_manager is None:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "success": False,
+                "error": "Scraper no disponible",
+                "message": "El módulo de scraping no está disponible en este momento"
+            }
+        )
+    
+    try:
+        logger.info(f"🕷️ Ejecutando scraping para {zona} ({operacion}, {tipo})")
+        
+        # Ejecutar scraping en hilo separado para no bloquear
+        result = await asyncio.to_thread(
+            scraping_manager.scrape_market,
+            zona, operacion, tipo
+        )
+        
+        # Guardar resultado en archivo para consultas posteriores
+        output = {
+            "success": True,
+            "message": f"Analizadas {result.get('sample_size', 0)} propiedades",
+            "zone": zona,
+            "operation": operacion,
+            "property_type": tipo,
+            "scraping_timestamp": datetime.now().isoformat(),
+            "data": result
+        }
+        
+        # Guardar en archivo
+        try:
+            with open('scraping.json', 'w', encoding='utf-8') as f:
+                json.dump(output, f, indent=2, ensure_ascii=False)
+            logger.info(f"✅ Datos guardados en scraping.json")
+        except Exception as e:
+            logger.warning(f"No se pudo guardar scraping.json: {e}")
+        
+        # Devolver respuesta simplificada para admin.html
+        return {
+            "success": True,
+            "message": f"✅ Scraping completado: {result.get('sample_size', 0)} propiedades encontradas",
+            "sample_size": result.get('sample_size', 0),
+            "statistics": result.get('statistics', {}),
+            "properties": result.get('properties', [])[:50],  # Limitar a 50
+            "errors": result.get('errors', [])
+        }
+        
+    except Exception as e:
+        logger.error(f"Error en scraping: {e}", exc_info=True)
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"❌ Error en scraping: {str(e)[:200]}"
+        }
+
+
+# Endpoint para obtener estadísticas del último scraping
+@app.get("/api/market/stats")
+async def get_market_stats():
+    """Obtener estadísticas del último scraping guardado"""
+    import json
+    import os
+    
+    try:
+        if os.path.exists('scraping.json'):
+            with open('scraping.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            return {
+                "success": True,
+                "data": data.get('data', {}),
+                "timestamp": data.get('scraping_timestamp'),
+                "zone": data.get('zone'),
+                "operation": data.get('operation'),
+                "property_type": data.get('property_type')
+            }
+        else:
+            return {
+                "success": False,
+                "message": "No hay datos de scraping. Ejecuta un scraping primero.",
+                "data": None
+            }
+    except Exception as e:
+        logger.error(f"Error leyendo scraping.json: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Error al leer los datos guardados"
+        }
+
+
+# Endpoint para verificar estado del sistema de scraping
+@app.get("/api/market/status")
+async def get_market_status():
+    """Verificar estado del sistema de scraping"""
+    import json
+    import os
+    
+    # Detectar entorno
+    is_render = os.environ.get('RENDER', False)
+    chrome_bin = os.environ.get('GOOGLE_CHROME_BIN')
+    
+    status = {
+        "exists": os.path.exists('scraping.json'),
+        "scraper_available": SCRAPER_AVAILABLE,
+        "environment": "Render" if is_render else "Local",
+        "selenium_enabled": not is_render,  # En Render, Selenium desactivado
+        "chrome_available": bool(chrome_bin and os.path.exists(chrome_bin)) if chrome_bin else False
+    }
+    
+    if status["exists"]:
+        try:
+            with open('scraping.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            status["last_update"] = data.get('scraping_timestamp')
+            status["zone"] = data.get('zone')
+            status["sample_size"] = data.get('data', {}).get('sample_size', 0)
+            status["total_properties"] = len(data.get('data', {}).get('properties', []))
+        except:
+            pass
+    
+    return status
+
+
+# Endpoint para obtener propiedades de mercado con filtros
+@app.get("/api/market/properties")
+async def get_market_properties(
+    limit: int = Query(50, ge=1, le=200, description="Límite de propiedades"),
+    min_surface: float = Query(0, ge=0, description="Superficie mínima (m²)"),
+    max_price: float = Query(0, ge=0, description="Precio máximo"),
+    source: str = Query(None, description="Fuente (argenprop, zonaprop, mercadolibre)")
+):
+    """Obtener propiedades del último scraping con filtros"""
+    import json
+    import os
+    
+    if not os.path.exists('scraping.json'):
+        return {
+            "success": False,
+            "message": "No hay datos de scraping disponibles",
+            "properties": []
+        }
+    
+    try:
+        with open('scraping.json', 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        properties = data.get('data', {}).get('properties', [])
+        
+        # Aplicar filtros
+        filtered = properties
+        
+        if min_surface > 0:
+            filtered = [p for p in filtered if p.get('surface', 0) >= min_surface]
+        
+        if max_price > 0:
+            filtered = [p for p in filtered if p.get('price', 0) <= max_price]
+        
+        if source:
+            filtered = [p for p in filtered if p.get('source', '').lower() == source.lower()]
+        
+        # Limitar resultados
+        filtered = filtered[:limit]
+        
+        return {
+            "success": True,
+            "total": len(filtered),
+            "properties": filtered,
+            "timestamp": data.get('scraping_timestamp')
+        }
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo propiedades: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "properties": []
+        }
+
+
+# Endpoint para obtener métricas de mercado por barrio
+@app.get("/api/market/neighborhood-stats")
+async def get_neighborhood_stats():
+    """Obtener estadísticas por barrio del último scraping"""
+    import json
+    import os
+    
+    if not os.path.exists('scraping.json'):
+        return {
+            "success": False,
+            "message": "No hay datos de scraping disponibles",
+            "neighborhoods": []
+        }
+    
+    try:
+        with open('scraping.json', 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        neighborhood_stats = data.get('data', {}).get('neighborhood_stats', {})
+        
+        # Convertir a lista ordenada por precio
+        neighborhoods = []
+        for name, stats in neighborhood_stats.items():
+            neighborhoods.append({
+                "name": name,
+                "count": stats.get('count', 0),
+                "avg_price_m2": stats.get('avg_price_m2', 0)
+            })
+        
+        # Ordenar por precio promedio descendente
+        neighborhoods.sort(key=lambda x: x.get('avg_price_m2', 0), reverse=True)
+        
+        return {
+            "success": True,
+            "neighborhoods": neighborhoods,
+            "total": len(neighborhoods)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo estadísticas por barrio: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "neighborhoods": []
+        }
+
+
+# ============================================
+# FUNCIONES AUXILIARES PARA INICIALIZACIÓN
+# ============================================
+
+def init_scraping():
+    """Inicializa el módulo de scraping al arrancar el servidor"""
+    if SCRAPER_AVAILABLE:
+        try:
+            # Verificar si existe archivo de scraping anterior
+            if os.path.exists('scraping.json'):
+                with open('scraping.json', 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    timestamp = data.get('scraping_timestamp', 'desconocida')
+                    sample = data.get('data', {}).get('sample_size', 0)
+                    logger.info(f"📊 Datos de scraping previos cargados: {sample} propiedades ({timestamp})")
+            else:
+                logger.info("📊 No hay datos de scraping previos. Ejecuta /api/market/run-scrape para obtenerlos.")
+        except Exception as e:
+            logger.warning(f"No se pudo cargar scraping.json: {e}")
+
+
+# ============================================
+# LLAMAR A LA INICIALIZACIÓN AL ARRANCAR
+# ============================================
+
+# Después de crear app, llamar a init_scraping()
+# app = FastAPI() debe estar definido antes
+# init_scraping()  # Descomentar esta línea
+
 
 
 
