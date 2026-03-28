@@ -43,6 +43,10 @@ except ImportError:
 # DETECCIÓN DE ENTORNO Y OPTIMIZACIÓN
 # ========================================
 
+# ========================================
+# DETECCIÓN DE ENTORNO RENDER
+# ========================================
+
 def is_render_environment():
     """Detecta si estamos ejecutando en Render.com"""
     # Verificar variable de entorno de Render
@@ -55,16 +59,16 @@ def is_render_environment():
     # Si no hay Chrome, asumir Render
     return True
 
-# Configuración global
+# Configuración global - DESACTIVAR SELENIUM EN RENDER
 USE_SELENIUM = not is_render_environment()
 
-# Mensaje informativo al cargar el módulo (se verá en los logs de Render)
-print("=" * 50)
+# Mensaje informativo (se verá en los logs)
+print("=" * 60)
 print(f"🌍 Entorno: {'Render.com' if is_render_environment() else 'Local'}")
 print(f"🕷️ Selenium: {'ACTIVADO' if USE_SELENIUM else 'DESACTIVADO'}")
 if not USE_SELENIUM:
     print("📡 Usando solo requests para scraping (más rápido y confiable)")
-print("=" * 50)
+print("=" * 60)
 
 
 # Agregar después de los imports, antes de la clase BaseScraper
@@ -422,7 +426,7 @@ class BaseScraper(ABC):
         Usa Selenium con Chrome (Headless) para renderizar JavaScript.
         En Render, desactivado automáticamente para ahorrar tiempo.
         """
-        # Si Selenium está desactivado, no intentar
+        # SI ESTAMOS EN RENDER, NO INTENTAR SELENIUM
         if not USE_SELENIUM:
             logger.debug(f"[{self.source_name}] Selenium desactivado en este entorno")
             return None
@@ -1374,8 +1378,11 @@ class ScrapingManager:
         self.mercadolibre = MercadoLibreScraper()
         self.analyzer = MarketAnalyzer()
     
+    
+    
+    
     def scrape_market(self, zone: str, operation: str = "venta", 
-                    property_type: str = "departamento") -> Dict[str, Any]:
+                  property_type: str = "departamento") -> Dict[str, Any]:
         """
         Realiza scraping de mercado inmobiliario optimizado para Render
         """
@@ -1413,8 +1420,8 @@ class ScrapingManager:
         except Exception as e:
             errors.append(f"Argenprop: {str(e)}")
         
-        # 2. Zonaprop (solo si estamos en local y necesitamos más datos)
-        if not is_render and len(all_properties) < 10:
+        # 2. Zonaprop (saltado en Render porque da 403)
+        if not is_render:
             try:
                 self.zonaprop.target_zone = search_zone
                 zonaprop_url = self.zonaprop.build_url(search_zone, operation, property_type)
@@ -1431,11 +1438,10 @@ class ScrapingManager:
             except Exception as e:
                 errors.append(f"Zonaprop: {str(e)}")
         else:
-            if is_render:
-                logger.info("[Zonaprop] Saltado en Render (usualmente bloqueado)")
+            logger.info("[Zonaprop] Saltado en Render (usualmente bloqueado)")
         
-        # 3. MercadoLibre (solo en local)
-        if not is_render and len(all_properties) < 15:
+        # 3. MercadoLibre (saltado en Render porque requiere Selenium)
+        if not is_render:
             try:
                 self.mercadolibre.target_zone = search_zone
                 mercadolibre_url = self.mercadolibre.build_url(search_zone, operation, property_type)
@@ -1454,8 +1460,7 @@ class ScrapingManager:
             except Exception as e:
                 errors.append(f"MercadoLibre: {str(e)}")
         else:
-            if is_render:
-                logger.info("[MercadoLibre] Saltado en Render (requiere Selenium)")
+            logger.info("[MercadoLibre] Saltado en Render (requiere Selenium)")
         
         # Calcular estadísticas
         stats = self.analyzer.calculate_stats(all_properties, search_zone, operation, property_type)
