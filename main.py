@@ -16,8 +16,27 @@ from logic.barrio_data import (
 )
 from logic.gemini_client import call_gemini_with_rotation
 
-# === CONFIGURACIÓN DE BARRIOS ===
-BARRIOS_DB_PATH = 'instance/barrios_data.db'
+# ============================================
+# IMPORTAR LOGGING (CRUCIAL)
+# ============================================
+import logging
+
+# ============================================
+# NUEVAS IMPORTACIONES PARA SCRAPING
+# ============================================
+import os
+import json
+import asyncio
+from datetime import datetime
+from fastapi import Query, HTTPException, Request
+from fastapi.responses import JSONResponse
+
+# Configurar logging
+logger = logging.getLogger(__name__)
+
+# ============================================
+# INICIALIZACIÓN DEL SCRAPER
+# ============================================
 
 # Importar el scraping manager
 try:
@@ -26,22 +45,41 @@ try:
 except ImportError as e:
     SCRAPER_AVAILABLE = False
     print(f"⚠️ Scraper no disponible: {e}")
-
-# Configurar logging
-logger = logging.getLogger(__name__)
+    logger.warning(f"Scraper no disponible: {e}")
 
 # Inicializar scraping manager
 scraping_manager = None
 if SCRAPER_AVAILABLE:
     try:
         scraping_manager = ScrapingManager()
-        logger.info("✅ Scraping Manager inicializado correctamente")
+        print("✅ Scraping Manager inicializado correctamente")
+        logger.info("Scraping Manager inicializado correctamente")
     except Exception as e:
-        logger.error(f"❌ Error inicializando Scraping Manager: {e}")
+        print(f"❌ Error inicializando Scraping Manager: {e}")
+        logger.error(f"Error inicializando Scraping Manager: {e}")
         scraping_manager = None
 
+# ============================================
+# FUNCIÓN DE INICIALIZACIÓN DE DATOS
+# ============================================
 
-
+def init_scraping_data():
+    """Inicializa el módulo de scraping al arrancar el servidor"""
+    if SCRAPER_AVAILABLE:
+        try:
+            if os.path.exists('scraping.json'):
+                with open('scraping.json', 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    timestamp = data.get('scraping_timestamp', 'desconocida')
+                    sample = data.get('data', {}).get('sample_size', 0)
+                    print(f"📊 Datos de scraping previos cargados: {sample} propiedades ({timestamp})")
+                    logger.info(f"Datos de scraping previos cargados: {sample} propiedades")
+            else:
+                print("📊 No hay datos de scraping previos. Ejecuta /api/market/run-scrape para obtenerlos.")
+                logger.info("No hay datos de scraping previos")
+        except Exception as e:
+            print(f"⚠️ No se pudo cargar scraping.json: {e}")
+            logger.warning(f"No se pudo cargar scraping.json: {e}")
 
 
 
@@ -3802,13 +3840,175 @@ def init_scraping():
             logger.warning(f"No se pudo cargar scraping.json: {e}")
 
 
-# ============================================
-# LLAMAR A LA INICIALIZACIÓN AL ARRANCAR
-# ============================================
+@app.post("/api/market/run-scrape")
+async def run_market_scrape(
+    request: Request,
+    zona: str = Query(None, description="Barrio o zona"),
+    operacion: str = Query("venta", description="venta o alquiler"),
+    tipo: str = Query("departamento", description="tipo de propiedad"),
+    key: str = Query(..., description="Clave de administrador")
+):
+    """
+    Endpoint para ejecutar scraping de mercado inmobiliario.
+    Se puede llamar con parámetros en URL o con body JSON.
+    """
+    # Validar clave
+    if key != admin_key:
+        return JSONResponse(
+            status_code=403,
+            content={"success": False, "error": "Clave inválida"}
+        )
+    
+    # Si los parámetros vienen en el body (desde admin.html)
+    if request.method == "POST":
+        try:
+            body = await request.json()
+            zona = body.get('zona', zona)
+            operacion = body.get('operacion', operacion)
+            tipo = body.get('tipo', tipo)
+        except:
+            pass
+    
+    if not zona:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "Se requiere el parámetro 'zona'",
+                "message": "Por favor ingresa un barrio o zona para analizar"
+            }
+        )
+    
+    if not SCRAPER_AVAILABLE or scraping_manager is None:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "success": False,
+                "error": "Scraper no disponible",
+                "message": "El módulo de scraping no está disponible en este momento"
+            }
+        )
+    
+    try:
+        print(f"🕷️ Ejecutando scraping para {zona} ({operacion}, {tipo})")
+        logger.info(f"Ejecutando scraping para {zona} ({operacion}, {tipo})")
+        
+        # Ejecutar scraping en hilo separado para no bloquear
+        result = await asyncio.to_thread(
+            scraping_manager.scrape_market,
+            zona, operacion, tipo
+        )
+        
+        # Guardar resultado en archivo
+        output = {
+            "success": True,
+            "message": f"Analizadas {result.get('sample_size', 0)} propiedades",
+            "zone": zona,
+            "operation": operacion,
+            "property_type": tipo,
+            "scraping_timestamp": datetime.now().isoformat(),
+            "data": result
+        }
+        
+        try:
+            with open('scraping.json', 'w', encoding='utf-8') as f:
+                json.dump(output, f, indent=2, ensure_ascii=False)
+            print(f"✅ Datos guardados en scraping.json")
+        except Exception as e:
+            print(f"⚠️ No se pudo guardar scraping.json: {e}")
+        
+        return {
+            "success": True,
+            "message": f"✅ Scraping completado: {result.get('sample_size', 0)} propiedades encontradas",
+            "sample_size": result.get('sample_size', 0),
+            "statistics": result.get('statistics', {}),
+            "properties": result.get('properties', [])[:50],
+            "errors": result.get('errors', [])
+        }
+        
+    except Exception as e:
+        print(f"❌ Error en scraping: {e}")
+        logger.error(f"Error en scraping: {e}", exc_info=True)
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"❌ Error en scraping: {str(e)[:200]}"
+        }
 
-# Después de crear app, llamar a init_scraping()
-# app = FastAPI() debe estar definido antes
-# init_scraping()  # Descomentar esta línea
+
+@app.get("/api/market/stats")
+async def get_market_stats(
+    key: str = Query(..., description="Clave de administrador")
+):
+    """Obtener estadísticas del último scraping guardado"""
+    if key != admin_key:
+        return JSONResponse(
+            status_code=403,
+            content={"success": False, "error": "Clave inválida"}
+        )
+    
+    try:
+        if os.path.exists('scraping.json'):
+            with open('scraping.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            return {
+                "success": True,
+                "data": data.get('data', {}),
+                "timestamp": data.get('scraping_timestamp'),
+                "zone": data.get('zone'),
+                "operation": data.get('operation'),
+                "property_type": data.get('property_type')
+            }
+        else:
+            return {
+                "success": False,
+                "message": "No hay datos de scraping. Ejecuta un scraping primero.",
+                "data": None
+            }
+    except Exception as e:
+        print(f"❌ Error leyendo scraping.json: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Error al leer los datos guardados"
+        }
+
+
+@app.get("/api/market/status")
+async def get_market_status(
+    key: str = Query(..., description="Clave de administrador")
+):
+    """Verificar estado del sistema de scraping"""
+    if key != admin_key:
+        return JSONResponse(
+            status_code=403,
+            content={"success": False, "error": "Clave inválida"}
+        )
+    
+    is_render = os.environ.get('RENDER', False)
+    chrome_bin = os.environ.get('GOOGLE_CHROME_BIN')
+    
+    status = {
+        "exists": os.path.exists('scraping.json'),
+        "scraper_available": SCRAPER_AVAILABLE,
+        "environment": "Render" if is_render else "Local",
+        "selenium_enabled": not is_render,
+        "chrome_available": bool(chrome_bin and os.path.exists(chrome_bin)) if chrome_bin else False
+    }
+    
+    if status["exists"]:
+        try:
+            with open('scraping.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            status["last_update"] = data.get('scraping_timestamp')
+            status["zone"] = data.get('zone')
+            status["sample_size"] = data.get('data', {}).get('sample_size', 0)
+            status["total_properties"] = len(data.get('data', {}).get('properties', []))
+        except:
+            pass
+    
+    return status
 
 
 
