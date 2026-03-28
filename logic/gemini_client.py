@@ -20,21 +20,28 @@ API_KEYS = []
 from dotenv import load_dotenv
 load_dotenv()
 
-# Buscar claves en variables de entorno (formato: GEMINI_KEYS_1, GEMINI_KEYS_2, etc.)
+# Buscar claves en variables de entorno (formato: GEMINI_KEY_1, GEMINI_KEY_2, etc.)
 for i in range(1, 10):
-    key_name = f"GEMINI_KEYS_{i}"
+    key_name = f"GEMINI_KEY_{i}"
     key_value = os.environ.get(key_name)
     if key_value and key_value.strip():
         if key_value.strip().startswith('AIza'):
             API_KEYS.append(key_value.strip())
             print(f"✅ {key_name}: Clave cargada exitosamente")
 
-# Si no hay claves, intentar con variable simple
+# Si no hay claves, intentar con variable simple o usar los fallbacks de config.py
 if not API_KEYS:
     single_key = os.environ.get("GEMINI_API_KEY")
     if single_key and single_key.strip().startswith('AIza'):
         API_KEYS.append(single_key.strip())
         print(f"✅ GEMINI_API_KEY: Clave cargada")
+    else:
+        # Claves de respaldo (mismas que en config.py)
+        API_KEYS = [
+            "AIzaSyCf_UBys6b4_uceLlN3HtVVy64W_MLkpcw",
+            "AIzaSyBIRmNG2iJVWieK5Z4qY5xWpJWzQwlrkow"
+        ]
+        print(f"⚠️ Usando {len(API_KEYS)} claves de respaldo (fallback)")
 
 # Modelo a usar
 MODEL = os.environ.get("WORKING_MODEL", "gemini-2.0-flash-001")
