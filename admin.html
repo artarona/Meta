@@ -2467,6 +2467,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             const tabContent = document.getElementById(`tab-${tabName}`);
             const tabButton = document.querySelector(`.tab[onclick="mostrarTab('${tabName}')"]`);
 
+            if (tabContent && tabButton) {
                 tabContent.classList.add('active');
                 tabButton.classList.add('active');
                 
