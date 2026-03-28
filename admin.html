@@ -2904,14 +2904,27 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
 
             let html = '';
             properties.forEach(p => {
+                const title = p.title || 'Propiedad sin título';
+                const address = p.address || 'Ubicación no disponible';
+                const operation = p.operation_type || 'N/A';
+                const surface = p.surface || 0;
+                const price = p.price || 0;
+                const currency = p.currency || 'USD';
+                const priceM2 = p.price_m2 || 0;
+                const url = p.url || '#';
+
                 html += `
                     <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="padding: 12px; font-size: 0.9rem;">${(p.title || 'Sin Titulo').substring(0, 50)}...</td>
-                        <td style="padding: 12px; font-size: 0.9rem;">${p.neighborhood || 'N/A'}</td>
-                        <td style="padding: 12px; font-size: 0.9rem;"><span class="status-badge" style="background:#f1f5f9; color:#475569;">${p.operation}</span></td>
-                        <td style="padding: 12px; font-size: 0.9rem;">${p.surface || '?'} m²</td>
-                        <td style="padding: 12px; font-size: 0.9rem; font-weight:bold;">${p.currency} ${p.price.toLocaleString()}</td>
-                        <td style="padding: 12px; font-size: 0.9rem; color:var(--success); font-weight:bold;">$${Math.round(p.price_m2 || 0)}</td>
+                        <td style="padding: 12px; font-size: 0.85rem;">
+                            <a href="${url}" target="_blank" style="text-decoration:none; color:var(--primary); font-weight:500;">
+                                ${title.substring(0, 60)}${title.length > 60 ? '...' : ''}
+                            </a>
+                        </td>
+                        <td style="padding: 12px; font-size: 0.85rem; color:var(--text-muted);">${address.substring(0, 30)}${address.length > 30 ? '...' : ''}</td>
+                        <td style="padding: 12px; font-size: 0.85rem;"><span class="status-badge" style="background:#f1f5f9; color:#475569;">${operation}</span></td>
+                        <td style="padding: 12px; font-size: 0.85rem;">${surface} m²</td>
+                        <td style="padding: 12px; font-size: 0.85rem; font-weight:bold;">${currency} ${price.toLocaleString()}</td>
+                        <td style="padding: 12px; font-size: 0.85rem; color:var(--success); font-weight:bold;">$${Math.round(priceM2).toLocaleString()}</td>
                     </tr>
                 `;
             });
@@ -2957,20 +2970,29 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 .map(p => ({ x: p.surface, y: p.price }));
             
             const scatterCtx = document.getElementById('market-scatter-chart');
-            if (scatterCtx) {
+            if (scatterCtx && scatterData.length > 0) {
                 marketCharts.scatter = new Chart(scatterCtx, {
                     type: 'scatter',
                     data: {
                         datasets: [{
-                            label: 'Propiedades Analizadas',
+                            label: 'Precio vs Superficie',
                             data: scatterData,
                             backgroundColor: 'rgba(35, 45, 235, 0.5)',
-                            pointRadius: 5
+                            pointRadius: 6
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `Superficie: ${context.parsed.x} m² | Precio: USD $${context.parsed.y.toLocaleString()}`;
+                                    }
+                                }
+                            }
+                        },
                         scales: {
                             x: { title: { display: true, text: 'Superficie (m²)' }, type: 'linear' },
                             y: { title: { display: true, text: 'Precio (USD)' } }
