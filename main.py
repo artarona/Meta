@@ -28,7 +28,6 @@ import os
 import json
 import asyncio
 from datetime import datetime
-from fastapi import Query, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 # Configurar logging
