@@ -1,43 +1,13 @@
-# ============================================
-# ARCHIVOS SENSIBLES (NO SUBIR NUNCA)
-# ============================================
-google_calendar_key.json
-*.pem
-*.key
-*.p12
-*.env
-.env
-secrets.json
-
-# ============================================
-# PYTHON
-# ============================================
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.pdb
-*.egg-info/
-*.egg
-
-# ============================================
-# ENTORNOS VIRTUALES
-# ============================================
-venv/
-env/
-.venv/
-.env/
-
-# ============================================
-# ARCHIVOS TEMPORALES
-# ============================================
+# Ignore database and large data files
+*.db
+*.json
+*.docx
 *.log
-*.tmp
-*.cache
-.DS_Store
+__pycache__/
+*.pyc
 
-# ============================================
-# CONFIGURACIONES DE EDITORES
-# ============================================
-.vscode/
-.idea/
+# Ignore local environment files
+.env
+.venv/
+venv/
+instance/
