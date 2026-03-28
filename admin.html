@@ -817,6 +817,42 @@
         .modal {
             z-index: 2000;
         }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th {
+            background: var(--bg);
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border);
+            position: sticky;
+            top: 0;
+        }
+
+        .data-table td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-light);
+            vertical-align: top;
+        }
+
+        .data-table tr:hover {
+            background: var(--bg);
+        }
+
+        /* Scroll para la tabla en móviles */
+        @media (max-width: 768px) {
+            #market-properties-table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+        }
+
+
     </style>
 </head>
 
@@ -2930,9 +2966,11 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
 
         async function cargarEstadisticasMercado() {
             try {
+                console.log('📊 Cargando estadísticas de mercado...');
                 mostrarToast('📊 Cargando datos de mercado...', 'info');
                 
                 const data = await fetchConClave('/api/market/stats');
+                console.log('📊 Datos recibidos:', data);
                 
                 if (data && data.success) {
                     const statsData = data.data;
@@ -2949,12 +2987,13 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                     // Actualizar banner
                     actualizarBannerStatusMercado();
                     
-                    mostrarToast(`✅ Datos cargados: ${statsData.sample_size || 0} propiedades analizadas`, 'success');
+                    const totalProps = statsData.sample_size || statsData.properties?.length || 0;
+                    mostrarToast(`✅ Datos cargados: ${totalProps} propiedades analizadas`, 'success');
                 } else {
-                    const mensaje = data?.message || 'No hay datos disponibles';
+                    const mensaje = data?.message || 'No hay datos disponibles. Ejecuta un scraping primero.';
                     mostrarToast(`⚠️ ${mensaje}`, 'warning');
                     
-                    // Mostrar estado vacío
+                    // Mostrar estado vacío en KPIs
                     const kpiGrid = document.getElementById('market-kpi-grid');
                     if (kpiGrid) {
                         kpiGrid.innerHTML = `
@@ -2962,7 +3001,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                                 <div class="stat-number">0</div>
                                 <div>Propiedades Analizadas</div>
                                 <p style="margin-top: 1rem; color: var(--text-muted);">
-                                    Ejecuta un scraping para obtener datos del mercado
+                                    No hay datos de mercado disponibles.
                                 </p>
                                 <button class="btn btn-primary" onclick="ejecutarScrapingMercado()" style="margin-top: 1rem;">
                                     🕷️ Ejecutar Scraping
@@ -2970,10 +3009,27 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                             </div>
                         `;
                     }
+                    
+                    // Mostrar tabla vacía
+                    const tableBody = document.getElementById('market-properties-table');
+                    if (tableBody) {
+                        tableBody.innerHTML = `
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 60px 20px; color: var(--text-muted);">
+                                    <div style="font-size: 3rem; margin-bottom: 1rem;">🏠</div>
+                                    <h3>No hay propiedades para mostrar</h3>
+                                    <p>Ejecuta un scraping para obtener datos del mercado inmobiliario</p>
+                                    <button class="btn btn-primary" onclick="ejecutarScrapingMercado()" style="margin-top: 1rem;">
+                                        🕷️ Ejecutar Scraping Ahora
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    }
                 }
             } catch (error) {
                 console.error('Error cargando mercado:', error);
-                mostrarToast('❌ Error al cargar datos de mercado', 'error');
+                mostrarToast('❌ Error al cargar datos de mercado: ' + error.message, 'error');
             }
         }
 
@@ -2981,9 +3037,12 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             const stats = data.statistics || {};
             const container = document.getElementById('market-kpi-grid');
             
-            if (!container) return;
+            if (!container) {
+                console.error('❌ Elemento market-kpi-grid no encontrado');
+                return;
+            }
             
-            const muestra = data.sample_size || 0;
+            const muestra = data.sample_size || data.total_properties_analyzed || 0;
             const avgPriceM2 = stats.average_price_per_m2 || 0;
             const medianPriceM2 = stats.median_price_per_m2 || 0;
             const minPriceM2 = stats.min_price_per_m2 || 0;
@@ -2992,7 +3051,9 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             
             // Contar fuentes
             const sources = data.source_breakdown || {};
-            const totalSources = Object.keys(sources).length;
+            const sourceCount = Object.keys(sources).length;
+            
+            console.log('📊 Renderizando KPIs:', { muestra, avgPriceM2, medianPriceM2, sources });
             
             container.innerHTML = `
                 <div class="stat-card">
@@ -3011,14 +3072,14 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                     <div class="stat-trend">📈 Valor central</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">${totalSources}</div>
+                    <div class="stat-number">${sourceCount}</div>
                     <div>Fuentes de Datos</div>
                     <div class="stat-trend">${Object.keys(sources).map(s => `📌 ${s}`).join(' ')}</div>
                 </div>
             `;
             
-            // Mostrar también rango de precios si hay espacio
-            if (priceRange !== 'N/A') {
+            // Mostrar rango de precios si hay datos
+            if (priceRange !== 'N/A' && priceRange !== '0 - 0') {
                 const rangeHTML = `
                     <div class="stat-card" style="grid-column: span 2;">
                         <div class="stat-number">${priceRange}</div>
@@ -3030,10 +3091,15 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
 
+
+
         function renderizarTablaMercado(properties) {
             const container = document.getElementById('market-properties-table');
             
-            if (!container) return;
+            if (!container) {
+                console.error('❌ Elemento market-properties-table no encontrado');
+                return;
+            }
             
             if (!properties || properties.length === 0) {
                 container.innerHTML = `
@@ -3050,6 +3116,8 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 `;
                 return;
             }
+            
+            console.log(`📊 Renderizando ${properties.length} propiedades en tabla`);
             
             let html = '';
             properties.forEach((p, index) => {
@@ -3103,8 +3171,12 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             
             container.innerHTML = html;
         }
-
+        
+        
+        
         function renderizarGraficosMercado(data) {
+            console.log('📊 Renderizando gráficos...');
+            
             // Destruir gráficos anteriores
             if (window.marketCharts) {
                 if (window.marketCharts.bar) window.marketCharts.bar.destroy();
@@ -3157,11 +3229,13 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                         }
                     }
                 });
+                console.log('✅ Gráfico de barras renderizado');
             } else if (barCtx) {
-                barCtx.getContext('2d').clearRect(0, 0, barCtx.width, barCtx.height);
-                barCtx.getContext('2d').fillStyle = '#64748b';
-                barCtx.getContext('2d').font = '14px sans-serif';
-                barCtx.getContext('2d').fillText('No hay datos suficientes para mostrar gráfico', 50, 200);
+                const ctx = barCtx.getContext('2d');
+                ctx.clearRect(0, 0, barCtx.width, barCtx.height);
+                ctx.fillStyle = '#64748b';
+                ctx.font = '14px sans-serif';
+                ctx.fillText('No hay datos suficientes para mostrar gráfico', 50, 200);
             }
             
             // 2. Gráfico de dispersión (Precio vs Superficie)
@@ -3211,14 +3285,19 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                         }
                     }
                 });
+                console.log('✅ Gráfico de dispersión renderizado');
             } else if (scatterCtx) {
-                scatterCtx.getContext('2d').clearRect(0, 0, scatterCtx.width, scatterCtx.height);
-                scatterCtx.getContext('2d').fillStyle = '#64748b';
-                scatterCtx.getContext('2d').font = '14px sans-serif';
-                scatterCtx.getContext('2d').fillText('No hay datos suficientes para mostrar gráfico', 50, 200);
+                const ctx = scatterCtx.getContext('2d');
+                ctx.clearRect(0, 0, scatterCtx.width, scatterCtx.height);
+                ctx.fillStyle = '#64748b';
+                ctx.font = '14px sans-serif';
+                ctx.fillText('No hay datos suficientes para mostrar gráfico', 50, 200);
             }
         }
 
+
+
+        
         async function actualizarBannerStatusMercado() {
             const banner = document.getElementById('market-status-banner');
             if (!banner) return;
