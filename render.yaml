@@ -1,0 +1,58 @@
+# Configuración de Blueprint para Render
+# Este archivo automatiza la instalación de Chrome y Chromedriver para Selenium
+
+services:
+  - type: web
+    name: Meta
+    runtime: python
+    plan: starter # Se recomienda Starter para estabilidad con Selenium
+    region: ohio # Ajustar según tu región si es distinta
+    branch: master # Muy importante: coincide con tu configuración actual en Render
+    buildCommand: pip install -r requirements.txt
+    startCommand: pip install psycopg2-binary==2.9.9 && gunicorn main:app --bind 0.0.0.0:10000 --workers 1 --threads 4 --timeout 0
+    envVars:
+      # Rutas críticas para que Selenium encuentre Chrome
+      - key: GOOGLE_CHROME_BIN
+        value: /app/.apt/usr/bin/google-chrome
+      - key: CHROMEDRIVER_PATH
+        value: /app/.chromedriver/bin/chromedriver
+      
+      # Versión de Python
+      - key: PYTHON_VERSION
+        value: "3.11.5"
+
+      # Claves de IA (Sincronización deshabilitada para no sobrescribir tus secretos)
+      - key: GEMINI_KEY_1
+        sync: false
+      - key: GEMINI_KEY_2
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      
+      # Configuración de Acceso
+      - key: ADMIN_KEY
+        value: dante_admin_2024
+
+      # Configuración de WhatsApp
+      - key: WHATSAPP_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: VERIFY_TOKEN
+        value: "mi_token_secreto_123"
+      
+      # Números de contacto
+      - key: AGENT_NUMBER
+        value: "5491178877334"
+      - key: ADMIN_NUMBER
+        value: "5491176596523"
+      
+      # URL Base
+      - key: BASE_URL
+        value: "https://meta-rjpb.onrender.com"
+
+    # Buildpacks: El orden importa (Python debe ir al final)
+    buildpacks:
+      - url: https://github.com/heroku/heroku-buildpack-google-chrome.git
+      - url: https://github.com/heroku/heroku-buildpack-chromedriver.git
+      - url: render/python
