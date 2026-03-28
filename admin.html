@@ -2585,7 +2585,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 
                 // Si es la pestaña de mercado, cargar estadísticas
                 if (tabName === 'mercado') {
-                    cargarEstadisticasMercado();
+                    setTimeout(() => cargarEstadisticasMercado(), 100);
                 } else if (tabName === 'barrios') {
                     cargarBarrios();
                 }
