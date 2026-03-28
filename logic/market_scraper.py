@@ -315,6 +315,11 @@ class BaseScraper(ABC):
         """
         Usa Selenium con Edge para renderizar JavaScript.
         """
+        # Evitar en Render si falla o no es necesario
+        if os.environ.get('RENDER') or os.environ.get('SCRAPER_NO_BROWSER'):
+            logger.info(f"[{self.source_name}] Saltando Selenium por estar en entorno Render/No-Browser")
+            return None
+
         driver = None
         try:
             from selenium import webdriver
@@ -390,6 +395,8 @@ class BaseScraper(ABC):
 
     def _render_with_playwright(self, url: str) -> Optional[str]:
         """Fallback con Playwright si Selenium falla"""
+        if os.environ.get('RENDER') or os.environ.get('SCRAPER_NO_BROWSER'):
+            return None
         try:
             from playwright.sync_api import sync_playwright
             with sync_playwright() as p:
@@ -1268,11 +1275,13 @@ class ScrapingManager:
             argenprop_url = self.argenprop.build_url(search_zone, operation, property_type)
             logger.info(f"[Argenprop] URL: {argenprop_url}")
             
-            # Intentar con Selenium primero (más robusto contra Cloudflare)
-            html = self.argenprop._render_with_selenium(argenprop_url)
-            if not html:
-                logger.warning("[Argenprop] Selenium falló, intentando con requests...")
-                html = self.argenprop._make_request(argenprop_url)
+            # Intentar con requests primero (más liviano para Render)
+            html = self.argenprop._make_request(argenprop_url)
+            
+            # Si falla y no estamos en Render, intentar Selenium
+            if not html and not os.environ.get('RENDER'):
+                logger.info("[Argenprop] Requests falló, intentando con Selenium...")
+                html = self.argenprop._render_with_selenium(argenprop_url)
             
             if html:
                 properties = self.argenprop.parse_properties(html, operation, property_type)
@@ -1288,11 +1297,13 @@ class ScrapingManager:
             zonaprop_url = self.zonaprop.build_url(search_zone, operation, property_type)
             logger.info(f"[Zonaprop] URL: {zonaprop_url}")
             
-            # Zonaprop es extremadamente estricto, usamos Selenium directamente
-            html = self.zonaprop._render_with_selenium(zonaprop_url)
-            if not html:
-                logger.warning("[Zonaprop] Selenium falló, intentando con requests...")
-                html = self.zonaprop._make_request(zonaprop_url)
+            # Intentar con requests primero
+            html = self.zonaprop._make_request(zonaprop_url)
+            
+            # Zonaprop suele requerir JS, pero probamos requests en Render por estabilidad
+            if not html and not os.environ.get('RENDER'):
+                logger.info("[Zonaprop] Requests falló, intentando con Selenium...")
+                html = self.zonaprop._render_with_selenium(zonaprop_url)
             
             if html:
                 properties = self.zonaprop.parse_properties(html, operation, property_type)
@@ -1308,9 +1319,11 @@ class ScrapingManager:
             mercadolibre_url = self.mercadolibre.build_url(search_zone, operation, property_type)
             logger.info(f"[MercadoLibre] URL: {mercadolibre_url}")
             
-            html = self.mercadolibre._render_with_selenium(mercadolibre_url)
-            if not html:
-                html = self.mercadolibre._make_request(mercadolibre_url)
+            # MercadoLibre funciona bien con requests
+            html = self.mercadolibre._make_request(mercadolibre_url)
+            
+            if not html and not os.environ.get('RENDER'):
+                html = self.mercadolibre._render_with_selenium(mercadolibre_url)
             
             if html:
                 properties = self.mercadolibre.parse_properties(html, operation, property_type)
