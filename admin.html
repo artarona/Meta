@@ -2969,42 +2969,48 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 console.log('📊 Cargando estadísticas de mercado...');
                 
                 const response = await fetchConClave('/api/market/stats');
-                console.log('📊 Respuesta completa:', response);
+                console.log('📊 Respuesta recibida:', response);
                 
-                if (response && response.success) {
-                    // CORRECCIÓN: los datos están en response.data.data
-                    const statsData = response.data?.data || response.data;
-                    console.log('📊 Datos de mercado:', statsData);
-                    
-                    // Obtener propiedades
+                // La estructura correcta es response.data.data (dos niveles de data)
+                if (response && response.success && response.data && response.data.data) {
+                    const statsData = response.data.data;
                     const properties = statsData.properties || [];
-                    console.log('📊 Propiedades encontradas:', properties.length);
                     
-                    // Mostrar KPIs
+                    console.log(`📊 Propiedades encontradas: ${properties.length}`);
+                    console.log(`📊 Muestra total: ${statsData.sample_size || properties.length}`);
+                    console.log(`📊 Analizadas: ${statsData.total_properties_analyzed || properties.length}`);
+                    
+                    // Renderizar KPIs
                     renderizarKPIsMercado(statsData);
                     
-                    // Mostrar tabla de propiedades
+                    // Renderizar tabla de propiedades
                     renderizarTablaMercado(properties);
                     
-                    // Mostrar gráficos
+                    // Renderizar gráficos
                     renderizarGraficosMercado(statsData);
                     
                     // Actualizar banner
                     actualizarBannerStatusMercado();
                     
-                    mostrarToast(`✅ Datos cargados: ${statsData.sample_size || properties.length} propiedades analizadas`, 'success');
+                    mostrarToast(`✅ ${properties.length} propiedades cargadas correctamente`, 'success');
                 } else {
-                    console.error('❌ Error en datos:', response);
-                    mostrarToast(`⚠️ ${response?.message || 'No hay datos disponibles'}`, 'warning');
+                    console.error('❌ Estructura de datos incorrecta:', response);
+                    mostrarToast('⚠️ No se pudieron cargar los datos de mercado', 'warning');
                     
+                    // Mostrar estado vacío
                     const container = document.getElementById('market-properties-table');
                     if (container) {
                         container.innerHTML = `
-                            <tr><td colspan="6" style="text-align:center; padding:40px;">
-                                <div style="font-size: 3rem;">🏠</div>
-                                <p>No hay datos de mercado.</p>
-                                <button class="btn btn-primary" onclick="ejecutarScrapingMercado()">Ejecutar Scraping</button>
-                            </td></tr>
+                            <tr>
+                                <td colspan="6" style="text-align:center; padding:60px;">
+                                    <div style="font-size: 3rem;">🏠</div>
+                                    <h3>No hay datos disponibles</h3>
+                                    <p>Ejecuta un scraping para obtener información del mercado</p>
+                                    <button class="btn btn-primary" onclick="ejecutarScrapingMercado()">
+                                        🕷️ Ejecutar Scraping
+                                    </button>
+                                </td>
+                            </tr>
                         `;
                     }
                 }
@@ -3013,8 +3019,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 mostrarToast('❌ Error al cargar datos de mercado: ' + error.message, 'error');
             }
         }
-
-
 
         function renderizarKPIsMercado(data) {
             const stats = data.statistics || {};
@@ -3026,7 +3030,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
             
             // CORRECCIÓN: usar los campos correctos
-            const totalPropiedades = data.total_properties_analyzed || data.sample_size || 0;
+            const totalAnalizadas = data.total_properties_analyzed || data.sample_size || 0;
             const avgPriceM2 = stats.average_price_per_m2 || 0;
             const medianPriceM2 = stats.median_price_per_m2 || 0;
             const minPriceM2 = stats.min_price_per_m2 || 0;
@@ -3038,7 +3042,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             const sourceCount = Object.keys(sources).length;
             
             console.log('📊 Renderizando KPIs:', { 
-                totalPropiedades, 
+                totalAnalizadas, 
                 avgPriceM2, 
                 medianPriceM2, 
                 sourceCount,
@@ -3047,9 +3051,9 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             
             container.innerHTML = `
                 <div class="stat-card">
-                    <div class="stat-number">${totalPropiedades}</div>
+                    <div class="stat-number">${totalAnalizadas}</div>
                     <div>Propiedades Analizadas</div>
-                    <div class="stat-trend up">📊 De ${data.raw_properties_count || totalPropiedades} extraídas</div>
+                    <div class="stat-trend up">📊 De ${data.sample_size || totalAnalizadas} extraídas</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number">$ ${Math.round(avgPriceM2).toLocaleString()}</div>
@@ -3081,10 +3085,10 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
 
-
-
         function renderizarTablaMercado(properties) {
             const container = document.getElementById('market-properties-table');
+            
+            console.log('📊 renderizarTablaMercado - propiedades:', properties?.length);
             
             if (!container) {
                 console.error('❌ Elemento market-properties-table no encontrado');
@@ -3094,8 +3098,8 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             if (!properties || properties.length === 0) {
                 container.innerHTML = `
                     <tr>
-                        <td colspan="6" style="text-align: center; padding: 60px 20px; color: var(--text-muted);">
-                            <div style="font-size: 3rem; margin-bottom: 1rem;">🏠</div>
+                        <td colspan="6" style="text-align: center; padding: 60px 20px;">
+                            <div style="font-size: 3rem;">🏠</div>
                             <h3>No hay propiedades para mostrar</h3>
                             <p>Ejecuta un scraping para obtener datos del mercado inmobiliario</p>
                             <button class="btn btn-primary" onclick="ejecutarScrapingMercado()" style="margin-top: 1rem;">
@@ -3122,7 +3126,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 const source = p.source || 'desconocido';
                 const hasWarning = p.surface_warning === true;
                 
-                // Formatear valores
                 const formattedPrice = typeof price === 'number' ? price.toLocaleString() : price;
                 const formattedPriceM2 = typeof priceM2 === 'number' ? Math.round(priceM2).toLocaleString() : priceM2;
                 
@@ -3141,7 +3144,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                             ${address.substring(0, 40)}${address.length > 40 ? '...' : ''}
                         </td>
                         <td style="padding: 12px; font-size: 0.85rem;">
-                            <span class="status-badge" style="background: #f1f5f9; color: #475569; padding: 4px 8px;">
+                            <span class="status-badge" style="background: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 20px;">
                                 ${operation === 'venta' ? '💰 Venta' : operation === 'alquiler' ? '🔑 Alquiler' : operation}
                             </span>
                         </td>
@@ -3160,8 +3163,8 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             });
             
             container.innerHTML = html;
+            console.log(`✅ Tabla renderizada con ${properties.length} filas`);
         }
-        
         
         
         function renderizarGraficosMercado(data) {
