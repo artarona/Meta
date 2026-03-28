@@ -3106,29 +3106,51 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                     tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">⏳ Ejecutando scraping, por favor espera...</td></tr>';
                 }
 
+                // Mostrar loading en gráficos también
+                const kpiGrid = document.getElementById('market-kpi-grid');
+                if (kpiGrid) {
+                    kpiGrid.innerHTML = '<div class="stat-card" style="grid-column: 1/-1; text-align:center;">⏳ Procesando datos de mercado...</div>';
+                }
+
+                // CORRECCIÓN: fetchConClave ya devuelve el JSON parseado directamente
                 const response = await fetchConClave('/api/market/run-scrape', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ zona, operacion, tipo: 'departamento' })
                 });
 
-                // fetchConClave ya parsea el JSON. Verificar si fue exitoso.
-                if (response && (response.success === true || response.status === 'success' || response.sample_size)) {
-                    mostrarToast(`✅ Scraping completado: ${response.sample_size || ''} propiedades encontradas.`, 'success');
-                    // Cargar automáticamente gráficos y tabla con los datos frescos
+                // CORRECCIÓN: Verificar response.success en lugar de response.status
+                if (response && response.success === true) {
+                    const sampleSize = response.sample_size || response.total_propiedades || 0;
+                    mostrarToast(`✅ Scraping completado: ${sampleSize} propiedades encontradas.`, 'success');
+                    
+                    // IMPORTANTE: Recargar los datos después del scraping exitoso
                     await cargarEstadisticasMercado();
+                    
+                    // Actualizar el banner de estado
+                    await actualizarBannerStatusMercado();
+                    
                 } else {
-                    const msg = response && response.error ? response.error : 'Error desconocido al ejecutar scraping';
-                    mostrarToast('⚠️ ' + msg, 'warning');
+                    const errorMsg = response?.error || 'Error desconocido al ejecutar scraping';
+                    mostrarToast('⚠️ ' + errorMsg, 'warning');
                     // Intentar cargar los últimos datos de todas formas
                     await cargarEstadisticasMercado();
                 }
+                
             } catch (error) {
-                console.error('Error iniciando scraping:', error);
+                console.error('Error en scraping:', error);
                 mostrarToast('❌ Error de conexión al ejecutar scraping', 'error');
+                
+                // Mostrar mensaje de error en la tabla
+                const tableBody = document.getElementById('market-properties-table');
+                if (tableBody) {
+                    tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--danger);">❌ Error al ejecutar scraping. Revisa la consola para más detalles.</td></tr>';
+                }
             }
         }
 
+
+        
         async function actualizarBannerStatusMercado() {
             const banner = document.getElementById('market-status-banner');
             if (!banner) return;
