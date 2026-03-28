@@ -2969,57 +2969,133 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 console.log('📊 Cargando estadísticas de mercado...');
                 
                 const response = await fetchConClave('/api/market/stats');
-                console.log('📊 Respuesta recibida:', response);
+                const data = response;
                 
-                // La estructura correcta es response.data.data (dos niveles de data)
-                if (response && response.success && response.data && response.data.data) {
-                    const statsData = response.data.data;
+                console.log('📊 Datos recibidos:', data);
+                
+                // La estructura correcta es data.data.data
+                if (data && data.success && data.data && data.data.data) {
+                    const statsData = data.data.data;
                     const properties = statsData.properties || [];
                     
                     console.log(`📊 Propiedades encontradas: ${properties.length}`);
-                    console.log(`📊 Muestra total: ${statsData.sample_size || properties.length}`);
-                    console.log(`📊 Analizadas: ${statsData.total_properties_analyzed || properties.length}`);
                     
-                    // Renderizar KPIs
-                    renderizarKPIsMercado(statsData);
+                    // 1. Renderizar KPIs
+                    const kpiContainer = document.getElementById('market-kpi-grid');
+                    if (kpiContainer) {
+                        const stats = statsData.statistics || {};
+                        const totalAnalizadas = statsData.total_properties_analyzed || properties.length;
+                        const avgPriceM2 = stats.average_price_per_m2 || 0;
+                        const medianPriceM2 = stats.median_price_per_m2 || 0;
+                        const sources = statsData.source_breakdown || {};
+                        
+                        kpiContainer.innerHTML = `
+                            <div class="stat-card">
+                                <div class="stat-number">${totalAnalizadas}</div>
+                                <div>Propiedades Analizadas</div>
+                                <div class="stat-trend up">📊 De ${statsData.sample_size || totalAnalizadas} extraídas</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number">$ ${Math.round(avgPriceM2).toLocaleString()}</div>
+                                <div>Precio Promedio m²</div>
+                                <div class="stat-trend up">💰 Valor de mercado</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number">$ ${Math.round(medianPriceM2).toLocaleString()}</div>
+                                <div>Precio Mediano m²</div>
+                                <div class="stat-trend">📈 Valor central</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number">${Object.keys(sources).length || 1}</div>
+                                <div>Fuentes de Datos</div>
+                                <div class="stat-trend">${Object.keys(sources).map(s => `📌 ${s}`).join(' ')}</div>
+                            </div>
+                        `;
+                        console.log('✅ KPIs actualizados');
+                    }
                     
-                    // Renderizar tabla de propiedades
-                    renderizarTablaMercado(properties);
+                    // 2. Renderizar tabla
+                    const tableContainer = document.getElementById('market-properties-table');
+                    if (tableContainer) {
+                        if (properties.length === 0) {
+                            tableContainer.innerHTML = '§<td colspan="6" style="text-align:center; padding:40px;">No hay propiedades para mostrar§</td>§';
+                        } else {
+                            let html = '';
+                            properties.forEach(p => {
+                                const title = p.title || 'Sin título';
+                                const address = p.address || 'Dirección no disponible';
+                                const operation = p.operation_type || 'N/A';
+                                const surface = p.surface || 0;
+                                const price = p.price || 0;
+                                const currency = p.currency || 'USD';
+                                const priceM2 = p.price_m2 || 0;
+                                const url = p.url || '#';
+                                const source = p.source || 'desconocido';
+                                
+                                html += `
+                                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                                        <td style="padding: 12px;">
+                                            <a href="${url}" target="_blank" style="color: #232deb; text-decoration: none;">
+                                                ${title.substring(0, 60)}${title.length > 60 ? '...' : ''}
+                                            </a>
+                                            <div style="font-size: 0.7rem; color: #64748b;">Fuente: ${source}</div>
+                                        </td>
+                                        <td style="padding: 12px;">${address.substring(0, 40)}${address.length > 40 ? '...' : ''}</td>
+                                        <td style="padding: 12px;">
+                                            <span style="background: #f1f5f9; padding: 4px 8px; border-radius: 20px; font-size: 0.75rem;">
+                                                ${operation === 'venta' ? '💰 Venta' : operation}
+                                            </span>
+                                        </td>
+                                        <td style="padding: 12px;">${surface} m²</td>
+                                        <td style="padding: 12px; font-weight: bold;">${currency} ${price.toLocaleString()}</td>
+                                        <td style="padding: 12px; color: #10b981;">$${Math.round(priceM2).toLocaleString()}</td>
+                                    </tr>
+                                `;
+                            });
+                            tableContainer.innerHTML = html;
+                            console.log(`✅ Tabla renderizada con ${properties.length} filas`);
+                        }
+                    }
                     
-                    // Renderizar gráficos
-                    renderizarGraficosMercado(statsData);
+                    // 3. Actualizar banner
+                    const banner = document.getElementById('market-status-banner');
+                    if (banner && data.data) {
+                        const timestamp = data.data.scraping_timestamp || new Date().toISOString();
+                        const fecha = new Date(timestamp).toLocaleString();
+                        banner.style.display = 'block';
+                        banner.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                                <div>
+                                    <strong>📊 Último Análisis:</strong> 
+                                    ${statsData.zone || 'Zona'} (${properties.length} propiedades) 
+                                    | <strong>Fecha:</strong> ${fecha}
+                                </div>
+                                <button class="btn btn-outline" style="padding: 4px 12px;" onclick="cargarEstadisticasMercado()">
+                                    🔄 Recargar
+                                </button>
+                            </div>
+                        `;
+                    }
                     
-                    // Actualizar banner
-                    actualizarBannerStatusMercado();
+                    console.log('✅ Datos cargados correctamente');
                     
-                    mostrarToast(`✅ ${properties.length} propiedades cargadas correctamente`, 'success');
                 } else {
-                    console.error('❌ Estructura de datos incorrecta:', response);
-                    mostrarToast('⚠️ No se pudieron cargar los datos de mercado', 'warning');
-                    
-                    // Mostrar estado vacío
-                    const container = document.getElementById('market-properties-table');
-                    if (container) {
-                        container.innerHTML = `
-                            <tr>
-                                <td colspan="6" style="text-align:center; padding:60px;">
-                                    <div style="font-size: 3rem;">🏠</div>
-                                    <h3>No hay datos disponibles</h3>
-                                    <p>Ejecuta un scraping para obtener información del mercado</p>
-                                    <button class="btn btn-primary" onclick="ejecutarScrapingMercado()">
-                                        🕷️ Ejecutar Scraping
-                                    </button>
-                                </td>
-                            </tr>
+                    console.error('❌ Estructura de datos incorrecta:', data);
+                    const tableContainer = document.getElementById('market-properties-table');
+                    if (tableContainer) {
+                        tableContainer.innerHTML = `
+                            <tr><td colspan="6" style="text-align:center; padding:40px;">
+                                <div>🏠</div>
+                                <p>No hay datos de mercado disponibles.</p>
+                                <button class="btn btn-primary" onclick="ejecutarScrapingMercado()">Ejecutar Scraping</button>
+                            </td></tr>
                         `;
                     }
                 }
             } catch (error) {
                 console.error('❌ Error cargando mercado:', error);
-                mostrarToast('❌ Error al cargar datos de mercado: ' + error.message, 'error');
             }
         }
-
         function renderizarKPIsMercado(data) {
             const stats = data.statistics || {};
             const container = document.getElementById('market-kpi-grid');
