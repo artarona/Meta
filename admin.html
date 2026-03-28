@@ -832,6 +832,17 @@
             <div class="user-info" id="user-info">
                 <!-- Usuario cargado dinámicamente -->
             </div>
+            <!-- Botones de sincronización en el header -->
+            <div style="position: absolute; top: 1rem; right: 2rem; display: flex; align-items: center; gap: 0.6rem;">
+                <button onclick="sincronizarCitas()" title="Sincronizar citas con PostgreSQL"
+                    style="background: rgba(139,92,246,0.85); color: white; border: none; border-radius: 8px; padding: 0.45rem 0.9rem; cursor: pointer; font-size: 0.82rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem; backdrop-filter: blur(6px); transition: background 0.2s;" onmouseover="this.style.background='rgba(109,40,217,0.95)'" onmouseout="this.style.background='rgba(139,92,246,0.85)'">
+                    🔄 PostgreSQL
+                </button>
+                <button onclick="sincronizarTodoGoogleCal()" title="Sincronizar todo con Google Calendar"
+                    style="background: rgba(255,255,255,0.12); color: white; border: 1.5px solid rgba(255,255,255,0.45); border-radius: 8px; padding: 0.45rem 0.9rem; cursor: pointer; font-size: 0.82rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem; backdrop-filter: blur(6px); transition: background 0.2s;" onmouseover="this.style.background='rgba(66,133,244,0.5)'" onmouseout="this.style.background='rgba(255,255,255,0.12)'">
+                    🗓️ Google Calendar
+                </button>
+            </div>
         </div>
 
         <div class="stats-grid" id="stats-grid">
@@ -867,18 +878,8 @@
                 aria-controls="tab-configuracion">
                 <span>⚙️</span> Configuración
             </button>
-
-            <div style="margin-bottom: 20px; text-align: right;">
-                <button onclick="sincronizarCitas()" class="btn btn-primary" style="background: #8b5cf6;">
-                    🔄 Sincronizar Citas con PostgreSQL
-                </button>
-                <button onclick="sincronizarTodoGoogleCal()" class="btn btn-outline"
-                    style="min-width: 250px; background: #fdfdfd; border-color: #4285F4; color: #4285F4; margin-left: 10px;">
-                    🗓️ Sincronizar Todo con Google Calendar
-                </button>
-                <div id="sync-status" style="margin-top: 10px;"></div>
-            </div>
         </div>
+
 
         <!-- Tab Citas -->
         <div id="tab-citas" class="tab-content active" role="tabpanel" aria-labelledby="citas-tab">
