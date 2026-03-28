@@ -18,6 +18,7 @@ import requests
 import os
 import json
 import re
+import subprocess
 from datetime import datetime, timedelta
 from collections import deque
 import threading
@@ -3024,6 +3025,82 @@ def debug_calendar_key_status():
                 result["fixed_works"] = False
     
     return jsonify(result)
+
+# ========== RUTAS DE ANÁLISIS DE MERCADO (SCRAPING) ==========
+
+@app.route('/api/market/stats', methods=['GET'])
+def get_market_stats():
+    """Retorna las estadísticas del último scraping (desde scraping.json)"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        if os.path.exists('scraping.json'):
+            with open('scraping.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return jsonify({"success": True, "data": data})
+        else:
+            return jsonify({"success": False, "error": "No hay datos de mercado generados. Ejecuta un scraping primero."}), 404
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/market/run-scrape', methods=['POST'])
+def run_market_scrape():
+    """Inicia el proceso de scraping en segundo plano"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    data = request.json
+    zona = data.get('zona', 'palermo')
+    operacion = data.get('operacion', 'venta')
+    tipo = data.get('tipo', 'departamento')
+
+    try:
+        # Ejecutar en segundo plano mediante subprocess para no bloquear Flask (vía Render)
+        cmd = ['python', 'scrape_market.py', '--zone', zona, '--operation', operacion, '--type', tipo]
+        
+        # En Windows usamos flags para evitar ventanas, en Linux usamos setpgrp
+        if os.name == 'nt':
+            subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+        else:
+            subprocess.Popen(cmd, preexec_fn=os.setpgrp)
+            
+        return jsonify({
+            "status": "success", 
+            "message": f"Scraping iniciado para {zona} ({operacion})",
+            "metadata": {"zone": zona, "operation": operacion, "type": tipo}
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/market/status', methods=['GET'])
+def get_market_status():
+    """Verifica si existe un archivo de scraping actual y su antigüedad"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    exists = os.path.exists('scraping.json')
+    metadata = {}
+    if exists:
+        try:
+            mtime = os.path.getmtime('scraping.json')
+            last_update = datetime.fromtimestamp(mtime).isoformat()
+            with open('scraping.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                metadata = {
+                    "sample_size": data.get("sample_size", 0),
+                    "zone": data.get("metadata", {}).get("zone", "Desconocida"),
+                    "operation": data.get("metadata", {}).get("operation", "venta"),
+                    "property_type": data.get("metadata", {}).get("property_type", "departamento")
+                }
+            return jsonify({"exists": True, "last_update": last_update, "metadata": metadata})
+        except:
+            return jsonify({"exists": True, "last_update": "Desconocida", "metadata": {}})
+    
+    return jsonify({"exists": False})
 
 
 
