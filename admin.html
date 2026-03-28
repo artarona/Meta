@@ -2930,9 +2930,10 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 const data = await fetchConClave('/api/market/stats');
                 
                 if (data && data.success) {
-                    renderizarKPIsMercado(data.data);
-                    renderizarTablaMercado(data.data.properties || []);
-                    renderizarGraficosMercado(data.data);
+                    const d = data.data;
+                    renderizarKPIsMercado(d);
+                    renderizarTablaMercado(d.properties_sample || d.properties || []);
+                    renderizarGraficosMercado(d);
                     actualizarBannerStatusMercado();
                     mostrarToast('✅ Datos de mercado cargados', 'success');
                 } else {
@@ -2953,21 +2954,26 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             const stats = data.statistics || {};
             const container = document.getElementById('market-kpi-grid');
             
+            const promedio = stats.average_price_per_m2 || stats.precio_m2_promedio || 0;
+            const mediana = stats.median_price_per_m2 || stats.precio_m2_mediana || 0;
+            const muestra = data.sample_size || data.total_propiedades || 0;
+            const fuentes = Object.keys(data.source_breakdown || data.distribucion_tipos || {}).length;
+            
             container.innerHTML = `
                 <div class="stat-card">
-                    <div class="stat-number">${data.sample_size || 0}</div>
+                    <div class="stat-number">${muestra}</div>
                     <div>Muestra Analizada</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">USD $${Math.round(stats.average_price_per_m2 || 0).toLocaleString()}</div>
+                    <div class="stat-number">$ ${Math.round(promedio).toLocaleString()}</div>
                     <div>Promedio m²</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">USD $${Math.round(stats.median_price_per_m2 || 0).toLocaleString()}</div>
+                    <div class="stat-number">$ ${Math.round(mediana).toLocaleString()}</div>
                     <div>Mediana m²</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">${Object.keys(data.source_breakdown || {}).length}</div>
+                    <div class="stat-number">${fuentes || Object.keys(data.source_breakdown || {}).length}</div>
                     <div>Fuentes</div>
                 </div>
             `;
@@ -3043,7 +3049,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
 
             // 2. Scatter Chart (Precio vs Superficie)
-            const scatterData = (data.properties || [])
+            const scatterData = (data.properties_sample || data.properties || [])
                 .filter(p => p.surface > 0 && p.price > 0)
                 .map(p => ({ x: p.surface, y: p.price }));
             
@@ -3092,20 +3098,34 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             if (!confirm(`¿Iniciar scraping de ${operacion} en ${zona}? Esto tomará unos minutos.`)) return;
 
             try {
-                mostrarToast('🕷️ Iniciando scraping en segundo plano...', 'info');
+                mostrarToast('🕷️ Iniciando scraping... puede tardar 1-2 minutos.', 'info');
+                
+                // Mostrar loading en la tabla mientras espera
+                const tableBody = document.getElementById('market-properties-table');
+                if (tableBody) {
+                    tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">⏳ Ejecutando scraping, por favor espera...</td></tr>';
+                }
+
                 const response = await fetchConClave('/api/market/run-scrape', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ zona, operacion, tipo: 'departamento' })
                 });
 
-                if (response.status === 'success') {
-                    mostrarToast('✅ Scraping iniciado. El panel se actualizará al terminar.', 'success');
-                    // Polling opcional o simplemente esperar
-                    setTimeout(actualizarBannerStatusMercado, 5000);
+                // fetchConClave ya parsea el JSON. Verificar si fue exitoso.
+                if (response && (response.success === true || response.status === 'success' || response.sample_size)) {
+                    mostrarToast(`✅ Scraping completado: ${response.sample_size || ''} propiedades encontradas.`, 'success');
+                    // Cargar automáticamente gráficos y tabla con los datos frescos
+                    await cargarEstadisticasMercado();
+                } else {
+                    const msg = response && response.error ? response.error : 'Error desconocido al ejecutar scraping';
+                    mostrarToast('⚠️ ' + msg, 'warning');
+                    // Intentar cargar los últimos datos de todas formas
+                    await cargarEstadisticasMercado();
                 }
             } catch (error) {
                 console.error('Error iniciando scraping:', error);
+                mostrarToast('❌ Error de conexión al ejecutar scraping', 'error');
             }
         }
 
