@@ -250,6 +250,19 @@ def get_bot_response(text, user_id):
         estado_usuario = obtener_estado_usuario(user_id)
         log(f"👤 Usuario {user_id}: {estado_usuario['paso']}")
         
+        # 0. COMANDOS DE ADMINISTRADOR (Solo para el número de agente)
+        # Comparar con ADMIN_NUMBER (que es el emisor en config) o AGENT_NUMBER (que recibe alertas)
+        if str(user_id) == str(ADMIN_NUMBER).lstrip('+') or str(user_id) == str(AGENT_NUMBER).lstrip('+'):
+            if text_lower.startswith("dolar:"):
+                try:
+                    nuevo_valor = float(text_lower.split(":")[1].strip())
+                    import config
+                    config.DOLAR_VALOR = nuevo_valor
+                    log(f"💰 ADMIN: Dólar actualizado a {nuevo_valor} por {user_id}")
+                    return f"✅ *Dólar actualizado a ${nuevo_valor}*\nEste valor se usará para todas las tasaciones nuevas."
+                except Exception as e:
+                    return f"❌ Error al actualizar dólar: {e}"
+
         # 1. COMANDOS UNIVERSALES
         if text_lower in ["9", "menu", "principal", "inicio"]:
             estado_usuario.update({

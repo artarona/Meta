@@ -65,6 +65,16 @@ def analizar_hora(texto):
         if 0 <= h <= 23:
             return f"{h:02d}:00"
     
+    # 5. Palabras clave: mediodia, mañana, tarde
+    if "mediodia" in texto or "mediodía" in texto:
+        return "12:00"
+    if "mañana" in texto or "manana" in texto:
+        if "esta" in texto or "por la" in texto: return "10:00" # "por la mañana"
+    if "tarde" in texto:
+        return "16:00"
+    if "noche" in texto:
+        return "20:00"
+    
     return None
 
 
@@ -83,6 +93,11 @@ def analizar_fecha(texto):
     if "hoy" in texto:
         return ahora
     
+    # 1.1 "La semana que viene"
+    desplazamiento_semana = 0
+    if "semana que viene" in texto or "proxima semana" in texto or "próxima semana" in texto:
+        desplazamiento_semana = 7
+    
     # 2. Días de la semana
     dias = {
         "lunes": 0, "martes": 1, "miércoles": 2, "miercoles": 2,
@@ -94,9 +109,9 @@ def analizar_fecha(texto):
         if nombre_dia in texto:
             target_weekday = num_dia
             days_ahead = target_weekday - ahora.weekday()
-            if days_ahead <= 0: # Si ya pasó, asumimos la próxima semana
+            if days_ahead <= 0: 
                 days_ahead += 7
-            return ahora + timedelta(days=days_ahead)
+            return ahora + timedelta(days=days_ahead + desplazamiento_semana)
     
     # 3. Formatos numéricos
     # Extraer tokens que parezcan fechas

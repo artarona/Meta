@@ -107,8 +107,8 @@ def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
                 m2 = float(p.get('metros_cuadrados', 0))
                 precio = float(p.get('precio', 0))
                 if m2 > 5 and precio > 0:
-                    # Normalización simple para pesos
-                    val_m2 = (precio / 1050) / m2 if p.get('moneda_precio') == 'ARS' and op_key == 'venta' else precio / m2
+                    # Normalización simple para pesos (Usamos DOLAR_VALOR de config)
+                    val_m2 = (precio / DOLAR_VALOR) / m2 if p.get('moneda_precio') == 'ARS' and op_key == 'venta' else precio / m2
                     precios_barrio_solo.append(val_m2)
                     if tipo_match:
                         precios_m2.append(val_m2)
@@ -280,7 +280,7 @@ def manejar_tasacion_tipo(text_lower, estado_usuario, user_id):
 
 
 def manejar_tasacion_m2(text, estado_usuario, user_id):
-    """Guarda los m2 e inicia la carga de ambientes"""
+    """Guarda los m2 e inicia la carga de ambientes (o finaliza si es Terreno)"""
     try:
         m2_str = text.replace(',', '.').strip()
         m2 = float(m2_str)
@@ -289,10 +289,20 @@ def manejar_tasacion_m2(text, estado_usuario, user_id):
             estado_usuario['data']['datos_tasacion'] = {}
             
         estado_usuario['data']['datos_tasacion']['m2'] = m2
+        datos = estado_usuario['data']['datos_tasacion']
+        
+        # SI ES TERRENO, SALTAR AMBIENTES Y ESTADO
+        if datos.get('tipo') == 'Terreno':
+            log(f"🌱 Propiedad tipo Terreno detectada para {user_id}. Saltando pasos adicionales.")
+            datos['ambientes'] = 0
+            datos['estado'] = 'Bueno' # Factor neutro 1.0
+            return _finalizar_tasacion_y_responder(user_id, estado_usuario, datos)
+            
         estado_usuario['paso'] = 'tasacion_ambientes'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "🔢 *¿Cuántos ambientes tiene?* (ej: 3)"
-    except:
+    except Exception as e:
+        log(f"⚠️ Error en manejar_tasacion_m2: {e}")
         return "⚠️ Por favor, ingresá un número válido para los metros cuadrados."
 
 
@@ -339,7 +349,14 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
              
         estado_usuario['data']['datos_tasacion']['estado'] = estados[text_lower]
         datos = estado_usuario['data']['datos_tasacion']
-        
+        return _finalizar_tasacion_y_responder(user_id, estado_usuario, datos)
+    else:
+        return "⚠️ Por favor, elegí una opción válida (1 al 5)."
+
+
+def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
+    """Lógica compartida para calcular tasación, registrar lead y responder"""
+    try:
         # 1. Obtener tasación
         tasacion = obtener_tasacion_ia(
             datos['barrio'], 
@@ -402,8 +419,11 @@ Aún no tenemos suficientes datos comparativos en *{datos['barrio']}* para darte
         estado_usuario['paso'] = 'tasacion_esperando_contacto'
         actualizar_estado_usuario(user_id, estado_usuario)
         return mensaje
-    else:
-        return "⚠️ Por favor, elegí una opción válida (1 al 5)."
+    except Exception as e:
+        log(f"🔥 Error en _finalizar_tasacion_y_responder: {e}")
+        import traceback
+        log(traceback.format_exc())
+        return "❌ Ocurrió un error al procesar la tasación. Por favor contacta a un asesor enviando '5'."
 
 
 def manejar_tasacion_contacto(text_lower, estado_usuario, user_id):
@@ -417,5 +437,3 @@ def manejar_tasacion_contacto(text_lower, estado_usuario, user_id):
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "Entendido. Si necesitás algo más, acá estoy. 😊\n\n9️⃣ Volver al menú"
-
-

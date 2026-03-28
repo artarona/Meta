@@ -130,7 +130,7 @@ def manejar_submenu_asesor(text_lower, estado_usuario, user_id):
         return "✅ *Mensaje enviado!*\n\nUn asesor se pondrá en contacto con vos a la brevedad.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
     elif text_lower == "2":
         notificar_agente(f"📞 *SOLICITUD DE LLAMADA*\n📞 Tel: +{user_id}\n📝 El cliente solicita ser llamado.")
-        return "✅ *Solicitud registrada!*\n\nTe llamaremos en el horario más conveniente.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+        return f"✅ *Solicitud registrada!*\n\nTe llamaremos en el horario más conveniente.\n\n📱 *O si preferís hablar ahora mismo, escribime acá:* \nhttps://wa.me/{AGENT_NUMBER.lstrip('+')}\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
     else:
         return """No pude identificar esa opción. Por favor elegí un número del menú.
 
@@ -248,7 +248,15 @@ def manejar_filtro_ambientes(text_lower, estado_usuario, user_id):
         actualizar_estado_usuario(user_id, estado_usuario)
         
         if not propiedades_filtradas:
-            return f"📭 No encontramos propiedades con esas características exactas.\n\n9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*\n0️⃣ *❌ SALIR*"
+            # OPTIMIZACIÓN: Si no hay resultados exactos por ambientes, ofrecer ver todas del mismo tipo
+            estado_usuario.update({
+                'paso': 'listado_propiedades',
+                'ambientes_seleccionados': None,
+                'propiedades_filtradas': [p for p in todas if str(p.get('operacion', '')).lower() == operacion.lower() and tipo in str(p.get('tipo', '')).lower()]
+            })
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            return f"📭 No encontramos {tipo}s de {ambientes_sel} ambientes en {operacion}.\n\n🔍 *Pero tenemos otras opciones de {tipo} que te pueden interesar:* \n\n" + generar_listado_propiedades(estado_usuario['propiedades_filtradas'])
         
         titulo_op = "💰 *VENTA*" if operacion == "venta" else "🔑 *ALQUILER*"
         tipo_str = tipo.title()

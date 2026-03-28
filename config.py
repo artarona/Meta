@@ -36,7 +36,9 @@ HORARIOS_FILE = "dias-horarios-visitas.json"
 FICHAS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fichas")
 os.makedirs(FICHAS_DIR, exist_ok=True)
 
-# ========== CONFIGURACIÓN DE CITAS ==========
+# ========== CONFIGURACIÓN DE TASACIÓN ==========
+DOLAR_VALOR = float(os.getenv("DOLAR_VALOR", "1250.0")) # Valor por defecto actualizado
+
 CITAS_DISPONIBLES = [
     "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
     "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
