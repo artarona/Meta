@@ -2967,19 +2967,24 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         async function cargarEstadisticasMercado() {
             try {
                 console.log('📊 Cargando estadísticas de mercado...');
-                mostrarToast('📊 Cargando datos de mercado...', 'info');
                 
-                const data = await fetchConClave('/api/market/stats');
-                console.log('📊 Datos recibidos:', data);
+                const response = await fetchConClave('/api/market/stats');
+                console.log('📊 Respuesta completa:', response);
                 
-                if (data && data.success) {
-                    const statsData = data.data;
+                if (response && response.success) {
+                    // CORRECCIÓN: los datos están en response.data.data
+                    const statsData = response.data?.data || response.data;
+                    console.log('📊 Datos de mercado:', statsData);
+                    
+                    // Obtener propiedades
+                    const properties = statsData.properties || [];
+                    console.log('📊 Propiedades encontradas:', properties.length);
                     
                     // Mostrar KPIs
                     renderizarKPIsMercado(statsData);
                     
                     // Mostrar tabla de propiedades
-                    renderizarTablaMercado(statsData.properties || []);
+                    renderizarTablaMercado(properties);
                     
                     // Mostrar gráficos
                     renderizarGraficosMercado(statsData);
@@ -2987,51 +2992,29 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                     // Actualizar banner
                     actualizarBannerStatusMercado();
                     
-                    const totalProps = statsData.sample_size || statsData.properties?.length || 0;
-                    mostrarToast(`✅ Datos cargados: ${totalProps} propiedades analizadas`, 'success');
+                    mostrarToast(`✅ Datos cargados: ${statsData.sample_size || properties.length} propiedades analizadas`, 'success');
                 } else {
-                    const mensaje = data?.message || 'No hay datos disponibles. Ejecuta un scraping primero.';
-                    mostrarToast(`⚠️ ${mensaje}`, 'warning');
+                    console.error('❌ Error en datos:', response);
+                    mostrarToast(`⚠️ ${response?.message || 'No hay datos disponibles'}`, 'warning');
                     
-                    // Mostrar estado vacío en KPIs
-                    const kpiGrid = document.getElementById('market-kpi-grid');
-                    if (kpiGrid) {
-                        kpiGrid.innerHTML = `
-                            <div class="stat-card" style="grid-column: 1 / -1; text-align: center;">
-                                <div class="stat-number">0</div>
-                                <div>Propiedades Analizadas</div>
-                                <p style="margin-top: 1rem; color: var(--text-muted);">
-                                    No hay datos de mercado disponibles.
-                                </p>
-                                <button class="btn btn-primary" onclick="ejecutarScrapingMercado()" style="margin-top: 1rem;">
-                                    🕷️ Ejecutar Scraping
-                                </button>
-                            </div>
-                        `;
-                    }
-                    
-                    // Mostrar tabla vacía
-                    const tableBody = document.getElementById('market-properties-table');
-                    if (tableBody) {
-                        tableBody.innerHTML = `
-                            <tr>
-                                <td colspan="6" style="text-align: center; padding: 60px 20px; color: var(--text-muted);">
-                                    <div style="font-size: 3rem; margin-bottom: 1rem;">🏠</div>
-                                    <h3>No hay propiedades para mostrar</h3>
-                                    <p>Ejecuta un scraping para obtener datos del mercado inmobiliario</p>
-                                    <button class="btn btn-primary" onclick="ejecutarScrapingMercado()" style="margin-top: 1rem;">
-                                        🕷️ Ejecutar Scraping Ahora
-                                    </button>
-                                </td>
-                            </tr>
+                    const container = document.getElementById('market-properties-table');
+                    if (container) {
+                        container.innerHTML = `
+                            <tr><td colspan="6" style="text-align:center; padding:40px;">
+                                <div style="font-size: 3rem;">🏠</div>
+                                <p>No hay datos de mercado.</p>
+                                <button class="btn btn-primary" onclick="ejecutarScrapingMercado()">Ejecutar Scraping</button>
+                            </td></tr>
                         `;
                     }
                 }
             } catch (error) {
-                console.error('Error cargando mercado:', error);
+                console.error('❌ Error cargando mercado:', error);
                 mostrarToast('❌ Error al cargar datos de mercado: ' + error.message, 'error');
             }
         }
+
+
 
         function renderizarKPIsMercado(data) {
             const stats = data.statistics || {};
@@ -3042,7 +3025,8 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 return;
             }
             
-            const muestra = data.sample_size || data.total_properties_analyzed || 0;
+            // CORRECCIÓN: usar los campos correctos
+            const totalPropiedades = data.total_properties_analyzed || data.sample_size || 0;
             const avgPriceM2 = stats.average_price_per_m2 || 0;
             const medianPriceM2 = stats.median_price_per_m2 || 0;
             const minPriceM2 = stats.min_price_per_m2 || 0;
@@ -3053,13 +3037,19 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             const sources = data.source_breakdown || {};
             const sourceCount = Object.keys(sources).length;
             
-            console.log('📊 Renderizando KPIs:', { muestra, avgPriceM2, medianPriceM2, sources });
+            console.log('📊 Renderizando KPIs:', { 
+                totalPropiedades, 
+                avgPriceM2, 
+                medianPriceM2, 
+                sourceCount,
+                rawCount: data.raw_properties_count 
+            });
             
             container.innerHTML = `
                 <div class="stat-card">
-                    <div class="stat-number">${muestra}</div>
+                    <div class="stat-number">${totalPropiedades}</div>
                     <div>Propiedades Analizadas</div>
-                    <div class="stat-trend up">📊 Muestra total</div>
+                    <div class="stat-trend up">📊 De ${data.raw_properties_count || totalPropiedades} extraídas</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number">$ ${Math.round(avgPriceM2).toLocaleString()}</div>
@@ -3072,9 +3062,9 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                     <div class="stat-trend">📈 Valor central</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">${sourceCount}</div>
+                    <div class="stat-number">${sourceCount || 1}</div>
                     <div>Fuentes de Datos</div>
-                    <div class="stat-trend">${Object.keys(sources).map(s => `📌 ${s}`).join(' ')}</div>
+                    <div class="stat-trend">${Object.keys(sources).length > 0 ? Object.keys(sources).map(s => `📌 ${s}`).join(' ') : '📌 MercadoLibre'}</div>
                 </div>
             `;
             
@@ -3253,8 +3243,8 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                             label: 'Propiedades',
                             data: scatterData,
                             backgroundColor: 'rgba(35, 45, 235, 0.6)',
-                            pointRadius: 6,
-                            pointHoverRadius: 8
+                            pointRadius: 8,
+                            pointHoverRadius: 10
                         }]
                     },
                     options: {
@@ -3294,8 +3284,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 ctx.fillText('No hay datos suficientes para mostrar gráfico', 50, 200);
             }
         }
-
-
 
         
         async function actualizarBannerStatusMercado() {
