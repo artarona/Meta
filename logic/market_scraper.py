@@ -339,6 +339,13 @@ class BaseScraper(ABC):
             
             # Configurar opciones de Chrome
             chrome_options = Options()
+            
+            # 🔥 ADAPTACIÓN PARA RENDER
+            chrome_bin = os.environ.get("GOOGLE_CHROME_BIN")
+            if chrome_bin:
+                chrome_options.binary_location = chrome_bin
+                logger.info(f"[{self.source_name}] Usando binario de Chrome en Render: {chrome_bin}")
+
             chrome_options.add_argument("--headless=new") # Nuevo modo headless estable
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
@@ -353,7 +360,19 @@ class BaseScraper(ABC):
             chrome_options.add_argument(f"user-agent={random.choice(user_agents)}")
 
             # Iniciar driver
-            service = Service(ChromeDriverManager().install())
+            chromedriver_path = os.environ.get("CHROMEDRIVER_PATH")
+            if chromedriver_path:
+                logger.info(f"[{self.source_name}] Usando ChromeDriver en Render: {chromedriver_path}")
+                service = Service(executable_path=chromedriver_path)
+            else:
+                # Fallback local o gestor automático
+                try:
+                    logger.info(f"[{self.source_name}] Intentando ChromeDriverManager...")
+                    service = Service(ChromeDriverManager().install())
+                except Exception as e:
+                    logger.warning(f"[{self.source_name}] Manager falló (común en Render), usando service básico: {e}")
+                    service = Service()
+            
             driver = webdriver.Chrome(service=service, options=chrome_options)
             
             # Establecer timeouts
