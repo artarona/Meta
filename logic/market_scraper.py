@@ -59,7 +59,8 @@ class MarketStats:
     max_price_per_m2: Optional[float]
     price_range_total: Optional[str]
     currency_distribution: Dict[str, int]
-    source_breakdown: Dict[str, int]
+    source_breakdown: Dict[str, int] = field(default_factory=dict)
+    neighborhood_stats: Dict[str, Dict] = field(default_factory=dict)
     properties: List[Dict] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
 
@@ -1010,6 +1011,7 @@ class MarketAnalyzer:
         source_breakdown = {}
         currency_dist = {}
         properties_list = []
+        neighborhood_dict = {}  # Para neighborhood_stats
         low_surface_count = 0  # Contador de propiedades con superficie muy baja
         
         if not properties:
@@ -1048,6 +1050,23 @@ class MarketAnalyzer:
             # Contabilizar por fuente
             source_breakdown[prop.source] = source_breakdown.get(prop.source, 0) + 1
             
+            # Contabilizar por barrio (si existe en prop.location)
+            # Extraer barrio de la locación (Zonaprop/Argenprop suelen ponerlo al final o en un formato similar)
+            nh_name = zone.title() # Default al barrio de búsqueda
+            if prop.location:
+                # Intento simple de extraer barrio si es distinto
+                parts = [p.strip() for p in prop.location.split(',')]
+                if len(parts) > 0:
+                    nh_candidate = parts[0]
+                    if len(nh_candidate) < 30: nh_name = nh_candidate
+            
+            if nh_name not in neighborhood_dict:
+                neighborhood_dict[nh_name] = {"count": 0, "total_price_m2": 0, "avg_price_m2": 0}
+            
+            neighborhood_dict[nh_name]["count"] += 1
+            if prop.price_per_m2 > 0:
+                neighborhood_dict[nh_name]["total_price_m2"] += prop.price_per_m2
+            
             # Contabilizar por moneda
             currency_dist[prop.price_currency] = currency_dist.get(prop.price_currency, 0) + 1
             
@@ -1074,6 +1093,11 @@ class MarketAnalyzer:
                 "property_type": prop.property_type,
                 "surface_warning": has_low_surface  # Marcar propiedades con superficie irreal
             })
+
+        # Calcular promedios por barrio
+        for nh in neighborhood_dict:
+            if neighborhood_dict[nh]["count"] > 0:
+                neighborhood_dict[nh]["avg_price_m2"] = round(neighborhood_dict[nh]["total_price_m2"] / neighborhood_dict[nh]["count"], 2)
         
         # Calcular estadísticas
         from statistics import mean, median, stdev
@@ -1118,6 +1142,7 @@ class MarketAnalyzer:
             price_range_total=price_range,
             currency_distribution=currency_dist,
             source_breakdown=source_breakdown,
+            neighborhood_stats=neighborhood_dict,
             properties=properties_list,
             errors=warnings if warnings else errors
         )
@@ -1140,7 +1165,8 @@ class MarketAnalyzer:
             },
             "currency_distribution": stats.currency_distribution,
             "source_breakdown": stats.source_breakdown,
-            "properties_sample": stats.properties,  # Primeros 50
+            "neighborhood_stats": stats.neighborhood_stats,
+            "properties": stats.properties,  # Renombrado de properties_sample a properties
             "total_properties_analyzed": len(stats.properties),
             "analysis_timestamp": datetime.now().isoformat(),
             "errors": stats.errors
