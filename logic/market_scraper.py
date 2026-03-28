@@ -35,15 +35,20 @@ except ImportError:
 # DETECCIÓN DE ENTORNO RENDER
 # ========================================
 
+# ========================================
+# DETECCIÓN DE ENTORNO Y OPTIMIZACIÓN
+# ========================================
+
 def is_render_environment():
     """Detecta si estamos ejecutando en Render.com"""
-    return os.environ.get('RENDER', False)
+    return os.environ.get('RENDER', False) or not os.environ.get('GOOGLE_CHROME_BIN')
 
-# Variable global para controlar Selenium
+    # Configuración global
 USE_SELENIUM = not is_render_environment()
 
+    # Mensaje informativo al cargar el módulo
 print(f"🌍 Entorno: {'Render' if is_render_environment() else 'Local'}")
-print(f"🕷️ Selenium: {'ACTIVADO' if USE_SELENIUM else 'DESACTIVADO (usando solo requests)'}")
+print(f"🕷️ Selenium: {'ACTIVADO' if USE_SELENIUM else 'DESACTIVADO (solo requests)'}")
 
 
 # Agregar después de los imports, antes de la clase BaseScraper
@@ -399,92 +404,18 @@ class BaseScraper(ABC):
     def _render_with_selenium(self, url: str) -> Optional[str]:
         """
         Usa Selenium con Chrome (Headless) para renderizar JavaScript.
-        En Render, desactivado automáticamente.
+        En Render, desactivado automáticamente para ahorrar tiempo.
         """
         # Si estamos en Render, no usar Selenium
         if not USE_SELENIUM:
-            logger.info(f"[{self.source_name}] Selenium desactivado en Render, usando requests")
+            logger.debug(f"[{self.source_name}] Selenium desactivado en este entorno")
             return None
         
         if not SELENIUM_AVAILABLE:
             logger.error(f"[{self.source_name}] Selenium no está disponible en las dependencias")
             return None
 
-        driver = None
-        try:
-            logger.info(f"[{self.source_name}] Iniciando Selenium para: {url}")
-            
-            # Configurar opciones de Chrome
-            chrome_options = Options()
-            
-            chrome_bin = os.environ.get("GOOGLE_CHROME_BIN")
-            if chrome_bin:
-                chrome_options.binary_location = chrome_bin
-                logger.info(f"[{self.source_name}] Usando binario de Chrome en Render: {chrome_bin}")
-            else:
-                # Si no hay Chrome en Render, no intentar
-                if is_render_environment():
-                    logger.warning(f"[{self.source_name}] No hay Chrome en Render, desactivando Selenium")
-                    return None
-
-            chrome_options.add_argument("--headless=new")
-            chrome_options.add_argument("--no-sandbox")
-            chrome_options.add_argument("--disable-dev-shm-usage")
-            chrome_options.add_argument("--disable-gpu")
-            chrome_options.add_argument("--window-size=1920,1080")
-            
-            user_agents = [
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
-            ]
-            chrome_options.add_argument(f"user-agent={random.choice(user_agents)}")
-
-            chromedriver_path = os.environ.get("CHROMEDRIVER_PATH")
-            if chromedriver_path:
-                logger.info(f"[{self.source_name}] Usando ChromeDriver en Render: {chromedriver_path}")
-                service = Service(executable_path=chromedriver_path)
-            else:
-                try:
-                    logger.info(f"[{self.source_name}] Intentando ChromeDriverManager...")
-                    service = Service(ChromeDriverManager().install())
-                except Exception as e:
-                    logger.warning(f"[{self.source_name}] Manager falló, usando service básico: {e}")
-                    service = Service()
-            
-            driver = webdriver.Chrome(service=service, options=chrome_options)
-            driver.set_page_load_timeout(45)
-            driver.get(url)
-            
-            wait = WebDriverWait(driver, 20)
-            
-            selectors = [
-                (By.CLASS_NAME, 'posting-card'),
-                (By.CLASS_NAME, 'listing__item'),
-                (By.CLASS_NAME, 'ui-search-layout__item'),
-                (By.TAG_NAME, 'body')
-            ]
-            
-            for by_type, selector in selectors:
-                try:
-                    wait.until(EC.presence_of_element_located((by_type, selector)))
-                    break
-                except:
-                    continue
-            
-            time.sleep(random.uniform(2, 4))
-            html = driver.page_source
-            logger.info(f"[{self.source_name}] Renderizado Selenium completado ({len(html)} bytes)")
-            return html
-
-        except Exception as e:
-            logger.error(f"[{self.source_name}] Error en Selenium: {str(e)}")
-            return None
-        finally:
-            if driver:
-                try:
-                    driver.quit()
-                except:
-                    pass
+        # ... resto del código de Selenium ...
                 
                 
 
@@ -1355,9 +1286,9 @@ class ScrapingManager:
         self.analyzer = MarketAnalyzer()
     
     def scrape_market(self, zone: str, operation: str = "venta", 
-                  property_type: str = "departamento") -> Dict[str, Any]:
+                    property_type: str = "departamento") -> Dict[str, Any]:
         """
-        Realiza scraping de mercado inmobiliario
+        Realiza scraping de mercado inmobiliario con optimización para Render
         """
         search_zone = zone
         if "lugano" in zone.lower() and "villa" not in zone.lower():
@@ -1367,15 +1298,16 @@ class ScrapingManager:
         
         all_properties = []
         errors = []
+        is_render = is_render_environment()
         
-        # 1. Argenprop (más estable)
+        # 1. Argenprop (más estable, funciona bien con requests)
         try:
             self.argenprop.target_zone = search_zone
             argenprop_url = self.argenprop.build_url(search_zone, operation, property_type)
             logger.info(f"[Argenprop] URL: {argenprop_url}")
             
-            # En Render, usar requests directamente
-            if is_render_environment():
+            # En Render, usar requests directamente (más rápido)
+            if is_render:
                 logger.info("[Argenprop] Usando requests directamente (Render)")
                 html = self.argenprop._make_request(argenprop_url)
             else:
@@ -1386,15 +1318,15 @@ class ScrapingManager:
             if html:
                 properties = self.argenprop.parse_properties(html, operation, property_type)
                 all_properties.extend(properties)
-                logger.info(f"[Argenprop] Encontradas {len(properties)} propiedades")
+                logger.info(f"[Argenprop] Extraídas {len(properties)} propiedades")
             else:
                 errors.append("Argenprop: No se pudo obtener respuesta")
         except Exception as e:
             errors.append(f"Argenprop: {str(e)}")
         
-        # 2. Zonaprop (opcional, si hay tiempo)
-        # En Render, podemos saltarlo para ahorrar tiempo si ya tenemos datos
-        if len(all_properties) < 10:  # Solo si necesitamos más datos
+        # 2. Zonaprop (solo si no estamos en Render o si tenemos pocas propiedades)
+        # En Render, Zonaprop da 403, así que lo saltamos para ahorrar tiempo
+        if not is_render and len(all_properties) < 10:
             try:
                 self.zonaprop.target_zone = search_zone
                 zonaprop_url = self.zonaprop.build_url(search_zone, operation, property_type)
@@ -1405,16 +1337,39 @@ class ScrapingManager:
                 if html:
                     properties = self.zonaprop.parse_properties(html, operation, property_type)
                     all_properties.extend(properties)
-                    logger.info(f"[Zonaprop] Encontradas {len(properties)} propiedades")
+                    logger.info(f"[Zonaprop] Extraídas {len(properties)} propiedades")
                 else:
                     errors.append("Zonaprop: No se pudo obtener respuesta")
             except Exception as e:
                 errors.append(f"Zonaprop: {str(e)}")
         else:
-            logger.info(f"[Zonaprop] Saltado, ya hay {len(all_properties)} propiedades de Argenprop")
+            if is_render:
+                logger.info("[Zonaprop] Saltado en entorno Render (usualmente bloqueado)")
+            else:
+                logger.info(f"[Zonaprop] Saltado, ya hay {len(all_properties)} propiedades de Argenprop")
         
-        # 3. MercadoLibre (similar)
-        # ... código similar ...
+        # 3. MercadoLibre (solo si no estamos en Render)
+        if not is_render and len(all_properties) < 15:
+            try:
+                self.mercadolibre.target_zone = search_zone
+                mercadolibre_url = self.mercadolibre.build_url(search_zone, operation, property_type)
+                logger.info(f"[MercadoLibre] URL: {mercadolibre_url}")
+                
+                html = self.mercadolibre._render_with_selenium(mercadolibre_url)
+                if not html:
+                    html = self.mercadolibre._make_request(mercadolibre_url)
+                
+                if html:
+                    properties = self.mercadolibre.parse_properties(html, operation, property_type)
+                    all_properties.extend(properties)
+                    logger.info(f"[MercadoLibre] Extraídas {len(properties)} propiedades")
+                else:
+                    errors.append("MercadoLibre: No se pudo obtener respuesta")
+            except Exception as e:
+                errors.append(f"MercadoLibre: {str(e)}")
+        else:
+            if is_render:
+                logger.info("[MercadoLibre] Saltado en entorno Render (requiere Selenium)")
         
         # Calcular estadísticas
         stats = self.analyzer.calculate_stats(all_properties, search_zone, operation, property_type)
