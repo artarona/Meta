@@ -315,100 +315,14 @@ class BaseScraper(ABC):
         """
         Usa Selenium con Edge para renderizar JavaScript.
         """
-        # Evitar en Render si falla o no es necesario
-        if os.environ.get('RENDER') or os.environ.get('SCRAPER_NO_BROWSER'):
-            logger.info(f"[{self.source_name}] Saltando Selenium por estar en entorno Render/No-Browser")
-            return None
-
-        driver = None
-        try:
-            from selenium import webdriver
-            from selenium.webdriver.edge.options import Options
-            from selenium.webdriver.edge.service import Service
-            from selenium.webdriver.common.by import By
-            from selenium.webdriver.support.ui import WebDriverWait
-            from selenium.webdriver.support import expected_conditions as EC
-            from webdriver_manager.microsoft import EdgeChromiumDriverManager
-            import time
-            
-            # Configurar Edge en modo headless
-            edge_options = Options()
-            edge_options.add_argument("--headless")
-            edge_options.add_argument("--no-sandbox")
-            edge_options.add_argument("--disable-dev-shm-usage")
-            edge_options.add_argument("--disable-gpu")
-            edge_options.add_argument("--window-size=1920,1080")
-            # User agent real para evitar detección de headless
-            edge_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0")
-            edge_options.add_argument("--disable-blink-features=AutomationControlled")
-            edge_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            edge_options.add_experimental_option("useAutomationExtension", False)
-            
-            # Inicializar driver con manager para asegurar que el driver existe
-            try:
-                service = Service(EdgeChromiumDriverManager().install())
-                driver = webdriver.Edge(service=service, options=edge_options)
-            except Exception as e_driver:
-                logger.warning(f"[{self.source_name}] No se pudo usar webdriver-manager, intentando directo: {e_driver}")
-                driver = webdriver.Edge(options=edge_options)
-            
-            # Ejecutar script para deshabilitar indicador de webdriver
-            driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-                'source': 'Object.defineProperty(navigator, "webdriver", {get: () => undefined})'
-            })
-            
-            logger.info(f"[{self.source_name}] Navegando a: {url}")
-            driver.get(url)
-            
-            # Esperar a que aparezcan los resultados (más robusto que sleep fijo)
-            wait = WebDriverWait(driver, 15)
-            try:
-                # Buscar cualquier indicador de que hay contenido
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "body")))
-                # Dar un tiempo extra para JS dinámico
-                time.sleep(random.uniform(5, 8))
-            except:
-                logger.warning(f"[{self.source_name}] Timeout esperando carga completa, continuando...")
-            
-            # Intentar scroll para cargar contenido perezoso
-            try:
-                driver.execute_script("window.scrollTo(0, 800);")
-                time.sleep(1)
-            except:
-                pass
-            
-            html = driver.page_source
-            logger.info(f"[{self.source_name}] Exito: {len(html)} bytes")
-            return html
-            
-        except Exception as e:
-            logger.error(f"[{self.source_name}] Error fatal en Selenium: {str(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
-            return None
-        finally:
-            if driver:
-                try:
-                    driver.quit()
-                except:
-                    pass
+        # DESACTIVADO POR DEFECTO PARA RENDER
+        logger.info(f"[{self.source_name}] Selenium desactivado por seguridad de entorno")
+        return None
 
     def _render_with_playwright(self, url: str) -> Optional[str]:
         """Fallback con Playwright si Selenium falla"""
-        if os.environ.get('RENDER') or os.environ.get('SCRAPER_NO_BROWSER'):
-            return None
-        try:
-            from playwright.sync_api import sync_playwright
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
-                page = browser.new_page()
-                page.goto(url, wait_until="networkidle", timeout=60000)
-                html = page.content()
-                browser.close()
-                return html
-        except Exception as e:
-            logger.error(f"[{self.source_name}] Error con Playwright: {e}")
-            return None
+        # DESACTIVADO PARA RENDER/SERVER
+        return None
 
 # ========================================
 # SCRAPER DE ARGENPROP
