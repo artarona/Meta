@@ -13,6 +13,7 @@ import pandas as pd
 from io import BytesIO
 import logging
 import traceback
+import subprocess
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 
@@ -1194,6 +1195,101 @@ def sync_calendar_all():
     except Exception as e:
         logger.error(f"Error ejecutando sincronización de calendario: {e}")
         return jsonify({"error": str(e)}), 500
+
+# ========== RUTAS DE ANÁLISIS DE MERCADO (SCRAPING) ==========
+
+@app.route('/api/market/stats', methods=['GET'])
+def obtener_market_stats():
+    """Obtener estadísticas de mercado desde el archivo JSON generado por el scraper"""
+    key = request.args.get('key')
+    if not validar_admin_key(key):
+        return jsonify({"error": "Acceso no autorizado"}), 401
+    
+    file_path = "scraping.json"
+    if not os.path.exists(file_path):
+        return jsonify({
+            "success": False, 
+            "error": "No hay datos de mercado disponibles. Ejecuta el scraping primero."
+        }), 404
+        
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return jsonify(data)
+    except Exception as e:
+        logger.error(f"Error leyendo datos de mercado: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/market/run-scrape', methods=['POST'])
+def run_market_scrape():
+    """Ejecutar scraper de mercado en segundo plano"""
+    key = request.args.get('key')
+    if not validar_admin_key(key):
+        return jsonify({"error": "Acceso no autorizado"}), 401
+    
+    try:
+        data = request.json or {}
+        zona = data.get('zona', 'palermo')
+        operacion = data.get('operacion', 'venta')
+        tipo = data.get('tipo', 'departamento')
+        
+        logger.info(f"👨‍💻 Administrador inició scraping de mercado: {zona} - {operacion} - {tipo}")
+        
+        # Comando para ejecutar el scraper
+        cmd = ['python', 'scrape_market.py', '--zona', zona, '--operacion', operacion, '--tipo', tipo]
+        
+        # Ejecutar en segundo plano
+        if os.name == 'nt':
+            # Windows
+            subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+        else:
+            # Linux/Mac
+            subprocess.Popen(cmd, preexec_fn=os.setpgrp)
+            
+        return jsonify({
+            "status": "success", 
+            "message": f"Se ha iniciado el scraping para {zona} ({tipo} en {operacion}) en segundo plano. Esto puede tomar varios minutos."
+        })
+    except Exception as e:
+        logger.error(f"Error iniciando scraping: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/market/status', methods=['GET'])
+def get_market_status():
+    """Consultar estado y metadatos del archivo de market stats"""
+    key = request.args.get('key')
+    if not validar_admin_key(key):
+        return jsonify({"error": "Acceso no autorizado"}), 401
+        
+    file_path = "scraping.json"
+    exists = os.path.exists(file_path)
+    
+    status = {
+        "exists": exists,
+        "last_update": None,
+        "size_kb": 0,
+        "metadata": None
+    }
+    
+    if exists:
+        try:
+            mtime = os.path.getmtime(file_path)
+            status["last_update"] = datetime.fromtimestamp(mtime).isoformat()
+            status["size_kb"] = round(os.path.getsize(file_path) / 1024, 2)
+            
+            # Leer solo metadatos si es posible
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                status["metadata"] = {
+                    "zone": data.get("zone"),
+                    "operation": data.get("operation"),
+                    "property_type": data.get("property_type"),
+                    "sample_size": data.get("data", {}).get("sample_size", 0)
+                }
+        except Exception as e:
+            logger.error(f"Error obteniendo status de market: {e}")
+            
+    return jsonify(status)
 
 # ========== RUTAS DE PANEL ADMIN ==========
 

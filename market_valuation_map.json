@@ -83,5 +83,16 @@
         "currency": "ARS"
       }
     }
+  },
+  "almagro": {
+    "venta": {
+      "departamento": {
+        "avg_m2": 2187.44,
+        "muestra": 189,
+        "last_update": "2026-03-27 23:37",
+        "source": "scraping.json",
+        "currency": "USD"
+      }
+    }
   }
 }
