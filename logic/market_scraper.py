@@ -15,6 +15,19 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 
+# Importaciones de Selenium para renderizado avanzado
+try:
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from webdriver_manager.chrome import ChromeDriverManager
+    SELENIUM_AVAILABLE = True
+except ImportError:
+    SELENIUM_AVAILABLE = False
+
 # Configurar logging
 logging.basicConfig(
     level=logging.INFO,
@@ -314,11 +327,75 @@ class BaseScraper(ABC):
 
     def _render_with_selenium(self, url: str) -> Optional[str]:
         """
-        Usa Selenium con Edge para renderizar JavaScript.
+        Usa Selenium con Chrome (Headless) para renderizar JavaScript.
         """
-        # DESACTIVADO POR DEFECTO PARA RENDER
-        logger.info(f"[{self.source_name}] Selenium desactivado por seguridad de entorno")
-        return None
+        if not SELENIUM_AVAILABLE:
+            logger.error(f"[{self.source_name}] Selenium no está disponible en las dependencias")
+            return None
+
+        driver = None
+        try:
+            logger.info(f"[{self.source_name}] Iniciando Selenium para: {url}")
+            
+            # Configurar opciones de Chrome
+            chrome_options = Options()
+            chrome_options.add_argument("--headless=new") # Nuevo modo headless estable
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--window-size=1920,1080")
+            
+            # User Agent aleatorio para el navegador
+            user_agents = [
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+            ]
+            chrome_options.add_argument(f"user-agent={random.choice(user_agents)}")
+
+            # Iniciar driver
+            service = Service(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+            
+            # Establecer timeouts
+            driver.set_page_load_timeout(45)
+            
+            # Navegar
+            driver.get(url)
+            
+            # Esperar a que cargue el contenido principal (específico del portal si es posible)
+            wait = WebDriverWait(driver, 20)
+            
+            # Selectores de carga comunes para identificar que el HTML no está vacío
+            selectors = [
+                 (By.CLASS_NAME, 'posting-card'), # Zonaprop
+                 (By.CLASS_NAME, 'listing__item'), # Argenprop
+                 (By.CLASS_NAME, 'ui-search-layout__item'), # ML
+                 (By.TAG_NAME, 'body') # Fallback universal
+            ]
+            
+            for by_type, selector in selectors:
+                try:
+                    wait.until(EC.presence_of_element_located((by_type, selector)))
+                    break
+                except:
+                    continue
+            
+            # Delay extra para SPA / Lazy loading
+            time.sleep(random.uniform(2, 4))
+            
+            html = driver.page_source
+            logger.info(f"[{self.source_name}] Renderizado Selenium completado ({len(html)} bytes)")
+            return html
+
+        except Exception as e:
+            logger.error(f"[{self.source_name}] Error en Selenium: {str(e)}")
+            return None
+        finally:
+            if driver:
+                try:
+                    driver.quit()
+                except:
+                    pass
 
     def _render_with_playwright(self, url: str) -> Optional[str]:
         """Fallback con Playwright si Selenium falla"""
@@ -1189,15 +1266,7 @@ class ScrapingManager:
     def scrape_market(self, zone: str, operation: str = "venta", 
                       property_type: str = "departamento") -> Dict[str, Any]:
         """
-        Realiza scraping de mercado inmobiliario
-        
-        Args:
-            zone: Barrio o zona (ej: "palermo", "microcentro")
-            operation: Tipo de operación ("venta" o "alquiler")
-            property_type: Tipo de propiedad ("departamento", "casa", etc.)
-        
-        Returns:
-            Diccionario con estadísticas del mercado
+        Realiza scraping de mercado inmobiliario con prioridad en Selenium
         """
         # Normalizar barrio para la búsqueda (ej: Lugano -> Villa Lugano)
         search_zone = zone
@@ -1215,13 +1284,11 @@ class ScrapingManager:
             argenprop_url = self.argenprop.build_url(search_zone, operation, property_type)
             logger.info(f"[Argenprop] URL: {argenprop_url}")
             
-            # Intentar con requests primero (más liviano para Render)
-            html = self.argenprop._make_request(argenprop_url)
-            
-            # Si falla y no estamos en Render, intentar Selenium
-            if not html and not os.environ.get('RENDER'):
-                logger.info("[Argenprop] Requests falló, intentando con Selenium...")
-                html = self.argenprop._render_with_selenium(argenprop_url)
+            # Intentar con Selenium primero (más robusto contra Cloudflare)
+            html = self.argenprop._render_with_selenium(argenprop_url)
+            if not html:
+                logger.warning("[Argenprop] Selenium falló, intentando con requests...")
+                html = self.argenprop._make_request(argenprop_url)
             
             if html:
                 properties = self.argenprop.parse_properties(html, operation, property_type)
@@ -1237,13 +1304,11 @@ class ScrapingManager:
             zonaprop_url = self.zonaprop.build_url(search_zone, operation, property_type)
             logger.info(f"[Zonaprop] URL: {zonaprop_url}")
             
-            # Intentar con requests primero
-            html = self.zonaprop._make_request(zonaprop_url)
-            
-            # Zonaprop suele requerir JS, pero probamos requests en Render por estabilidad
-            if not html and not os.environ.get('RENDER'):
-                logger.info("[Zonaprop] Requests falló, intentando con Selenium...")
-                html = self.zonaprop._render_with_selenium(zonaprop_url)
+            # Zonaprop es extremadamente estricto, usamos Selenium directamente
+            html = self.zonaprop._render_with_selenium(zonaprop_url)
+            if not html:
+                logger.warning("[Zonaprop] Selenium falló, intentando con requests...")
+                html = self.zonaprop._make_request(zonaprop_url)
             
             if html:
                 properties = self.zonaprop.parse_properties(html, operation, property_type)
@@ -1259,11 +1324,9 @@ class ScrapingManager:
             mercadolibre_url = self.mercadolibre.build_url(search_zone, operation, property_type)
             logger.info(f"[MercadoLibre] URL: {mercadolibre_url}")
             
-            # MercadoLibre funciona bien con requests
-            html = self.mercadolibre._make_request(mercadolibre_url)
-            
-            if not html and not os.environ.get('RENDER'):
-                html = self.mercadolibre._render_with_selenium(mercadolibre_url)
+            html = self.mercadolibre._render_with_selenium(mercadolibre_url)
+            if not html:
+                html = self.mercadolibre._make_request(mercadolibre_url)
             
             if html:
                 properties = self.mercadolibre.parse_properties(html, operation, property_type)
