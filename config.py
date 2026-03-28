@@ -44,3 +44,10 @@ CITAS_DISPONIBLES = [
     "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
     "17:00", "17:30", "18:00", "18:30"
 ]
+
+# ========== CONFIGURACIÓN DE IA (GEMINI) ==========
+GEMINI_KEYS = [
+    os.environ.get("GEMINI_KEY_1", "AIzaSyCf_UBys6b4_uceLlN3HtVVy64W_MLkpcw"),
+    os.environ.get("GEMINI_KEY_2", "AIzaSyBIRmNG2iJVWieK5Z4qY5xWpJWzQwlrkow")
+]
+WORKING_MODEL = os.environ.get("WORKING_MODEL", "gemini-2.0-flash-001")

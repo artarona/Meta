@@ -5,6 +5,164 @@ from whatsapp_api import *
 from tasaciones import *
 from citas import *
 from menu_handlers import *
+
+# === IMPORTACIONES PARA BARRIOS E IA ===
+import sqlite3
+from pathlib import Path
+from logic.barrio_data import (
+    get_gastronomy_info,
+    get_financial_info,
+    get_location_specific_info
+)
+from logic.gemini_client import call_gemini_with_rotation
+
+# === CONFIGURACIÓN DE BARRIOS ===
+BARRIOS_DB_PATH = 'instance/barrios_data.db'
+
+def get_barrios_db_connection():
+    Path(os.path.dirname(BARRIOS_DB_PATH)).mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(BARRIOS_DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def generar_datos_barrio_vacios(nombre: str) -> dict:
+    nombre_display = nombre.strip().title()
+    return {
+        "resumen_general": f"{nombre_display} es un barrio de Buenos Aires.",
+        "puntuacion_general": 50,
+        "categorias": {},
+        "conclusion": f"{nombre_display} presenta una opción viable para vivir e invertir."
+    }
+
+def generar_datos_barrio_ai(nombre: str) -> dict:
+    """Genera datos de barrio usando IA con prompt mejorado y parseo robusto"""
+    log(f"🤖 Generando datos con IA para: {nombre}")
+    
+    prompt = f"""Genera un análisis completo del barrio '{nombre}' en Buenos Aires en formato JSON PURO.
+    NO incluyas markdown (```json ... ```), solo el objeto JSON raw.
+    
+    Estructura requerida:
+    {{
+        "resumen_general": "Breve descripción...",
+        "puntuacion_general": 75,
+        "categorias": {{
+            "transporte": {{"puntuacion": 70, "descripcion": "...", "estaciones": ["Estación A"], "colectivos": ["10", "12"]}},
+            "comercio": {{"puntuacion": 70, "descripcion": "...", "supermercados": ["Sup A"], "centros_comerciales": []}},
+            "seguridad": {{"puntuacion": 70, "descripcion": "...", "comisaria": "Comisaría X"}},
+            "educacion": {{"puntuacion": 70, "descripcion": "...", "escuelas": ["Escuela 1"], "universidades": []}},
+            "salud": {{"puntuacion": 70, "descripcion": "...", "hospitales": ["Hospital Z"], "centros_salud": []}},
+            "espacios_verdes": {{"puntuacion": 70, "descripcion": "...", "parques": ["Plaza Y"]}},
+            "contaminacion": {{"puntuacion": 70, "descripcion": "...", "nivel_ruido": "Medio", "fuente": "Tráfico"}},
+            "vida_barrio": {{"puntuacion": 70, "descripcion": "...", "bares": ["Bar 1"], "cultura": []}},
+            "gastronomia": {{"puntuacion": 70, "descripcion": "...", "restaurantes": ["Restaurante 1"], "zonas": []}},
+            "servicios_financieros": {{"puntuacion": 70, "descripcion": "...", "bancos": ["Banco A"], "cajeros": []}}
+        }},
+        "conclusion": "Conclusión para inversores"
+    }}
+    
+    Usa datos REALES de {nombre}. Asegúrate de que sea un JSON válido."""
+    
+    try:
+        log(f"📤 Enviando prompt a Gemini para {nombre}...")
+        response = call_gemini_with_rotation(prompt)
+        
+        # Limpieza y extracción de JSON
+        response_text = response.strip()
+        json_match = re.search(r'(\{.*\})', response_text, re.DOTALL)
+        if json_match:
+            json_str = json_match.group(1)
+        else:
+            json_str = response_text
+            
+        json_str = json_str.replace('```json', '').replace('```', '').strip()
+        
+        try:
+            data = json.loads(json_str)
+            if "categorias" not in data:
+                data["categorias"] = {}
+            return data
+        except json.JSONDecodeError as je:
+            log(f"❌ Error decodificando JSON de Gemini: {je}", "ERROR")
+            
+    except Exception as e:
+        log(f"❌ Error critico en IA para barrio {nombre}: {e}", "ERROR")
+    
+    return generar_datos_barrio_vacios(nombre)
+
+def generar_entorno_json():
+    """Genera el contenido para entorno.json basado en la DB de barrios"""
+    try:
+        conn = get_barrios_db_connection()
+        cursor = conn.cursor()
+        
+        # Asegurar que la tabla existe si no se inicializó
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='barrios_data'")
+        if not cursor.fetchone():
+             return {"success": False, "error": "Tabla de barrios no existe"}
+
+        cursor.execute('SELECT nombre, data FROM barrios_data ORDER BY nombre')
+        rows = cursor.fetchall()
+        conn.close()
+        
+        data = {}
+        for row in rows:
+            nombre = row['nombre']
+            try:
+                datos_bd = json.loads(row['data'])
+            except:
+                datos_bd = {}
+            
+            nombre_display = nombre.title()
+            
+            # Reutilizar lógica de mapeo de main-ai.py
+            categorias_bd = datos_bd.get('categorias', {})
+            
+            # Obtener datos de respaldo para lo que falte
+            gastronomia_respaldo = get_gastronomy_info(nombre)
+            financiero_respaldo = get_financial_info(nombre)
+            
+            # Función auxiliar interna para mapear categorías con fallback
+            def get_cat(name, fallback_data):
+                if name in categorias_bd:
+                    cat = categorias_bd[name]
+                    # Asegurar campos mínimos
+                    if name == 'gastronomia':
+                        cat['restaurantes_destacados'] = cat.get('restaurantes') or cat.get('restaurantes_destacados') or []
+                        cat['zonas_gastronomicas'] = cat.get('zonas') or cat.get('zonas_gastronomicas') or []
+                    return cat
+                return fallback_data
+
+            barrio_final = {
+                'nombre': nombre_display,
+                'descripcion_general': datos_bd.get('resumen_general', f"{nombre_display} es un barrio de Buenos Aires."),
+                'conclusion': datos_bd.get('conclusion', f"{nombre_display} presenta opciones para vivir e invertir."),
+                'puntuacion_general': datos_bd.get('puntuacion_general', 50),
+                'gastronomia': get_cat('gastronomia', {
+                    'puntuacion': gastronomia_respaldo.get('puntuacion', 50),
+                    'descripcion': gastronomia_respaldo.get('descripcion', ''),
+                    'restaurantes_destacados': gastronomia_respaldo.get('restaurantes_destacados', [])[:5],
+                    'zonas_gastronomicas': gastronomia_respaldo.get('zonas_gastronomicas', [])[:3]
+                }),
+                'servicios_financieros': get_cat('servicios_financieros', {
+                    'puntuacion': financiero_respaldo.get('puntuacion', 50),
+                    'descripcion': financiero_respaldo.get('descripcion', ''),
+                    'bancos': financiero_respaldo.get('bancos', [])[:5]
+                }),
+                'transporte': get_cat('transporte', {'puntuacion': 50, 'descripcion': '', 'estaciones': [], 'colectivos': []}),
+                'comercio': get_cat('comercio', {'puntuacion': 50, 'descripcion': '', 'supermercados': [], 'centros_comerciales': []}),
+                'seguridad': get_cat('seguridad', {'puntuacion': 50, 'descripcion': '', 'comisaria': ''}),
+                'educacion': get_cat('educacion', {'puntuacion': 50, 'descripcion': '', 'escuelas': [], 'universidades': []}),
+                'salud': get_cat('salud', {'puntuacion': 50, 'descripcion': '', 'hospitales': [], 'centros_salud': []}),
+                'espacios_verdes': get_cat('espacios_verdes', {'puntuacion': 50, 'descripcion': '', 'parques': []}),
+                'contaminacion': get_cat('contaminacion', {'puntuacion': 50, 'descripcion': '', 'nivel_ruido': 'Medio', 'fuente': ''}),
+                'vida_barrio': get_cat('vida_barrio', {'puntuacion': 50, 'descripcion': '', 'bares': [], 'cultura': []})
+            }
+            data[nombre] = barrio_final
+            
+        return {"success": True, "data": data, "total": len(data)}
+    except Exception as e:
+        log(f"❌ Error generando entorno para JSON: {e}", "ERROR")
+        return {"success": False, "error": str(e)}
 # key = request.args.get('key')
     # if key != ADMIN_ACCESS_KEY:
     #     return jsonify({"error": "Unauthorized"}), 403
@@ -76,6 +234,26 @@ CITAS_DISPONIBLES = [
     "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
     "17:00", "17:30", "18:00", "18:30"
 ]
+
+# === INICIALIZACIÓN DE LA BASE DE DATOS DE BARRIOS ===
+def init_barrios_db():
+    conn = get_barrios_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS barrios_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT UNIQUE NOT NULL,
+            data TEXT NOT NULL,
+            actualizado_por TEXT DEFAULT 'admin',
+            fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+    log("✅ Base de datos de barrios inicializada")
+
+# Llamar directamente para asegurar que existe
+init_barrios_db()
 
 # ========== FUNCIONES UTILITARIAS ==========
 
@@ -206,6 +384,176 @@ def catalog_feed():
     except Exception as e:
         log(f"❌ Error generando Feed de Catálogo: {e}", "ERROR")
         return "Error interno", 500
+
+# ============================================
+# 🎯 ENDPOINTS DE BARRIOS E IA (NUEVOS)
+# ============================================
+@app.route("/api/barrios/generate-json", methods=["GET"])
+def exportar_json_barrios():
+    """Genera y devuelve el entorno.json dinámico"""
+    auth_key = request.args.get('key')
+    if auth_key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    res = generar_entorno_json()
+    return jsonify(res)
+
+@app.route("/api/barrios", methods=["GET"])
+def listar_barrios():
+    """Lista todos los barrios en la base de datos"""
+    auth_key = request.args.get('key')
+    if auth_key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    conn = get_barrios_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('SELECT nombre, actualizado_por, fecha_actualizacion FROM barrios_data ORDER BY nombre')
+        rows = cursor.fetchall()
+        barrios = []
+        for row in rows:
+            try:
+                # Intentar calcular puntuación general rápida si no está en la DB
+                barrios.append({
+                    'nombre': row['nombre'], 
+                    'actualizado_por': row['actualizado_por'],
+                    'fecha_actualizacion': row['fecha_actualizacion']
+                })
+            except: pass
+        return jsonify({"success": True, "total": len(barrios), "barrios": barrios})
+    finally:
+        conn.close()
+
+@app.route("/api/barrios/<nombre>", methods=["GET"])
+def obtener_barrio_flask(nombre):
+    """Obtiene los datos detallados de un barrio"""
+    auth_key = request.args.get('key')
+    if auth_key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    conn = get_barrios_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('SELECT nombre, data FROM barrios_data WHERE LOWER(nombre) = LOWER(?)', (nombre.strip(),))
+        row = cursor.fetchone()
+        if not row:
+            # Fallback a datos vacíos si no existe
+            return jsonify({"success": True, "nombre": nombre, "data": generar_datos_barrio_vacios(nombre)})
+            
+        data = json.loads(row['data'])
+        return jsonify({"success": True, "nombre": row['nombre'], "data": data})
+    finally:
+        conn.close()
+
+@app.route("/api/barrios", methods=["POST"])
+def crear_barrio_flask():
+    """Crea un nuevo barrio, opcionalmente con IA"""
+    auth_key = request.args.get('key')
+    if auth_key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    req_data = request.json
+    nombre_input = req_data.get('nombre', '').strip()
+    generar_ia = req_data.get('generar_ia', False)
+    
+    if not nombre_input:
+        return jsonify({"error": "Nombre es requerido"}), 400
+        
+    nombre_db = nombre_input.lower()
+    
+    conn = get_barrios_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT nombre FROM barrios_data WHERE LOWER(nombre) = LOWER(?)', (nombre_db,))
+    if cursor.fetchone():
+        conn.close()
+        return jsonify({"error": f"El barrio '{nombre_input}' ya existe"}), 400
+    
+    try:
+        if generar_ia:
+            data = generar_datos_barrio_ai(nombre_input)
+        else:
+            data = generar_datos_barrio_vacios(nombre_input)
+            
+        cursor.execute(
+            'INSERT INTO barrios_data (nombre, data, actualizado_por) VALUES (?, ?, ?)',
+            (nombre_db, json.dumps(data), 'admin')
+        )
+        conn.commit()
+        return jsonify({"success": True, "message": f"Barrio '{nombre_input}' creado", "data": data})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/barrios/<nombre>", methods=["PUT"])
+def actualizar_barrio_flask(nombre):
+    """Actualiza manualmente los datos de un barrio"""
+    auth_key = request.args.get('key')
+    if auth_key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    req_data = request.json
+    barrio_data = req_data.get('data')
+    actualizado_por = req_data.get('actualizado_por', 'admin')
+    
+    nombre_db = nombre.strip().lower()
+    conn = get_barrios_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute(
+            'UPDATE barrios_data SET data = ?, actualizado_por = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE LOWER(nombre) = LOWER(?)',
+            (json.dumps(barrio_data), actualizado_por, nombre_db)
+        )
+        conn.commit()
+        return jsonify({"success": True, "message": "Barrio actualizado"})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/barrios/<nombre>", methods=["DELETE"])
+def eliminar_barrio_flask(nombre):
+    """Elimina un barrio de la base de datos"""
+    auth_key = request.args.get('key')
+    if auth_key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    nombre_db = nombre.strip().lower()
+    conn = get_barrios_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM barrios_data WHERE LOWER(nombre) = LOWER(?)', (nombre_db,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "message": f"Barrio '{nombre}' eliminado"})
+
+@app.route("/api/barrios/<nombre>/regenerate", methods=["POST"])
+def regenerar_barrio_flask(nombre):
+    """Regenera los datos del barrio usando IA"""
+    auth_key = request.args.get('key')
+    if auth_key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    data = generar_datos_barrio_ai(nombre)
+    nombre_db = nombre.strip().lower()
+    
+    conn = get_barrios_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            'UPDATE barrios_data SET data = ?, actualizado_por = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE LOWER(nombre) = LOWER(?)',
+            (json.dumps(data), 'ai', nombre_db)
+        )
+        conn.commit()
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
 
 
 # ========== GESTIÓN DE ESTADO DE USUARIOS ==========

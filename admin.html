@@ -859,6 +859,10 @@
                 aria-controls="tab-mercado">
                 <span>📈</span> Análisis de Mercado
             </button>
+            <button class="tab" onclick="mostrarTab('barrios')" role="tab" aria-selected="false"
+                aria-controls="tab-barrios">
+                <span>🏙️</span> Entorno / Barrios
+            </button>
             <button class="tab" onclick="mostrarTab('configuracion')" role="tab" aria-selected="false"
                 aria-controls="tab-configuracion">
                 <span>⚙️</span> Configuración
@@ -1114,6 +1118,76 @@
                             <tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">Haz clic en "Cargar Datos" para ver el análisis actual o ejecuta "Scraping" para uno nuevo.</td></tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Barrios (Entorno) -->
+        <div id="tab-barrios" class="tab-content" role="tabpanel" aria-labelledby="barrios-tab">
+            <div class="tab-header">
+                <h2>🏙️ Gestión de Entorno y Barrios (IA)</h2>
+                <div class="filters">
+                    <button class="btn btn-primary" onclick="mostrarModalNuevoBarrio()">
+                        <span>➕</span> Agregar Barrio
+                    </button>
+                    <button class="btn btn-success" onclick="generarEntornoJson()">
+                        <span>📦</span> Exportar entorno.json
+                    </button>
+                    <button class="btn btn-outline" onclick="cargarBarrios()">
+                        <span>🔄</span> Refrescar
+                    </button>
+                </div>
+            </div>
+
+            <div class="stat-card" style="margin-bottom: 2rem; border-left-color: var(--success); background: #f0fdf4;">
+                <p style="margin: 0;">Gestiona los metadatos de cada zona. Estos datos son utilizados por el <strong>Chat con IA</strong> y el <strong>Sistema de Tasación</strong> para enriquecer las respuestas.</p>
+            </div>
+
+            <div id="barrios-list-container" class="citas-grid">
+                <!-- Barrios cargados dinámicamente -->
+            </div>
+        </div>
+
+        <!-- Modal Detalle/Editar Barrio -->
+        <div class="modal" id="modal-editar-barrio">
+            <div class="modal-content" style="max-width: 900px; width: 95%;">
+                <div class="modal-header">
+                    <h3 id="edit-barrio-titulo">📝 Editar Barrio</h3>
+                    <button class="modal-close" onclick="cerrarModal('modal-editar-barrio')">×</button>
+                </div>
+                <div id="edit-barrio-form-container" style="max-height: 75vh; overflow-y: auto; padding-right: 10px;">
+                    <!-- Formulario dinámico -->
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                    <button class="btn btn-outline" style="flex: 1;" onclick="cerrarModal('modal-editar-barrio')">Cancelar</button>
+                    <button class="btn btn-primary" style="flex: 1;" id="btn-guardar-barrio">💾 Guardar Cambios</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Nuevo Barrio -->
+        <div class="modal" id="modal-nuevo-barrio">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>➕ Nuevo Barrio</h3>
+                    <button class="modal-close" onclick="cerrarModal('modal-nuevo-barrio')">×</button>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nombre del Barrio (Barrio, Ciudad, etc.):</label>
+                    <input type="text" id="nuevo-barrio-nombre" class="form-control" placeholder="Ej: Palermo">
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; background: #eff6ff; padding: 10px; border-radius: 8px;">
+                        <input type="checkbox" id="nuevo-barrio-ia" checked style="width: 20px; height: 20px;"> 
+                        <span style="font-weight: 600;">🪄 Generar automáticamente con IA (Gemini)</span>
+                    </label>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                        La IA analizará el barrio, puntuará servicios y redactará una descripción profesional.
+                    </p>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button class="btn btn-outline" style="flex: 1;" onclick="cerrarModal('modal-nuevo-barrio')">Cancelar</button>
+                    <button class="btn btn-primary" style="flex: 1;" onclick="crearNuevoBarrio()">🚀 Crear Barrio</button>
                 </div>
             </div>
         </div>
@@ -1492,6 +1566,7 @@
                 actualizarEstadisticas();
                 actualizarBannerStatusMercado();
                 cargarEstadisticasMercado(); // Cargar datos de mercado al inicio
+                cargarBarrios(); // Cargar lista de barrios
 
                 initFlatpickr();
 
@@ -2474,6 +2549,8 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 // Si es la pestaña de mercado, cargar estadísticas
                 if (tabName === 'mercado') {
                     cargarEstadisticasMercado();
+                } else if (tabName === 'barrios') {
+                    cargarBarrios();
                 }
             }
 
@@ -3063,6 +3140,252 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 XLSX.writeFile(wb, `mercado_dante_${new Date().toISOString().split('T')[0]}.xlsx`);
             } else {
                 mostrarToast('❌ Librería Excel no cargada', 'error');
+            }
+        }
+
+        // ============================================
+        // 🏙️ FUNCIONALIDAD DE BARRIOS E IA
+        // ============================================
+
+        async function cargarBarrios() {
+            const container = document.getElementById('barrios-list-container');
+            mostrarLoading('barrios-list-container', 'Cargando barrios...');
+
+            try {
+                const res = await fetchConClave('/api/barrios');
+                if (res.success) {
+                    mostrarBarrios(res.barrios);
+                }
+            } catch (error) {
+                console.error('Error cargando barrios:', error);
+                mostrarEmptyState('barrios-list-container', 'Error al cargar barrios', '❌');
+            }
+        }
+
+        function mostrarBarrios(barrios) {
+            const container = document.getElementById('barrios-list-container');
+            if (!barrios || barrios.length === 0) {
+                mostrarEmptyState('barrios-list-container', 'No hay barrios configurados', '🏙️');
+                return;
+            }
+
+            container.innerHTML = barrios.map(b => `
+                <div class="cita-card" style="border-left: 4px solid var(--primary);">
+                    <div class="card-header">
+                        <h3 style="margin: 0;">${b.nombre.toUpperCase()}</h3>
+                        <span class="status-badge status-confirmada">Activo</span>
+                    </div>
+                    <div class="card-content" style="margin-top: 1rem;">
+                        <p style="font-size: 0.85rem; color: var(--text-muted);">
+                            <strong>Modificado:</strong> ${new Date(b.fecha_actualizacion).toLocaleString()}<br>
+                            <strong>Por:</strong> ${b.actualizado_por}
+                        </p>
+                    </div>
+                    <div class="card-actions" style="grid-template-columns: 1fr 1fr;">
+                        <button class="btn btn-primary" onclick="abrirDetalleBarrio('${b.nombre}')">
+                            📝 Editar
+                        </button>
+                        <button class="btn btn-danger" onclick="eliminarBarrio('${b.nombre}')">
+                            🗑️ Borrar
+                        </button>
+                        <button class="btn btn-outline" style="grid-column: span 2;" onclick="regenerarBarrioIA('${b.nombre}')">
+                            🪄 Regenerar con IA
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function mostrarModalNuevoBarrio() {
+            document.getElementById('nuevo-barrio-nombre').value = '';
+            document.getElementById('modal-nuevo-barrio').classList.add('active');
+        }
+
+        async function crearNuevoBarrio() {
+            const nombre = document.getElementById('nuevo-barrio-nombre').value.trim();
+            const generarIA = document.getElementById('nuevo-barrio-ia').checked;
+
+            if (!nombre) {
+                mostrarToast('⚠️ Ingresa un nombre de barrio', 'warning');
+                return;
+            }
+
+            cerrarModal('modal-nuevo-barrio');
+            mostrarToast(generarIA ? '🪄 Generando barrio con IA... eso puede tardar 20-30 seg.' : 'Creando barrio...', 'info');
+
+            try {
+                const res = await fetchConClave('/api/barrios', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombre, generar_ia: generarIA })
+                });
+
+                if (res.success) {
+                    mostrarToast(`✅ Barrio ${nombre} creado correctamente`, 'success');
+                    cargarBarrios();
+                } else {
+                    mostrarToast(`❌ Error: ${res.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error creando barrio:', error);
+            }
+        }
+
+        async function abrirDetalleBarrio(nombre) {
+            mostrarToast(`Cargando detalle de ${nombre}...`, 'info');
+            try {
+                const res = await fetchConClave(`/api/barrios/${nombre}`);
+                if (res.success) {
+                    renderizarEditorBarrio(nombre, res.data);
+                    document.getElementById('modal-editar-barrio').classList.add('active');
+                }
+            } catch (error) {
+                console.error('Error cargando detalle:', error);
+            }
+        }
+
+        function renderizarEditorBarrio(nombre, data) {
+            document.getElementById('edit-barrio-titulo').innerText = `📝 Editar: ${nombre.toUpperCase()}`;
+            const container = document.getElementById('edit-barrio-form-container');
+            
+            // Re-mapear categorías si no existen
+            const cat = data.categorias || {};
+            
+            let html = `
+                <div class="form-group">
+                    <label class="form-label">Resumen General:</label>
+                    <textarea id="edit-barrio-resumen" class="form-control" rows="3">${data.resumen_general || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Conclusión / Inversores:</label>
+                    <textarea id="edit-barrio-conclusion" class="form-control" rows="2">${data.conclusion || ''}</textarea>
+                </div>
+                <hr style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border);">
+                <h4>📊 Puntuaciones y Detalles por Categoría</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+            `;
+
+            const categorias = [
+                { id: 'transporte', label: '🚇 Transporte' },
+                { id: 'seguridad', label: '🛡️ Seguridad' },
+                { id: 'gastronomia', label: '🍽️ Gastronomía' },
+                { id: 'comercio', label: '🛍️ Comercio' },
+                { id: 'espacios_verdes', label: '🌳 Espacios Verdes' },
+                { id: 'educacion', label: '🎓 Educación' },
+                { id: 'salud', label: '🏥 Salud' },
+                { id: 'vida_barrio', label: '🎭 Vida de Barrio' },
+                { id: 'finanzas', label: '🏦 Finanzas' },
+                { id: 'contaminacion', label: '🔇 Contaminación' }
+            ];
+
+            categorias.forEach(c => {
+                const cData = cat[c.id] || { puntuacion: 50, descripcion: '' };
+                html += `
+                    <div style="background: var(--bg); padding: 1rem; border-radius: 8px;">
+                        <label class="form-label">${c.label}</label>
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <input type="range" class="cat-score" data-cat="${c.id}" min="0" max="100" value="${cData.puntuacion || 50}" style="flex: 1;">
+                            <span id="score-val-${c.id}" style="font-weight: bold; width: 30px;">${cData.puntuacion || 50}</span>
+                        </div>
+                        <textarea class="cat-desc form-control" data-cat="${c.id}" rows="2" placeholder="Descripción de ${c.label}...">${cData.descripcion || ''}</textarea>
+                    </div>
+                `;
+            });
+
+            html += `</div>`;
+            container.innerHTML = html;
+
+            // Luckup scoring
+            document.querySelectorAll('.cat-score').forEach(input => {
+                input.oninput = function() {
+                    document.getElementById(`score-val-${this.dataset.cat}`).innerText = this.value;
+                };
+            });
+
+            document.getElementById('btn-guardar-barrio').onclick = () => guardarCambiosBarrio(nombre);
+        }
+
+        async function guardarCambiosBarrio(nombre) {
+            const data = {
+                resumen_general: document.getElementById('edit-barrio-resumen').value,
+                conclusion: document.getElementById('edit-barrio-conclusion').value,
+                categorias: {}
+            };
+
+            document.querySelectorAll('.cat-desc').forEach(tarea => {
+                const catId = tarea.dataset.cat;
+                const score = document.querySelector(`.cat-score[data-cat="${catId}"]`).value;
+                data.categorias[catId] = {
+                    puntuacion: parseInt(score),
+                    descripcion: tarea.value
+                };
+            });
+
+            try {
+                mostrarToast('Guardando cambios...', 'info');
+                const res = await fetchConClave(`/api/barrios/${nombre}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: data, actualizado_por: 'admin' })
+                });
+
+                if (res.success) {
+                    mostrarToast('✅ Barrio actualizado exitosamente', 'success');
+                    cerrarModal('modal-editar-barrio');
+                    cargarBarrios();
+                }
+            } catch (error) {
+                console.error('Error guardando barrio:', error);
+            }
+        }
+
+        async function regenerarBarrioIA(nombre) {
+            if (!confirm(`¿Estás seguro de regenerar ${nombre} con IA? Perderás los cambios manuales.`)) return;
+            
+            mostrarToast(`🪄 Regenerando ${nombre} con Gemini...`, 'info');
+            try {
+                const res = await fetchConClave(`/api/barrios/${nombre}/regenerate`, { method: 'POST' });
+                if (res.success) {
+                    mostrarToast(`✅ ${nombre} regenerado correctamente`, 'success');
+                    cargarBarrios();
+                }
+            } catch (error) {
+                console.error('Error regenerando barrio:', error);
+            }
+        }
+
+        async function eliminarBarrio(nombre) {
+            if (!confirm(`¿Eliminar permanentemente el barrio ${nombre}?`)) return;
+
+            try {
+                const res = await fetchConClave(`/api/barrios/${nombre}`, { method: 'DELETE' });
+                if (res.success) {
+                    mostrarToast('✅ Barrio eliminado', 'success');
+                    cargarBarrios();
+                }
+            } catch (error) {
+                console.error('Error eliminando barrio:', error);
+            }
+        }
+
+        async function generarEntornoJson() {
+            mostrarToast('📦 Generando entorno.json...', 'info');
+            try {
+                const res = await fetchConClave('/api/barrios/generate-json');
+                if (res.success) {
+                    // Simular descarga o mostrar éxito
+                    const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'entorno.json';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    mostrarToast('✅ entorno.json descargado correctamente', 'success');
+                }
+            } catch (error) {
+                console.error('Error exportando JSON:', error);
             }
         }
     </script>
