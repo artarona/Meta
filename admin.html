@@ -2975,11 +2975,13 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                     const statsData = data.data.data;
                     const properties = statsData.properties || [];
                     
+                    console.log(`📊 Propiedades encontradas: ${properties.length}`);
+                    
                     // === TABLA ===
                     const tableContainer = document.getElementById('market-properties-table');
                     if (tableContainer) {
                         if (properties.length === 0) {
-                            tableContainer.innerHTML = '§<td colspan="6" style="text-align:center; padding:40px;">No hay propiedades para mostrar§<tr>§';
+                            tableContainer.innerHTML = '§<td colspan="6" style="text-align:center; padding:40px;">No hay propiedades para mostrar§</td>§';
                         } else {
                             let html = '';
                             properties.slice(0, 100).forEach(p => {
@@ -3039,52 +3041,51 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                     }
                     
                     // === GRÁFICOS ===
-                    if (typeof renderizarGraficosMercado === 'function') {
-                        renderizarGraficosMercado(statsData);
-                    } else {
-                        console.log('⚠️ renderizarGraficosMercado no definida, creando gráficos básicos...');
-                        // Crear gráficos básicos si no existe la función
-                        if (window.barChart) window.barChart.destroy();
-                        if (window.scatterChart) window.scatterChart.destroy();
-                        
-                        const neighborhoodStats = statsData.neighborhood_stats || {};
-                        let neighborhoods = Object.keys(neighborhoodStats).filter(n => 
-                            !n.toLowerCase().includes('piso') && n.length > 3 && n !== 'Capital Federal'
-                        ).slice(0, 10);
-                        const prices = neighborhoods.map(n => Math.round(neighborhoodStats[n].avg_price_m2 || 0));
-                        
-                        const barCtx = document.getElementById('market-bar-chart');
-                        if (barCtx && neighborhoods.length > 0) {
-                            const parent = barCtx.parentNode;
-                            const newCanvas = document.createElement('canvas');
-                            newCanvas.id = 'market-bar-chart';
-                            newCanvas.style.height = '350px';
-                            newCanvas.style.width = '100%';
-                            parent.replaceChild(newCanvas, barCtx);
-                            const freshCtx = document.getElementById('market-bar-chart');
-                            window.barChart = new Chart(freshCtx, {
-                                type: 'bar',
-                                data: { labels: neighborhoods, datasets: [{ label: 'Precio promedio m² (USD)', data: prices, backgroundColor: '#232deb' }] },
-                                options: { responsive: true, maintainAspectRatio: false }
-                            });
-                        }
-                        
-                        const scatterData = properties.filter(p => p.surface > 20 && p.surface < 500 && p.price > 0).map(p => ({ x: p.surface, y: p.price }));
-                        const scatterCtx = document.getElementById('market-scatter-chart');
-                        if (scatterCtx && scatterData.length > 0) {
-                            const parent = scatterCtx.parentNode;
-                            const newCanvas = document.createElement('canvas');
-                            newCanvas.id = 'market-scatter-chart';
-                            newCanvas.style.height = '350px';
-                            newCanvas.style.width = '100%';
-                            parent.replaceChild(newCanvas, scatterCtx);
-                            const freshScatterCtx = document.getElementById('market-scatter-chart');
-                            window.scatterChart = new Chart(freshScatterCtx, {
-                                type: 'scatter',
-                                data: { datasets: [{ label: 'Propiedades', data: scatterData, backgroundColor: 'rgba(35,45,235,0.6)', pointRadius: 6 }] },
-                                options: { responsive: true, maintainAspectRatio: false }
-                            });
-                        }
+                    // Destruir gráficos anteriores
+                    if (window.barChart) window.barChart.destroy();
+                    if (window.scatterChart) window.scatterChart.destroy();
+                    
+                    // Gráfico de barras
+                    const neighborhoodStats = statsData.neighborhood_stats || {};
+                    let neighborhoods = Object.keys(neighborhoodStats).filter(n => 
+                        !n.toLowerCase().includes('piso') && n.length > 3 && n !== 'Capital Federal'
+                    ).slice(0, 10);
+                    const prices = neighborhoods.map(n => Math.round(neighborhoodStats[n].avg_price_m2 || 0));
+                    
+                    const barCtx = document.getElementById('market-bar-chart');
+                    if (barCtx && neighborhoods.length > 0) {
+                        const parent = barCtx.parentNode;
+                        const newCanvas = document.createElement('canvas');
+                        newCanvas.id = 'market-bar-chart';
+                        newCanvas.style.height = '350px';
+                        newCanvas.style.width = '100%';
+                        parent.replaceChild(newCanvas, barCtx);
+                        const freshCtx = document.getElementById('market-bar-chart');
+                        window.barChart = new Chart(freshCtx, {
+                            type: 'bar',
+                            data: { labels: neighborhoods, datasets: [{ label: 'Precio promedio m² (USD)', data: prices, backgroundColor: '#232deb', borderRadius: 8 }] },
+                            options: { responsive: true, maintainAspectRatio: false, scales: { y: { title: { display: true, text: 'Precio por m² (USD)' } } } }
+                        });
+                        console.log('✅ Gráfico de barras creado');
+                    }
+                    
+                    // Gráfico de dispersión
+                    const scatterData = properties.filter(p => p.surface > 20 && p.surface < 500 && p.price > 0).map(p => ({ x: p.surface, y: p.price }));
+                    const scatterCtx = document.getElementById('market-scatter-chart');
+                    if (scatterCtx && scatterData.length > 0) {
+                        const parent = scatterCtx.parentNode;
+                        const newCanvas = document.createElement('canvas');
+                        newCanvas.id = 'market-scatter-chart';
+                        newCanvas.style.height = '350px';
+                        newCanvas.style.width = '100%';
+                        parent.replaceChild(newCanvas, scatterCtx);
+                        const freshScatterCtx = document.getElementById('market-scatter-chart');
+                        window.scatterChart = new Chart(freshScatterCtx, {
+                            type: 'scatter',
+                            data: { datasets: [{ label: 'Propiedades', data: scatterData, backgroundColor: 'rgba(35,45,235,0.6)', pointRadius: 6 }] },
+                            options: { responsive: true, maintainAspectRatio: false, scales: { x: { title: { display: true, text: 'Superficie (m²)' } }, y: { title: { display: true, text: 'Precio (USD)' } } } }
+                        });
+                        console.log(`✅ Gráfico de dispersión creado con ${scatterData.length} puntos`);
                     }
                     
                 } else {
