@@ -705,10 +705,35 @@ class ArgenpropScraper(BaseScraper):
 # ========================================
 
 class ZonapropScraper(BaseScraper):
-    """Scraper específico para Zonaprop"""
+    """Scraper específico para Zonaprop con mejoras anti-bloqueo"""
     
     def __init__(self):
         super().__init__("https://www.zonaprop.com.ar", "zonaprop")
+        
+        # Headers más realistas para Zonaprop
+        self.session.headers.update({
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "es-AR,es;q=0.9,en;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Cache-Control": "max-age=0",
+        })
+        
+        # Lista de User-Agents para rotar
+        self.user_agents = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+        ]
     
     def build_url(self, zone: str, operation: str, property_type: str) -> str:
         """Construye URL para Zonaprop"""
@@ -729,8 +754,6 @@ class ZonapropScraper(BaseScraper):
         op = op_map.get(operation.lower(), "venta")
         p_type = type_map.get(property_type.lower(), "departamentos")
         
-        # Zonaprop ahora usa preferentemente formato con guiones
-        # departamentos-venta-villa-lugano.html
         z_norm = self._normalize_zone(zone)
         
         if z_norm:
@@ -740,16 +763,82 @@ class ZonapropScraper(BaseScraper):
         
         return url
     
+    def _get_with_cookies(self, url: str) -> Optional[str]:
+        """Intenta obtener la página con cookies persistentes"""
+        try:
+            # Primero visita la página principal para obtener cookies
+            self.session.get("https://www.zonaprop.com.ar", timeout=30)
+            time.sleep(random.uniform(1.5, 2.5))
+            
+            # Luego la página de búsqueda
+            response = self.session.get(url, timeout=45)
+            
+            if response.status_code == 200:
+                return response.text
+            return None
+        except Exception as e:
+            logger.debug(f"[{self.source_name}] Error con cookies: {e}")
+            return None
+    
+    def _make_request(self, url: str, max_retries: int = 3) -> Optional[str]:
+        """Realiza request con reintentos y delay - ESPECIAL PARA ZONAPROP"""
+        for attempt in range(max_retries):
+            try:
+                # Delay más largo para Zonaprop (3-6 segundos)
+                time.sleep(random.uniform(3, 6))
+                
+                # Rotar User-Agent y Referer en cada intento
+                self.session.headers.update({
+                    "User-Agent": random.choice(self.user_agents),
+                    "Referer": random.choice([
+                        "https://www.google.com/",
+                        "https://www.google.com.ar/",
+                        "https://www.zonaprop.com.ar/",
+                        "https://www.zonaprop.com.ar/venta-departamentos/",
+                    ])
+                })
+                
+                response = self.session.get(url, timeout=50)
+                
+                if response.status_code == 200:
+                    logger.info(f"[{self.source_name}] Request exitoso en intento {attempt+1}")
+                    return response.text
+                elif response.status_code == 403:
+                    # Zonaprop nos bloqueó, esperar más tiempo
+                    wait_time = (3 ** attempt) * random.uniform(3, 5)
+                    logger.warning(f"[{self.source_name}] Error 403, esperando {wait_time:.1f}s...")
+                    time.sleep(wait_time)
+                elif response.status_code == 404:
+                    logger.warning(f"[{self.source_name}] URL no encontrada (404): {url}")
+                    return None
+                elif response.status_code in [429, 503]:
+                    wait_time = (2 ** attempt) * random.uniform(2, 4)
+                    logger.warning(f"[{self.source_name}] Error {response.status_code}, esperando {wait_time:.1f}s...")
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"[{self.source_name}] Error {response.status_code}: {url}")
+                    time.sleep(random.uniform(2, 3))
+                    
+            except requests.exceptions.Timeout:
+                logger.warning(f"[{self.source_name}] Timeout en intento {attempt+1}")
+                time.sleep(random.uniform(3, 5))
+            except Exception as e:
+                logger.error(f"[{self.source_name}] Exception: {e}")
+                time.sleep(random.uniform(2, 4))
+        
+        logger.error(f"[{self.source_name}] Falló después de {max_retries} intentos")
+        return None
+    
     def parse_properties(self, html: str, operation: str = "venta", property_type: str = "departamento") -> List[PropertyData]:
-        """Parsea propiedades de Zonaprop"""
+        """Parsea propiedades de Zonaprop con eliminación de duplicados"""
         properties = []
+        seen_ids = set()
         
         try:
             from bs4 import BeautifulSoup
             soup = BeautifulSoup(html, 'html.parser')
             
             # Selectores para Zonaprop
-            # Las tarjetas ahora tienen data-qa="posting PROPERTY"
             cards = soup.select('[data-qa*="posting"], div[class*="posting-card"], div[data-id]')
             
             if not cards:
@@ -757,14 +846,33 @@ class ZonapropScraper(BaseScraper):
             
             for card in cards:
                 try:
+                    # Obtener ID único para evitar duplicados
+                    prop_id = None
+                    if card.has_attr('data-id'):
+                        prop_id = card['data-id']
+                    elif card.has_attr('id'):
+                        prop_id = card['id']
+                    
+                    # Si ya procesamos este ID, saltar
+                    if prop_id and prop_id in seen_ids:
+                        continue
+                    
                     prop = self._parse_card(card, operation, property_type)
                     if prop:
+                        if prop_id:
+                            seen_ids.add(prop_id)
+                        # También usar URL como identificador alternativo
+                        if prop.url:
+                            url_key = prop.url.split('?')[0]
+                            if url_key in seen_ids:
+                                continue
+                            seen_ids.add(url_key)
                         properties.append(prop)
                 except Exception as e:
                     logger.debug(f"Error parseando tarjeta: {e}")
                     continue
             
-            logger.info(f"[Zonaprop] Extraídas {len(properties)} propiedades")
+            logger.info(f"[Zonaprop] Extraídas {len(properties)} propiedades únicas")
             
         except ImportError:
             logger.error("BeautifulSoup no instalado")
@@ -856,38 +964,9 @@ class ZonapropScraper(BaseScraper):
                 url=url
             )
             
-            # Superficie
-            features = card.select('[data-qa="POSTING_CARD_FEATURES"], .features, .posting-features li')
-            surface = 0.0
-            for feature in features:
-                text = feature.get_text(strip=True)
-                if 'm²' in text or 'm2' in text.lower():
-                    surface = self._clean_surface(text)
-                    break
-            
-            # Calcular precio por m2
-            price_m2 = self._calculate_price_per_m2(price, surface, currency)
-            
-            return PropertyData(
-                source=self.source_name,
-                external_id=url.split('/')[-1].replace('.html', '') if url else "",
-                title=title,
-                price_amount=price,
-                price_currency=currency,
-                price_per_m2=price_m2,
-                surface_total=surface,
-                surface_covered=surface,
-                location=address,
-                address=address,
-                property_type=property_type,
-                operation_type=operation,
-                url=url
-            )
-            
         except Exception as e:
             logger.debug(f"Error en _parse_card: {e}")
             return None
-
 # ========================================
 # SCRAPER DE MERCADOLIBRE
 # ========================================
@@ -1411,7 +1490,9 @@ class ScrapingManager:
     
     def scrape_market(self, zone: str, operation: str = "venta", 
                     property_type: str = "departamento") -> Dict[str, Any]:
-        """Realiza scraping optimizado para Render"""
+        """
+        Realiza scraping de mercado inmobiliario con estrategias optimizadas
+        """
         search_zone = zone
         if "lugano" in zone.lower() and "villa" not in zone.lower():
             search_zone = "villa lugano"
@@ -1420,21 +1501,14 @@ class ScrapingManager:
         
         all_properties = []
         errors = []
-        is_render = is_render_environment()
         
         # 1. Argenprop
         try:
             self.argenprop.target_zone = search_zone
-            url = self.argenprop.build_url(search_zone, operation, property_type)
-            logger.info(f"[Argenprop] URL: {url}")
+            argenprop_url = self.argenprop.build_url(search_zone, operation, property_type)
+            logger.info(f"[Argenprop] URL: {argenprop_url}")
             
-            # En Render, usar requests directamente
-            if is_render:
-                html = self.argenprop._make_request(url)
-            else:
-                html = self.argenprop._render_with_selenium(url)
-                if not html:
-                    html = self.argenprop._make_request(url)
+            html = self.argenprop._make_request(argenprop_url)
             
             if html:
                 properties = self.argenprop.parse_properties(html, operation, property_type)
@@ -1445,22 +1519,43 @@ class ScrapingManager:
         except Exception as e:
             errors.append(f"Argenprop: {str(e)}")
         
-        # 2. Zonaprop (saltado en Render)
-        if not is_render:
-            try:
-                # ... código de Zonaprop ...
-            except Exception as e:
-                errors.append(f"Zonaprop: {str(e)}")
-        else:
-            logger.info("[Zonaprop] Saltado en Render (usualmente bloqueado)")
+        # 2. Zonaprop (con múltiples estrategias)
+        try:
+            self.zonaprop.target_zone = search_zone
+            zonaprop_url = self.zonaprop.build_url(search_zone, operation, property_type)
+            logger.info(f"[Zonaprop] URL: {zonaprop_url}")
+            
+            html = None
+            
+            # Estrategia 1: Intentar con cookies primero
+            html = self.zonaprop._get_with_cookies(zonaprop_url)
+            
+            # Estrategia 2: Si falla, intentar con requests normal
+            if not html:
+                logger.info("[Zonaprop] Falló con cookies, intentando requests normal...")
+                html = self.zonaprop._make_request(zonaprop_url)
+            
+            # Estrategia 3: Último recurso, usar Selenium si está disponible
+            if not html and USE_SELENIUM:
+                logger.info("[Zonaprop] Intentando con Selenium...")
+                html = self.zonaprop._render_with_selenium(zonaprop_url)
+            
+            if html:
+                properties = self.zonaprop.parse_properties(html, operation, property_type)
+                all_properties.extend(properties)
+                logger.info(f"[Zonaprop] Extraídas {len(properties)} propiedades")
+            else:
+                errors.append("Zonaprop: No se pudo obtener respuesta")
+        except Exception as e:
+            errors.append(f"Zonaprop: {str(e)}")
         
-        # 3. MercadoLibre (funciona con requests)
+        # 3. MercadoLibre
         try:
             self.mercadolibre.target_zone = search_zone
-            url = self.mercadolibre.build_url(search_zone, operation, property_type)
-            logger.info(f"[MercadoLibre] URL: {url}")
+            mercadolibre_url = self.mercadolibre.build_url(search_zone, operation, property_type)
+            logger.info(f"[MercadoLibre] URL: {mercadolibre_url}")
             
-            html = self.mercadolibre._make_request(url)
+            html = self.mercadolibre._make_request(mercadolibre_url)
             
             if html:
                 properties = self.mercadolibre.parse_properties(html, operation, property_type)
