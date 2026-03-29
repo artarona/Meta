@@ -23,7 +23,6 @@ try:
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
-    from webdriver_manager.chrome import ChromeDriverManager
     SELENIUM_AVAILABLE = True
 except ImportError:
     SELENIUM_AVAILABLE = False
@@ -498,7 +497,7 @@ class BaseScraper(ABC):
                 service = Service(executable_path=chromedriver_path)
             else:
                 try:
-                    service = Service(ChromeDriverManager().install())
+                    service = Service(os.environ.get("CHROMEDRIVER_PATH"))
                 except Exception as e:
                     logger.warning(f"[{self.source_name}] Manager falló: {e}")
                     service = Service()
