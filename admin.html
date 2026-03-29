@@ -1101,6 +1101,12 @@
                     <button class="btn btn-primary" onclick="ejecutarScrapingMercado()">
                         <span>🕷️</span> Ejecutar Scraping
                     </button>
+                    
+                    <button class="btn btn-success" onclick="forzarCargaMercado()" style="background: #10b981;">
+                        <span>🔄</span> Forzar Carga de Datos
+                    </button>
+                    
+                    
                     <button class="btn btn-outline" onclick="cargarEstadisticasMercado()">
                         <span>📊</span> Cargar Datos
                     </button>
@@ -3531,7 +3537,106 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
 
-
+        async function forzarCargaMercado() {
+            console.log('🟢 FORZANDO CARGA DE DATOS...');
+            
+            try {
+                const response = await fetch('/api/market/stats?key=dante_admin_2024');
+                const data = await response.json();
+                
+                console.log('📊 Datos recibidos:', data);
+                
+                // Extraer datos correctamente
+                const statsData = data.data?.data;
+                const properties = statsData?.properties || [];
+                
+                console.log(`📊 Propiedades encontradas: ${properties.length}`);
+                
+                if (properties.length === 0) {
+                    alert('No hay propiedades. Ejecuta un scraping primero.');
+                    return;
+                }
+                
+                // 1. Actualizar tabla
+                const tabla = document.getElementById('market-properties-table');
+                if (tabla) {
+                    let html = '';
+                    properties.slice(0, 100).forEach(p => {
+                        html += `<tr style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 8px;">
+                                <a href="${p.url || '#'}" target="_blank" style="color: #232deb;">${(p.title || 'Sin título').substring(0, 50)}</a>
+                                <div style="font-size: 10px; color: #666;">${p.source || ''}</div>
+                            </td>
+                            <td style="padding: 8px;">${(p.address || '').substring(0, 40)}</td>
+                            <td style="padding: 8px;">${p.operation_type || 'N/A'}</td>
+                            <td style="padding: 8px;">${p.surface || 0} m²</td>
+                            <td style="padding: 8px;">${p.currency || 'USD'} ${(p.price || 0).toLocaleString()}</td>
+                            <td style="padding: 8px; color: #10b981;">$${Math.round(p.price_m2 || 0).toLocaleString()}</td>
+                        </tr>`;
+                    });
+                    tabla.innerHTML = html;
+                    console.log(`✅ Tabla actualizada con ${properties.length} propiedades`);
+                }
+                
+                // 2. Actualizar KPIs
+                const kpis = document.getElementById('market-kpi-grid');
+                if (kpis && statsData) {
+                    const stats = statsData.statistics || {};
+                    kpis.innerHTML = `
+                        <div class="stat-card"><div class="stat-number">${properties.length}</div><div>Propiedades Analizadas</div></div>
+                        <div class="stat-card"><div class="stat-number">$${Math.round(stats.average_price_per_m2 || 0).toLocaleString()}</div><div>Precio Promedio m²</div></div>
+                        <div class="stat-card"><div class="stat-number">$${Math.round(stats.median_price_per_m2 || 0).toLocaleString()}</div><div>Precio Mediano m²</div></div>
+                    `;
+                }
+                
+                // 3. Actualizar gráficos
+                if (window.barChart) window.barChart.destroy();
+                if (window.scatterChart) window.scatterChart.destroy();
+                
+                // Gráfico de barras
+                const neighborhoodStats = statsData?.neighborhood_stats || {};
+                let neighborhoods = Object.keys(neighborhoodStats).filter(n => !n.toLowerCase().includes('piso')).slice(0, 8);
+                const prices = neighborhoods.map(n => Math.round(neighborhoodStats[n]?.avg_price_m2 || 0));
+                
+                const barCtx = document.getElementById('market-bar-chart');
+                if (barCtx && neighborhoods.length) {
+                    const parent = barCtx.parentNode;
+                    const newCanvas = document.createElement('canvas');
+                    newCanvas.id = 'market-bar-chart';
+                    newCanvas.style.height = '350px';
+                    newCanvas.style.width = '100%';
+                    parent.replaceChild(newCanvas, barCtx);
+                    window.barChart = new Chart(document.getElementById('market-bar-chart'), {
+                        type: 'bar',
+                        data: { labels: neighborhoods, datasets: [{ label: 'Precio m² USD', data: prices, backgroundColor: '#232deb' }] },
+                        options: { responsive: true, maintainAspectRatio: false }
+                    });
+                }
+                
+                // Gráfico de dispersión
+                const scatterData = properties.filter(p => p.surface > 20 && p.surface < 500).map(p => ({ x: p.surface, y: p.price }));
+                const scatterCtx = document.getElementById('market-scatter-chart');
+                if (scatterCtx && scatterData.length) {
+                    const parent = scatterCtx.parentNode;
+                    const newCanvas = document.createElement('canvas');
+                    newCanvas.id = 'market-scatter-chart';
+                    newCanvas.style.height = '350px';
+                    newCanvas.style.width = '100%';
+                    parent.replaceChild(newCanvas, scatterCtx);
+                    window.scatterChart = new Chart(document.getElementById('market-scatter-chart'), {
+                        type: 'scatter',
+                        data: { datasets: [{ label: 'Propiedades', data: scatterData, backgroundColor: 'rgba(35,45,235,0.6)', pointRadius: 6 }] },
+                        options: { responsive: true, maintainAspectRatio: false }
+                    });
+                }
+                
+                alert(`✅ Datos cargados: ${properties.length} propiedades`);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al cargar datos: ' + error.message);
+            }
+        }
 
 
 
@@ -3549,55 +3654,32 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             try {
                 mostrarToast('🕷️ Iniciando scraping... puede tardar 1-2 minutos.', 'info');
                 
-                // Mostrar loading en la tabla mientras espera
+                // Mostrar loading
                 const tableBody = document.getElementById('market-properties-table');
                 if (tableBody) {
-                    tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">⏳ Ejecutando scraping, por favor espera...</td></tr>';
+                    tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:60px;">⏳ Ejecutando scraping, por favor espera...</td></tr>';
                 }
 
-                // Mostrar loading en gráficos también
-                const kpiGrid = document.getElementById('market-kpi-grid');
-                if (kpiGrid) {
-                    kpiGrid.innerHTML = '<div class="stat-card" style="grid-column: 1/-1; text-align:center;">⏳ Procesando datos de mercado...</div>';
-                }
-
-                // CORRECCIÓN: fetchConClave ya devuelve el JSON parseado directamente
                 const response = await fetchConClave('/api/market/run-scrape', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ zona, operacion, tipo: 'departamento' })
                 });
-
-                // CORRECCIÓN: Verificar response.success en lugar de response.status
+                
                 if (response && response.success === true) {
-                    const sampleSize = response.sample_size || response.total_propiedades || 0;
-                    mostrarToast(`✅ Scraping completado: ${sampleSize} propiedades encontradas.`, 'success');
-                    
-                    // IMPORTANTE: Recargar los datos después del scraping exitoso
-                    await cargarEstadisticasMercado();
-                    
-                    // Actualizar el banner de estado
-                    await actualizarBannerStatusMercado();
-                    
+                    mostrarToast(`✅ ${response.message}`, 'success');
+                    // Esperar un poco y forzar la carga
+                    setTimeout(() => forzarCargaMercado(), 2000);
                 } else {
-                    const errorMsg = response?.error || 'Error desconocido al ejecutar scraping';
+                    const errorMsg = response?.message || response?.error || 'Error desconocido';
                     mostrarToast('⚠️ ' + errorMsg, 'warning');
-                    // Intentar cargar los últimos datos de todas formas
-                    await cargarEstadisticasMercado();
                 }
                 
             } catch (error) {
                 console.error('Error en scraping:', error);
                 mostrarToast('❌ Error de conexión al ejecutar scraping', 'error');
-                
-                // Mostrar mensaje de error en la tabla
-                const tableBody = document.getElementById('market-properties-table');
-                if (tableBody) {
-                    tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--danger);">❌ Error al ejecutar scraping. Revisa la consola para más detalles.</td></tr>';
-                }
             }
         }
-
 
         
         async function actualizarBannerStatusMercado() {
