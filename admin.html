@@ -2966,65 +2966,64 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
 
         async function cargarEstadisticasMercado() {
             try {
-                console.log('📊 Iniciando carga de datos de mercado...');
+                console.log('📊 Iniciando carga de datos...');
                 
                 const response = await fetchConClave('/api/market/stats');
                 const data = response;
                 
-                console.log('📊 Datos recibidos - success:', data.success);
-                
-                // La estructura correcta es data.data.data
+                // CORRECCIÓN: La estructura es data.data.data
                 if (data && data.success && data.data && data.data.data) {
                     const statsData = data.data.data;
                     const properties = statsData.properties || [];
                     
-                    console.log(`📊 Propiedades encontradas: ${properties.length}`);
+                    console.log(`📊 Propiedades: ${properties.length}`);
                     
-                    // Renderizar tabla
+                    // === RENDERIZAR TABLA ===
                     const tableContainer = document.getElementById('market-properties-table');
-                    
-                    if (tableContainer && properties.length > 0) {
-                        let html = '';
-                        properties.forEach(p => {
-                            const title = p.title || 'Sin título';
-                            const address = p.address || 'Dirección no disponible';
-                            const operation = p.operation_type || 'N/A';
-                            const surface = p.surface || 0;
-                            const price = p.price || 0;
-                            const currency = p.currency || 'USD';
-                            const priceM2 = p.price_m2 || 0;
-                            const url = p.url || '#';
-                            const source = p.source || 'desconocido';
-                            const hasWarning = p.surface_warning === true;
-                            
-                            html += `
-                                <tr style="border-bottom: 1px solid #e2e8f0; ${hasWarning ? 'background: #fffbeb;' : ''}">
-                                    <td style="padding: 12px;">
-                                        <a href="${url}" target="_blank" style="color: #232deb; text-decoration: none;">
-                                            ${title.substring(0, 60)}${title.length > 60 ? '...' : ''}
-                                        </a>
-                                        <div style="font-size: 0.7rem; color: #64748b;">Fuente: ${source}</div>
-                                        ${hasWarning ? '<div style="font-size: 0.7rem; color: #F59E0B;">⚠️ Superficie irreal</div>' : ''}
-                                    </td>
-                                    <td style="padding: 12px;">${address.substring(0, 40)}${address.length > 40 ? '...' : ''}</td>
-                                    <td style="padding: 12px;">
-                                        <span style="background: #f1f5f9; padding: 4px 8px; border-radius: 20px; font-size: 0.75rem;">
-                                            ${operation === 'venta' ? '💰 Venta' : operation === 'alquiler' ? '🔑 Alquiler' : operation}
-                                        </span>
-                                    </td>
-                                    <td style="padding: 12px;">${surface} m²</td>
-                                    <td style="padding: 12px; font-weight: bold;">${currency} ${price.toLocaleString()}</td>
-                                    <td style="padding: 12px; color: #10b981;">$${Math.round(priceM2).toLocaleString()}</td>
-                                </tr>
-                            `;
-                        });
-                        tableContainer.innerHTML = html;
-                        console.log(`✅ Tabla renderizada con ${properties.length} filas`);
-                    } else if (tableContainer) {
-                        tableContainer.innerHTML = '§<td colspan="6" style="text-align:center; padding:40px;">No hay propiedades para mostrar§</td>§';
+                    if (tableContainer) {
+                        if (properties.length === 0) {
+                            tableContainer.innerHTML = '§<td colspan="6" style="text-align:center; padding:40px;">No hay propiedades para mostrar§</td>§';
+                        } else {
+                            let html = '';
+                            properties.forEach(p => {
+                                const title = p.title || 'Sin título';
+                                const address = p.address || 'Dirección no disponible';
+                                const operation = p.operation_type || 'N/A';
+                                const surface = p.surface || 0;
+                                const price = p.price || 0;
+                                const currency = p.currency || 'USD';
+                                const priceM2 = p.price_m2 || 0;
+                                const url = p.url || '#';
+                                const source = p.source || 'desconocido';
+                                const hasWarning = p.surface_warning === true;
+                                
+                                html += `
+                                    <tr style="border-bottom: 1px solid #e2e8f0; ${hasWarning ? 'background: #fffbeb;' : ''}">
+                                        <td style="padding: 12px;">
+                                            <a href="${url}" target="_blank" style="color: #232deb; text-decoration: none;">
+                                                ${title.substring(0, 60)}${title.length > 60 ? '...' : ''}
+                                            </a>
+                                            <div style="font-size: 0.7rem; color: #64748b;">Fuente: ${source}</div>
+                                            ${hasWarning ? '<div style="font-size: 0.7rem; color: #F59E0B;">⚠️ Superficie irreal</div>' : ''}
+                                        </td>
+                                        <td style="padding: 12px;">${address.substring(0, 40)}${address.length > 40 ? '...' : ''}</td>
+                                        <td style="padding: 12px;">
+                                            <span style="background: #f1f5f9; padding: 4px 8px; border-radius: 20px;">
+                                                ${operation === 'venta' ? '💰 Venta' : operation === 'alquiler' ? '🔑 Alquiler' : operation}
+                                            </span>
+                                        </td>
+                                        <td style="padding: 12px;">${surface} m²</td>
+                                        <td style="padding: 12px; font-weight: bold;">${currency} ${price.toLocaleString()}</td>
+                                        <td style="padding: 12px; color: #10b981;">$${Math.round(priceM2).toLocaleString()}</td>
+                                    </tr>
+                                `;
+                            });
+                            tableContainer.innerHTML = html;
+                            console.log(`✅ Tabla renderizada con ${properties.length} filas`);
+                        }
                     }
                     
-                    // Renderizar KPIs
+                    // === RENDERIZAR KPIs ===
                     const kpiContainer = document.getElementById('market-kpi-grid');
                     if (kpiContainer) {
                         const stats = statsData.statistics || {};
@@ -3073,30 +3072,8 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                         console.log('✅ KPIs actualizados');
                     }
                     
-                    // ============================================
-                    // 👇 AGREGAR ESTA LÍNEA - RENDERIZAR GRÁFICOS 👇
-                    // ============================================
+                    // === RENDERIZAR GRÁFICOS ===
                     renderizarGraficosMercado(statsData);
-                    
-                    // Actualizar banner
-                    const banner = document.getElementById('market-status-banner');
-                    if (banner && data.data) {
-                        const timestamp = data.data.scraping_timestamp || new Date().toISOString();
-                        const fecha = new Date(timestamp).toLocaleString();
-                        banner.style.display = 'block';
-                        banner.innerHTML = `
-                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                                <div>
-                                    <strong>📊 Último Análisis:</strong> 
-                                    ${statsData.zone || 'Zona'} (${properties.length} propiedades) 
-                                    | <strong>Fecha:</strong> ${fecha}
-                                </div>
-                                <button class="btn btn-outline" style="padding: 4px 12px;" onclick="cargarEstadisticasMercado()">
-                                    🔄 Recargar
-                                </button>
-                            </div>
-                        `;
-                    }
                     
                 } else {
                     console.error('❌ Estructura de datos incorrecta');
@@ -3110,6 +3087,99 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
 
+        function renderizarGraficosMercado(data) {
+            console.log('📊 Renderizando gráficos...');
+            
+            // Destruir gráficos anteriores
+            if (window.marketCharts) {
+                if (window.marketCharts.bar) window.marketCharts.bar.destroy();
+                if (window.marketCharts.scatter) window.marketCharts.scatter.destroy();
+            }
+            window.marketCharts = {};
+            
+            // 1. Gráfico de barras
+            const neighborhoodStats = data.neighborhood_stats || {};
+            let neighborhoods = Object.keys(neighborhoodStats).filter(n => 
+                !n.toLowerCase().includes('piso') && n.length > 3 && n !== 'Capital Federal'
+            ).slice(0, 10);
+            const prices = neighborhoods.map(n => Math.round(neighborhoodStats[n].avg_price_m2 || 0));
+            
+            const barCtx = document.getElementById('market-bar-chart');
+            if (barCtx && neighborhoods.length > 0) {
+                const parent = barCtx.parentNode;
+                const newCanvas = document.createElement('canvas');
+                newCanvas.id = 'market-bar-chart';
+                newCanvas.style.height = '350px';
+                newCanvas.style.width = '100%';
+                parent.replaceChild(newCanvas, barCtx);
+                
+                const freshCtx = document.getElementById('market-bar-chart');
+                window.marketCharts.bar = new Chart(freshCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: neighborhoods,
+                        datasets: [{
+                            label: 'Precio promedio m² (USD)',
+                            data: prices,
+                            backgroundColor: '#232deb',
+                            borderRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: { 
+                                title: { display: true, text: 'Precio por m² (USD)' },
+                                ticks: { callback: v => '$' + v.toLocaleString() }
+                            }
+                        }
+                    }
+                });
+                console.log('✅ Gráfico de barras creado');
+            }
+            
+            // 2. Gráfico de dispersión
+            const properties = data.properties || [];
+            const scatterData = properties
+                .filter(p => p.surface > 20 && p.surface < 500 && p.price > 0)
+                .map(p => ({ x: p.surface, y: p.price }));
+            
+            const scatterCtx = document.getElementById('market-scatter-chart');
+            if (scatterCtx && scatterData.length > 0) {
+                const parent = scatterCtx.parentNode;
+                const newCanvas = document.createElement('canvas');
+                newCanvas.id = 'market-scatter-chart';
+                newCanvas.style.height = '350px';
+                newCanvas.style.width = '100%';
+                parent.replaceChild(newCanvas, scatterCtx);
+                
+                const freshScatterCtx = document.getElementById('market-scatter-chart');
+                window.marketCharts.scatter = new Chart(freshScatterCtx, {
+                    type: 'scatter',
+                    data: {
+                        datasets: [{
+                            label: 'Propiedades',
+                            data: scatterData,
+                            backgroundColor: 'rgba(35, 45, 235, 0.6)',
+                            pointRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { title: { display: true, text: 'Superficie (m²)' } },
+                            y: { 
+                                title: { display: true, text: 'Precio (USD)' },
+                                ticks: { callback: v => '$' + v.toLocaleString() }
+                            }
+                        }
+                    }
+                });
+                console.log(`✅ Gráfico de dispersión creado con ${scatterData.length} puntos`);
+            }
+        }
 
 
         function renderizarKPIsMercado(data) {
@@ -3821,6 +3891,15 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 console.error('Error exportando JSON:', error);
             }
         }
+
+
+        // Al cargar la página, cargar datos de mercado si es la pestaña activa
+        document.addEventListener('DOMContentLoaded', function() {
+            const mercadoTab = document.getElementById('tab-mercado');
+            if (mercadoTab && mercadoTab.classList.contains('active')) {
+                setTimeout(cargarEstadisticasMercado, 500);
+            }
+        });
     </script>
 </body>
 
