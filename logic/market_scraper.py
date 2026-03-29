@@ -466,69 +466,74 @@ class BaseScraper(ABC):
         try:
             logger.info(f"[{self.source_name}] Iniciando Selenium para: {url}")
             
-            # Configurar opciones de Chrome
             chrome_options = Options()
-            
+
+            # 🔑 IMPORTANTE: usar Chrome de Render
             chrome_bin = os.environ.get("GOOGLE_CHROME_BIN")
             if chrome_bin:
                 chrome_options.binary_location = chrome_bin
-                logger.info(f"[{self.source_name}] Usando binario de Chrome: {chrome_bin}")
+                logger.info(f"[{self.source_name}] Usando Chrome: {chrome_bin}")
             else:
-                # Si no hay Chrome, no intentar
-                if is_render_environment():
-                    logger.warning(f"[{self.source_name}] No hay Chrome disponible")
-                    return None
+                logger.error(f"[{self.source_name}] Chrome NO disponible")
+                return None  # 🚨 cortar directo
 
+            # Flags necesarias en Render
             chrome_options.add_argument("--headless=new")
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
             chrome_options.add_argument("--disable-gpu")
             chrome_options.add_argument("--window-size=1920,1080")
-            
+
+            # User agent rotativo
             user_agents = [
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
             ]
             chrome_options.add_argument(f"user-agent={random.choice(user_agents)}")
 
+            # 🔑 USAR CHROMEDRIVER DE RENDER (NO webdriver_manager)
             chromedriver_path = os.environ.get("CHROMEDRIVER_PATH")
-            if chromedriver_path:
-                logger.info(f"[{self.source_name}] Usando ChromeDriver: {chromedriver_path}")
-                service = Service(executable_path=chromedriver_path)
-            else:
-                try:
-                    service = Service(os.environ.get("CHROMEDRIVER_PATH"))
-                except Exception as e:
-                    logger.warning(f"[{self.source_name}] Manager falló: {e}")
-                    service = Service()
-            
+
+            if not chromedriver_path:
+                logger.error(f"[{self.source_name}] Chromedriver NO definido")
+                return None
+
+            logger.info(f"[{self.source_name}] Usando Chromedriver: {chromedriver_path}")
+            service = Service(executable_path=chromedriver_path)
+
+            # 🚀 DRIVER
             driver = webdriver.Chrome(service=service, options=chrome_options)
             driver.set_page_load_timeout(45)
+
             driver.get(url)
-            
+
             wait = WebDriverWait(driver, 20)
-            
+
             selectors = [
                 (By.CLASS_NAME, 'posting-card'),
                 (By.CLASS_NAME, 'listing__item'),
                 (By.CLASS_NAME, 'ui-search-layout__item'),
                 (By.TAG_NAME, 'body')
             ]
-            
+
             for by_type, selector in selectors:
                 try:
                     wait.until(EC.presence_of_element_located((by_type, selector)))
                     break
                 except:
                     continue
-            
+
             time.sleep(random.uniform(2, 4))
+
             html = driver.page_source
-            logger.info(f"[{self.source_name}] Renderizado completado ({len(html)} bytes)")
+            logger.info(f"[{self.source_name}] Renderizado OK ({len(html)} bytes)")
+
+            driver.quit()
+
             return html
 
         except Exception as e:
-            logger.error(f"[{self.source_name}] Error en Selenium: {str(e)}")
+            logger.error(f"[{self.source_name}] Error en Selenium: {e}")
             return None
         finally:
             if driver:
