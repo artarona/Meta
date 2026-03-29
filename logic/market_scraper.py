@@ -33,41 +33,21 @@ except ImportError:
 
 # ========================================
 # DETECCIÓN DE ENTORNO RENDER
+# =======================================
 # ========================================
 
-# ========================================
-# DETECCIÓN DE ENTORNO Y OPTIMIZACIÓN
-# ========================================
-
-# ========================================
-# DETECCIÓN DE ENTORNO Y OPTIMIZACIÓN
-# ========================================
-
-# ========================================
-# DETECCIÓN DE ENTORNO RENDER
-# ========================================
-
-# ========================================
-# DETECCIÓN DE ENTORNO RENDER
-# ========================================
+# Agregar al inicio del archivo, después de los imports
+import os
 
 def is_render_environment():
-    """Detecta si estamos ejecutando en Render.com"""
-    if os.environ.get('RENDER', False):
-        return True
-    chrome_bin = os.environ.get('GOOGLE_CHROME_BIN')
-    if chrome_bin and os.path.exists(chrome_bin):
-        return False
-    return True
+    """Detecta si estamos en Render.com"""
+    return os.environ.get('RENDER', False)
 
-# Configuración global - DESACTIVAR SELENIUM EN RENDER
+# Variable global para controlar Selenium
 USE_SELENIUM = not is_render_environment()
 
-# Mensaje informativo al cargar
-print("=" * 60)
-print(f"🌍 Entorno: {'Render.com' if is_render_environment() else 'Local'}")
+print(f"🌍 Entorno: {'Render' if is_render_environment() else 'Local'}")
 print(f"🕷️ Selenium: {'ACTIVADO' if USE_SELENIUM else 'DESACTIVADO (solo requests)'}")
-print("=" * 60)
 
 # Agregar después de los imports, antes de la clase BaseScraper
 def _is_render_environment() -> bool:
@@ -415,9 +395,60 @@ class BaseScraper(ABC):
         pass
     
     @abstractmethod
-    def parse_properties(self, html: str) -> List[PropertyData]:
-        """Parsea el HTML y extrae propiedades"""
-        pass
+    def parse_properties(self, html: str, operation: str = "venta", property_type: str = "departamento") -> List[PropertyData]:
+        """Parsea propiedades de Zonaprop con eliminación de duplicados"""
+        properties = []
+        seen_ids = set()  # Para evitar duplicados
+        
+        try:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(html, 'html.parser')
+            
+            # Selectores para Zonaprop
+            cards = soup.select('[data-qa*="posting"], div[class*="posting-card"], div[data-id]')
+            
+            if not cards:
+                cards = soup.select('.postingsList-module__card-container > div')
+            
+            for card in cards:
+                try:
+                    # Intentar obtener ID único
+                    prop_id = None
+                    if card.has_attr('data-id'):
+                        prop_id = card['data-id']
+                    elif card.has_attr('id'):
+                        prop_id = card['id']
+                    
+                    # Si ya procesamos este ID, saltar
+                    if prop_id and prop_id in seen_ids:
+                        continue
+                    
+                    prop = self._parse_card(card, operation, property_type)
+                    if prop:
+                        if prop_id:
+                            seen_ids.add(prop_id)
+                        # También usar URL como identificador alternativo
+                        if prop.url:
+                            url_key = prop.url.split('?')[0]
+                            if url_key in seen_ids:
+                                continue
+                            seen_ids.add(url_key)
+                        properties.append(prop)
+                except Exception as e:
+                    logger.debug(f"Error parseando tarjeta: {e}")
+                    continue
+            
+            logger.info(f"[Zonaprop] Extraídas {len(properties)} propiedades únicas")
+            
+        except ImportError:
+            logger.error("BeautifulSoup no instalado")
+        except Exception as e:
+            logger.error(f"[Zonaprop] Error parseando: {e}")
+        
+        return properties
+    
+    
+    
 
     def _render_with_selenium(self, url: str) -> Optional[str]:
         """
@@ -429,7 +460,7 @@ class BaseScraper(ABC):
             return None
     
         if not SELENIUM_AVAILABLE:
-            logger.error(f"[{self.source_name}] Selenium no disponible")
+            logger.error(f"[{self.source_name}] Selenium no está disponible")
             return None
 
         driver = None
@@ -1409,33 +1440,26 @@ class ScrapingManager:
                 properties = self.argenprop.parse_properties(html, operation, property_type)
                 all_properties.extend(properties)
                 logger.info(f"[Argenprop] Extraídas {len(properties)} propiedades")
+            else:
+                errors.append("Argenprop: No se pudo obtener respuesta")
         except Exception as e:
             errors.append(f"Argenprop: {str(e)}")
         
-        # 2. Zonaprop - saltado en Render (da 403)
+        # 2. Zonaprop (saltado en Render)
         if not is_render:
             try:
-                self.zonaprop.target_zone = search_zone
-                url = self.zonaprop.build_url(search_zone, operation, property_type)
-                logger.info(f"[Zonaprop] URL: {url}")
-                
-                html = self.zonaprop._make_request(url)
-                if html:
-                    properties = self.zonaprop.parse_properties(html, operation, property_type)
-                    all_properties.extend(properties)
-                    logger.info(f"[Zonaprop] Extraídas {len(properties)} propiedades")
+                # ... código de Zonaprop ...
             except Exception as e:
                 errors.append(f"Zonaprop: {str(e)}")
         else:
             logger.info("[Zonaprop] Saltado en Render (usualmente bloqueado)")
         
-        # 3. MercadoLibre - puede funcionar con requests
+        # 3. MercadoLibre (funciona con requests)
         try:
             self.mercadolibre.target_zone = search_zone
             url = self.mercadolibre.build_url(search_zone, operation, property_type)
             logger.info(f"[MercadoLibre] URL: {url}")
             
-            # En Render, intentar con requests directamente
             html = self.mercadolibre._make_request(url)
             
             if html:
