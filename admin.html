@@ -2986,27 +2986,23 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         // FUNCIONES PARA ESTADÍSTICAS DE MERCADO
         // ============================================
 
-                // ========== LÓGICA DE ANÁLISIS DE MERCADO (SCRAPING) ==========
-        
-        // Función para cargar estadísticas de mercado (CORREGIDA)
         async function cargarEstadisticasMercado() {
             try {
                 console.log('📊 Cargando datos de mercado...');
                 
-                // Usar fetchConClave en lugar de fetch directo
+                // Usar fetchConClave para mantener la clave
                 const data = await fetchConClave('/api/market/stats');
                 
                 console.log('📊 Datos completos:', data);
                 
-                // La estructura según los logs: data.success, data.data
+                // CORRECCIÓN: Los datos están en data.data (NO data.data.data)
                 if (data && data.success) {
-                    // Los datos están en data.data (no data.data.data)
                     const statsData = data.data;
                     const properties = statsData?.properties || [];
                     
                     console.log(`📊 Propiedades encontradas: ${properties.length}`);
                     
-                    // === ACTUALIZAR TABLA ===
+                    // === TABLA ===
                     const tableContainer = document.getElementById('market-properties-table');
                     if (tableContainer) {
                         if (properties.length === 0) {
@@ -3020,24 +3016,24 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                                             ${(p.title || 'Sin título').substring(0, 60)}
                                         </a>
                                         <div style="font-size: 0.7rem; color: #64748b;">Fuente: ${p.source || 'desconocido'}</div>
-                                    </td>
+                                        </td>
                                     <td style="padding: 12px; color: #64748b;">${(p.address || '').substring(0, 40)}</td>
                                     <td style="padding: 12px;">
                                         <span style="background: #f1f5f9; padding: 4px 8px; border-radius: 20px; font-size: 0.75rem;">
                                             ${p.operation_type === 'venta' ? '💰 Venta' : p.operation_type === 'alquiler' ? '🔑 Alquiler' : p.operation_type || 'N/A'}
                                         </span>
-                                    </td>
+                                        </td>
                                     <td style="padding: 12px;">${p.surface || 0} m²</td>
                                     <td style="padding: 12px; font-weight: bold;">${p.currency || 'USD'} ${(p.price || 0).toLocaleString()}</td>
                                     <td style="padding: 12px; color: #10b981; font-weight: bold;">$${Math.round(p.price_m2 || 0).toLocaleString()}</td>
-                                </tr>`;
+                                    </tr>`;
                             });
                             tableContainer.innerHTML = html;
                             console.log(`✅ Tabla renderizada con ${properties.length} propiedades`);
                         }
                     }
                     
-                    // === ACTUALIZAR KPIs ===
+                    // === KPIs ===
                     const kpiContainer = document.getElementById('market-kpi-grid');
                     if (kpiContainer) {
                         const stats = statsData.statistics || {};
@@ -3071,7 +3067,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                         console.log('✅ KPIs actualizados');
                     }
                     
-                    // === ACTUALIZAR GRÁFICOS ===
+                    // === GRÁFICOS ===
                     if (window.barChart) window.barChart.destroy();
                     if (window.scatterChart) window.scatterChart.destroy();
                     
@@ -3116,7 +3112,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                         console.log(`✅ Gráfico de dispersión creado con ${scatterData.length} puntos`);
                     }
                     
-                    // === ACTUALIZAR BANNER ===
+                    // === BANNER ===
                     const banner = document.getElementById('market-status-banner');
                     if (banner) {
                         const fecha = new Date().toLocaleString();
@@ -3148,90 +3144,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 console.error('❌ Error cargando mercado:', error);
             }
         }
-        
-        // Función para forzar carga manual
-        async function forzarCargaMercado() {
-            console.log('🟢 FORZANDO CARGA DE DATOS...');
-            await cargarEstadisticasMercado();
-            mostrarToast('✅ Datos recargados', 'success');
-        }
-        
-        // Función para ejecutar scraping
-        async function ejecutarScrapingMercado() {
-            const zona = document.getElementById('market-zona').value;
-            const operacion = document.getElementById('market-operacion').value;
-            
-            if (!zona) {
-                mostrarToast('⚠️ Por favor ingresa un barrio o zona', 'warning');
-                return;
-            }
-
-            if (!confirm(`¿Iniciar scraping de ${operacion} en ${zona}? Esto tomará unos minutos.`)) return;
-
-            try {
-                mostrarToast('🕷️ Iniciando scraping... puede tardar 1-2 minutos.', 'info');
-                
-                const tableBody = document.getElementById('market-properties-table');
-                if (tableBody) {
-                    tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:60px;">⏳ Ejecutando scraping, por favor espera...</td></tr>';
-                }
-
-                const response = await fetchConClave('/api/market/run-scrape', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ zona, operacion, tipo: 'departamento' })
-                });
-                
-                if (response && response.success === true) {
-                    mostrarToast(`✅ ${response.message}`, 'success');
-                    setTimeout(() => cargarEstadisticasMercado(), 2000);
-                } else {
-                    const errorMsg = response?.message || response?.error || 'Error desconocido';
-                    mostrarToast('⚠️ ' + errorMsg, 'warning');
-                }
-                
-            } catch (error) {
-                console.error('Error en scraping:', error);
-                mostrarToast('❌ Error de conexión al ejecutar scraping', 'error');
-            }
-        }
-        
-        // Función para actualizar banner
-        async function actualizarBannerStatusMercado() {
-            // Función simplificada
-            console.log('Banner de mercado actualizado');
-        }
-        
-        // Función para descargar Excel
-        function descargarExcelMercado() {
-            const table = document.getElementById('market-properties-table');
-            if (table && XLSX) {
-                const wb = XLSX.utils.table_to_book(table);
-                XLSX.writeFile(wb, `mercado_dante_${new Date().toISOString().split('T')[0]}.xlsx`);
-            } else {
-                mostrarToast('No hay datos para exportar', 'warning');
-            }
-        }
-        
-        // Inicializar carga al abrir la pestaña
-        document.addEventListener('DOMContentLoaded', function() {
-            const btnMercado = document.querySelector('.tab[onclick*="mercado"]');
-            if (btnMercado) {
-                const originalClick = btnMercado.onclick;
-                btnMercado.onclick = function(e) {
-                    if (originalClick) originalClick.call(this, e);
-                    setTimeout(cargarEstadisticasMercado, 300);
-                };
-            }
-            
-            // Si la pestaña de mercado está activa al cargar
-            if (document.getElementById('tab-mercado')?.classList.contains('active')) {
-                setTimeout(cargarEstadisticasMercado, 500);
-            }
-        });
-
-
-
         function renderizarGraficosMercado(data) {
             console.log('📊 Renderizando gráficos...');
             
@@ -3641,110 +3553,57 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
         
-        
-
-        async function forzarCargaMercado() {
-            console.log('🟢 FORZANDO CARGA DE DATOS...');
+        async function actualizarBannerStatusMercado() {
+            const banner = document.getElementById('market-status-banner');
+            if (!banner) return;
             
             try {
-                const response = await fetch('/api/market/stats?key=dante_admin_2024');
-                const data = await response.json();
+                const status = await fetchConClave('/api/market/status');
                 
-                console.log('📊 Datos recibidos:', data);
-                
-                // Extraer datos correctamente
-                const statsData = data.data?.data;
-                const properties = statsData?.properties || [];
-                
-                console.log(`📊 Propiedades encontradas: ${properties.length}`);
-                
-                if (properties.length === 0) {
-                    alert('No hay propiedades. Ejecuta un scraping primero.');
-                    return;
-                }
-                
-                // 1. Actualizar tabla
-                const tabla = document.getElementById('market-properties-table');
-                if (tabla) {
-                    let html = '';
-                    properties.slice(0, 100).forEach(p => {
-                        html += `<tr style="border-bottom: 1px solid #ddd;">
-                            <td style="padding: 8px;">
-                                <a href="${p.url || '#'}" target="_blank" style="color: #232deb;">${(p.title || 'Sin título').substring(0, 50)}</a>
-                                <div style="font-size: 10px; color: #666;">${p.source || ''}</div>
-                            </td>
-                            <td style="padding: 8px;">${(p.address || '').substring(0, 40)}</td>
-                            <td style="padding: 8px;">${p.operation_type || 'N/A'}</td>
-                            <td style="padding: 8px;">${p.surface || 0} m²</td>
-                            <td style="padding: 8px;">${p.currency || 'USD'} ${(p.price || 0).toLocaleString()}</td>
-                            <td style="padding: 8px; color: #10b981;">$${Math.round(p.price_m2 || 0).toLocaleString()}</td>
-                        </tr>`;
-                    });
-                    tabla.innerHTML = html;
-                    console.log(`✅ Tabla actualizada con ${properties.length} propiedades`);
-                }
-                
-                // 2. Actualizar KPIs
-                const kpis = document.getElementById('market-kpi-grid');
-                if (kpis && statsData) {
-                    const stats = statsData.statistics || {};
-                    kpis.innerHTML = `
-                        <div class="stat-card"><div class="stat-number">${properties.length}</div><div>Propiedades Analizadas</div></div>
-                        <div class="stat-card"><div class="stat-number">$${Math.round(stats.average_price_per_m2 || 0).toLocaleString()}</div><div>Precio Promedio m²</div></div>
-                        <div class="stat-card"><div class="stat-number">$${Math.round(stats.median_price_per_m2 || 0).toLocaleString()}</div><div>Precio Mediano m²</div></div>
+                if (status && status.exists) {
+                    banner.style.display = 'block';
+                    const fecha = status.last_update ? new Date(status.last_update).toLocaleString() : 'desconocida';
+                    banner.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                            <div>
+                                <strong>📊 Último Análisis:</strong> 
+                                ${status.zone || 'Zona'} (${status.sample_size || 0} propiedades) 
+                                | <strong>Fecha:</strong> ${fecha}
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn btn-outline" style="padding: 4px 12px; font-size: 0.8rem;" onclick="cargarEstadisticasMercado()">
+                                    🔄 Recargar
+                                </button>
+                                <button class="btn btn-primary" style="padding: 4px 12px; font-size: 0.8rem;" onclick="ejecutarScrapingMercado()">
+                                    🕷️ Nuevo Scraping
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    banner.style.display = 'block';
+                    banner.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                            <div>
+                                <strong>📊 No hay datos de mercado</strong> 
+                                - Ejecuta un scraping para obtener información
+                            </div>
+                            <button class="btn btn-primary" style="padding: 4px 12px; font-size: 0.8rem;" onclick="ejecutarScrapingMercado()">
+                                🕷️ Ejecutar Scraping
+                            </button>
+                        </div>
                     `;
                 }
-                
-                // 3. Actualizar gráficos
-                if (window.barChart) window.barChart.destroy();
-                if (window.scatterChart) window.scatterChart.destroy();
-                
-                // Gráfico de barras
-                const neighborhoodStats = statsData?.neighborhood_stats || {};
-                let neighborhoods = Object.keys(neighborhoodStats).filter(n => !n.toLowerCase().includes('piso')).slice(0, 8);
-                const prices = neighborhoods.map(n => Math.round(neighborhoodStats[n]?.avg_price_m2 || 0));
-                
-                const barCtx = document.getElementById('market-bar-chart');
-                if (barCtx && neighborhoods.length) {
-                    const parent = barCtx.parentNode;
-                    const newCanvas = document.createElement('canvas');
-                    newCanvas.id = 'market-bar-chart';
-                    newCanvas.style.height = '350px';
-                    newCanvas.style.width = '100%';
-                    parent.replaceChild(newCanvas, barCtx);
-                    window.barChart = new Chart(document.getElementById('market-bar-chart'), {
-                        type: 'bar',
-                        data: { labels: neighborhoods, datasets: [{ label: 'Precio m² USD', data: prices, backgroundColor: '#232deb' }] },
-                        options: { responsive: true, maintainAspectRatio: false }
-                    });
-                }
-                
-                // Gráfico de dispersión
-                const scatterData = properties.filter(p => p.surface > 20 && p.surface < 500).map(p => ({ x: p.surface, y: p.price }));
-                const scatterCtx = document.getElementById('market-scatter-chart');
-                if (scatterCtx && scatterData.length) {
-                    const parent = scatterCtx.parentNode;
-                    const newCanvas = document.createElement('canvas');
-                    newCanvas.id = 'market-scatter-chart';
-                    newCanvas.style.height = '350px';
-                    newCanvas.style.width = '100%';
-                    parent.replaceChild(newCanvas, scatterCtx);
-                    window.scatterChart = new Chart(document.getElementById('market-scatter-chart'), {
-                        type: 'scatter',
-                        data: { datasets: [{ label: 'Propiedades', data: scatterData, backgroundColor: 'rgba(35,45,235,0.6)', pointRadius: 6 }] },
-                        options: { responsive: true, maintainAspectRatio: false }
-                    });
-                }
-                
-                alert(`✅ Datos cargados: ${properties.length} propiedades`);
-                
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error al cargar datos: ' + error.message);
+                console.error('Error en banner de mercado:', error);
             }
         }
 
-
+        async function forzarCargaMercado() {
+            console.log('🟢 FORZANDO CARGA DE DATOS...');
+            await cargarEstadisticasMercado();
+            mostrarToast('✅ Datos recargados', 'success');
+        }
 
         async function ejecutarScrapingMercado() {
             const zona = document.getElementById('market-zona').value;
@@ -3788,6 +3647,40 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         }
 
         
+        async function actualizarBannerStatusMercado() {
+            const banner = document.getElementById('market-status-banner');
+            if (!banner) return;
+
+            try {
+                const status = await fetchConClave('/api/market/status');
+                if (status.exists) {
+                    banner.style.display = 'block';
+                    const fecha = new Date(status.last_update).toLocaleString();
+                    banner.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>📊 Último Análisis:</strong> ${status.metadata.zone} (${status.metadata.property_type} en ${status.metadata.operation}) 
+                                | <strong>Fecha:</strong> ${fecha} 
+                                | <strong>Propiedades:</strong> ${status.metadata.sample_size}
+                            </div>
+                            <button class="btn btn-outline" style="padding: 2px 10px; font-size: 0.8rem;" onclick="cargarEstadisticasMercado()">Cargar Ahora</button>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error status mercado:', error);
+            }
+        }
+
+        function descargarExcelMercado() {
+            const table = document.getElementById('market-properties-table');
+            if (XLSX) {
+                const wb = XLSX.utils.table_to_book(table);
+                XLSX.writeFile(wb, `mercado_dante_${new Date().toISOString().split('T')[0]}.xlsx`);
+            } else {
+                mostrarToast('❌ Librería Excel no cargada', 'error');
+            }
+        }
 
         // ============================================
         // 🏙️ FUNCIONALIDAD DE BARRIOS E IA
@@ -4038,7 +3931,21 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
 
         // Al cargar la página, cargar datos de mercado si es la pestaña activa
         // Escuchar cuando se cambie a la pestaña de mercado
-        
+        document.addEventListener('DOMContentLoaded', function() {
+            const mercadoTab = document.getElementById('tab-mercado');
+            if (mercadoTab && mercadoTab.classList.contains('active')) {
+                setTimeout(cargarEstadisticasMercado, 500);
+            }
+            
+            const btnMercado = document.querySelector('.tab[onclick*="mercado"]');
+            if (btnMercado) {
+                const originalClick = btnMercado.onclick;
+                btnMercado.onclick = function(e) {
+                    if (originalClick) originalClick.call(this, e);
+                    setTimeout(cargarEstadisticasMercado, 300);
+                };
+            }
+        });
     </script>
 </body>
 
