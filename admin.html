@@ -3903,10 +3903,20 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
 
 
         // Al cargar la página, cargar datos de mercado si es la pestaña activa
+        // Escuchar cuando se cambie a la pestaña de mercado
         document.addEventListener('DOMContentLoaded', function() {
             const mercadoTab = document.getElementById('tab-mercado');
             if (mercadoTab && mercadoTab.classList.contains('active')) {
                 setTimeout(cargarEstadisticasMercado, 500);
+            }
+            
+            const btnMercado = document.querySelector('.tab[onclick*="mercado"]');
+            if (btnMercado) {
+                const originalClick = btnMercado.onclick;
+                btnMercado.onclick = function(e) {
+                    if (originalClick) originalClick.call(this, e);
+                    setTimeout(cargarEstadisticasMercado, 300);
+                };
             }
         });
     </script>
