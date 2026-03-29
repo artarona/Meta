@@ -3062,36 +3062,47 @@ def db_status():
 
 @app.route("/api/propiedades", methods=["GET"])
 def api_propiedades():
-    """Retorna la lista de propiedades para el buscador del panel admin"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
-    
+
     try:
-        if os.path.exists("propiedades.json"):
-            with open("propiedades.json", 'r', encoding='utf-8') as f:
-                propiedades = json.load(f)
-            
-            # Solo enviar los campos necesarios para el buscador
-            propiedades_simplificadas = []
-            for p in propiedades:
-                propiedades_simplificadas.append({
-                    "id": p.get("id_temporal"),
-                    "titulo": p.get("titulo"),
-                    "direccion": p.get("direccion"),
-                    "barrio": p.get("barrio"),
-                    "tipo": p.get("tipo"),
-                    "operacion": p.get("operacion"),
-                    "precio": p.get("precio"),
-                    "moneda": p.get("moneda_precio"),
-                    "m2": p.get("metros_cuadrados"),
-                    "ambientes": p.get("ambientes")
-                })
-            
-            return jsonify(propiedades_simplificadas)
-        else:
+        FILE_PATH = "scraping.json"
+
+        if not os.path.exists(FILE_PATH):
             return jsonify([])
-            
+
+        with open(FILE_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # 🔥 Unificar fuentes si vienen separadas
+        propiedades = []
+        if isinstance(data, dict):
+            for fuente in data.values():
+                propiedades.extend(fuente)
+        else:
+            propiedades = data
+
+        # 🔥 Mapear campos correctamente
+        propiedades_simplificadas = []
+        for p in propiedades:
+            propiedades_simplificadas.append({
+                "id": p.get("id") or p.get("id_temporal"),
+                "titulo": p.get("titulo"),
+                "direccion": p.get("direccion"),
+                "barrio": p.get("barrio"),
+                "tipo": p.get("tipo"),
+                "operacion": p.get("operacion"),
+                "precio": p.get("precio"),
+                "moneda": p.get("moneda") or p.get("moneda_precio"),
+                "m2": p.get("m2") or p.get("metros_cuadrados"),
+                "ambientes": p.get("ambientes")
+            })
+
+        print(f"✅ Propiedades enviadas: {len(propiedades_simplificadas)}")
+
+        return jsonify(propiedades_simplificadas)
+
     except Exception as e:
         log(f"❌ Error en api_propiedades: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
@@ -3446,18 +3457,66 @@ def debug_calendar_key_status():
 
 @app.route('/api/market/stats', methods=['GET'])
 def get_market_stats():
-    """Retorna las estadísticas del último scraping (desde scraping.json)"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
-    
+
     try:
-        if os.path.exists('scraping.json'):
-            with open('scraping.json', 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            return jsonify({"success": True, "data": data})
+        FILE_PATH = "scraping.json"
+
+        if not os.path.exists(FILE_PATH):
+            return jsonify({"success": False, "error": "No data"}), 404
+
+        with open(FILE_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # 🔥 Unificar propiedades
+        propiedades = []
+        if isinstance(data, dict):
+            for fuente in data.values():
+                propiedades.extend(fuente)
         else:
-            return jsonify({"success": False, "error": "No hay datos de mercado generados. Ejecuta un scraping primero."}), 404
+            propiedades = data
+
+        if not propiedades:
+            return jsonify({"success": False, "error": "No properties"})
+
+        # 🔥 Calcular precio por m2
+        precios_m2 = []
+        precios_total = []
+
+        for p in propiedades:
+            precio = p.get("precio", 0)
+            m2 = p.get("m2", 0)
+
+            if precio and m2:
+                precios_m2.append(precio / m2)
+
+            if precio > 0:
+                precios_total.append(precio)
+
+        precios_m2.sort()
+
+        avg_m2 = sum(precios_m2) / len(precios_m2) if precios_m2 else 0
+        median_m2 = precios_m2[len(precios_m2)//2] if precios_m2 else 0
+        min_m2 = min(precios_m2) if precios_m2 else 0
+        max_m2 = max(precios_m2) if precios_m2 else 0
+
+        price_range = f"{min(precios_total)} - {max(precios_total)}" if precios_total else "N/A"
+
+        # 🔥 RESPUESTA EXACTA PARA TU FRONTEND
+        return jsonify({
+            "success": True,
+            "total_properties_analyzed": len(propiedades),
+            "stats": {
+                "average_price_per_m2": round(avg_m2, 2),
+                "median_price_per_m2": round(median_m2, 2),
+                "min_price_per_m2": round(min_m2, 2),
+                "max_price_per_m2": round(max_m2, 2),
+                "price_range_total": price_range
+            }
+        })
+
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
