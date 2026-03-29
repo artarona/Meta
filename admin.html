@@ -2966,72 +2966,51 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
 
         async function cargarEstadisticasMercado() {
             try {
-                console.log('📊 Iniciando carga de datos...');
+                console.log('📊 Cargando datos de mercado...');
                 
                 const response = await fetchConClave('/api/market/stats');
                 const data = response;
                 
-                // CORRECCIÓN: La estructura es data.data.data
                 if (data && data.success && data.data && data.data.data) {
                     const statsData = data.data.data;
                     const properties = statsData.properties || [];
                     
-                    console.log(`📊 Propiedades: ${properties.length}`);
-                    
-                    // === RENDERIZAR TABLA ===
+                    // === TABLA ===
                     const tableContainer = document.getElementById('market-properties-table');
                     if (tableContainer) {
                         if (properties.length === 0) {
                             tableContainer.innerHTML = '§<td colspan="6" style="text-align:center; padding:40px;">No hay propiedades para mostrar§</td>§';
                         } else {
                             let html = '';
-                            properties.forEach(p => {
-                                const title = p.title || 'Sin título';
-                                const address = p.address || 'Dirección no disponible';
-                                const operation = p.operation_type || 'N/A';
-                                const surface = p.surface || 0;
-                                const price = p.price || 0;
-                                const currency = p.currency || 'USD';
-                                const priceM2 = p.price_m2 || 0;
-                                const url = p.url || '#';
-                                const source = p.source || 'desconocido';
-                                const hasWarning = p.surface_warning === true;
-                                
-                                html += `
-                                    <tr style="border-bottom: 1px solid #e2e8f0; ${hasWarning ? 'background: #fffbeb;' : ''}">
-                                        <td style="padding: 12px;">
-                                            <a href="${url}" target="_blank" style="color: #232deb; text-decoration: none;">
-                                                ${title.substring(0, 60)}${title.length > 60 ? '...' : ''}
-                                            </a>
-                                            <div style="font-size: 0.7rem; color: #64748b;">Fuente: ${source}</div>
-                                            ${hasWarning ? '<div style="font-size: 0.7rem; color: #F59E0B;">⚠️ Superficie irreal</div>' : ''}
-                                        </td>
-                                        <td style="padding: 12px;">${address.substring(0, 40)}${address.length > 40 ? '...' : ''}</td>
-                                        <td style="padding: 12px;">
-                                            <span style="background: #f1f5f9; padding: 4px 8px; border-radius: 20px;">
-                                                ${operation === 'venta' ? '💰 Venta' : operation === 'alquiler' ? '🔑 Alquiler' : operation}
-                                            </span>
-                                        </td>
-                                        <td style="padding: 12px;">${surface} m²</td>
-                                        <td style="padding: 12px; font-weight: bold;">${currency} ${price.toLocaleString()}</td>
-                                        <td style="padding: 12px; color: #10b981;">$${Math.round(priceM2).toLocaleString()}</td>
-                                    </tr>
-                                `;
+                            properties.slice(0, 100).forEach(p => {
+                                html += `<tr>
+                                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                                        <a href="${p.url || '#'}" target="_blank" style="color: #232deb; text-decoration: none; font-weight: 500;">
+                                            ${(p.title || 'Sin título').substring(0, 60)}
+                                        </a>
+                                        <div style="font-size: 0.7rem; color: #64748b; margin-top: 4px;">Fuente: ${p.source || 'desconocido'}</div>
+                                    </td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #64748b;">${(p.address || '').substring(0, 40)}</td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                                        <span style="background: #f1f5f9; padding: 4px 8px; border-radius: 20px; font-size: 0.75rem;">
+                                            ${p.operation_type === 'venta' ? '💰 Venta' : p.operation_type === 'alquiler' ? '🔑 Alquiler' : p.operation_type || 'N/A'}
+                                        </span>
+                                    </td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${p.surface || 0} m²</td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">${p.currency || 'USD'} ${(p.price || 0).toLocaleString()}</td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #10b981; font-weight: bold;">$${Math.round(p.price_m2 || 0).toLocaleString()}</td>
+                                </tr>`;
                             });
                             tableContainer.innerHTML = html;
-                            console.log(`✅ Tabla renderizada con ${properties.length} filas`);
+                            console.log(`✅ Tabla renderizada con ${properties.length} propiedades`);
                         }
                     }
                     
-                    // === RENDERIZAR KPIs ===
+                    // === KPIs ===
                     const kpiContainer = document.getElementById('market-kpi-grid');
                     if (kpiContainer) {
                         const stats = statsData.statistics || {};
                         const totalAnalizadas = statsData.total_properties_analyzed || properties.length;
-                        const avgPriceM2 = stats.average_price_per_m2 || 0;
-                        const medianPriceM2 = stats.median_price_per_m2 || 0;
-                        const minPriceM2 = stats.min_price_per_m2 || 0;
-                        const maxPriceM2 = stats.max_price_per_m2 || 0;
                         const sources = statsData.source_breakdown || {};
                         
                         kpiContainer.innerHTML = `
@@ -3041,12 +3020,12 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                                 <div class="stat-trend up">📊 De ${statsData.sample_size || totalAnalizadas} extraídas</div>
                             </div>
                             <div class="stat-card">
-                                <div class="stat-number">$ ${Math.round(avgPriceM2).toLocaleString()}</div>
+                                <div class="stat-number">$ ${Math.round(stats.average_price_per_m2 || 0).toLocaleString()}</div>
                                 <div>Precio Promedio m²</div>
                                 <div class="stat-trend up">💰 Valor de mercado</div>
                             </div>
                             <div class="stat-card">
-                                <div class="stat-number">$ ${Math.round(medianPriceM2).toLocaleString()}</div>
+                                <div class="stat-number">$ ${Math.round(stats.median_price_per_m2 || 0).toLocaleString()}</div>
                                 <div>Precio Mediano m²</div>
                                 <div class="stat-trend">📈 Valor central</div>
                             </div>
@@ -3056,31 +3035,16 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                                 <div class="stat-trend">${Object.keys(sources).map(s => `📌 ${s}`).join(' ')}</div>
                             </div>
                         `;
-                        
-                        // Mostrar rango de precios
-                        if (minPriceM2 > 0 && maxPriceM2 > 0) {
-                            const rangeHTML = `
-                                <div class="stat-card" style="grid-column: span 2;">
-                                    <div class="stat-number">${stats.price_range_total || 'N/A'}</div>
-                                    <div>Rango de Precios</div>
-                                    <div class="stat-trend">💰 ${minPriceM2.toLocaleString()} - ${maxPriceM2.toLocaleString()} USD/m²</div>
-                                </div>
-                            `;
-                            kpiContainer.innerHTML += rangeHTML;
-                        }
-                        
                         console.log('✅ KPIs actualizados');
                     }
                     
-                    // === RENDERIZAR GRÁFICOS ===
-                    renderizarGraficosMercado(statsData);
+                    // === GRÁFICOS ===
+                    if (typeof renderizarGraficosMercado === 'function') {
+                        renderizarGraficosMercado(statsData);
+                    }
                     
                 } else {
                     console.error('❌ Estructura de datos incorrecta');
-                    const tableContainer = document.getElementById('market-properties-table');
-                    if (tableContainer) {
-                        tableContainer.innerHTML = '§<td colspan="6" style="text-align:center; padding:40px;">No hay datos de mercado disponibles. Ejecuta un scraping primero.§</td>§';
-                    }
                 }
             } catch (error) {
                 console.error('❌ Error cargando mercado:', error);
