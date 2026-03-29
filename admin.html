@@ -3073,6 +3073,11 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                         console.log('✅ KPIs actualizados');
                     }
                     
+                    // ============================================
+                    // 👇 AGREGAR ESTA LÍNEA - RENDERIZAR GRÁFICOS 👇
+                    // ============================================
+                    renderizarGraficosMercado(statsData);
+                    
                     // Actualizar banner
                     const banner = document.getElementById('market-status-banner');
                     if (banner && data.data) {
@@ -3104,7 +3109,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 console.error('❌ Error cargando mercado:', error);
             }
         }
-
 
 
 
@@ -3260,33 +3264,49 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             
             // Destruir gráficos anteriores
             if (window.marketCharts) {
-                if (window.marketCharts.bar) window.marketCharts.bar.destroy();
-                if (window.marketCharts.scatter) window.marketCharts.scatter.destroy();
+                if (window.marketCharts.bar) {
+                    window.marketCharts.bar.destroy();
+                    window.marketCharts.bar = null;
+                }
+                if (window.marketCharts.scatter) {
+                    window.marketCharts.scatter.destroy();
+                    window.marketCharts.scatter = null;
+                }
+            } else {
+                window.marketCharts = {};
             }
             
-            window.marketCharts = {};
-            
-            // 1. Gráfico de barras (Precio por barrio)
+            // 1. Gráfico de barras - Precio por Barrio
             const neighborhoodStats = data.neighborhood_stats || {};
-            const neighborhoods = Object.keys(neighborhoodStats).slice(0, 10);
-            const prices = neighborhoods.map(n => {
-                const avg = neighborhoodStats[n].avg_price_m2 || 0;
-                return Math.round(avg);
-            });
+            let neighborhoods = Object.keys(neighborhoodStats);
+            
+            // Filtrar barrios con nombres reales (excluir "Piso X", "Capital Federal", etc.)
+            neighborhoods = neighborhoods.filter(n => 
+                !n.toLowerCase().includes('piso') && 
+                n.length > 3 &&
+                n !== 'Capital Federal'
+            ).slice(0, 10);
+            
+            const prices = neighborhoods.map(n => Math.round(neighborhoodStats[n].avg_price_m2 || 0));
+            
+            console.log('📊 Barrios para gráfico:', neighborhoods.length);
             
             const barCtx = document.getElementById('market-bar-chart');
-            console.log('📊 Bar chart canvas:', barCtx);
-            console.log('📊 Barrios:', neighborhoods);
-            console.log('📊 Precios:', prices);
-            
             if (barCtx && neighborhoods.length > 0) {
-                // Limpiar canvas antes de dibujar
-                barCtx.getContext('2d').clearRect(0, 0, barCtx.width, barCtx.height);
+                // Reemplazar canvas para evitar conflictos
+                const parent = barCtx.parentNode;
+                const newCanvas = document.createElement('canvas');
+                newCanvas.id = 'market-bar-chart';
+                newCanvas.style.height = '350px';
+                newCanvas.style.width = '100%';
+                parent.replaceChild(newCanvas, barCtx);
                 
-                window.marketCharts.bar = new Chart(barCtx, {
+                const freshCtx = document.getElementById('market-bar-chart');
+                
+                window.marketCharts.bar = new Chart(freshCtx, {
                     type: 'bar',
                     data: {
-                        labels: neighborhoods.map(n => n.length > 15 ? n.substring(0, 12) + '...' : n),
+                        labels: neighborhoods,
                         datasets: [{
                             label: 'Precio promedio m² (USD)',
                             data: prices,
@@ -3299,11 +3319,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: { 
-                                display: true,
-                                position: 'top',
-                                labels: { font: { size: 12 } }
-                            },
+                            legend: { display: true, position: 'top' },
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
@@ -3332,22 +3348,13 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                         }
                     }
                 });
-                console.log('✅ Gráfico de barras renderizado');
-            } else if (barCtx) {
+                console.log('✅ Gráfico de barras renderizado con', neighborhoods.length, 'barrios');
+            } else {
                 console.log('⚠️ No hay datos para gráfico de barras');
-                const ctx = barCtx.getContext('2d');
-                ctx.clearRect(0, 0, barCtx.width, barCtx.height);
-                ctx.fillStyle = '#64748b';
-                ctx.font = '14px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('No hay datos suficientes para mostrar gráfico', barCtx.width / 2, barCtx.height / 2);
             }
             
-            // 2. Gráfico de dispersión (Precio vs Superficie)
+            // 2. Gráfico de dispersión - Precio vs Superficie
             const properties = data.properties || [];
-            console.log('📊 Propiedades para scatter:', properties.length);
-            
-            // Filtrar propiedades con superficie válida (entre 20 y 500 m²)
             const scatterData = properties
                 .filter(p => p.surface > 20 && p.surface < 500 && p.price > 0)
                 .map(p => ({ x: p.surface, y: p.price }));
@@ -3356,10 +3363,17 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             
             const scatterCtx = document.getElementById('market-scatter-chart');
             if (scatterCtx && scatterData.length > 0) {
-                // Limpiar canvas
-                scatterCtx.getContext('2d').clearRect(0, 0, scatterCtx.width, scatterCtx.height);
+                // Reemplazar canvas para evitar conflictos
+                const parent = scatterCtx.parentNode;
+                const newCanvas = document.createElement('canvas');
+                newCanvas.id = 'market-scatter-chart';
+                newCanvas.style.height = '350px';
+                newCanvas.style.width = '100%';
+                parent.replaceChild(newCanvas, scatterCtx);
                 
-                window.marketCharts.scatter = new Chart(scatterCtx, {
+                const freshScatterCtx = document.getElementById('market-scatter-chart');
+                
+                window.marketCharts.scatter = new Chart(freshScatterCtx, {
                     type: 'scatter',
                     data: {
                         datasets: [{
@@ -3383,10 +3397,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                                     }
                                 }
                             },
-                            legend: {
-                                display: true,
-                                position: 'top'
-                            }
+                            legend: { display: true, position: 'top' }
                         },
                         scales: {
                             x: {
@@ -3410,14 +3421,8 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                     }
                 });
                 console.log('✅ Gráfico de dispersión renderizado con', scatterData.length, 'puntos');
-            } else if (scatterCtx) {
+            } else {
                 console.log('⚠️ No hay datos para gráfico de dispersión');
-                const ctx = scatterCtx.getContext('2d');
-                ctx.clearRect(0, 0, scatterCtx.width, scatterCtx.height);
-                ctx.fillStyle = '#64748b';
-                ctx.font = '14px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('No hay datos suficientes para mostrar gráfico', scatterCtx.width / 2, scatterCtx.height / 2);
             }
         }
         
