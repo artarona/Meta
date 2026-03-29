@@ -28,7 +28,8 @@ import os
 import json
 import asyncio
 from datetime import datetime
-from fastapi.responses import JSONResponse
+from flask import jsonify
+import traceback
 
 # Configurar logging
 logger = logging.getLogger(__name__)
@@ -77,8 +78,7 @@ def init_scraping_data():
                 print("📊 No hay datos de scraping previos. Ejecuta /api/market/run-scrape para obtenerlos.")
                 logger.info("No hay datos de scraping previos")
         except Exception as e:
-            print(f"⚠️ No se pudo cargar scraping.json: {e}")
-            logger.warning(f"No se pudo cargar scraping.json: {e}")
+            logger.exception("⚠️ Error cargando scraping.json")
 
 
 

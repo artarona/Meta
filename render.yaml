@@ -12,11 +12,18 @@ services:
     startCommand: pip install psycopg2-binary==2.9.9 && gunicorn main:app --bind 0.0.0.0:10000 --workers 1 --threads 4 --timeout 0
     envVars:
       # Rutas críticas para que Selenium encuentre Chrome
+      # - key: GOOGLE_CHROME_BIN
+      #   value: /app/.apt/usr/bin/google-chrome
+      # - key: CHROMEDRIVER_PATH
+      #   value: /app/.chromedriver/bin/chromedriver
       - key: GOOGLE_CHROME_BIN
-        value: /app/.apt/usr/bin/google-chrome
+        value: /usr/bin/chromium
+
       - key: CHROMEDRIVER_PATH
-        value: /app/.chromedriver/bin/chromedriver
-      
+        value: /usr/bin/chromedriver
+
+
+
       # Versión de Python
       - key: PYTHON_VERSION
         value: "3.11.5"
