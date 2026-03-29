@@ -250,6 +250,24 @@
             align-items: center;
         }
 
+
+        /* Asegurar que los botones sean visibles */
+        .filters {
+            flex-wrap: wrap !important;
+        }
+        .btn-success {
+            background: #10b981 !important;
+            color: white !important;
+        }
+        @media (max-width: 768px) {
+            .filters button, .filters .btn {
+                flex: 1;
+                min-width: 100px;
+            }
+        }
+
+
+
         .search-box {
             padding: 0.75rem 1rem;
             border: 1px solid var(--border);
@@ -1083,8 +1101,8 @@
         <div id="tab-mercado" class="tab-content" role="tabpanel" aria-labelledby="mercado-tab">
             <div class="tab-header">
                 <h2>📈 Análisis de Mercado - Dante CRM</h2>
-                <div class="filters">
-                    <input type="text" class="search-box" style="width: 250px;" id="market-zona" list="barrios-list"
+                <div class="filters" style="flex-wrap: wrap; gap: 10px;">
+                    <input type="text" class="search-box" style="width: 180px;" id="market-zona" list="barrios-list"
                         placeholder="📍 Barrio/Zona...">
                     <datalist id="barrios-list">
                         <option value="palermo">Palermo</option>
@@ -1094,21 +1112,18 @@
                         <option value="caballito">Caballito</option>
                         <option value="san telmo">San Telmo</option>
                     </datalist>
-                    <select class="select-filter" id="market-operacion">
+                    <select class="select-filter" id="market-operacion" style="width: 100px;">
                         <option value="venta">Venta</option>
                         <option value="alquiler">Alquiler</option>
                     </select>
-                    <button class="btn btn-primary" onclick="ejecutarScrapingMercado()">
-                        <span>🕷️</span> Ejecutar Scraping
+                    <button class="btn btn-primary" onclick="ejecutarScrapingMercado()" style="padding: 8px 12px; white-space: nowrap;">
+                        🕷️ Scraping
                     </button>
-                    
-                    <button class="btn btn-success" onclick="forzarCargaMercado()" style="background: #10b981;">
-                        <span>🔄</span> Forzar Carga de Datos
+                    <button class="btn btn-success" onclick="forzarCargaMercado()" style="background: #10b981; padding: 8px 12px; white-space: nowrap;">
+                        🔄 Forzar Carga
                     </button>
-                    
-                    
-                    <button class="btn btn-outline" onclick="cargarEstadisticasMercado()">
-                        <span>📊</span> Cargar Datos
+                    <button class="btn btn-outline" onclick="cargarEstadisticasMercado()" style="padding: 8px 12px; white-space: nowrap;">
+                        📊 Recargar
                     </button>
                 </div>
             </div>
