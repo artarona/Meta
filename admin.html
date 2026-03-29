@@ -3269,14 +3269,24 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             // 1. Gráfico de barras (Precio por barrio)
             const neighborhoodStats = data.neighborhood_stats || {};
             const neighborhoods = Object.keys(neighborhoodStats).slice(0, 10);
-            const prices = neighborhoods.map(n => neighborhoodStats[n].avg_price_m2 || 0);
+            const prices = neighborhoods.map(n => {
+                const avg = neighborhoodStats[n].avg_price_m2 || 0;
+                return Math.round(avg);
+            });
             
             const barCtx = document.getElementById('market-bar-chart');
+            console.log('📊 Bar chart canvas:', barCtx);
+            console.log('📊 Barrios:', neighborhoods);
+            console.log('📊 Precios:', prices);
+            
             if (barCtx && neighborhoods.length > 0) {
+                // Limpiar canvas antes de dibujar
+                barCtx.getContext('2d').clearRect(0, 0, barCtx.width, barCtx.height);
+                
                 window.marketCharts.bar = new Chart(barCtx, {
                     type: 'bar',
                     data: {
-                        labels: neighborhoods,
+                        labels: neighborhoods.map(n => n.length > 15 ? n.substring(0, 12) + '...' : n),
                         datasets: [{
                             label: 'Precio promedio m² (USD)',
                             data: prices,
@@ -3289,7 +3299,11 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: { display: false },
+                            legend: { 
+                                display: true,
+                                position: 'top',
+                                labels: { font: { size: 12 } }
+                            },
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
@@ -3300,11 +3314,19 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                         },
                         scales: {
                             y: {
-                                title: { display: true, text: 'Precio por m² (USD)' },
+                                title: { display: true, text: 'Precio por m² (USD)', font: { weight: 'bold' } },
                                 ticks: {
                                     callback: function(value) {
                                         return '$' + value.toLocaleString();
                                     }
+                                }
+                            },
+                            x: {
+                                title: { display: true, text: 'Barrio', font: { weight: 'bold' } },
+                                ticks: {
+                                    maxRotation: 45,
+                                    minRotation: 45,
+                                    autoSkip: true
                                 }
                             }
                         }
@@ -3312,21 +3334,31 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 });
                 console.log('✅ Gráfico de barras renderizado');
             } else if (barCtx) {
+                console.log('⚠️ No hay datos para gráfico de barras');
                 const ctx = barCtx.getContext('2d');
                 ctx.clearRect(0, 0, barCtx.width, barCtx.height);
                 ctx.fillStyle = '#64748b';
                 ctx.font = '14px sans-serif';
-                ctx.fillText('No hay datos suficientes para mostrar gráfico', 50, 200);
+                ctx.textAlign = 'center';
+                ctx.fillText('No hay datos suficientes para mostrar gráfico', barCtx.width / 2, barCtx.height / 2);
             }
             
             // 2. Gráfico de dispersión (Precio vs Superficie)
             const properties = data.properties || [];
+            console.log('📊 Propiedades para scatter:', properties.length);
+            
+            // Filtrar propiedades con superficie válida (entre 20 y 500 m²)
             const scatterData = properties
-                .filter(p => p.surface > 10 && p.surface < 500 && p.price > 0)
+                .filter(p => p.surface > 20 && p.surface < 500 && p.price > 0)
                 .map(p => ({ x: p.surface, y: p.price }));
+            
+            console.log('📊 Datos scatter:', scatterData.length);
             
             const scatterCtx = document.getElementById('market-scatter-chart');
             if (scatterCtx && scatterData.length > 0) {
+                // Limpiar canvas
+                scatterCtx.getContext('2d').clearRect(0, 0, scatterCtx.width, scatterCtx.height);
+                
                 window.marketCharts.scatter = new Chart(scatterCtx, {
                     type: 'scatter',
                     data: {
@@ -3334,8 +3366,10 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                             label: 'Propiedades',
                             data: scatterData,
                             backgroundColor: 'rgba(35, 45, 235, 0.6)',
-                            pointRadius: 8,
-                            pointHoverRadius: 10
+                            pointRadius: 6,
+                            pointHoverRadius: 10,
+                            pointBorderColor: '#232deb',
+                            pointBorderWidth: 1
                         }]
                     },
                     options: {
@@ -3348,15 +3382,24 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                                         return `Superficie: ${context.parsed.x} m² | Precio: USD $${context.parsed.y.toLocaleString()}`;
                                     }
                                 }
+                            },
+                            legend: {
+                                display: true,
+                                position: 'top'
                             }
                         },
                         scales: {
                             x: {
-                                title: { display: true, text: 'Superficie (m²)' },
-                                type: 'linear'
+                                title: { display: true, text: 'Superficie (m²)', font: { weight: 'bold' } },
+                                type: 'linear',
+                                ticks: {
+                                    callback: function(value) {
+                                        return value + ' m²';
+                                    }
+                                }
                             },
                             y: {
-                                title: { display: true, text: 'Precio (USD)' },
+                                title: { display: true, text: 'Precio (USD)', font: { weight: 'bold' } },
                                 ticks: {
                                     callback: function(value) {
                                         return '$' + value.toLocaleString();
@@ -3366,16 +3409,17 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                         }
                     }
                 });
-                console.log('✅ Gráfico de dispersión renderizado');
+                console.log('✅ Gráfico de dispersión renderizado con', scatterData.length, 'puntos');
             } else if (scatterCtx) {
+                console.log('⚠️ No hay datos para gráfico de dispersión');
                 const ctx = scatterCtx.getContext('2d');
                 ctx.clearRect(0, 0, scatterCtx.width, scatterCtx.height);
                 ctx.fillStyle = '#64748b';
                 ctx.font = '14px sans-serif';
-                ctx.fillText('No hay datos suficientes para mostrar gráfico', 50, 200);
+                ctx.textAlign = 'center';
+                ctx.fillText('No hay datos suficientes para mostrar gráfico', scatterCtx.width / 2, scatterCtx.height / 2);
             }
         }
-
         
         async function actualizarBannerStatusMercado() {
             const banner = document.getElementById('market-status-banner');
