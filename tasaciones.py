@@ -132,6 +132,7 @@ def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
 def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado, operacion='venta'):
     """Obtiene una valoración estimada usando el backend de IA con fallback local"""
     try:
+        data_ia = None
         # 1. Intentar con el backend de IA
         url = f"{BASE_URL_AI}/api/valoracion"
         payload = {
@@ -149,23 +150,44 @@ def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado, operacion='venta'):
             if response.status_code == 200:
                 data = response.json()
                 if data.get("success"):
-                    return {
-                        "valor_estimado": data.get("valor_estimado"),
-                        "precio_m2": data.get("precio_m2_referencia"),
-                        "moneda": data.get("moneda", "USD"),
-                        "is_fallback": data.get("is_fallback"),
-                        "fuentes": data.get("fuentes", []),
-                        "muestra": data.get("muestra_size", 0),
-                        "fuente": "Dante AI Valuation",
-                        "detalles": data.get("detalles", {})
-                    }
+                    data_ia = data
         except Exception as conn_err:
-            log(f"📡 Backend IA no alcanzable, usando fallback local: {conn_err}")
+            log(f"📡 Backend IA no alcanzable, intentando fallback local: {conn_err}")
 
-        # 2. Fallback local si el backend falla o no tiene datos específicos
+        # 2. Obtener datos locales de market_valuation_map.json (siempre es bueno tenerlos listos)
         local_data = obtener_tasacion_local(barrio, tipo, estado, operacion)
+
+        # 3. Decidir cuál usar: si IA tuvo éxito y no es fallback, la usamos.
+        if data_ia and not data_ia.get("is_fallback"):
+            return {
+                "valor_estimado": data_ia.get("valor_estimado"),
+                "precio_m2": data_ia.get("precio_m2_referencia"),
+                "moneda": data_ia.get("moneda", "USD"),
+                "is_fallback": False,
+                "fuentes": data_ia.get("fuentes", []),
+                "muestra": data_ia.get("muestra_size", 0),
+                "fuente": "Dante AI Valuation",
+                "detalles": data_ia.get("detalles", {})
+            }
+            
+        # 4. Si la IA devolvió fallback o falló, usamos los datos locales si existen y son reales
+        if local_data and not local_data.get("is_fallback"):
+            # Aplicar ajustes de estado
+            ajustes = {"Excelente": 1.10, "Muy bueno": 1.05, "Bueno": 1.00, "Regular": 0.85, "A refaccionar": 0.70}
+            factor = ajustes.get(estado, 1.0)
+            valor = local_data['precio_m2'] * float(m2) * factor
+            return {
+                "valor_estimado": round(valor, -2),
+                "precio_m2": local_data['precio_m2'],
+                "moneda": local_data.get('moneda', 'USD'),
+                "is_fallback": False,
+                "fuentes": local_data.get("fuentes", []),
+                "muestra": local_data.get("muestra", 0),
+                "fuente": "Mapa de Valoración Local"
+            }
+
+        # 5. Si todo falló (IA en fallback/error y Local no encontrado), usamos el fallback final referencial
         if not local_data:
-            # Fallback final: Promedio referencial CABA si no hay NADA de info
             local_data = {
                 "precio_m2": 2150.0 if operacion == 'venta' else 8500.0,
                 "moneda": "USD" if operacion == 'venta' else "ARS",
@@ -173,18 +195,10 @@ def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado, operacion='venta'):
                 "fuentes": [f"Promedio General CABA ({operacion.upper()})"],
                 "muestra": 0
             }
-        
-        # Calcular valor final basado en promedio obtenido (IA o Local)
-        # Aplicar ajustes de estado (Refined factors)
-        ajustes = {
-            "Excelente": 1.10, 
-            "Muy bueno": 1.05, 
-            "Bueno": 1.00, 
-            "Regular": 0.85, 
-            "A refaccionar": 0.70
-        }
+            
+        # Aplicar factor sobre el fallback final o el fallback de DB local
+        ajustes = {"Excelente": 1.10, "Muy bueno": 1.05, "Bueno": 1.00, "Regular": 0.85, "A refaccionar": 0.70}
         factor = ajustes.get(estado, 1.0)
-        
         valor = local_data['precio_m2'] * float(m2) * factor
         
         return {
