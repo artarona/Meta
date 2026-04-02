@@ -1,4 +1,4 @@
-from config import *
+﻿from config import *
 from utils import *
 from database import *
 from whatsapp_api import *
@@ -35,7 +35,7 @@ import traceback
 logger = logging.getLogger(__name__)
 
 # ============================================
-# INICIALIZACIÓN DEL SCRAPER
+# INICIALIZACIÃ“N DEL SCRAPER
 # ============================================
 
 # Importar el scraping manager
@@ -44,7 +44,7 @@ try:
     SCRAPER_AVAILABLE = True
 except ImportError as e:
     SCRAPER_AVAILABLE = False
-    print(f"⚠️ Scraper no disponible: {e}")
+    print(f"âš ï¸ Scraper no disponible: {e}")
     logger.warning(f"Scraper no disponible: {e}")
 
 # Inicializar scraping manager
@@ -52,19 +52,19 @@ scraping_manager = None
 if SCRAPER_AVAILABLE:
     try:
         scraping_manager = ScrapingManager()
-        print("✅ Scraping Manager inicializado correctamente")
+        print("âœ… Scraping Manager inicializado correctamente")
         logger.info("Scraping Manager inicializado correctamente")
     except Exception as e:
-        print(f"❌ Error inicializando Scraping Manager: {e}")
+        print(f"âŒ Error inicializando Scraping Manager: {e}")
         logger.error(f"Error inicializando Scraping Manager: {e}")
         scraping_manager = None
 
 # ============================================
-# FUNCIÓN DE INICIALIZACIÓN DE DATOS
+# FUNCIÃ“N DE INICIALIZACIÃ“N DE DATOS
 # ============================================
 
 def init_scraping_data():
-    """Inicializa el módulo de scraping al arrancar el servidor"""
+    """Inicializa el mÃ³dulo de scraping al arrancar el servidor"""
     if SCRAPER_AVAILABLE:
         try:
             if os.path.exists('scraping.json'):
@@ -72,13 +72,13 @@ def init_scraping_data():
                     data = json.load(f)
                     timestamp = data.get('scraping_timestamp', 'desconocida')
                     sample = data.get('data', {}).get('sample_size', 0)
-                    print(f"📊 Datos de scraping previos cargados: {sample} propiedades ({timestamp})")
+                    print(f"ðŸ“Š Datos de scraping previos cargados: {sample} propiedades ({timestamp})")
                     logger.info(f"Datos de scraping previos cargados: {sample} propiedades")
             else:
-                print("📊 No hay datos de scraping previos. Ejecuta /api/market/run-scrape para obtenerlos.")
+                print("ðŸ“Š No hay datos de scraping previos. Ejecuta /api/market/run-scrape para obtenerlos.")
                 logger.info("No hay datos de scraping previos")
         except Exception as e:
-            logger.exception("⚠️ Error cargando scraping.json")
+            logger.exception("âš ï¸ Error cargando scraping.json")
 
 
 
@@ -100,42 +100,42 @@ def generar_datos_barrio_vacios(nombre: str) -> dict:
         "resumen_general": f"{nombre_display} es un barrio de Buenos Aires.",
         "puntuacion_general": 50,
         "categorias": {},
-        "conclusion": f"{nombre_display} presenta una opción viable para vivir e invertir."
+        "conclusion": f"{nombre_display} presenta una opciÃ³n viable para vivir e invertir."
     }
 
 def generar_datos_barrio_ai(nombre: str) -> dict:
     """Genera datos de barrio usando IA con prompt mejorado y parseo robusto"""
-    log(f"🤖 Generando datos con IA para: {nombre}")
+    log(f"ðŸ¤– Generando datos con IA para: {nombre}")
     
-    prompt = f"""Genera un análisis completo del barrio '{nombre}' en Buenos Aires en formato JSON PURO.
+    prompt = f"""Genera un anÃ¡lisis completo del barrio '{nombre}' en Buenos Aires en formato JSON PURO.
     NO incluyas markdown (```json ... ```), solo el objeto JSON raw.
     
     Estructura requerida:
     {{
-        "resumen_general": "Breve descripción...",
+        "resumen_general": "Breve descripciÃ³n...",
         "puntuacion_general": 75,
         "categorias": {{
-            "transporte": {{"puntuacion": 70, "descripcion": "...", "estaciones": ["Estación A"], "colectivos": ["10", "12"]}},
+            "transporte": {{"puntuacion": 70, "descripcion": "...", "estaciones": ["EstaciÃ³n A"], "colectivos": ["10", "12"]}},
             "comercio": {{"puntuacion": 70, "descripcion": "...", "supermercados": ["Sup A"], "centros_comerciales": []}},
-            "seguridad": {{"puntuacion": 70, "descripcion": "...", "comisaria": "Comisaría X"}},
+            "seguridad": {{"puntuacion": 70, "descripcion": "...", "comisaria": "ComisarÃ­a X"}},
             "educacion": {{"puntuacion": 70, "descripcion": "...", "escuelas": ["Escuela 1"], "universidades": []}},
             "salud": {{"puntuacion": 70, "descripcion": "...", "hospitales": ["Hospital Z"], "centros_salud": []}},
             "espacios_verdes": {{"puntuacion": 70, "descripcion": "...", "parques": ["Plaza Y"]}},
-            "contaminacion": {{"puntuacion": 70, "descripcion": "...", "nivel_ruido": "Medio", "fuente": "Tráfico"}},
+            "contaminacion": {{"puntuacion": 70, "descripcion": "...", "nivel_ruido": "Medio", "fuente": "TrÃ¡fico"}},
             "vida_barrio": {{"puntuacion": 70, "descripcion": "...", "bares": ["Bar 1"], "cultura": []}},
             "gastronomia": {{"puntuacion": 70, "descripcion": "...", "restaurantes": ["Restaurante 1"], "zonas": []}},
             "servicios_financieros": {{"puntuacion": 70, "descripcion": "...", "bancos": ["Banco A"], "cajeros": []}}
         }},
-        "conclusion": "Conclusión para inversores"
+        "conclusion": "ConclusiÃ³n para inversores"
     }}
     
-    Usa datos REALES de {nombre}. Asegúrate de que sea un JSON válido."""
+    Usa datos REALES de {nombre}. AsegÃºrate de que sea un JSON vÃ¡lido."""
     
     try:
-        log(f"📤 Enviando prompt a Gemini para {nombre}...")
+        log(f"ðŸ“¤ Enviando prompt a Gemini para {nombre}...")
         response = call_gemini_with_rotation(prompt)
         
-        # Limpieza y extracción de JSON
+        # Limpieza y extracciÃ³n de JSON
         response_text = response.strip()
         json_match = re.search(r'(\{.*\})', response_text, re.DOTALL)
         if json_match:
@@ -151,10 +151,10 @@ def generar_datos_barrio_ai(nombre: str) -> dict:
                 data["categorias"] = {}
             return data
         except json.JSONDecodeError as je:
-            log(f"❌ Error decodificando JSON de Gemini: {je}", "ERROR")
+            log(f"âŒ Error decodificando JSON de Gemini: {je}", "ERROR")
             
     except Exception as e:
-        log(f"❌ Error critico en IA para barrio {nombre}: {e}", "ERROR")
+        log(f"âŒ Error critico en IA para barrio {nombre}: {e}", "ERROR")
     
     return generar_datos_barrio_vacios(nombre)
 
@@ -164,7 +164,7 @@ def generar_entorno_json():
         conn = get_barrios_db_connection()
         cursor = conn.cursor()
         
-        # Asegurar que la tabla existe si no se inicializó
+        # Asegurar que la tabla existe si no se inicializÃ³
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='barrios_data'")
         if not cursor.fetchone():
              return {"success": False, "error": "Tabla de barrios no existe"}
@@ -183,18 +183,18 @@ def generar_entorno_json():
             
             nombre_display = nombre.title()
             
-            # Reutilizar lógica de mapeo de main-ai.py
+            # Reutilizar lÃ³gica de mapeo de main-ai.py
             categorias_bd = datos_bd.get('categorias', {})
             
             # Obtener datos de respaldo para lo que falte
             gastronomia_respaldo = get_gastronomy_info(nombre)
             financiero_respaldo = get_financial_info(nombre)
             
-            # Función auxiliar interna para mapear categorías con fallback
+            # FunciÃ³n auxiliar interna para mapear categorÃ­as con fallback
             def get_cat(name, fallback_data):
                 if name in categorias_bd:
                     cat = categorias_bd[name]
-                    # Asegurar campos mínimos
+                    # Asegurar campos mÃ­nimos
                     if name == 'gastronomia':
                         cat['restaurantes_destacados'] = cat.get('restaurantes') or cat.get('restaurantes_destacados') or []
                         cat['zonas_gastronomicas'] = cat.get('zonas') or cat.get('zonas_gastronomicas') or []
@@ -230,7 +230,7 @@ def generar_entorno_json():
             
         return {"success": True, "data": data, "total": len(data)}
     except Exception as e:
-        log(f"❌ Error generando entorno para JSON: {e}", "ERROR")
+        log(f"âŒ Error generando entorno para JSON: {e}", "ERROR")
         return {"success": False, "error": str(e)}
 # key = request.args.get('key')
     # if key != ADMIN_ACCESS_KEY:
@@ -257,7 +257,7 @@ from google.oauth2 import service_account
 # from pdf_generator import generar_pdf_propiedad
 
 
-# ========== CONFIGURACIÓN GOOGLE CALENDAR ==========
+# ========== CONFIGURACIÃ“N GOOGLE CALENDAR ==========
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 SERVICE_ACCOUNT_FILE = 'google_calendar_key.json'
 
@@ -265,9 +265,9 @@ SERVICE_ACCOUNT_FILE = 'google_calendar_key.json'
 try:
     import psycopg2
 except ImportError:
-    print("❌ ERROR: No se encontró 'psycopg2'. Asegúrate de que 'psycopg2-binary' esté en requirements.txt")
-    # En algunos entornos locales podría ser necesario instalarlo manualmente
-    # o usar un fallback si fuera crítico, pero en Render debe venir de requirements.txt
+    print("âŒ ERROR: No se encontrÃ³ 'psycopg2'. AsegÃºrate de que 'psycopg2-binary' estÃ© en requirements.txt")
+    # En algunos entornos locales podrÃ­a ser necesario instalarlo manualmente
+    # o usar un fallback si fuera crÃ­tico, pero en Render debe venir de requirements.txt
     psycopg2 = None
 
 from functools import lru_cache
@@ -284,7 +284,7 @@ whatsapp_token_cache = {"valid": False, "expires_at": 0}
 whatsapp_token_lock = threading.Lock()
 
 
-# Los valores de configuración se importan desde 'config.py'
+# Los valores de configuraciÃ³n se importan desde 'config.py'
 # VERIFY_TOKEN, ACCESS_TOKEN, PHONE_NUMBER_ID, ADMIN_NUMBER, etc.
 BASE_URL = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")
 BASE_URL_AI = os.environ.get("BASE_URL_AI", "http://localhost:8001")
@@ -297,14 +297,14 @@ FICHAS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fichas")
 os.makedirs(FICHAS_DIR, exist_ok=True)
 
 
-# ========== CONFIGURACIÓN DE CITAS ==========
+# ========== CONFIGURACIÃ“N DE CITAS ==========
 CITAS_DISPONIBLES = [
     "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
     "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
     "17:00", "17:30", "18:00", "18:30"
 ]
 
-# === INICIALIZACIÓN DE LA BASE DE DATOS DE BARRIOS ===
+# === INICIALIZACIÃ“N DE LA BASE DE DATOS DE BARRIOS ===
 def init_barrios_db():
     conn = get_barrios_db_connection()
     cursor = conn.cursor()
@@ -319,7 +319,7 @@ def init_barrios_db():
     ''')
     conn.commit()
     conn.close()
-    log("✅ Base de datos de barrios inicializada")
+    log("âœ… Base de datos de barrios inicializada")
 
 # Llamar directamente para asegurar que existe
 init_barrios_db()
@@ -329,11 +329,11 @@ init_barrios_db()
 # ========== ENDPOINT PARA FICHAS PDF ==========
 @app.route('/fichas/<prop_id>')
 def serve_ficha_pdf(prop_id):
-    """Sirve la ficha técnica en PDF de una propiedad (debe estar pre-generada)"""
+    """Sirve la ficha tÃ©cnica en PDF de una propiedad (debe estar pre-generada)"""
     try:
         # Limpiar el ID por si viene con .pdf o espacios
         prop_id = prop_id.replace('.pdf', '').strip()
-        log(f"📂 Solicitud de ficha para: '{prop_id}' (DIR: {FICHAS_DIR})")
+        log(f"ðŸ“‚ Solicitud de ficha para: '{prop_id}' (DIR: {FICHAS_DIR})")
         
         # Intentar varias combinaciones de nombres
         posibles_rutas = [
@@ -345,34 +345,34 @@ def serve_ficha_pdf(prop_id):
         
         filepath = None
         for ruta in posibles_rutas:
-            log(f"🔍 Buscando ficha en: {ruta}")
+            log(f"ðŸ” Buscando ficha en: {ruta}")
             if os.path.exists(ruta):
                 filepath = ruta
                 break
         
         # Verificar si existe el archivo
         if not filepath:
-            log(f"❌ FICHA NO ENCONTRADA tras agotar opciones para: {prop_id}", "ERROR")
-            # Listar qué archivos hay para depurar
+            log(f"âŒ FICHA NO ENCONTRADA tras agotar opciones para: {prop_id}", "ERROR")
+            # Listar quÃ© archivos hay para depurar
             try:
                 archivos = os.listdir(FICHAS_DIR)
-                log(f"📁 Archivos disponibles en {FICHAS_DIR}: {archivos[:10]}...")
+                log(f"ðŸ“ Archivos disponibles en {FICHAS_DIR}: {archivos[:10]}...")
             except: pass
             
-            return f"La ficha técnica para {prop_id} no está disponible actualmente. Un asesor puede enviártela manualmente.", 404
+            return f"La ficha tÃ©cnica para {prop_id} no estÃ¡ disponible actualmente. Un asesor puede enviÃ¡rtela manualmente.", 404
         
         return send_file(filepath, mimetype='application/pdf')
     except Exception as e:
-        log(f"❌ Error sirviendo PDF {prop_id}: {e}", "ERROR")
+        log(f"âŒ Error sirviendo PDF {prop_id}: {e}", "ERROR")
         return "Error al acceder al documento", 500
 
-# ========== SERVIDOR DE IMÁGENES PARA CATÁLOGO ==========
+# ========== SERVIDOR DE IMÃGENES PARA CATÃLOGO ==========
 @app.route('/imgs/<path:filename>')
 def serve_image(filename):
-    """Sirve imágenes de la carpeta imgs/ para que Meta las pueda descargar"""
+    """Sirve imÃ¡genes de la carpeta imgs/ para que Meta las pueda descargar"""
     return send_from_directory('imgs', filename)
 
-# ========== DATA FEED PARA CATÁLOGO DE META ==========
+# ========== DATA FEED PARA CATÃLOGO DE META ==========
 @app.route('/api/catalog/feed')
 def catalog_feed():
     """Genera un archivo CSV compatible con Meta Commerce Manager (Home Listings)"""
@@ -418,7 +418,7 @@ def catalog_feed():
             # Link a la ficha (usamos el PDF como destino)
             link = f"{BASE_URL}/fichas/{pid}"
             
-            # Ubicación
+            # UbicaciÃ³n
             direccion = p.get('direccion_completa', p.get('direccion', 'Capital Federal, Argentina'))
             barrio = p.get('barrio', 'Buenos Aires')
             
@@ -440,7 +440,7 @@ def catalog_feed():
                 price_str,
                 image_link,
                 link,
-                p.get('descripcion', '')[:1000], # Limitar descripción
+                p.get('descripcion', '')[:1000], # Limitar descripciÃ³n
                 p_type,
                 p.get('ambientes', 1),
                 p.get('metros_cuadrados', 0),
@@ -451,15 +451,15 @@ def catalog_feed():
         return csv_data, 200, {'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename=catalog_feed.csv'}
         
     except Exception as e:
-        log(f"❌ Error generando Feed de Catálogo: {e}", "ERROR")
+        log(f"âŒ Error generando Feed de CatÃ¡logo: {e}", "ERROR")
         return "Error interno", 500
 
 # ============================================
-# 🎯 ENDPOINTS DE BARRIOS E IA (NUEVOS)
+# ðŸŽ¯ ENDPOINTS DE BARRIOS E IA (NUEVOS)
 # ============================================
 @app.route("/api/barrios/generate-json", methods=["GET"])
 def exportar_json_barrios():
-    """Genera y devuelve el entorno.json dinámico"""
+    """Genera y devuelve el entorno.json dinÃ¡mico"""
     auth_key = request.args.get('key')
     if auth_key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
@@ -482,7 +482,7 @@ def listar_barrios():
         barrios = []
         for row in rows:
             try:
-                # Intentar calcular puntuación general rápida si no está en la DB
+                # Intentar calcular puntuaciÃ³n general rÃ¡pida si no estÃ¡ en la DB
                 barrios.append({
                     'nombre': row['nombre'], 
                     'actualizado_por': row['actualizado_por'],
@@ -506,7 +506,7 @@ def obtener_barrio_flask(nombre):
         cursor.execute('SELECT nombre, data FROM barrios_data WHERE LOWER(nombre) = LOWER(?)', (nombre.strip(),))
         row = cursor.fetchone()
         if not row:
-            # Fallback a datos vacíos si no existe
+            # Fallback a datos vacÃ­os si no existe
             return jsonify({"success": True, "nombre": nombre, "data": generar_datos_barrio_vacios(nombre)})
             
         data = json.loads(row['data'])
@@ -625,11 +625,11 @@ def regenerar_barrio_flask(nombre):
         conn.close()
 
 
-# ========== GESTIÓN DE ESTADO DE USUARIOS ==========
+# ========== GESTIÃ“N DE ESTADO DE USUARIOS ==========
 estados_usuarios = {}
-processed_message_ids = deque(maxlen=1000)  # Aumentado para manejar más mensajes
+processed_message_ids = deque(maxlen=1000)  # Aumentado para manejar mÃ¡s mensajes
 
-# ========== CONEXIÓN A POSTGRESQL (Render) ==========
+# ========== CONEXIÃ“N A POSTGRESQL (Render) ==========
 
 
 
@@ -637,17 +637,17 @@ processed_message_ids = deque(maxlen=1000)  # Aumentado para manejar más mensaj
     
     
     
-# ========== FUNCIONES MEJORADAS CON CACHÉ ==========
+# ========== FUNCIONES MEJORADAS CON CACHÃ‰ ==========
 
 
 
             
             
-# ========== GESTIÓN DE LEADS MEJORADA ==========
+# ========== GESTIÃ“N DE LEADS MEJORADA ==========
 
         # NO fallar completamente, solo loguear error
 
-# ========== CARGAR PROPIEDADES CON VALIDACIÓN ==========
+# ========== CARGAR PROPIEDADES CON VALIDACIÃ“N ==========
 PROPIEDADES_FILE = "propiedades.json"
 
 
@@ -667,9 +667,9 @@ def get_bot_response(text, user_id):
         text_lower = text.lower().strip()
         
         estado_usuario = obtener_estado_usuario(user_id)
-        log(f"👤 Usuario {user_id}: {estado_usuario['paso']}")
+        log(f"ðŸ‘¤ Usuario {user_id}: {estado_usuario['paso']}")
         
-        # 0. COMANDOS DE ADMINISTRADOR (Solo para el número de agente)
+        # 0. COMANDOS DE ADMINISTRADOR (Solo para el nÃºmero de agente)
         # Comparar con ADMIN_NUMBER (que es el emisor en config) o AGENT_NUMBER (que recibe alertas)
         if str(user_id) == str(ADMIN_NUMBER).lstrip('+') or str(user_id) == str(AGENT_NUMBER).lstrip('+'):
             if text_lower.startswith("dolar:"):
@@ -677,10 +677,10 @@ def get_bot_response(text, user_id):
                     nuevo_valor = float(text_lower.split(":")[1].strip())
                     import config
                     config.DOLAR_VALOR = nuevo_valor
-                    log(f"💰 ADMIN: Dólar actualizado a {nuevo_valor} por {user_id}")
-                    return f"✅ *Dólar actualizado a ${nuevo_valor}*\nEste valor se usará para todas las tasaciones nuevas."
+                    log(f"ðŸ’° ADMIN: DÃ³lar actualizado a {nuevo_valor} por {user_id}")
+                    return f"âœ… *DÃ³lar actualizado a ${nuevo_valor}*\nEste valor se usarÃ¡ para todas las tasaciones nuevas."
                 except Exception as e:
-                    return f"❌ Error al actualizar dólar: {e}"
+                    return f"âŒ Error al actualizar dÃ³lar: {e}"
 
         # 1. COMANDOS UNIVERSALES
         if text_lower in ["9", "menu", "principal", "inicio"]:
@@ -701,7 +701,7 @@ def get_bot_response(text, user_id):
                 'propiedades_filtradas': []
             })
             actualizar_estado_usuario(user_id, estado_usuario)
-            return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
+            return "Â¡Gracias por confiar en Dante Propiedades! ðŸ ðŸ—ï¸"
 
         # Comandos de compatibilidad
         if text_lower in ["hola", "hi", "hello", "volver", "atras"]:
@@ -722,21 +722,21 @@ def get_bot_response(text, user_id):
             
             if indice and 1 <= indice <= len(propiedades):
                 propiedad = propiedades[indice - 1]
-                log(f"🎯 ACCIÓN: Me interesa (Prop ID: {propiedad.get('id_temporal')})")
+                log(f"ðŸŽ¯ ACCIÃ“N: Me interesa (Prop ID: {propiedad.get('id_temporal')})")
                 estado_usuario['paso'] = 'esperando_nombre_lead'
                 actualizar_estado_usuario(user_id, estado_usuario)
                 
                 # REGISTRAR LEAD INMEDIATAMENTE - FIX PostgreSQL
                 try:
-                    registrar_lead(user_id, propiedad.get('id_temporal'), 'click_me_interesa', f"Interés expresado en Propiedad: {propiedad.get('titulo')}")
-                    # NOTIFICACIÓN INMEDIATA AL AGENTE
-                    notificar_agente(f"👀 *INTERÉS INICIAL*\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad.get('titulo')}\n_(Esperando que el usuario ingrese su nombre...)_")
+                    registrar_lead(user_id, propiedad.get('id_temporal'), 'click_me_interesa', f"InterÃ©s expresado en Propiedad: {propiedad.get('titulo')}")
+                    # NOTIFICACIÃ“N INMEDIATA AL AGENTE
+                    notificar_agente(f"ðŸ‘€ *INTERÃ‰S INICIAL*\nðŸ“ž Tel: +{user_id}\nðŸ  Propiedad: {propiedad.get('titulo')}\n_(Esperando que el usuario ingrese su nombre...)_")
                 except Exception as e:
-                    log(f"⚠️ Error registrando lead inicial: {e}")
+                    log(f"âš ï¸ Error registrando lead inicial: {e}")
                     
-                return f"✅ ¡Genial! Me interesa la propiedad: *{propiedad.get('titulo')}*.\n\nPor favor, decime tu *Nombre y Apellido* para que un asesor te contacte."
+                return f"âœ… Â¡Genial! Me interesa la propiedad: *{propiedad.get('titulo')}*.\n\nPor favor, decime tu *Nombre y Apellido* para que un asesor te contacte."
             else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado."
+                return "âš ï¸ Por favor, primero selecciona una propiedad del listado."
 
         if text_lower == "f":
             indice = estado_usuario.get('ultimo_indice_preguntado')
@@ -745,7 +745,7 @@ def get_bot_response(text, user_id):
                 propiedad = propiedades[indice - 1]
                 return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
             else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
+                return "âš ï¸ Por favor, primero selecciona una propiedad del listado para ver las fotos."
         
         if text_lower == "p":
             indice = estado_usuario.get('ultimo_indice_preguntado')
@@ -753,11 +753,11 @@ def get_bot_response(text, user_id):
             if indice and 1 <= indice <= len(propiedades):
                 propiedad = propiedades[indice - 1]
                 prop_id = propiedad.get('id_temporal')
-                return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
+                return f"ðŸ“„ *AquÃ­ tenÃ©s la ficha tÃ©cnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
             else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado para obtener el PDF."
+                return "âš ï¸ Por favor, primero selecciona una propiedad del listado para obtener el PDF."
         
-        # 3. LÓGICA POR ESTADO
+        # 3. LÃ“GICA POR ESTADO
         paso = estado_usuario['paso']
         
         if paso == 'submenu_consultar':
@@ -827,46 +827,46 @@ def get_bot_response(text, user_id):
             return manejar_tasacion_contacto(text_lower, estado_usuario, user_id)
         
         elif paso == 'vista_fotos':
-            return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
+            return "Para ver fotos, envÃ­a 'F' cuando estÃ©s en el detalle de una propiedad."
 
         # 4. BUSCADOR POR TEXTO (Nuevo) - SOLAMENTE SI NO HAY ESTADO ACTIVO PRIORITARIO
         # Y si el paso es menu_principal o resultado_busqueda
         if text_lower.startswith("buscar ") or (len(text_lower) > 3 and paso == 'menu_principal' and not text_lower.isdigit()):
-            # DETECTAR SI ES UNA FECHA PERO SE PERDIÓ EL CONTEXTO
+            # DETECTAR SI ES UNA FECHA PERO SE PERDIÃ“ EL CONTEXTO
             fecha_detectada = analizar_fecha(text_lower)
             if fecha_detectada and len(text_lower.split()) <= 3: # Si es una fecha corta
-                return """⚠️ *Sesión expirada o contexto perdido*
+                return """âš ï¸ *SesiÃ³n expirada o contexto perdido*
                 
-Parece que querías agendar una fecha, pero no tengo seleccionada ninguna propiedad en este momento.
+Parece que querÃ­as agendar una fecha, pero no tengo seleccionada ninguna propiedad en este momento.
 
 Por favor:
-1. Envía 'Hola' para ver el menú
+1. EnvÃ­a 'Hola' para ver el menÃº
 2. Busca la propiedad nuevamente
 3. Selecciona 'Agendar Cita'"""
 
             termino = text_lower.replace("buscar ", "").strip()
             return manejar_busqueda_keywords(termino, estado_usuario, user_id)
 
-        # 5. OPCIONES DEL MENÚ PRINCIPAL
+        # 5. OPCIONES DEL MENÃš PRINCIPAL
         if paso == 'menu_principal':
             return manejar_menu_principal(text_lower, estado_usuario, user_id)
         
         # Respuesta por defecto
-        return """No pude identificar esa opción. Por favor elegí un número del menú.
+        return """No pude identificar esa opciÃ³n. Por favor elegÃ­ un nÃºmero del menÃº.
 
-9️⃣ *Volver al menú principal*
-0️⃣ *Salir del chat*"""
+9ï¸âƒ£ *Volver al menÃº principal*
+0ï¸âƒ£ *Salir del chat*"""
 
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
-        log(f"🔥 ERROR EN get_bot_response: {e}\n{error_trace}")
-        return "❌ *Lo siento, ocurrió un error interno.*\n\nPor favor, intenta de nuevo enviando 'Hola' o contacta al administrador."
+        log(f"ðŸ”¥ ERROR EN get_bot_response: {e}\n{error_trace}")
+        return "âŒ *Lo siento, ocurriÃ³ un error interno.*\n\nPor favor, intenta de nuevo enviando 'Hola' o contacta al administrador."
 
 
 # ========== MANEJADORES DE ESTADO ==========
 
-# ========== MANEJADORES DE TASACIÓN ==========
+# ========== MANEJADORES DE TASACIÃ“N ==========
 
 
 
@@ -878,7 +878,7 @@ Por favor:
 
 
 
-# ========== MANEJADORES DE SUBMENÚS ==========
+# ========== MANEJADORES DE SUBMENÃšS ==========
 
 
 
@@ -895,20 +895,20 @@ def manejar_respuesta_feedback(text, estado_usuario, user_id):
     propiedad = data_obj.get('propiedad_feedback', 'la propiedad')
     nombre = estado_usuario.get('nombre_cliente', 'Cliente')
     
-    log(f"📩 FEEDBACK RECIBIDO de {user_id}: {text}")
+    log(f"ðŸ“© FEEDBACK RECIBIDO de {user_id}: {text}")
     
     # Notificar al agente
-    mensaje_agente = f"🚩 *NUEVO FEEDBACK RECIBIDO*\n\n"
-    mensaje_agente += f"👤 *Cliente:* {nombre} ({user_id})\n"
-    mensaje_agente += f"🏠 *Propiedad:* {propiedad}\n"
-    mensaje_agente += f"💬 *Respuesta:* {text}"
+    mensaje_agente = f"ðŸš© *NUEVO FEEDBACK RECIBIDO*\n\n"
+    mensaje_agente += f"ðŸ‘¤ *Cliente:* {nombre} ({user_id})\n"
+    mensaje_agente += f"ðŸ  *Propiedad:* {propiedad}\n"
+    mensaje_agente += f"ðŸ’¬ *Respuesta:* {text}"
     
     try:
         notificar_agente(mensaje_agente)
     except Exception as e:
-        log(f"⚠️ Error notificando feedback al agente: {e}")
+        log(f"âš ï¸ Error notificando feedback al agente: {e}")
     
-    # Reset estado a menú principal
+    # Reset estado a menÃº principal
     estado_usuario.update({
         'paso': 'menu_principal',
         'operacion_seleccionada': None,
@@ -916,7 +916,7 @@ def manejar_respuesta_feedback(text, estado_usuario, user_id):
     })
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    return f"¡Muchas gracias por tu respuesta, *{nombre}*! 🙌 Ya le pasé tus comentarios al asesor responsable. Se va a estar contactando con vos a la brevedad. 😊\n\n¿En qué más te puedo ayudar?\n\n1️⃣ Ver más propiedades\n9️⃣ Volver al menú principal"
+    return f"Â¡Muchas gracias por tu respuesta, *{nombre}*! ðŸ™Œ Ya le pasÃ© tus comentarios al asesor responsable. Se va a estar contactando con vos a la brevedad. ðŸ˜Š\n\nÂ¿En quÃ© mÃ¡s te puedo ayudar?\n\n1ï¸âƒ£ Ver mÃ¡s propiedades\n9ï¸âƒ£ Volver al menÃº principal"
 
 
 
@@ -927,21 +927,19 @@ def manejar_respuesta_feedback(text, estado_usuario, user_id):
 
 def mostrar_panel_admin():
     """Muestra el panel administrativo para Dante"""
-    return f"""🔐 *PANEL ADMINISTRATIVO*
+    return f"""ðŸ” *PANEL ADMINISTRATIVO*
 
-Hola Dante 👋
+Hola Dante ðŸ‘‹
 
 Opciones disponibles:
 
-📊 *1. Ver dashboard principal*
-📅 *2. Gestionar citas*
-👥 *3. Ver leads*
-🏠 *4. Gestionar propiedades*
-📈 *5. Ver estadísticas*
+ðŸ“Š *1. Ver dashboard principal*
+ðŸ“… *2. Gestionar citas*
+ðŸ‘¥ *3. Ver leads*
+ðŸ  *4. Gestionar propiedades*
+ðŸ“ˆ *5. Ver estadÃ­sticas*
 
-📱 *0. Volver al menú principal*"""
-
-
+ðŸ“± *0. Volver al menÃº principal*"""
 
 
 
@@ -950,7 +948,9 @@ Opciones disponibles:
 
 
 
-# Helper para mostrar horarios (extraído para reusar)
+
+
+# Helper para mostrar horarios (extraÃ­do para reusar)
 
 
 def manejar_busqueda_keywords(termino, estado_usuario, user_id):
@@ -973,7 +973,7 @@ def manejar_busqueda_keywords(termino, estado_usuario, user_id):
             resultados.append(p)
             
     if not resultados:
-        return f"🔍 No encontré propiedades que coincidan con *'{termino}*. \n\nIntentá con otras palabras (ej: 'casa parque') o enviá 'Hola' para ver todo.\n0️⃣ *❌ SALIR*"
+        return f"ðŸ” No encontrÃ© propiedades que coincidan con *'{termino}*. \n\nIntentÃ¡ con otras palabras (ej: 'casa parque') o enviÃ¡ 'Hola' para ver todo.\n0ï¸âƒ£ *âŒ SALIR*"
         
     estado_usuario.update({
         'paso': 'listado_propiedades',
@@ -982,21 +982,21 @@ def manejar_busqueda_keywords(termino, estado_usuario, user_id):
     })
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    mensaje = f"🔎 *Resultados para: {termino}* ({len(resultados)})\n\n"
+    mensaje = f"ðŸ”Ž *Resultados para: {termino}* ({len(resultados)})\n\n"
     for i, p in enumerate(resultados[:5]):
-        mensaje += f"*{i+1}️⃣ {p.get('titulo')}*\n📍 {p.get('barrio', 'S/D')} - ${p.get('precio', 'S/D')}\n\n"
+        mensaje += f"*{i+1}ï¸âƒ£ {p.get('titulo')}*\nðŸ“ {p.get('barrio', 'S/D')} - ${p.get('precio', 'S/D')}\n\n"
     
     if len(resultados) > 5:
-        mensaje += "📝 _Mostrando los primeros 5 resultados..._\n"
+        mensaje += "ðŸ“ _Mostrando los primeros 5 resultados..._\n"
         
-    mensaje += "\n👉 *Respondé con el número* (1, 2, 3...) para ver más detalle.\n"
-    mensaje += "0️⃣ *❌ SALIR*"
+    mensaje += "\nðŸ‘‰ *RespondÃ© con el nÃºmero* (1, 2, 3...) para ver mÃ¡s detalle.\n"
+    mensaje += "0ï¸âƒ£ *âŒ SALIR*"
     return mensaje
 
 
 # ========== FUNCIONES DE WHATSAPP API MEJORADAS ==========
 # def check_token_validity():
-#     """Verifica si el token de acceso es válido"""
+#     """Verifica si el token de acceso es vÃ¡lido"""
 #     try:
 #         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}"
 #         headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
@@ -1004,20 +1004,20 @@ def manejar_busqueda_keywords(termino, estado_usuario, user_id):
         
 #         if response.status_code == 200:
 #             data = response.json()
-#             log(f"✅ Token válido: {data.get('verified_name', 'N/A')}")
+#             log(f"âœ… Token vÃ¡lido: {data.get('verified_name', 'N/A')}")
 #             return True, data
 #         else:
 #             error_data = response.json() if response.content else {}
-#             log(f"❌ Token inválido: Status {response.status_code}")
+#             log(f"âŒ Token invÃ¡lido: Status {response.status_code}")
 #             return False, error_data
             
 #     except Exception as e:
-#         log(f"🔥 Error verificando token: {e}")
+#         log(f"ðŸ”¥ Error verificando token: {e}")
 #         return False, {"error": str(e)}
 
 
 def check_token_validity():
-    """Verifica si el token de acceso es válido"""
+    """Verifica si el token de acceso es vÃ¡lido"""
     try:
         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}?fields=verified_name"
         headers = {
@@ -1029,17 +1029,17 @@ def check_token_validity():
 
         if response.status_code == 200:
             data = response.json()
-            log(f"✅ Token válido. Verified name: {data.get('verified_name', 'N/A')}")
+            log(f"âœ… Token vÃ¡lido. Verified name: {data.get('verified_name', 'N/A')}")
             return True, data
 
         else:
             error_data = response.json() if response.content else {}
-            log(f"❌ Token inválido o sin permisos. Status {response.status_code}")
+            log(f"âŒ Token invÃ¡lido o sin permisos. Status {response.status_code}")
             log(f"Detalles: {error_data}")
             return False, error_data
 
     except Exception as e:
-        log(f"🔥 Error verificando token: {e}")
+        log(f"ðŸ”¥ Error verificando token: {e}")
         return False, {"error": str(e)}
     
     
@@ -1047,38 +1047,38 @@ def check_token_validity():
 
 # def notificar_agente(mensaje):
 #     """
-#     Envía una notificación al Agente (Dante).
+#     EnvÃ­a una notificaciÃ³n al Agente (Dante).
 #     Prioriza la variable de Render, luego la de config, y finalmente el hardcode.
 #     """
 #     # 1. Intentamos leer de Render directamente para evitar cache del config
-#     # 2. Si no está en Render, buscamos si existe en el objeto config
-#     # 3. Si todo falla, usamos tu número personal directamente.
+#     # 2. Si no estÃ¡ en Render, buscamos si existe en el objeto config
+#     # 3. Si todo falla, usamos tu nÃºmero personal directamente.
     
 #     try:
 #         from config import AGENT_NUMBER
 #     except ImportError:
 #         AGENT_NUMBER = "5491136809319"
 
-#     # VALIDACIÓN DINÁMICA: 
-#     # Si la variable es igual al emisor, la forzamos al número correcto.
+#     # VALIDACIÃ“N DINÃMICA: 
+#     # Si la variable es igual al emisor, la forzamos al nÃºmero correcto.
 #     destino = os.getenv("AGENT_NUMBER", AGENT_NUMBER)
     
 #     if destino == ADMIN_NUMBER or destino == "5491176596523":
-#         log(f"⚠️ Detectado conflicto de números. Forzando destino al personal.")
+#         log(f"âš ï¸ Detectado conflicto de nÃºmeros. Forzando destino al personal.")
 #         destino = "5491136809319"
 
-#     log(f"📢 Preparando notificación para el agente ({destino}): {mensaje[:30]}...")
+#     log(f"ðŸ“¢ Preparando notificaciÃ³n para el agente ({destino}): {mensaje[:30]}...")
     
 #     # Armamos el texto final
-#     texto_alerta = f"🔔 *ALERTA DANTE PROPIEDADES*\n\n{mensaje}"
+#     texto_alerta = f"ðŸ”” *ALERTA DANTE PROPIEDADES*\n\n{mensaje}"
     
-#     # Llamamos a la función de envío original
+#     # Llamamos a la funciÃ³n de envÃ­o original
 #     resultado = send_whatsapp_message(destino, texto_alerta)
     
 #     if resultado.get("status") == "success":
-#         log(f"✅ Notificación enviada al agente: {resultado.get('message_id')}")
+#         log(f"âœ… NotificaciÃ³n enviada al agente: {resultado.get('message_id')}")
 #     else:
-#         log(f"❌ Error notificando al agente: {resultado.get('error_message')}", "ERROR")
+#         log(f"âŒ Error notificando al agente: {resultado.get('error_message')}", "ERROR")
         
 #     return resultado
 
@@ -1094,7 +1094,7 @@ def favicon():
 
 @app.route("/")
 def home():
-    """Página principal"""
+    """PÃ¡gina principal"""
     propiedades = cargar_propiedades_cached()
     ventas = len([p for p in propiedades if p.get('operacion') == 'venta'])
     alquileres = len([p for p in propiedades if p.get('operacion') == 'alquiler'])
@@ -1103,7 +1103,7 @@ def home():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>🏠 WhatsApp Bot - Dante Propiedades</title>
+        <title>ðŸ  WhatsApp Bot - Dante Propiedades</title>
         <style>
             body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
             .status {{ padding: 10px; border-radius: 5px; margin: 10px 0; }}
@@ -1117,43 +1117,43 @@ def home():
         </style>
     </head>
     <body>
-        <h1>🏠 WhatsApp Bot - Dante Propiedades</h1>
+        <h1>ðŸ  WhatsApp Bot - Dante Propiedades</h1>
         
         <div class="info-box">
-            <h3>🤖 Información del Bot Inmobiliario</h3>
-            <p><strong>📞 Número Sandbox:</strong> +1 555 149 2382</p>
-            <p><strong>📊 Propiedades cargadas:</strong> {len(propiedades)} propiedades disponibles</p>
-            <p><strong>🚀 Instrucciones:</strong> Envía "Hola" al número de WhatsApp para comenzar</p>
+            <h3>ðŸ¤– InformaciÃ³n del Bot Inmobiliario</h3>
+            <p><strong>ðŸ“ž NÃºmero Sandbox:</strong> +1 555 149 2382</p>
+            <p><strong>ðŸ“Š Propiedades cargadas:</strong> {len(propiedades)} propiedades disponibles</p>
+            <p><strong>ðŸš€ Instrucciones:</strong> EnvÃ­a "Hola" al nÃºmero de WhatsApp para comenzar</p>
         </div>
         
         <div class="prop-stats">
             <div class="stat-box">
-                <h3>💰 VENTA</h3>
+                <h3>ðŸ’° VENTA</h3>
                 <p style="font-size: 24px; font-weight: bold; color: #28a745;">{ventas}</p>
                 <p>propiedades</p>
             </div>
             <div class="stat-box">
-                <h3>🔑 ALQUILER</h3>
+                <h3>ðŸ”‘ ALQUILER</h3>
                 <p style="font-size: 24px; font-weight: bold; color: #17a2b8;">{alquileres}</p>
                 <p>propiedades</p>
             </div>
             <div class="stat-box">
-                <h3>📋 TOTAL</h3>
+                <h3>ðŸ“‹ TOTAL</h3>
                 <p style="font-size: 24px; font-weight: bold; color: #6f42c1;">{len(propiedades)}</p>
                 <p>propiedades</p>
             </div>
         </div>
         
-        <h2>🔧 Pruebas del Sistema</h2>
-        <button class="test-btn" onclick="testSend()">Probar envío manual</button>
+        <h2>ðŸ”§ Pruebas del Sistema</h2>
+        <button class="test-btn" onclick="testSend()">Probar envÃ­o manual</button>
         <button class="test-btn" onclick="testMenu()">Probar flujo de propiedades</button>
         <div id="testResult" style="margin-top: 10px;"></div>
         
-        <h2>🔑 Estado del Token</h2>
+        <h2>ðŸ”‘ Estado del Token</h2>
         <div id="tokenStatus" class="status">Verificando token...</div>
-        <p><a href="/token-help" target="_blank">📖 Instrucciones para renovar token</a></p>
+        <p><a href="/token-help" target="_blank">ðŸ“– Instrucciones para renovar token</a></p>
         
-        <h2>📊 Sistema y Propiedades</h2>
+        <h2>ðŸ“Š Sistema y Propiedades</h2>
         <p>
             <a href="/health">Ver estado del sistema</a> | 
             <a href="/webhook" target="_blank">Verificar webhook</a> | 
@@ -1168,13 +1168,13 @@ def home():
                         const tokenDiv = document.getElementById('tokenStatus');
                         if (data.valid) {{
                             tokenDiv.className = 'status success';
-                            tokenDiv.innerHTML = '<strong>✅ TOKEN VÁLIDO:</strong> Conectado a Meta API<br>' +
+                            tokenDiv.innerHTML = '<strong>âœ… TOKEN VÃLIDO:</strong> Conectado a Meta API<br>' +
                                                  '<strong>Nombre:</strong> ' + (data.name || 'N/A') + '<br>' +
-                                                 '<strong>Número:</strong> ' + (data.number || 'N/A');
+                                                 '<strong>NÃºmero:</strong> ' + (data.number || 'N/A');
                         }} else {{
                             tokenDiv.className = 'status error';
-                            tokenDiv.innerHTML = '<strong>❌ TOKEN INVÁLIDO:</strong> ' + (data.error || 'Error desconocido') +
-                                                 '<br><strong>⚠️ El bot NO puede enviar mensajes</strong>';
+                            tokenDiv.innerHTML = '<strong>âŒ TOKEN INVÃLIDO:</strong> ' + (data.error || 'Error desconocido') +
+                                                 '<br><strong>âš ï¸ El bot NO puede enviar mensajes</strong>';
                         }}
                     }});
             }}
@@ -1191,18 +1191,18 @@ def home():
                     .then(r => r.json())
                     .then(data => {{
                         if (data.result.status === 'success') {{
-                            resultDiv.innerHTML = '<div class="status success">✅ Prueba enviada exitosamente</div>';
+                            resultDiv.innerHTML = '<div class="status success">âœ… Prueba enviada exitosamente</div>';
                         }} else {{
-                            resultDiv.innerHTML = '<div class="status error">❌ Error en prueba: ' + (data.result.error_message || data.result.error || 'Error desconocido') + '</div>';
+                            resultDiv.innerHTML = '<div class="status error">âŒ Error en prueba: ' + (data.result.error_message || data.result.error || 'Error desconocido') + '</div>';
                         }}
                         btn.disabled = false;
-                        btn.textContent = 'Probar envío manual';
+                        btn.textContent = 'Probar envÃ­o manual';
                         checkToken();
                     }})
                     .catch(error => {{
-                        resultDiv.innerHTML = '<div class="status error">❌ Error de conexión: ' + error + '</div>';
+                        resultDiv.innerHTML = '<div class="status error">âŒ Error de conexiÃ³n: ' + error + '</div>';
                         btn.disabled = false;
-                        btn.textContent = 'Probar envío manual';
+                        btn.textContent = 'Probar envÃ­o manual';
                     }});
             }}
             
@@ -1213,7 +1213,7 @@ def home():
                 fetch('/test-propiedades')
                     .then(r => r.json())
                     .then(data => {{
-                        let html = '<h3>✅ Prueba de propiedades completada:</h3>';
+                        let html = '<h3>âœ… Prueba de propiedades completada:</h3>';
                         html += '<div class="status success">';
                         html += '<strong>Propiedades cargadas:</strong> ' + data.total_propiedades + '<br>';
                         html += '<strong>En venta:</strong> ' + data.venta_count + '<br>';
@@ -1223,7 +1223,7 @@ def home():
                         resultDiv.innerHTML = html;
                     }})
                     .catch(error => {{
-                        resultDiv.innerHTML = '<div class="status error">❌ Error: ' + error + '</div>';
+                        resultDiv.innerHTML = '<div class="status error">âŒ Error: ' + error + '</div>';
                     }});
             }}
             
@@ -1238,7 +1238,7 @@ def home():
 
 @app.route("/debug/postgresql", methods=["GET"])
 def debug_pg():
-    """Depurar conexión a PostgreSQL"""
+    """Depurar conexiÃ³n a PostgreSQL"""
     try:
         conn = get_db_connection()
         if not conn:
@@ -1273,7 +1273,7 @@ def debug_pg():
             cursor.execute("SELECT COUNT(*) FROM leads")
             total_leads = cursor.fetchone()[0]
         
-        # 5. Probar inserción de prueba
+        # 5. Probar inserciÃ³n de prueba
         test_insert = False
         test_id = None
         try:
@@ -1346,54 +1346,54 @@ def debug_save_test():
 # @app.route("/webhook", methods=["GET", "POST"])
 # def webhook():
 #     """Webhook para recibir mensajes de WhatsApp"""
-#     log(f"🔔 WEBHOOK RECIBIDO - Método: {request.method}")
+#     log(f"ðŸ”” WEBHOOK RECIBIDO - MÃ©todo: {request.method}")
 #     if request.method == "GET":
 #         mode = request.args.get("hub.mode")
 #         token = request.args.get("hub.verify_token")
 #         challenge = request.args.get("hub.challenge")
         
-#         log("🔍 Solicitud GET al webhook")
+#         log("ðŸ” Solicitud GET al webhook")
 #         log(f"   Mode: {mode}, Token: {token}")
         
 #         if mode and token:
 #             if mode == "subscribe" and token == VERIFY_TOKEN:
-#                 log("✅ Webhook verificado exitosamente")
+#                 log("âœ… Webhook verificado exitosamente")
 #                 return challenge, 200
 #             else:
-#                 log("❌ Verificación fallida - Token incorrecto")
+#                 log("âŒ VerificaciÃ³n fallida - Token incorrecto")
 #                 return "Verification failed", 403
         
 #         return "Webhook endpoint", 200
     
 #     elif request.method == "POST":
-#         # === LOG DE DIAGNÓSTICO EXTREMO ===
+#         # === LOG DE DIAGNÃ“STICO EXTREMO ===
 #         print("=" * 60)
-#         print(f"🔔 WEBHOOK POST RECIBIDO - {datetime.now()}")
-#         print(f"📋 HEADERS: {dict(request.headers)}")
+#         print(f"ðŸ”” WEBHOOK POST RECIBIDO - {datetime.now()}")
+#         print(f"ðŸ“‹ HEADERS: {dict(request.headers)}")
         
 #         # Obtener el body crudo
 #         raw_body = request.get_data(as_text=True)
-#         print(f"📦 RAW BODY (primeros 500 chars): {raw_body[:500]}")
+#         print(f"ðŸ“¦ RAW BODY (primeros 500 chars): {raw_body[:500]}")
 #         print("=" * 60)
         
-#         # También usar tu función log existente
-#         log("📨 Nuevo webhook POST recibido")
-#         log(f"📦 Body completo (primeros 500): {raw_body[:500]}")
+#         # TambiÃ©n usar tu funciÃ³n log existente
+#         log("ðŸ“¨ Nuevo webhook POST recibido")
+#         log(f"ðŸ“¦ Body completo (primeros 500): {raw_body[:500]}")
         
 #         try:
 #             data = request.get_json()
             
 #             if not data:
-#                 log("❌ Datos JSON vacíos")
-#                 print("❌ ERROR: Datos JSON vacíos")
+#                 log("âŒ Datos JSON vacÃ­os")
+#                 print("âŒ ERROR: Datos JSON vacÃ­os")
 #                 return jsonify({"status": "no_data"}), 200
             
-#             print(f"✅ JSON parseado exitosamente")
-#             log(f"📊 Estructura JSON: {json.dumps(data, indent=2)[:1000]}")
+#             print(f"âœ… JSON parseado exitosamente")
+#             log(f"ðŸ“Š Estructura JSON: {json.dumps(data, indent=2)[:1000]}")
             
 #             if data.get("object") != "whatsapp_business_account":
-#                 log("❌ No es un webhook de WhatsApp Business")
-#                 print("❌ ERROR: No es un webhook de WhatsApp Business")
+#                 log("âŒ No es un webhook de WhatsApp Business")
+#                 print("âŒ ERROR: No es un webhook de WhatsApp Business")
 #                 return jsonify({"status": "not_whatsapp"}), 200
             
 #             # Contador de mensajes procesados
@@ -1405,8 +1405,8 @@ def debug_save_test():
                     
 #                     if "messages" in value:
 #                         messages = value["messages"]
-#                         print(f"📨 Se encontraron {len(messages)} mensajes en el webhook")
-#                         log(f"📨 Se encontraron {len(messages)} mensajes")
+#                         print(f"ðŸ“¨ Se encontraron {len(messages)} mensajes en el webhook")
+#                         log(f"ðŸ“¨ Se encontraron {len(messages)} mensajes")
                         
 #                         for message in messages:
 #                             mensajes_procesados += 1
@@ -1414,14 +1414,14 @@ def debug_save_test():
                             
 #                             # Log detallado del mensaje
 #                             print(f"\n--- Mensaje #{mensajes_procesados} ---")
-#                             print(f"🆔 ID: {message_id}")
-#                             print(f"👤 From: {message.get('from')}")
-#                             print(f"📝 Type: {message.get('type')}")
-#                             print(f"📦 Mensaje completo: {json.dumps(message, indent=2)}")
+#                             print(f"ðŸ†” ID: {message_id}")
+#                             print(f"ðŸ‘¤ From: {message.get('from')}")
+#                             print(f"ðŸ“ Type: {message.get('type')}")
+#                             print(f"ðŸ“¦ Mensaje completo: {json.dumps(message, indent=2)}")
                             
 #                             if message_id in processed_message_ids:
-#                                 log(f"🛑 Mensaje duplicado ignorado: {message_id}")
-#                                 print(f"🛑 Mensaje duplicado ignorado: {message_id}")
+#                                 log(f"ðŸ›‘ Mensaje duplicado ignorado: {message_id}")
+#                                 print(f"ðŸ›‘ Mensaje duplicado ignorado: {message_id}")
 #                                 continue
                                 
 #                             processed_message_ids.append(message_id)
@@ -1432,31 +1432,31 @@ def debug_save_test():
 #                             # Procesar mensajes de texto plano
 #                             if message.get("type") == "text":
 #                                 message_text = message.get("text", {}).get("body", "")
-#                                 print(f"💬 Texto recibido: '{message_text}'")
-#                                 log(f"💬 Texto recibido de {from_number}: '{message_text}'")
+#                                 print(f"ðŸ’¬ Texto recibido: '{message_text}'")
+#                                 log(f"ðŸ’¬ Texto recibido de {from_number}: '{message_text}'")
                             
 #                             # Procesar mensajes interactivos (Botones nativos o Listas)
 #                             elif message.get("type") == "interactive":
 #                                 interactive = message.get("interactive", {})
 #                                 int_type = interactive.get("type")
-#                                 print(f"🔘 Mensaje interactivo tipo: {int_type}")
+#                                 print(f"ðŸ”˜ Mensaje interactivo tipo: {int_type}")
                                 
 #                                 if int_type == "button_reply":
 #                                     message_text = interactive.get("button_reply", {}).get("id", "")
-#                                     log(f"🔘 Botón presionado: {message_text}")
-#                                     print(f"🔘 Botón presionado ID: {message_text}")
+#                                     log(f"ðŸ”˜ BotÃ³n presionado: {message_text}")
+#                                     print(f"ðŸ”˜ BotÃ³n presionado ID: {message_text}")
                                     
 #                                 elif int_type == "list_reply":
 #                                     message_text = interactive.get("list_reply", {}).get("id", "")
-#                                     log(f"📋 Opción de lista seleccionada: {message_text}")
-#                                     print(f"📋 Lista seleccionada ID: {message_text}")
+#                                     log(f"ðŸ“‹ OpciÃ³n de lista seleccionada: {message_text}")
+#                                     print(f"ðŸ“‹ Lista seleccionada ID: {message_text}")
                             
 #                             else:
-#                                 print(f"⚠️ Tipo de mensaje no manejado: {message.get('type')}")
-#                                 log(f"⚠️ Tipo de mensaje no manejado: {message.get('type')}")
+#                                 print(f"âš ï¸ Tipo de mensaje no manejado: {message.get('type')}")
+#                                 log(f"âš ï¸ Tipo de mensaje no manejado: {message.get('type')}")
                             
 #                             if from_number and message_text:
-#                                 # Convertir IDs de botones a los comandos originales numéricos para compatibilidad
+#                                 # Convertir IDs de botones a los comandos originales numÃ©ricos para compatibilidad
 #                                 boton_a_numero = {
 #                                     "opcion_1": "1",  # Ventas
 #                                     "opcion_2": "2",  # Alquiler
@@ -1465,36 +1465,36 @@ def debug_save_test():
 #                                     "opcion_5": "5",  # Hablar Asesor
 #                                     "opcion_6": "6",  # FAQs
 #                                     "opcion_7": "7",  # Todos los Inmuebles
-#                                     "opcion_tasacion": "10", # Tasación
+#                                     "opcion_tasacion": "10", # TasaciÃ³n
 #                                     "volver_menu": "9",
 #                                     "salir_chat": "0"
 #                                 }
                                 
-#                                 # Si el mensaje fue un botón/lista del menú principal, traducirlo
+#                                 # Si el mensaje fue un botÃ³n/lista del menÃº principal, traducirlo
 #                                 if message_text in boton_a_numero:
 #                                     original_text = message_text
 #                                     message_text = boton_a_numero[message_text]
-#                                     print(f"🔄 Traduciendo botón: '{original_text}' → '{message_text}'")
+#                                     print(f"ðŸ”„ Traduciendo botÃ³n: '{original_text}' â†’ '{message_text}'")
                                 
-#                                 print(f"👤 Usuario: {from_number}, Input Procesado: '{message_text}'")
-#                                 log(f"👤 Usuario: {from_number}, Input Procesado: {message_text}")
+#                                 print(f"ðŸ‘¤ Usuario: {from_number}, Input Procesado: '{message_text}'")
+#                                 log(f"ðŸ‘¤ Usuario: {from_number}, Input Procesado: {message_text}")
                                 
 #                                 # Llamar a get_bot_response
-#                                 print(f"🤖 Llamando a get_bot_response con input: '{message_text}'")
+#                                 print(f"ðŸ¤– Llamando a get_bot_response con input: '{message_text}'")
 #                                 response_text = get_bot_response(message_text, from_number)
-#                                 print(f"🤖 Respuesta del bot: {response_text[:100]}..." if response_text else "🤖 Respuesta vacía")
+#                                 print(f"ðŸ¤– Respuesta del bot: {response_text[:100]}..." if response_text else "ðŸ¤– Respuesta vacÃ­a")
                                 
 #                                 if response_text == "WELCOME_FLOW_TRIGGER":
-#                                     log("🎯 Enviando flujo de bienvenida interactivo")
-#                                     print("🎯 Enviando flujo de bienvenida interactivo")
+#                                     log("ðŸŽ¯ Enviando flujo de bienvenida interactivo")
+#                                     print("ðŸŽ¯ Enviando flujo de bienvenida interactivo")
 #                                     result = send_welcome_flow(from_number)
 #                                 elif response_text and response_text.startswith("OFFER_MEETING_TRIGGER|"):
 #                                     prop_titulo = response_text.split("|")[1]
-#                                     text_body = f"✅ *¡Perfecto!*\n\nHemos registrado tu interés en:\n🏠 *{prop_titulo}*\n\n📅 *¿Te gustaría agendar una cita para visitar la propiedad?*"
+#                                     text_body = f"âœ… *Â¡Perfecto!*\n\nHemos registrado tu interÃ©s en:\nðŸ  *{prop_titulo}*\n\nðŸ“… *Â¿Te gustarÃ­a agendar una cita para visitar la propiedad?*"
 #                                     botones = [
-#                                         {"id": "agendar", "title": "📅 SÍ, AGENDAR CITA"},
-#                                         {"id": "solo info", "title": "📋 Solo información"},
-#                                         {"id": "ofertar", "title": "💰 Quiero ofertar"}
+#                                         {"id": "agendar", "title": "ðŸ“… SÃ, AGENDAR CITA"},
+#                                         {"id": "solo info", "title": "ðŸ“‹ Solo informaciÃ³n"},
+#                                         {"id": "ofertar", "title": "ðŸ’° Quiero ofertar"}
 #                                     ]
 #                                     result = send_whatsapp_interactive_buttons(from_number, text_body, botones)
 #                                 elif response_text and response_text.startswith("CONFIRM_MEETING_TRIGGER|"):
@@ -1503,11 +1503,11 @@ def debug_save_test():
 #                                     hora = partes[2]
 #                                     email = partes[3]
                                     
-#                                     text_body = f"📅 *RESUMEN DE TU VISITA*\n\n📅 Fecha: *{fecha_display}*\n⏰ Hora: *{hora} hs*\n📧 Email: *{email}*\n\n¿Confirmas la cita?"
+#                                     text_body = f"ðŸ“… *RESUMEN DE TU VISITA*\n\nðŸ“… Fecha: *{fecha_display}*\nâ° Hora: *{hora} hs*\nðŸ“§ Email: *{email}*\n\nÂ¿Confirmas la cita?"
 #                                     botones = [
-#                                         {"id": "confirmar", "title": "✅ Confirmar cita"},
-#                                         {"id": "cambiar", "title": "🔄 Cambiar hora"},
-#                                         {"id": "cancelar", "title": "❌ Cancelar"}
+#                                         {"id": "confirmar", "title": "âœ… Confirmar cita"},
+#                                         {"id": "cambiar", "title": "ðŸ”„ Cambiar hora"},
+#                                         {"id": "cancelar", "title": "âŒ Cancelar"}
 #                                     ]
 #                                     result = send_whatsapp_interactive_buttons(from_number, text_body, botones)
 #                                 elif response_text and response_text.startswith("PHOTOS_TRIGGER|"):
@@ -1516,65 +1516,65 @@ def debug_save_test():
 #                                     if "onrender.com" in base_url and not base_url.startswith("https"):
 #                                         base_url = base_url.replace("http://", "https://")
                                     
-#                                     log(f"🚀 Iniciando hilo de fotos para propiedad {prop_id}")
-#                                     print(f"🚀 Iniciando hilo de fotos para propiedad {prop_id}")
+#                                     log(f"ðŸš€ Iniciando hilo de fotos para propiedad {prop_id}")
+#                                     print(f"ðŸš€ Iniciando hilo de fotos para propiedad {prop_id}")
 #                                     thread = threading.Thread(target=send_photos_async, args=(from_number, prop_id, base_url))
 #                                     thread.start()
                                     
-#                                     confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'Hola' para volver al menú."
+#                                     confirmacion = "ðŸ“¸ *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvÃ­a 'Hola' para volver al menÃº."
 #                                     result = send_whatsapp_message(from_number, confirmacion)
 #                                 elif response_text:
-#                                     print(f"📤 Enviando mensaje: {response_text[:100]}...")
+#                                     print(f"ðŸ“¤ Enviando mensaje: {response_text[:100]}...")
 #                                     result = send_whatsapp_message(from_number, response_text)
 #                                 else:
-#                                     print("⚠️ response_text vacío, omitiendo envío")
+#                                     print("âš ï¸ response_text vacÃ­o, omitiendo envÃ­o")
 #                                     result = {"status": "skipped", "reason": "empty_response"}
                                 
-#                                 print(f"📊 Resultado envío: {result.get('status')}")
-#                                 log(f"📊 Resultado: {result.get('status')}")
+#                                 print(f"ðŸ“Š Resultado envÃ­o: {result.get('status')}")
+#                                 log(f"ðŸ“Š Resultado: {result.get('status')}")
 #                                 return jsonify({
 #                                     "status": "processed",
 #                                     "user": from_number,
 #                                     "result": result
 #                                 }), 200
 #                             else:
-#                                 print(f"⚠️ Mensaje sin contenido procesable: from_number={from_number}, message_text='{message_text}'")
-#                                 log(f"⚠️ Mensaje sin contenido procesable: from={from_number}, text={message_text}")
+#                                 print(f"âš ï¸ Mensaje sin contenido procesable: from_number={from_number}, message_text='{message_text}'")
+#                                 log(f"âš ï¸ Mensaje sin contenido procesable: from={from_number}, text={message_text}")
                     
 #                     elif "statuses" in value:
 #                         for status in value["statuses"]:
-#                             log(f"📊 Estado de mensaje: {status.get('status')} para ID: {status.get('id')}")
-#                             print(f"📊 Estado update: {status.get('status')} - ID: {status.get('id')}")
+#                             log(f"ðŸ“Š Estado de mensaje: {status.get('status')} para ID: {status.get('id')}")
+#                             print(f"ðŸ“Š Estado update: {status.get('status')} - ID: {status.get('id')}")
 #                         return jsonify({"status": "status_update"}), 200
             
 #             if mensajes_procesados == 0:
-#                 print("ℹ️ Webhook sin mensajes para procesar")
-#                 log("ℹ️ Webhook sin mensajes de texto para procesar")
+#                 print("â„¹ï¸ Webhook sin mensajes para procesar")
+#                 log("â„¹ï¸ Webhook sin mensajes de texto para procesar")
 #                 return jsonify({"status": "no_text_messages"}), 200
 #             else:
-#                 print(f"✅ Procesados {mensajes_procesados} mensajes")
+#                 print(f"âœ… Procesados {mensajes_procesados} mensajes")
 #                 return jsonify({"status": "processed", "count": mensajes_procesados}), 200
                 
 #         except Exception as e:
-#             print(f"❌ ERROR EXCEPCIÓN: {str(e)}")
+#             print(f"âŒ ERROR EXCEPCIÃ“N: {str(e)}")
 #             import traceback
-#             print(f"❌ TRACEBACK: {traceback.format_exc()}")
-#             log(f"❌ Error procesando webhook: {str(e)}")
-#             log(f"❌ Traceback: {traceback.format_exc()}")
+#             print(f"âŒ TRACEBACK: {traceback.format_exc()}")
+#             log(f"âŒ Error procesando webhook: {str(e)}")
+#             log(f"âŒ Traceback: {traceback.format_exc()}")
 #             return jsonify({"status": "error", "error": str(e)}), 500
 
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
-    """Webhook para recibir mensajes de WhatsApp - Versión Asincrónica"""
+    """Webhook para recibir mensajes de WhatsApp - VersiÃ³n AsincrÃ³nica"""
     if request.method == "GET":
-        # Mantenemos tu lógica de verificación intacta
+        # Mantenemos tu lÃ³gica de verificaciÃ³n intacta
         mode = request.args.get("hub.mode")
         token = request.args.get("hub.verify_token")
         challenge = request.args.get("hub.challenge")
         
         if mode == "subscribe" and token == VERIFY_TOKEN:
-            log("✅ Webhook verificado exitosamente")
+            log("âœ… Webhook verificado exitosamente")
             return challenge, 200
         return "Verification failed", 403
     
@@ -1585,20 +1585,20 @@ def webhook():
             return jsonify({"status": "no_data"}), 200
 
         # === EL CAMBIO CLAVE ===
-        # Lanzamos toda tu lógica pesada en un hilo separado
+        # Lanzamos toda tu lÃ³gica pesada en un hilo separado
         # Esto permite responderle a Meta '200 OK' en milisegundos
         threading.Thread(target=procesar_logica_pesada_dante, args=(data,)).start()
         
-        # Le decimos a Meta: "Recibido, gracias". La conexión se cierra acá.
+        # Le decimos a Meta: "Recibido, gracias". La conexiÃ³n se cierra acÃ¡.
         return jsonify({"status": "received"}), 200
 
 def procesar_logica_pesada_dante(data):
-    """Aquí se mudaron tus 200 líneas de lógica original"""
+    """AquÃ­ se mudaron tus 200 lÃ­neas de lÃ³gica original"""
     try:
-        # Usamos un context manager si es necesario para Flask (opcional según tu config)
+        # Usamos un context manager si es necesario para Flask (opcional segÃºn tu config)
         # with app.app_context(): 
         
-        log("📨 Procesando mensaje en segundo plano...")
+        log("ðŸ“¨ Procesando mensaje en segundo plano...")
         
         if data.get("object") != "whatsapp_business_account":
             return
@@ -1608,10 +1608,10 @@ def procesar_logica_pesada_dante(data):
             for change in entry.get("changes", []):
                 value = change.get("value", {})
                 
-                # Manejo de estados (leído, entregado, etc)
+                # Manejo de estados (leÃ­do, entregado, etc)
                 if "statuses" in value:
                     for status in value["statuses"]:
-                        log(f"📊 Estado: {status.get('status')} - ID: {status.get('id')}")
+                        log(f"ðŸ“Š Estado: {status.get('status')} - ID: {status.get('id')}")
                     continue
 
                 # Manejo de mensajes reales
@@ -1628,7 +1628,7 @@ def procesar_logica_pesada_dante(data):
                         from_number = message.get("from")
                         message_text = ""
                         
-                        # --- TU LÓGICA DE TEXTO E INTERACTIVOS (INTACTA) ---
+                        # --- TU LÃ“GICA DE TEXTO E INTERACTIVOS (INTACTA) ---
                         if message.get("type") == "text":
                             message_text = message.get("text", {}).get("body", "")
                         elif message.get("type") == "interactive":
@@ -1640,7 +1640,7 @@ def procesar_logica_pesada_dante(data):
                                 message_text = interactive.get("list_reply", {}).get("id", "")
 
                         if from_number and message_text:
-                            # Tu diccionario de traducción de botones
+                            # Tu diccionario de traducciÃ³n de botones
                             boton_a_numero = {
                                 "opcion_1": "1", "opcion_2": "2", "opcion_3": "3",
                                 "opcion_4": "4", "opcion_5": "5", "opcion_6": "6",
@@ -1650,34 +1650,34 @@ def procesar_logica_pesada_dante(data):
                             if message_text in boton_a_numero:
                                 message_text = boton_a_numero[message_text]
 
-                            # Llamada a la IA y envío de respuestas
+                            # Llamada a la IA y envÃ­o de respuestas
                             response_text = get_bot_response(message_text, from_number)
                             
                             # --- TUS TRIGGERS DE FLUJOS (BIENVENIDA, CITAS, FOTOS) ---
                             if response_text == "WELCOME_FLOW_TRIGGER":
                                 send_welcome_flow(from_number)
                             elif response_text and response_text.startswith("OFFER_MEETING_TRIGGER|"):
-                                # ... tu lógica de botones de cita ...
+                                # ... tu lÃ³gica de botones de cita ...
                                 prop_titulo = response_text.split("|")[1]
-                                text_body = f"✅ *¡Perfecto!*\n\nHemos registrado tu interés en:\n🏠 *{prop_titulo}*\n\n📅 *¿Te gustaría agendar una cita?*"
-                                botones = [{"id": "agendar", "title": "📅 SÍ, AGENDAR"}, {"id": "solo info", "title": "📋 Solo info"}]
+                                text_body = f"âœ… *Â¡Perfecto!*\n\nHemos registrado tu interÃ©s en:\nðŸ  *{prop_titulo}*\n\nðŸ“… *Â¿Te gustarÃ­a agendar una cita?*"
+                                botones = [{"id": "agendar", "title": "ðŸ“… SÃ, AGENDAR"}, {"id": "solo info", "title": "ðŸ“‹ Solo info"}]
                                 send_whatsapp_interactive_buttons(from_number, text_body, botones)
                             elif response_text and response_text.startswith("PHOTOS_TRIGGER|"):
                                 prop_id = response_text.split("|")[1]
-                                # Usamos tu lógica de thread para fotos también
+                                # Usamos tu lÃ³gica de thread para fotos tambiÃ©n
                                 threading.Thread(target=send_photos_async, args=(from_number, prop_id, "https://meta-rjpb.onrender.com")).start()
                             elif response_text:
                                 send_whatsapp_message(from_number, response_text)
 
-        log(f"✅ Hilo finalizado: {mensajes_procesados} mensajes procesados.")
+        log(f"âœ… Hilo finalizado: {mensajes_procesados} mensajes procesados.")
 
     except Exception as e:
-        log(f"❌ Error en hilo de procesamiento: {str(e)}")
+        log(f"âŒ Error en hilo de procesamiento: {str(e)}")
         print(traceback.format_exc())
 
 
 
-# ========== GESTIÓN DE CITAS ==========
+# ========== GESTIÃ“N DE CITAS ==========
 
 
 
@@ -1694,7 +1694,7 @@ def manejar_confirmacion_recordatorio(text, estado_usuario, user_id):
     if match:
         comando = match.group(1)
         cita_id = int(match.group(2))
-        log(f"🔍 Respuesta con ID específico: {comando} para cita {cita_id}")
+        log(f"ðŸ” Respuesta con ID especÃ­fico: {comando} para cita {cita_id}")
         cita = buscar_cita_por_id(cita_id)
     else:
         # Tipeo simple: CONFIRMAR, CANCELAR, REPROGRAMAR
@@ -1709,17 +1709,17 @@ def manejar_confirmacion_recordatorio(text, estado_usuario, user_id):
                 
             cita_id = data_obj.get('ultimo_recordatorio_cita_id')
             if cita_id:
-                log(f"🔍 Tipeo simple '{comando}', usando ID del estado guardado: {cita_id}")
+                log(f"ðŸ” Tipeo simple '{comando}', usando ID del estado guardado: {cita_id}")
                 cita = buscar_cita_por_id(cita_id)
             else:
-                log(f"⚠️ Tipeo simple '{comando}' sin ID en data, buscando cita activa...")
+                log(f"âš ï¸ Tipeo simple '{comando}' sin ID en data, buscando cita activa...")
                 cita = buscar_cita_activa_usuario(user_id)
         else:
             # Fallback total: palabras clave sueltas
-            log("⚠️ Respuesta no estructurada, buscando cita activa por keywords...")
+            log("âš ï¸ Respuesta no estructurada, buscando cita activa por keywords...")
             cita = buscar_cita_activa_usuario(user_id)
             if cita:
-                if any(word in text.lower() for word in ["confirm", "si", "sí", "voy", "dale", "ok"]):
+                if any(word in text.lower() for word in ["confirm", "si", "sÃ­", "voy", "dale", "ok"]):
                     comando = "CONFIRMAR"
                 elif any(word in text.lower() for word in ["cancel", "no voy", "baja"]):
                     comando = "CANCELAR"
@@ -1736,30 +1736,30 @@ def manejar_confirmacion_recordatorio(text, estado_usuario, user_id):
     if not cita:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "No encontré una cita pendiente para vos. ¿En qué puedo ayudarte? Envía 'Hola' para ver el menú."
+        return "No encontrÃ© una cita pendiente para vos. Â¿En quÃ© puedo ayudarte? EnvÃ­a 'Hola' para ver el menÃº."
 
-    # Procesar según el comando
+    # Procesar segÃºn el comando
     if comando == "CONFIRMAR":
-        actualizar_cita_db(cita_id, nuevo_estado='confirmada', nuevas_notas="Usuario confirmó la visita")
+        actualizar_cita_db(cita_id, nuevo_estado='confirmada', nuevas_notas="Usuario confirmÃ³ la visita")
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        notificar_agente(f"✅ *CITA CONFIRMADA*\n👤 {cita['nombre']}\n📅 {cita['fecha']} {cita['hora']}")
+        notificar_agente(f"âœ… *CITA CONFIRMADA*\nðŸ‘¤ {cita['nombre']}\nðŸ“… {cita['fecha']} {cita['hora']}")
         
-        return f"✅ ¡Muchas gracias, *{cita['nombre']}*! Hemos registrado tu confirmación. Nos vemos el {datetime.strptime(cita['fecha'], '%Y-%m-%d').strftime('%d/%m')} a las {cita['hora']} hs. 👋"
+        return f"âœ… Â¡Muchas gracias, *{cita['nombre']}*! Hemos registrado tu confirmaciÃ³n. Nos vemos el {datetime.strptime(cita['fecha'], '%Y-%m-%d').strftime('%d/%m')} a las {cita['hora']} hs. ðŸ‘‹"
 
     elif comando == "CANCELAR":
-        actualizar_cita_db(cita_id, nuevo_estado='cancelada', nuevas_notas="Usuario canceló la visita")
+        actualizar_cita_db(cita_id, nuevo_estado='cancelada', nuevas_notas="Usuario cancelÃ³ la visita")
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        notificar_agente(f"❌ *CITA CANCELADA*\n👤 {cita['nombre']}\n📅 {cita['fecha']} {cita['hora']}")
+        notificar_agente(f"âŒ *CITA CANCELADA*\nðŸ‘¤ {cita['nombre']}\nðŸ“… {cita['fecha']} {cita['hora']}")
         
-        return "Entiendo. Hemos cancelado la visita. Si en otro momento deseas agendar nuevamente, no dudes en avisarnos. ¡Que tengas un buen día! 🏠"
+        return "Entiendo. Hemos cancelado la visita. Si en otro momento deseas agendar nuevamente, no dudes en avisarnos. Â¡Que tengas un buen dÃ­a! ðŸ "
 
     elif comando == "REPROGRAMAR":
         estado_usuario['paso'] = 'solicitar_fecha_cita'
-        estado_usuario['cita_reprogramando_id'] = cita_id  # Guardar qué cita se reprograma
+        estado_usuario['cita_reprogramando_id'] = cita_id  # Guardar quÃ© cita se reprograma
         props = cargar_propiedades_cached()
         for i, p in enumerate(props, 1):
             if p.get('id_temporal') == cita['propiedad_id']:
@@ -1767,15 +1767,15 @@ def manejar_confirmacion_recordatorio(text, estado_usuario, user_id):
                 estado_usuario['propiedades_filtradas'] = props
                 break
         
-        actualizar_cita_db(cita_id, nuevas_notas=f"Usuario solicitó reprogramar")
+        actualizar_cita_db(cita_id, nuevas_notas=f"Usuario solicitÃ³ reprogramar")
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        notificar_agente(f"🔄 *SOLICITUD DE REPROGRAMACIÓN*\n👤 {cita['nombre']}\n📅 Original: {cita['fecha']} {cita['hora']}")
+        notificar_agente(f"ðŸ”„ *SOLICITUD DE REPROGRAMACIÃ“N*\nðŸ‘¤ {cita['nombre']}\nðŸ“… Original: {cita['fecha']} {cita['hora']}")
         
-        return "No hay problema, podemos reprogramarla. 😊 ¿Para qué día y horario te quedaría mejor? (ej: 'El jueves a las 11')"
+        return "No hay problema, podemos reprogramarla. ðŸ˜Š Â¿Para quÃ© dÃ­a y horario te quedarÃ­a mejor? (ej: 'El jueves a las 11')"
 
     else:
-        return "Por favor, respondé con *CONFIRMAR*, *CANCELAR* o *REPROGRAMAR* para gestionar tu cita."
+        return "Por favor, respondÃ© con *CONFIRMAR*, *CANCELAR* o *REPROGRAMAR* para gestionar tu cita."
 
 
 
@@ -1788,7 +1788,7 @@ def manejar_confirmacion_recordatorio(text, estado_usuario, user_id):
 
 @app.route("/api/enviar-recordatorios-manual", methods=["POST"])
 def enviar_recordatorios_manual():
-    """Endpoint para activar manualmente el envío de recordatorios"""
+    """Endpoint para activar manualmente el envÃ­o de recordatorios"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
@@ -1804,16 +1804,16 @@ def enviar_recordatorios_manual():
         })
         
     except Exception as e:
-        log(f"❌ Error: {e}")
+        log(f"âŒ Error: {e}")
         return jsonify({"error": str(e)}), 500
     
     
-def actualizar_ids_json():  # ← ELIMINADO 'async'
+def actualizar_ids_json():  # â† ELIMINADO 'async'
     """Actualiza el archivo JSON con los IDs reales de PostgreSQL"""
     try:
         conn = get_db_connection()
         if not conn:
-            log("⚠️ No se pudo conectar a PostgreSQL")
+            log("âš ï¸ No se pudo conectar a PostgreSQL")
             return
             
         cursor = conn.cursor()
@@ -1824,7 +1824,7 @@ def actualizar_ids_json():  # ← ELIMINADO 'async'
         
         # Cargar JSON actual
         if not os.path.exists('citas.json'):
-            log("⚠️ citas.json no encontrado")
+            log("âš ï¸ citas.json no encontrado")
             cursor.close()
             conn.close()
             return
@@ -1849,10 +1849,10 @@ def actualizar_ids_json():  # ← ELIMINADO 'async'
             
         cursor.close()
         conn.close()
-        log(f"✅ IDs de PostgreSQL actualizados en citas.json ({actualizadas} citas)")
+        log(f"âœ… IDs de PostgreSQL actualizados en citas.json ({actualizadas} citas)")
         
     except Exception as e:
-        log(f"⚠️ Error actualizando IDs en JSON: {e}")
+        log(f"âš ï¸ Error actualizando IDs en JSON: {e}")
 
 @app.route("/api/sincronizar/citas", methods=["POST"])
 def sincronizar_citas_manual():
@@ -1941,14 +1941,14 @@ def sincronizar_citas_manual():
         
         return jsonify({
             "status": "success",
-            "message": "Sincronización completada",
+            "message": "SincronizaciÃ³n completada",
             "creadas": creadas,
             "actualizadas": sincronizadas,
             "errores": errores if errores else None
         })
         
     except Exception as e:
-        log(f"❌ Error en sincronización: {e}", "ERROR")
+        log(f"âŒ Error en sincronizaciÃ³n: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
     
 
@@ -1975,7 +1975,7 @@ def eliminar_cita(cita_id):
         if not deleted:
             return jsonify({"error": "Cita no encontrada"}), 404
         
-        # También eliminar de JSON
+        # TambiÃ©n eliminar de JSON
         try:
             if os.path.exists('citas.json'):
                 with open('citas.json', 'r', encoding='utf-8') as f:
@@ -1989,20 +1989,20 @@ def eliminar_cita(cita_id):
                 with open('citas.json', 'w', encoding='utf-8') as f:
                     json.dump(citas_json, f, indent=4, ensure_ascii=False)
         except Exception as json_e:
-            log(f"⚠️ Error eliminando de JSON: {json_e}")
+            log(f"âš ï¸ Error eliminando de JSON: {json_e}")
         
-        log(f"✅ Cita {cita_id} eliminada")
+        log(f"âœ… Cita {cita_id} eliminada")
         return jsonify({"status": "success", "message": "Cita eliminada"})
         
     except Exception as e:
-        log(f"❌ Error eliminando cita {cita_id}: {e}", "ERROR")
+        log(f"âŒ Error eliminando cita {cita_id}: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
 
 
 
 @app.route("/api/citas/<int:cita_id>", methods=["GET"])
 def obtener_cita_por_id(cita_id):
-    """Obtiene los datos de una cita específica por su ID"""
+    """Obtiene los datos de una cita especÃ­fica por su ID"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
@@ -2043,7 +2043,7 @@ def obtener_cita_por_id(cita_id):
         })
         
     except Exception as e:
-        log(f"❌ Error obteniendo cita {cita_id}: {e}", "ERROR")
+        log(f"âŒ Error obteniendo cita {cita_id}: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
 
 
@@ -2058,7 +2058,7 @@ def actualizar_cita(cita_id):
     if not data:
         return jsonify({"error": "No data provided"}), 400
     
-    log(f"📝 Solicitud de edición para cita {cita_id}")
+    log(f"ðŸ“ Solicitud de ediciÃ³n para cita {cita_id}")
     
     try:
         conn = get_db_connection()
@@ -2097,13 +2097,13 @@ def actualizar_cita(cita_id):
         if filas == 0:
             return jsonify({"error": "Cita no encontrada"}), 404
             
-        log(f"✅ Cita {cita_id} actualizada correctamente")
+        log(f"âœ… Cita {cita_id} actualizada correctamente")
         return jsonify({"status": "success", "message": "Cita actualizada"})
         
     except Exception as e:
         import traceback
         error_msg = str(e)
-        log(f"❌ Error actualizando cita {cita_id}: {error_msg}", "ERROR")
+        log(f"âŒ Error actualizando cita {cita_id}: {error_msg}", "ERROR")
         log(traceback.format_exc(), "ERROR")
         return jsonify({"error": error_msg, "traceback": traceback.format_exc()}), 500
 
@@ -2117,7 +2117,7 @@ def cambiar_estado_cita(cita_id):
     
     nuevo_estado = request.args.get('estado')
     if not nuevo_estado or nuevo_estado not in ['pendiente', 'confirmada', 'completada', 'cancelada']:
-        return jsonify({"error": "Estado inválido"}), 400
+        return jsonify({"error": "Estado invÃ¡lido"}), 400
     
     try:
         conn = get_db_connection()
@@ -2141,7 +2141,7 @@ def cambiar_estado_cita(cita_id):
         if not updated:
             return jsonify({"error": "Cita no encontrada"}), 404
         
-        # También actualizar en JSON si existe
+        # TambiÃ©n actualizar en JSON si existe
         try:
             if os.path.exists('citas.json'):
                 with open('citas.json', 'r', encoding='utf-8') as f:
@@ -2156,9 +2156,9 @@ def cambiar_estado_cita(cita_id):
                 with open('citas.json', 'w', encoding='utf-8') as f:
                     json.dump(citas_json, f, indent=4, ensure_ascii=False)
         except Exception as json_e:
-            log(f"⚠️ Error actualizando JSON: {json_e}")
+            log(f"âš ï¸ Error actualizando JSON: {json_e}")
         
-        log(f"✅ Estado de cita {cita_id} cambiado a {nuevo_estado}")
+        log(f"âœ… Estado de cita {cita_id} cambiado a {nuevo_estado}")
         
         return jsonify({
             "status": "success",
@@ -2171,7 +2171,7 @@ def cambiar_estado_cita(cita_id):
         })
         
     except Exception as e:
-        log(f"❌ Error cambiando estado de cita {cita_id}: {e}", "ERROR")
+        log(f"âŒ Error cambiando estado de cita {cita_id}: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
 
 
@@ -2184,7 +2184,7 @@ def run_daily_tasks():
     
     try:
         import subprocess
-        log("👨‍💻 Administrador inició ejecución manual de tareas diarias")
+        log("ðŸ‘¨â€ðŸ’» Administrador iniciÃ³ ejecuciÃ³n manual de tareas diarias")
         
         if os.name == 'nt':
             subprocess.Popen(['python', 'cron_diario.py'], creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
@@ -2202,14 +2202,14 @@ def run_daily_tasks():
 
 @app.route('/api/admin/sync-calendar-all', methods=['POST'])
 def sync_calendar_all():
-    """Ejecutar la sincronización masiva de citas con Google Calendar"""
+    """Ejecutar la sincronizaciÃ³n masiva de citas con Google Calendar"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
     
     try:
         import subprocess
-        log("👨‍💻 Administrador inició sincronización masiva con Google Calendar")
+        log("ðŸ‘¨â€ðŸ’» Administrador iniciÃ³ sincronizaciÃ³n masiva con Google Calendar")
         
         if os.name == 'nt':
             subprocess.Popen(['python', 'sincronizar_calendar.py'], creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
@@ -2218,19 +2218,19 @@ def sync_calendar_all():
             
         return jsonify({
             "status": "success", 
-            "message": "La sincronización masiva con Google Calendar ha comenzado en segundo plano."
+            "message": "La sincronizaciÃ³n masiva con Google Calendar ha comenzado en segundo plano."
         })
     except Exception as e:
-        log(f"Error ejecutando sincronización de calendario: {e}", "ERROR")
+        log(f"Error ejecutando sincronizaciÃ³n de calendario: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/admin")
 def admin_panel():
-    """Sirve el panel de administración con mejor manejo de errores"""
+    """Sirve el panel de administraciÃ³n con mejor manejo de errores"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
-        return "⚠️ Acceso No Autorizado. Por favor usa el enlace seguro.", 403
+        return "âš ï¸ Acceso No Autorizado. Por favor usa el enlace seguro.", 403
     
     # Intentar diferentes rutas posibles
     possible_paths = [
@@ -2245,10 +2245,10 @@ def admin_panel():
             try:
                 return send_file(path)
             except Exception as e:
-                log(f"❌ Error enviando archivo {path}: {e}")
+                log(f"âŒ Error enviando archivo {path}: {e}")
                 continue
     
-    # Si no se encuentra, mostrar información de debug
+    # Si no se encuentra, mostrar informaciÃ³n de debug
     import glob
     all_html = glob.glob('*.html')
     
@@ -2302,7 +2302,7 @@ def api_leads():
         return jsonify({"leads": leads_formateados})
         
     except Exception as e:
-        log(f"❌ Error en api_leads: {e}", "ERROR")
+        log(f"âŒ Error en api_leads: {e}", "ERROR")
         return jsonify({"error": str(e), "leads": []}), 500
 
 @app.route('/api/leads/<string:lead_id>', methods=['DELETE'])
@@ -2375,7 +2375,7 @@ def actualizar_lead(lead_id):
 def test_send():
     """Endpoint de prueba manual"""
     test_number = "5491151511579"
-    test_message = "✅ ¡Hola! Este es un mensaje de prueba desde el bot inmobiliario."
+    test_message = "âœ… Â¡Hola! Este es un mensaje de prueba desde el bot inmobiliario."
     
     result = send_whatsapp_message(test_number, test_message)
     
@@ -2429,7 +2429,7 @@ def debug_postgresql():
         if not conn:
             return False
             
-        log("🔍 DEBUG: Conectado a PostgreSQL...")
+        log("ðŸ” DEBUG: Conectado a PostgreSQL...")
         cursor = conn.cursor()
         
         # Verificar tablas
@@ -2440,7 +2440,7 @@ def debug_postgresql():
         """)
         
         tablas = cursor.fetchall()
-        log(f"📊 DEBUG: Tablas en PostgreSQL: {[t[0] for t in tablas]}")
+        log(f"ðŸ“Š DEBUG: Tablas en PostgreSQL: {[t[0] for t in tablas]}")
         
         # Verificar estructura de tabla leads
         cursor.execute("""
@@ -2450,21 +2450,21 @@ def debug_postgresql():
         """)
         
         columnas = cursor.fetchall()
-        log(f"📊 DEBUG: Columnas en tabla 'leads': {columnas}")
+        log(f"ðŸ“Š DEBUG: Columnas en tabla 'leads': {columnas}")
         
         # Contar registros
         cursor.execute("SELECT COUNT(*) FROM leads")
         total = cursor.fetchone()[0]
-        log(f"📊 DEBUG: Total leads en PostgreSQL: {total}")
+        log(f"ðŸ“Š DEBUG: Total leads en PostgreSQL: {total}")
         
         cursor.close()
         conn.close()
         return True
         
     except Exception as e:
-        log(f"❌ DEBUG ERROR PostgreSQL: {e}")
+        log(f"âŒ DEBUG ERROR PostgreSQL: {e}")
         import traceback
-        log(f"🔍 DEBUG TRACEBACK: {traceback.format_exc()}")
+        log(f"ðŸ” DEBUG TRACEBACK: {traceback.format_exc()}")
         return False
 
 
@@ -2472,7 +2472,7 @@ def debug_postgresql():
 
 
 def probar_conexion_postgresql():
-    """Probar conexión a PostgreSQL"""
+    """Probar conexiÃ³n a PostgreSQL"""
     try:
         conn = get_db_connection()
         if not conn:
@@ -2497,16 +2497,16 @@ def probar_conexion_postgresql():
         if tabla_existe:
             cursor.execute("SELECT COUNT(*) FROM leads")
             total_leads = cursor.fetchone()[0]
-            log(f"✅ PostgreSQL: Tabla 'leads' existe con {total_leads} registros")
+            log(f"âœ… PostgreSQL: Tabla 'leads' existe con {total_leads} registros")
         else:
-            log("⚠️ PostgreSQL: Tabla 'leads' NO existe")
+            log("âš ï¸ PostgreSQL: Tabla 'leads' NO existe")
         
         cursor.close()
         conn.close()
         return True
         
     except Exception as e:
-        log(f"❌ Error conectando a PostgreSQL: {e}")
+        log(f"âŒ Error conectando a PostgreSQL: {e}")
         return False
 
 
@@ -2542,7 +2542,7 @@ def test_pg_now():
         
         return jsonify({
             "status": "success",
-            "message": "✅ PostgreSQL funcionando correctamente",
+            "message": "âœ… PostgreSQL funcionando correctamente",
             "lead_id": lead_id,
             "fecha": fecha.isoformat(),
             "total_leads": total,
@@ -2552,7 +2552,7 @@ def test_pg_now():
     except Exception as e:
         return jsonify({
             "status": "error",
-            "message": f"❌ PostgreSQL error: {str(e)}",
+            "message": f"âŒ PostgreSQL error: {str(e)}",
             "timestamp": datetime.now().isoformat()
         }), 500
 
@@ -2565,11 +2565,11 @@ def debug_leads():
         with open(LEADS_FILE, 'r', encoding='utf-8') as f:
             leads_json = json.load(f)
     
-    # Probar conexión PostgreSQL
+    # Probar conexiÃ³n PostgreSQL
     try:
         conn = get_db_connection()
         if not conn:
-            total_pg = "Error de conexión"
+            total_pg = "Error de conexiÃ³n"
         else:
             cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM leads")
@@ -2591,7 +2591,7 @@ def debug_leads():
 def send_appointment_feedback():
     """
     Endpoint interno para enviar mensajes de feedback post-visita.
-    Invocado por el script de seguimiento automático.
+    Invocado por el script de seguimiento automÃ¡tico.
     """
     try:
         data = request.get_json()
@@ -2606,18 +2606,18 @@ def send_appointment_feedback():
         if not user_id:
             return jsonify({"error": "user_id is required"}), 400
             
-        log(f"✉️ Preparando mensaje de feedback para {nombre} ({user_id})")
+        log(f"âœ‰ï¸ Preparando mensaje de feedback para {nombre} ({user_id})")
         
         # Mensaje de feedback amigable
-        mensaje = f"¡Hola *{nombre}*! 👋 Soy el asistente de *Dante Propiedades*.\n\n"
-        mensaje += f"¿Qué te pareció la visita a la propiedad *{propiedad}*? 🏠\n\n"
-        mensaje += "¿Te gustaría hacer una oferta, te interesaría verla de nuevo o prefieres que busquemos algo más para vos? 😊"
+        mensaje = f"Â¡Hola *{nombre}*! ðŸ‘‹ Soy el asistente de *Dante Propiedades*.\n\n"
+        mensaje += f"Â¿QuÃ© te pareciÃ³ la visita a la propiedad *{propiedad}*? ðŸ \n\n"
+        mensaje += "Â¿Te gustarÃ­a hacer una oferta, te interesarÃ­a verla de nuevo o prefieres que busquemos algo mÃ¡s para vos? ðŸ˜Š"
         
-        # Enviar vía WhatsApp
+        # Enviar vÃ­a WhatsApp
         resultado = send_whatsapp_message(user_id, mensaje)
         
         if resultado.get("status") == "success":
-            log(f"✅ Feedback enviado correctamente a {user_id}")
+            log(f"âœ… Feedback enviado correctamente a {user_id}")
             
             # Actualizar estado del usuario a 'esperando_feedback'
             try:
@@ -2630,9 +2630,9 @@ def send_appointment_feedback():
                 
                 estado['data']['propiedad_feedback'] = propiedad
                 actualizar_estado_usuario(user_id, estado)
-                log(f"🔄 Estado de {user_id} cambiado a 'esperando_feedback'")
+                log(f"ðŸ”„ Estado de {user_id} cambiado a 'esperando_feedback'")
             except Exception as e:
-                log(f"⚠️ No se pudo actualizar el estado del usuario: {e}", "WARNING")
+                log(f"âš ï¸ No se pudo actualizar el estado del usuario: {e}", "WARNING")
 
             # Registrar en DB si viene cita_id
             if cita_id:
@@ -2656,7 +2656,7 @@ def send_appointment_feedback():
             })
         else:
             error_msg = resultado.get("error") or resultado.get("error_message") or "Error desconocido"
-            log(f"❌ Error enviando feedback a {user_id}: {error_msg}", "ERROR")
+            log(f"âŒ Error enviando feedback a {user_id}: {error_msg}", "ERROR")
             return jsonify({
                 "status": "error",
                 "message": "Error enviando WhatsApp",
@@ -2664,7 +2664,7 @@ def send_appointment_feedback():
             }), 500
             
     except Exception as e:
-        log(f"❌ Error en endpoint de feedback: {e}", "ERROR")
+        log(f"âŒ Error en endpoint de feedback: {e}", "ERROR")
         import traceback
         log(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
@@ -2681,7 +2681,7 @@ def send_appointment_reminder():
         fecha = data.get('fecha')
         hora = data.get('hora')
         propiedad = data.get('propiedad', 'la propiedad')
-        cita_id = data.get('cita_id')  # ← NUEVO: recibir el ID de la cita
+        cita_id = data.get('cita_id')  # â† NUEVO: recibir el ID de la cita
         
         # Validar campos
         missing = []
@@ -2692,29 +2692,29 @@ def send_appointment_reminder():
         if not hora:
             missing.append('hora')
         if not cita_id:
-            missing.append('cita_id')  # ← NUEVO: validar ID
+            missing.append('cita_id')  # â† NUEVO: validar ID
             
         if missing:
             return jsonify({"error": "Missing fields", "missing": missing}), 400
         
         # Formatear mensaje con el ID de la cita
-        mensaje = f"""🔔 *RECORDATORIO DANTE PROPIEDADES*
+        mensaje = f"""ðŸ”” *RECORDATORIO DANTE PROPIEDADES*
 
-Hola *{nombre}*! 😊
+Hola *{nombre}*! ðŸ˜Š
 
-Te escribo para recordarte tu cita de mañana:
+Te escribo para recordarte tu cita de maÃ±ana:
 
-📅 *Fecha:* {fecha}
-⏰ *Hora:* {hora} hs
-🏠 *Propiedad:* {propiedad}
+ðŸ“… *Fecha:* {fecha}
+â° *Hora:* {hora} hs
+ðŸ  *Propiedad:* {propiedad}
 
-📍 Te esperamos. Para responder, escribí:
+ðŸ“ Te esperamos. Para responder, escribÃ­:
 
-✅ *CONFIRMAR* o *CONFIRMAR-{cita_id}* para confirmar
-❌ *CANCELAR* o *CANCELAR-{cita_id}* si no podrás asistir
-🔄 *REPROGRAMAR* para cambiar fecha/hora
+âœ… *CONFIRMAR* o *CONFIRMAR-{cita_id}* para confirmar
+âŒ *CANCELAR* o *CANCELAR-{cita_id}* si no podrÃ¡s asistir
+ðŸ”„ *REPROGRAMAR* para cambiar fecha/hora
 
-¡Gracias por confiar en Dante Propiedades! 🏠🗝️"""
+Â¡Gracias por confiar en Dante Propiedades! ðŸ ðŸ—ï¸"""
         
         # Enviar mensaje
         result = send_whatsapp_message(user_id, mensaje)
@@ -2730,25 +2730,25 @@ Te escribo para recordarte tu cita de mañana:
         estado['data']['ultimo_recordatorio_cita_id'] = cita_id
         actualizar_estado_usuario(user_id, estado)
         
-        log(f"🔔 Recordatorio enviado a {user_id} ({nombre}) para cita {cita_id}")
+        log(f"ðŸ”” Recordatorio enviado a {user_id} ({nombre}) para cita {cita_id}")
         return jsonify({
             "status": "success",
             "whatsapp_id": result.get('message_id')
         }), 200
         
     except Exception as e:
-        log(f"❌ Error inesperado: {e}")
+        log(f"âŒ Error inesperado: {e}")
         return jsonify({"error": str(e)}), 500
     
     
 
-# 🔥 NUEVOS ENDPOINTS PARA DIAGNÓSTICO
+# ðŸ”¥ NUEVOS ENDPOINTS PARA DIAGNÃ“STICO
 @app.route("/version-actual", methods=["GET"])
 def version_actual():
-    """Muestra la versión actual del bot"""
+    """Muestra la versiÃ³n actual del bot"""
     return """
-    <h1>✅ VERSIÓN CORRECTA - BOT INMOBILIARIO COMPLETO</h1>
-    <p>Este es el código completo con sistema de citas, propiedades y PostgreSQL</p>
+    <h1>âœ… VERSIÃ“N CORRECTA - BOT INMOBILIARIO COMPLETO</h1>
+    <p>Este es el cÃ³digo completo con sistema de citas, propiedades y PostgreSQL</p>
     <p><a href="/">Volver al inicio</a></p>
     <p><a href="/token-status">Verificar token</a></p>
     <p><a href="/debug-token-env">Debug variables</a></p>
@@ -2769,13 +2769,13 @@ def token_status():
     else:
         return jsonify({
             "valid": False,
-            "error": "Token inválido o expirado",
+            "error": "Token invÃ¡lido o expirado",
             "details": token_info
         }), 401
 
 @app.route("/debug-token-env", methods=["GET"])
 def debug_token_env():
-    """Muestra información de la variable de entorno del token"""
+    """Muestra informaciÃ³n de la variable de entorno del token"""
     token_from_env = os.environ.get("WHATSAPP_TOKEN", "NO_ENV_VAR")
     token_from_code = ACCESS_TOKEN
     
@@ -2789,15 +2789,15 @@ def debug_token_env():
 
 @app.route("/check-code", methods=["GET"])
 def check_code():
-    """Verifica que el código es la versión correcta"""
-    return "✅ CÓDIGO CORRECTO - Versión completa con sistema de citas"
+    """Verifica que el cÃ³digo es la versiÃ³n correcta"""
+    return "âœ… CÃ“DIGO CORRECTO - VersiÃ³n completa con sistema de citas"
 
 @app.route("/test-envio", methods=["GET"])
 def test_envio_simple():
-    """Endpoint ultra simple para probar envío directo"""
+    """Endpoint ultra simple para probar envÃ­o directo"""
     try:
         numero = "5411515151579"  # Formato directo sin 9
-        mensaje = "🔔 PRUEBA DIRECTA - BOT INMOBILIARIO COMPLETO"
+        mensaje = "ðŸ”” PRUEBA DIRECTA - BOT INMOBILIARIO COMPLETO"
         
         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
         headers = {
@@ -2826,7 +2826,7 @@ def test_envio_simple():
 
 @app.route("/debug-version", methods=["GET"])
 def debug_version():
-    """Muestra información de la versión del código"""
+    """Muestra informaciÃ³n de la versiÃ³n del cÃ³digo"""
     import hashlib
     import os
     
@@ -2842,7 +2842,7 @@ def debug_version():
         "test-envio": "test_envio_simple" in dir()
     }
     
-    # Última modificación del archivo
+    # Ãšltima modificaciÃ³n del archivo
     mod_time = os.path.getmtime(__file__)
     mod_date = datetime.fromtimestamp(mod_time).strftime('%Y-%m-%d %H:%M:%S')
     
@@ -2857,7 +2857,7 @@ def debug_version():
 
 @app.route("/debug-python", methods=["GET"])
 def debug_python():
-    """Muestra la versión de Python que está usando Render"""
+    """Muestra la versiÃ³n de Python que estÃ¡ usando Render"""
     import sys
     import platform
     
@@ -2871,7 +2871,7 @@ def debug_python():
 
 @app.route("/debug-db", methods=["GET"])
 def debug_db():
-    """Diagnóstico detallado de la conexión a PostgreSQL"""
+    """DiagnÃ³stico detallado de la conexiÃ³n a PostgreSQL"""
     import psycopg2
     import os
     
@@ -2892,7 +2892,7 @@ def debug_db():
         resultados["variable_db_url"] = "NO EXISTE"
         return jsonify(resultados)
     
-    # 2. Intentar conexión
+    # 2. Intentar conexiÃ³n
     try:
         conn = psycopg2.connect(db_url)
         cursor = conn.cursor()
@@ -2906,7 +2906,7 @@ def debug_db():
         
         resultados["intento_conexion"] = True
         resultados["consulta_prueba"] = resultado[0] == 1
-        resultados["mensaje"] = "✅ Conexión exitosa"
+        resultados["mensaje"] = "âœ… ConexiÃ³n exitosa"
         
     except Exception as e:
         resultados["intento_conexion"] = False
@@ -2996,7 +2996,7 @@ def api_citas():
                     "email": email
                 })
             except Exception as item_e:
-                log(f"⚠️ Error procesando cita individual: {item_e}")
+                log(f"âš ï¸ Error procesando cita individual: {item_e}")
                 continue
         
         cursor.close()
@@ -3004,7 +3004,7 @@ def api_citas():
         return jsonify(citas_formateadas)
         
     except Exception as e:
-        log(f"❌ Error en api_citas: {e}", "ERROR")
+        log(f"âŒ Error en api_citas: {e}", "ERROR")
         import traceback
         log(traceback.format_exc(), "ERROR")
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
@@ -3013,7 +3013,7 @@ def api_citas():
     
 @app.route("/api/db-status", methods=["GET"])
 def db_status():
-    """Verifica el estado de la conexión a PostgreSQL"""
+    """Verifica el estado de la conexiÃ³n a PostgreSQL"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
@@ -3051,13 +3051,13 @@ def db_status():
             
             cursor.close()
             conn.close()
-            status["message"] = "✅ Conexión exitosa"
+            status["message"] = "âœ… ConexiÃ³n exitosa"
         else:
-            status["message"] = "❌ No se pudo conectar"
+            status["message"] = "âŒ No se pudo conectar"
             
     except Exception as e:
         status["error"] = str(e)
-        status["message"] = "❌ Error en la conexión"
+        status["message"] = "âŒ Error en la conexiÃ³n"
     
     return jsonify(status)
 
@@ -3077,7 +3077,7 @@ def api_propiedades():
         with open(FILE_PATH, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        # 🔥 Unificar fuentes si vienen separadas
+        # ðŸ”¥ Unificar fuentes si vienen separadas
         propiedades = []
         if isinstance(data, dict):
             for fuente in data.values():
@@ -3085,7 +3085,7 @@ def api_propiedades():
         else:
             propiedades = data
 
-        # 🔥 Mapear campos correctamente
+        # ðŸ”¥ Mapear campos correctamente
         propiedades_simplificadas = []
         for p in propiedades:
             propiedades_simplificadas.append({
@@ -3101,17 +3101,17 @@ def api_propiedades():
                 "ambientes": p.get("ambientes")
             })
 
-        print(f"✅ Propiedades enviadas: {len(propiedades_simplificadas)}")
+        print(f"âœ… Propiedades enviadas: {len(propiedades_simplificadas)}")
 
         return jsonify(propiedades_simplificadas)
 
     except Exception as e:
-        log(f"❌ Error en api_propiedades: {e}", "ERROR")
+        log(f"âŒ Error en api_propiedades: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/send-message", methods=["POST"])
 def api_send_manual_message_main():
-    """Endpoint para enviar mensajes manuales vía WhatsApp"""
+    """Endpoint para enviar mensajes manuales vÃ­a WhatsApp"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
@@ -3120,11 +3120,11 @@ def api_send_manual_message_main():
     if not data or 'to' not in data or 'message' not in data:
         return jsonify({"error": "Datos incompletos"}), 400
     
-    # send_whatsapp_message ya está disponible por el import global
+    # send_whatsapp_message ya estÃ¡ disponible por el import global
     to_number = data['to']
     message_text = data['message']
     
-    log(f"📝 Envío manual solicitado para {to_number}")
+    log(f"ðŸ“ EnvÃ­o manual solicitado para {to_number}")
     resultado = send_whatsapp_message(to_number, message_text)
     
     if resultado.get("status") == "success":
@@ -3134,7 +3134,7 @@ def api_send_manual_message_main():
 
 @app.route("/api/config/horarios", methods=["GET"])
 def api_config_horarios():
-    """Obtiene la configuración de horarios"""
+    """Obtiene la configuraciÃ³n de horarios"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
@@ -3145,7 +3145,7 @@ def api_config_horarios():
                 config = json.load(f)
             return jsonify(config)
         else:
-            # Configuración por defecto
+            # ConfiguraciÃ³n por defecto
             default_config = {
                 "configuracion_global": {
                     "dias_habiles": [0, 1, 2, 3, 4],
@@ -3160,13 +3160,13 @@ def api_config_horarios():
             return jsonify(default_config)
             
     except Exception as e:
-        log(f"❌ Error en api_config_horarios: {e}", "ERROR")
+        log(f"âŒ Error en api_config_horarios: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/diagnostico-citas", methods=["GET"])
 def diagnostico_citas():
-    """Endpoint para diagnosticar citas para mañana"""
+    """Endpoint para diagnosticar citas para maÃ±ana"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
@@ -3211,7 +3211,7 @@ def diagnostico_citas():
 
 @app.route("/api/db-check", methods=["GET"])
 def db_check():
-    """Verificación rápida de la base de datos"""
+    """VerificaciÃ³n rÃ¡pida de la base de datos"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
@@ -3221,7 +3221,7 @@ def db_check():
     # Verificar variables de entorno
     results["database_url_exists"] = bool(os.getenv("DATABASE_URL"))
     
-    # Intentar conexión
+    # Intentar conexiÃ³n
     try:
         conn = get_db_connection()
         results["connection_success"] = conn is not None
@@ -3249,13 +3249,13 @@ def db_check():
             
             cursor.close()
             conn.close()
-            results["message"] = "✅ Conexión exitosa"
+            results["message"] = "âœ… ConexiÃ³n exitosa"
         else:
-            results["message"] = "❌ No se pudo conectar"
+            results["message"] = "âŒ No se pudo conectar"
             
     except Exception as e:
         results["error"] = str(e)
-        results["message"] = "❌ Error"
+        results["message"] = "âŒ Error"
     
     return jsonify(results)
 
@@ -3279,14 +3279,14 @@ def debug_files():
 
 @app.route('/api/enviar-seguimiento-manual', methods=['POST'])
 def enviar_seguimiento_manual():
-    """Endpoint para activar manualmente el envío de seguimientos post-visita"""
+    """Endpoint para activar manualmente el envÃ­o de seguimientos post-visita"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
     
     try:
         import subprocess
-        log("👨‍💻 Iniciando seguimiento post-visita manualmente")
+        log("ðŸ‘¨â€ðŸ’» Iniciando seguimiento post-visita manualmente")
         
         if os.name == 'nt':
             subprocess.Popen(['python', 'seguimiento_citas.py'], 
@@ -3301,10 +3301,10 @@ def enviar_seguimiento_manual():
         })
         
     except Exception as e:
-        log(f"❌ Error: {e}")
+        log(f"âŒ Error: {e}")
         return jsonify({"error": str(e)}), 500
 
-# ✅ CORRECCIÓN: El decorador debe estar al mismo nivel que la función
+# âœ… CORRECCIÃ“N: El decorador debe estar al mismo nivel que la funciÃ³n
 @app.route('/api/ejecutar-cron-diario', methods=['POST'])
 def ejecutar_cron_diario():
     """Ejecuta el proceso diario completo (recordatorios + seguimiento)"""
@@ -3315,7 +3315,7 @@ def ejecutar_cron_diario():
     try:
         import subprocess
         import os
-        log("📅 Ejecutando CRON DIARIO completo (recordatorios + seguimiento)")
+        log("ðŸ“… Ejecutando CRON DIARIO completo (recordatorios + seguimiento)")
         
         if os.name == 'nt':
             subprocess.Popen(['python', 'cron_diario.py'], 
@@ -3330,10 +3330,10 @@ def ejecutar_cron_diario():
         })
         
     except Exception as e:
-        log(f"❌ Error ejecutando cron diario: {e}")
+        log(f"âŒ Error ejecutando cron diario: {e}")
         return jsonify({"error": str(e)}), 500
 
-# ========== RUTAS DE EXPORTACIÓN Y CALENDARIO ADICIONALES ==========
+# ========== RUTAS DE EXPORTACIÃ“N Y CALENDARIO ADICIONALES ==========
 
 @app.route('/api/exportar/leads', methods=['GET'])
 def export_leads_main():
@@ -3440,7 +3440,7 @@ def debug_calendar_key_status():
         except Exception as e:
             result["error"] = str(e)
             
-            # Intentar con corrección de padding
+            # Intentar con correcciÃ³n de padding
             try:
                 b64_fixed = b64_data.strip()
                 missing = len(b64_fixed) % 4
@@ -3455,7 +3455,7 @@ def debug_calendar_key_status():
     
     return jsonify(result)
 
-# ========== RUTAS DE ANÁLISIS DE MERCADO (SCRAPING) ==========
+# ========== RUTAS DE ANÃLISIS DE MERCADO (SCRAPING) ==========
 
 @app.route('/api/market/stats', methods=['GET'])
 def get_market_stats():
@@ -3472,7 +3472,7 @@ def get_market_stats():
         with open(FILE_PATH, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        # 🔥 Unificar propiedades
+        # ðŸ”¥ Unificar propiedades
         propiedades = []
         if isinstance(data, dict):
             for fuente in data.values():
@@ -3483,7 +3483,7 @@ def get_market_stats():
         if not propiedades:
             return jsonify({"success": False, "error": "No properties"})
 
-        # 🔥 Calcular precio por m2
+        # ðŸ”¥ Calcular precio por m2
         precios_m2 = []
         precios_total = []
 
@@ -3506,7 +3506,7 @@ def get_market_stats():
 
         price_range = f"{min(precios_total)} - {max(precios_total)}" if precios_total else "N/A"
 
-        # 🔥 RESPUESTA EXACTA PARA TU FRONTEND
+        # ðŸ”¥ RESPUESTA EXACTA PARA TU FRONTEND
         return jsonify({
             "success": True,
             "total_properties_analyzed": len(propiedades),
@@ -3539,7 +3539,7 @@ def run_market_scrape():
         base_path = os.path.dirname(os.path.abspath(__file__))
         script_path = os.path.join(base_path, 'scrape_market.py')
         
-        # Ejecutar en segundo plano mediante subprocess (usando los argumentos en español del script)
+        # Ejecutar en segundo plano mediante subprocess (usando los argumentos en espaÃ±ol del script)
         cmd = [sys.executable, script_path, '--zona', zona, '--operacion', operacion, '--tipo', tipo]
         
         # En Windows usamos flags para evitar ventanas, en Linux usamos setpgrp
@@ -3558,7 +3558,7 @@ def run_market_scrape():
 
 @app.route('/api/market/status', methods=['GET'])
 def get_market_status():
-    """Verifica si existe un archivo de scraping actual y su antigüedad"""
+    """Verifica si existe un archivo de scraping actual y su antigÃ¼edad"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
@@ -3584,537 +3584,48 @@ def get_market_status():
     return jsonify({"exists": False})
 
 
-# Agregar al inicio del archivo, después de los imports existentes
-import os
-import json
-import asyncio
-import logging
-from datetime import datetime
-from fastapi import Query, HTTPException
-from fastapi.responses import JSONResponse
-
-# Importar el scraping manager
-try:
-    from logic.market_scraper import ScrapingManager
-    SCRAPER_AVAILABLE = True
-except ImportError as e:
-    SCRAPER_AVAILABLE = False
-    print(f"⚠️ Scraper no disponible: {e}")
-
-# Configurar logging
-logger = logging.getLogger(__name__)
-
-# Inicializar scraping manager
-scraping_manager = None
-if SCRAPER_AVAILABLE:
-    try:
-        scraping_manager = ScrapingManager()
-        logger.info("✅ Scraping Manager inicializado correctamente")
-    except Exception as e:
-        logger.error(f"❌ Error inicializando Scraping Manager: {e}")
-        scraping_manager = None
-
-
-# ============================================
-# AGREGAR ESTOS ENDPOINTS DESPUÉS DE TUS ENDPOINTS EXISTENTES
-# ============================================
-
-# Endpoint para ejecutar scraping desde el panel admin
-@app.post("/api/market/run-scrape")
-async def run_market_scrape(
-    request: Request,
-    zona: str = Query(None, description="Barrio o zona"),
-    operacion: str = Query("venta", description="venta o alquiler"),
-    tipo: str = Query("departamento", description="tipo de propiedad")
-):
-    """
-    Endpoint para ejecutar scraping de mercado inmobiliario.
-    Se puede llamar con parámetros en URL o con body JSON.
-    """
-    # Si los parámetros vienen en el body (desde admin.html)
-    if request.method == "POST":
-        try:
-            body = await request.json()
-            zona = body.get('zona', zona)
-            operacion = body.get('operacion', operacion)
-            tipo = body.get('tipo', tipo)
-        except:
-            pass
-    
-    if not zona:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "success": False,
-                "error": "Se requiere el parámetro 'zona'",
-                "message": "Por favor ingresa un barrio o zona para analizar"
-            }
-        )
-    
-    if not SCRAPER_AVAILABLE or scraping_manager is None:
-        return JSONResponse(
-            status_code=503,
-            content={
-                "success": False,
-                "error": "Scraper no disponible",
-                "message": "El módulo de scraping no está disponible en este momento"
-            }
-        )
-    
-    try:
-        logger.info(f"🕷️ Ejecutando scraping para {zona} ({operacion}, {tipo})")
-        
-        # Ejecutar scraping en hilo separado para no bloquear
-        result = await asyncio.to_thread(
-            scraping_manager.scrape_market,
-            zona, operacion, tipo
-        )
-        
-        # Guardar resultado en archivo para consultas posteriores
-        output = {
-            "success": True,
-            "message": f"Analizadas {result.get('sample_size', 0)} propiedades",
-            "zone": zona,
-            "operation": operacion,
-            "property_type": tipo,
-            "scraping_timestamp": datetime.now().isoformat(),
-            "data": result
-        }
-        
-        # Guardar en archivo
-        try:
-            with open('scraping.json', 'w', encoding='utf-8') as f:
-                json.dump(output, f, indent=2, ensure_ascii=False)
-            logger.info(f"✅ Datos guardados en scraping.json")
-        except Exception as e:
-            logger.warning(f"No se pudo guardar scraping.json: {e}")
-        
-        # Devolver respuesta simplificada para admin.html
-        return {
-            "success": True,
-            "message": f"✅ Scraping completado: {result.get('sample_size', 0)} propiedades encontradas",
-            "sample_size": result.get('sample_size', 0),
-            "statistics": result.get('statistics', {}),
-            "properties": result.get('properties', [])[:50],  # Limitar a 50
-            "errors": result.get('errors', [])
-        }
-        
-    except Exception as e:
-        logger.error(f"Error en scraping: {e}", exc_info=True)
-        return {
-            "success": False,
-            "error": str(e),
-            "message": f"❌ Error en scraping: {str(e)[:200]}"
-        }
-
-
-# Endpoint para obtener estadísticas del último scraping
-@app.get("/api/market/stats")
-async def get_market_stats():
-    """Obtener estadísticas del último scraping guardado"""
-    import json
-    import os
-    
-    try:
-        if os.path.exists('scraping.json'):
-            with open('scraping.json', 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            
-            return {
-                "success": True,
-                "data": data.get('data', {}),
-                "timestamp": data.get('scraping_timestamp'),
-                "zone": data.get('zone'),
-                "operation": data.get('operation'),
-                "property_type": data.get('property_type')
-            }
-        else:
-            return {
-                "success": False,
-                "message": "No hay datos de scraping. Ejecuta un scraping primero.",
-                "data": None
-            }
-    except Exception as e:
-        logger.error(f"Error leyendo scraping.json: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "Error al leer los datos guardados"
-        }
-
-
-# Endpoint para verificar estado del sistema de scraping
-@app.get("/api/market/status")
-async def get_market_status():
-    """Verificar estado del sistema de scraping"""
-    import json
-    import os
-    
-    # Detectar entorno
-    is_render = os.environ.get('RENDER', False)
-    chrome_bin = os.environ.get('GOOGLE_CHROME_BIN')
-    
-    status = {
-        "exists": os.path.exists('scraping.json'),
-        "scraper_available": SCRAPER_AVAILABLE,
-        "environment": "Render" if is_render else "Local",
-        "selenium_enabled": not is_render,  # En Render, Selenium desactivado
-        "chrome_available": bool(chrome_bin and os.path.exists(chrome_bin)) if chrome_bin else False
-    }
-    
-    if status["exists"]:
-        try:
-            with open('scraping.json', 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            status["last_update"] = data.get('scraping_timestamp')
-            status["zone"] = data.get('zone')
-            status["sample_size"] = data.get('data', {}).get('sample_size', 0)
-            status["total_properties"] = len(data.get('data', {}).get('properties', []))
-        except:
-            pass
-    
-    return status
-
-
-# Endpoint para obtener propiedades de mercado con filtros
-@app.get("/api/market/properties")
-async def get_market_properties(
-    limit: int = Query(50, ge=1, le=200, description="Límite de propiedades"),
-    min_surface: float = Query(0, ge=0, description="Superficie mínima (m²)"),
-    max_price: float = Query(0, ge=0, description="Precio máximo"),
-    source: str = Query(None, description="Fuente (argenprop, zonaprop, mercadolibre)")
-):
-    """Obtener propiedades del último scraping con filtros"""
-    import json
-    import os
-    
-    if not os.path.exists('scraping.json'):
-        return {
-            "success": False,
-            "message": "No hay datos de scraping disponibles",
-            "properties": []
-        }
-    
-    try:
-        with open('scraping.json', 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        properties = data.get('data', {}).get('properties', [])
-        
-        # Aplicar filtros
-        filtered = properties
-        
-        if min_surface > 0:
-            filtered = [p for p in filtered if p.get('surface', 0) >= min_surface]
-        
-        if max_price > 0:
-            filtered = [p for p in filtered if p.get('price', 0) <= max_price]
-        
-        if source:
-            filtered = [p for p in filtered if p.get('source', '').lower() == source.lower()]
-        
-        # Limitar resultados
-        filtered = filtered[:limit]
-        
-        return {
-            "success": True,
-            "total": len(filtered),
-            "properties": filtered,
-            "timestamp": data.get('scraping_timestamp')
-        }
-        
-    except Exception as e:
-        logger.error(f"Error obteniendo propiedades: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-            "properties": []
-        }
-
-
-# Endpoint para obtener métricas de mercado por barrio
-@app.get("/api/market/neighborhood-stats")
-async def get_neighborhood_stats():
-    """Obtener estadísticas por barrio del último scraping"""
-    import json
-    import os
-    
-    if not os.path.exists('scraping.json'):
-        return {
-            "success": False,
-            "message": "No hay datos de scraping disponibles",
-            "neighborhoods": []
-        }
-    
-    try:
-        with open('scraping.json', 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        neighborhood_stats = data.get('data', {}).get('neighborhood_stats', {})
-        
-        # Convertir a lista ordenada por precio
-        neighborhoods = []
-        for name, stats in neighborhood_stats.items():
-            neighborhoods.append({
-                "name": name,
-                "count": stats.get('count', 0),
-                "avg_price_m2": stats.get('avg_price_m2', 0)
-            })
-        
-        # Ordenar por precio promedio descendente
-        neighborhoods.sort(key=lambda x: x.get('avg_price_m2', 0), reverse=True)
-        
-        return {
-            "success": True,
-            "neighborhoods": neighborhoods,
-            "total": len(neighborhoods)
-        }
-        
-    except Exception as e:
-        logger.error(f"Error obteniendo estadísticas por barrio: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-            "neighborhoods": []
-        }
-
-
-# ============================================
-# FUNCIONES AUXILIARES PARA INICIALIZACIÓN
-# ============================================
-
-def init_scraping():
-    """Inicializa el módulo de scraping al arrancar el servidor"""
-    if SCRAPER_AVAILABLE:
-        try:
-            # Verificar si existe archivo de scraping anterior
-            if os.path.exists('scraping.json'):
-                with open('scraping.json', 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    timestamp = data.get('scraping_timestamp', 'desconocida')
-                    sample = data.get('data', {}).get('sample_size', 0)
-                    logger.info(f"📊 Datos de scraping previos cargados: {sample} propiedades ({timestamp})")
-            else:
-                logger.info("📊 No hay datos de scraping previos. Ejecuta /api/market/run-scrape para obtenerlos.")
-        except Exception as e:
-            logger.warning(f"No se pudo cargar scraping.json: {e}")
-
-
-@app.post("/api/market/run-scrape")
-async def run_market_scrape(
-    request: Request,
-    zona: str = Query(None, description="Barrio o zona"),
-    operacion: str = Query("venta", description="venta o alquiler"),
-    tipo: str = Query("departamento", description="tipo de propiedad"),
-    key: str = Query(..., description="Clave de administrador")
-):
-    """
-    Endpoint para ejecutar scraping de mercado inmobiliario.
-    Se puede llamar con parámetros en URL o con body JSON.
-    """
-    # Validar clave
-    if key != admin_key:
-        return JSONResponse(
-            status_code=403,
-            content={"success": False, "error": "Clave inválida"}
-        )
-    
-    # Si los parámetros vienen en el body (desde admin.html)
-    if request.method == "POST":
-        try:
-            body = await request.json()
-            zona = body.get('zona', zona)
-            operacion = body.get('operacion', operacion)
-            tipo = body.get('tipo', tipo)
-        except:
-            pass
-    
-    if not zona:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "success": False,
-                "error": "Se requiere el parámetro 'zona'",
-                "message": "Por favor ingresa un barrio o zona para analizar"
-            }
-        )
-    
-    if not SCRAPER_AVAILABLE or scraping_manager is None:
-        return JSONResponse(
-            status_code=503,
-            content={
-                "success": False,
-                "error": "Scraper no disponible",
-                "message": "El módulo de scraping no está disponible en este momento"
-            }
-        )
-    
-    try:
-        print(f"🕷️ Ejecutando scraping para {zona} ({operacion}, {tipo})")
-        logger.info(f"Ejecutando scraping para {zona} ({operacion}, {tipo})")
-        
-        # Ejecutar scraping en hilo separado para no bloquear
-        result = await asyncio.to_thread(
-            scraping_manager.scrape_market,
-            zona, operacion, tipo
-        )
-        
-        # Guardar resultado en archivo
-        output = {
-            "success": True,
-            "message": f"Analizadas {result.get('sample_size', 0)} propiedades",
-            "zone": zona,
-            "operation": operacion,
-            "property_type": tipo,
-            "scraping_timestamp": datetime.now().isoformat(),
-            "data": result
-        }
-        
-        try:
-            with open('scraping.json', 'w', encoding='utf-8') as f:
-                json.dump(output, f, indent=2, ensure_ascii=False)
-            print(f"✅ Datos guardados en scraping.json")
-        except Exception as e:
-            print(f"⚠️ No se pudo guardar scraping.json: {e}")
-        
-        return {
-            "success": True,
-            "message": f"✅ Scraping completado: {result.get('sample_size', 0)} propiedades encontradas",
-            "sample_size": result.get('sample_size', 0),
-            "statistics": result.get('statistics', {}),
-            "properties": result.get('properties', [])[:50],
-            "errors": result.get('errors', [])
-        }
-        
-    except Exception as e:
-        print(f"❌ Error en scraping: {e}")
-        logger.error(f"Error en scraping: {e}", exc_info=True)
-        return {
-            "success": False,
-            "error": str(e),
-            "message": f"❌ Error en scraping: {str(e)[:200]}"
-        }
-
-
-@app.get("/api/market/stats")
-async def get_market_stats(
-    key: str = Query(..., description="Clave de administrador")
-):
-    """Obtener estadísticas del último scraping guardado"""
-    if key != admin_key:
-        return JSONResponse(
-            status_code=403,
-            content={"success": False, "error": "Clave inválida"}
-        )
-    
-    try:
-        if os.path.exists('scraping.json'):
-            with open('scraping.json', 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            
-            return {
-                "success": True,
-                "data": data.get('data', {}),
-                "timestamp": data.get('scraping_timestamp'),
-                "zone": data.get('zone'),
-                "operation": data.get('operation'),
-                "property_type": data.get('property_type')
-            }
-        else:
-            return {
-                "success": False,
-                "message": "No hay datos de scraping. Ejecuta un scraping primero.",
-                "data": None
-            }
-    except Exception as e:
-        print(f"❌ Error leyendo scraping.json: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "Error al leer los datos guardados"
-        }
-
-
-@app.get("/api/market/status")
-async def get_market_status(
-    key: str = Query(..., description="Clave de administrador")
-):
-    """Verificar estado del sistema de scraping"""
-    if key != admin_key:
-        return JSONResponse(
-            status_code=403,
-            content={"success": False, "error": "Clave inválida"}
-        )
-    
-    is_render = os.environ.get('RENDER', False)
-    chrome_bin = os.environ.get('GOOGLE_CHROME_BIN')
-    
-    status = {
-        "exists": os.path.exists('scraping.json'),
-        "scraper_available": SCRAPER_AVAILABLE,
-        "environment": "Render" if is_render else "Local",
-        "selenium_enabled": not is_render,
-        "chrome_available": bool(chrome_bin and os.path.exists(chrome_bin)) if chrome_bin else False
-    }
-    
-    if status["exists"]:
-        try:
-            with open('scraping.json', 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            status["last_update"] = data.get('scraping_timestamp')
-            status["zone"] = data.get('zone')
-            status["sample_size"] = data.get('data', {}).get('sample_size', 0)
-            status["total_properties"] = len(data.get('data', {}).get('properties', []))
-        except:
-            pass
-    
-    return status
-
-
-
-
 if __name__ == "__main__":
 
     print("\n" + "=" * 60)
-    print("🏠 🏠 🏠 WHATSAPP BOT INMOBILIARIO - VERSIÓN 2.1")
+    print("ðŸ  ðŸ  ðŸ  WHATSAPP BOT INMOBILIARIO - VERSIÃ“N 2.1")
     print("=" * 60)
     
     # DEBUG: Probar PostgreSQL
-    print("🔍 DEBUG: Probando PostgreSQL...")
+    print("ðŸ” DEBUG: Probando PostgreSQL...")
     debug_postgresql()
     
     propiedades = cargar_propiedades()
-    print(f"📊 Propiedades cargadas: {len(propiedades)}")
+    print(f"ðŸ“Š Propiedades cargadas: {len(propiedades)}")
 
     
-    # Probar conexión a PostgreSQL
-    print("🔍 Probando conexión a PostgreSQL...")
+    # Probar conexiÃ³n a PostgreSQL
+    print("ðŸ” Probando conexiÃ³n a PostgreSQL...")
     conexion_pg = probar_conexion_postgresql()
     
     
     if propiedades:
         ventas = len([p for p in propiedades if p.get('operacion') == 'venta'])
         alquileres = len([p for p in propiedades if p.get('operacion') == 'alquiler'])
-        print(f"💰 En venta: {ventas} propiedades")
-        print(f"🔑 En alquiler: {alquileres} propiedades")
+        print(f"ðŸ’° En venta: {ventas} propiedades")
+        print(f"ðŸ”‘ En alquiler: {alquileres} propiedades")
     
     token_valid, token_info = check_token_validity()
     if token_valid:
-        print(f"✅ TOKEN VÁLIDO")
-        print(f"   📞 Número: {token_info.get('display_phone_number', 'N/A')}")
-        print(f"   📛 Nombre: {token_info.get('verified_name', 'N/A')}")
+        print(f"âœ… TOKEN VÃLIDO")
+        print(f"   ðŸ“ž NÃºmero: {token_info.get('display_phone_number', 'N/A')}")
+        print(f"   ðŸ“› Nombre: {token_info.get('verified_name', 'N/A')}")
     else:
-        print(f"❌❌❌ TOKEN INVÁLIDO O EXPIRADO ❌❌❌")
-        print(f"   ⚠️  El bot NO PODRÁ ENVIAR MENSAJES")
+        print(f"âŒâŒâŒ TOKEN INVÃLIDO O EXPIRADO âŒâŒâŒ")
+        print(f"   âš ï¸  El bot NO PODRÃ ENVIAR MENSAJES")
     
-    print(f"🌐 URL: https://meta-rjpb.onrender.com")
-    print(f"📁 Propiedades: {PROPIEDADES_FILE}")
-    print(f"📅 Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"ðŸŒ URL: https://meta-rjpb.onrender.com")
+    print(f"ðŸ“ Propiedades: {PROPIEDADES_FILE}")
+    print(f"ðŸ“… Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     if conexion_pg:
-        print("✅ PostgreSQL: Conectado correctamente")
+        print("âœ… PostgreSQL: Conectado correctamente")
     else:
-        print("⚠️ PostgreSQL: No se pudo conectar (leads solo en JSON)")
+        print("âš ï¸ PostgreSQL: No se pudo conectar (leads solo en JSON)")
     
     print("=" * 60 + "\n")
     
