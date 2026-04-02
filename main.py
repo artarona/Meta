@@ -86,6 +86,8 @@ def init_scraping_data():
 
 
 
+BARRIOS_DB_PATH = 'instance/barrios_data.db'
+
 def get_barrios_db_connection():
     Path(os.path.dirname(BARRIOS_DB_PATH)).mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(BARRIOS_DB_PATH, check_same_thread=False)
