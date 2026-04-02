@@ -5,6 +5,15 @@
       "muestra": 185,
       "last_update": "2026-03-14 21:36",
       "source": "scraping.json"
+    },
+    "venta": {
+      "departamento": {
+        "avg_m2": 3574.19,
+        "muestra": 184,
+        "last_update": "2026-03-29 14:27",
+        "source": "scraping.json",
+        "currency": "USD"
+      }
     }
   },
   "balvanera": {
@@ -90,6 +99,37 @@
         "avg_m2": 2187.44,
         "muestra": 189,
         "last_update": "2026-03-27 23:37",
+        "source": "scraping.json",
+        "currency": "USD"
+      }
+    },
+    "alquiler": {
+      "departamento": {
+        "avg_m2": 17649.15,
+        "muestra": 80,
+        "last_update": "2026-04-02 14:19",
+        "source": "scraping.json",
+        "currency": "ARS"
+      }
+    }
+  },
+  "caballito": {
+    "venta": {
+      "departamento": {
+        "avg_m2": 2647.42,
+        "muestra": 189,
+        "last_update": "2026-03-28 11:07",
+        "source": "scraping.json",
+        "currency": "USD"
+      }
+    }
+  },
+  "belgrano": {
+    "venta": {
+      "terreno": {
+        "avg_m2": 2722.94,
+        "muestra": 153,
+        "last_update": "2026-03-29 14:35",
         "source": "scraping.json",
         "currency": "USD"
       }
