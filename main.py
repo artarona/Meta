@@ -701,7 +701,7 @@ def get_bot_response(text, user_id):
                 'propiedades_filtradas': []
             })
             actualizar_estado_usuario(user_id, estado_usuario)
-            return "Â¡Gracias por confiar en Dante Propiedades! ðŸ ðŸ—ï¸"
+            return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
 
         # Comandos de compatibilidad
         if text_lower in ["hola", "hi", "hello", "volver", "atras"]:
