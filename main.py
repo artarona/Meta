@@ -5,6 +5,7 @@ from whatsapp_api import *
 from tasaciones import *
 from citas import *
 from menu_handlers import *
+from logic.barrio_data import GASTRONOMY_DATA, FINANCIAL_DATA  # Importar datos de barrios
 # key = request.args.get('key')
     # if key != ADMIN_ACCESS_KEY:
     #     return jsonify({"error": "Unauthorized"}), 403
@@ -1912,6 +1913,85 @@ def health_check():
         "venta_count": len([p for p in propiedades if p.get('operacion') == 'venta']),
         "alquiler_count": len([p for p in propiedades if p.get('operacion') == 'alquiler'])
     })
+
+
+# ========== RUTAS DE API PARA ADMIN ==========
+
+@app.route('/api/barrios', methods=['GET'])
+def obtener_barrios():
+    """Obtener datos de barrios (gastronomía, servicios financieros, etc.)"""
+    key = request.args.get('key')
+    
+    try:
+        # Combinar datos de gastronomía y servicios financieros
+        barrios = {}
+        
+        # Agregar datos de gastronomía
+        for barrio, data in GASTRONOMY_DATA.items():
+            if barrio not in barrios:
+                barrios[barrio] = {}
+            barrios[barrio]['gastronomy'] = data
+        
+        # Agregar datos de servicios financieros
+        for barrio, data in FINANCIAL_DATA.items():
+            if barrio not in barrios:
+                barrios[barrio] = {}
+            barrios[barrio]['financial'] = data
+        
+        return jsonify({
+            "success": True,
+            "barrios": barrios,
+            "total": len(barrios),
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Error obteniendo barrios: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/market/status', methods=['GET'])
+def obtener_market_status():
+    """Obtener estado y metadatos del archivo de market stats"""
+    key = request.args.get('key')
+    file_path = "scraping.json"
+    exists = os.path.exists(file_path)
+    
+    status = {
+        "exists": exists,
+        "last_update": None,
+        "size_kb": 0
+    }
+    
+    if exists:
+        try:
+            mtime = os.path.getmtime(file_path)
+            status["last_update"] = datetime.fromtimestamp(mtime).isoformat()
+            status["size_kb"] = round(os.path.getsize(file_path) / 1024, 2)
+        except Exception as e:
+            logger.error(f"Error obteniendo estado de market: {e}")
+    
+    return jsonify(status)
+
+
+@app.route('/api/market/stats', methods=['GET'])
+def obtener_market_stats():
+    """Obtener estadísticas de mercado desde el archivo JSON generado por el scraper"""
+    key = request.args.get('key')
+    file_path = "scraping.json"
+    
+    if not os.path.exists(file_path):
+        return jsonify({
+            "success": False,
+            "error": "No hay datos de mercado disponibles. Ejecuta el scraping primero."
+        }), 404
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return jsonify(data)
+    except Exception as e:
+        logger.error(f"Error leyendo datos de mercado: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 def debug_postgresql():
