@@ -391,6 +391,9 @@ def get_bot_response(text, user_id):
             
         elif paso == 'submenu_asesor':
             return manejar_submenu_asesor(text_lower, estado_usuario, user_id)
+            
+        elif paso == 'submenu_faqs':
+            return manejar_submenu_faqs(text_lower, estado_usuario, user_id)
 
         elif paso == 'filtro_tipo':
             return manejar_filtro_tipo(text_lower, estado_usuario, user_id)

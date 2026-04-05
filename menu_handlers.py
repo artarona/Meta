@@ -47,22 +47,17 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
 
     elif text_lower == "6":
         # FAQs
-        return """❓ *REQUISITOS Y PREGUNTAS FRECUENTES*
-
-*Para Alquilar:*
-• Mes de adelanto
-• Mes de depósito (en USD)
-• Garantía propietaria (CABA/GBA) o Seguro de Caución (Finaer)
-• Demostración de ingresos (últimos 3 recibos)
-
-*¿Aceptan Mascotas?*
-Depende estrictamente de la propiedad y el consorcio. Consultalo en el detalle de cada departamento.
-
-*¿Toman propiedades en parte de pago?*
-Sí, evaluamos permutas caso por caso. Escribinos para tasación.
-
-9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*
-0️⃣ *❌ SALIR*"""
+        estado_usuario['paso'] = 'submenu_faqs'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return {
+            "type": "interactive_buttons",
+            "body": "❓ *REQUISITOS Y PREGUNTAS FRECUENTES*\n\nElige una opción:",
+            "buttons": [
+                {"id": "req_alquiler", "title": "Requisitos Alquiler"},
+                {"id": "mascotas", "title": "¿Aceptan Mascotas?"},
+                {"id": "permutas", "title": "¿Permutas?"}
+            ]
+        }
 
     elif text_lower == "9":
         # Volver al menú
@@ -138,6 +133,55 @@ def manejar_submenu_asesor(text_lower, estado_usuario, user_id):
 
 9️⃣ *Volver al menú principal*
 0️⃣ *Salir del chat*"""
+
+
+def manejar_submenu_faqs(text_lower, estado_usuario, user_id):
+    """Maneja las opciones del submenú de FAQs"""
+    if text_lower == "req_alquiler":
+        return """*REQUISITOS PARA ALQUILAR:*
+
+• Mes de adelanto
+• Mes de depósito (en USD)
+• Garantía propietaria (CABA/GBA) o Seguro de Caución (Finaer)
+• Demostración de ingresos (últimos 3 recibos)
+
+9️⃣ *Volver a FAQs*
+0️⃣ *Salir*"""
+    elif text_lower == "mascotas":
+        return """*¿ACEPTAN MASCOTAS?*
+
+Depende estrictamente de la propiedad y el consorcio. Consultalo en el detalle de cada departamento.
+
+9️⃣ *Volver a FAQs*
+0️⃣ *Salir*"""
+    elif text_lower == "permutas":
+        return """*¿TOMAN PROPIEDADES EN PARTE DE PAGO?*
+
+Sí, evaluamos permutas caso por caso. Escribinos para tasación.
+
+9️⃣ *Volver a FAQs*
+0️⃣ *Salir*"""
+    elif text_lower == "9":
+        # Volver a FAQs
+        estado_usuario['paso'] = 'submenu_faqs'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return {
+            "type": "interactive_buttons",
+            "body": "❓ *REQUISITOS Y PREGUNTAS FRECUENTES*\n\nElige una opción:",
+            "buttons": [
+                {"id": "req_alquiler", "title": "Requisitos Alquiler"},
+                {"id": "mascotas", "title": "¿Aceptan Mascotas?"},
+                {"id": "permutas", "title": "¿Permutas?"}
+            ]
+        }
+    elif text_lower == "0":
+        # Salir
+        return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
+    else:
+        return """No pude identificar esa opción.
+
+9️⃣ *Volver a FAQs*
+0️⃣ *Salir*"""
 
 
 def manejar_filtro_tipo(text_lower, estado_usuario, user_id):
