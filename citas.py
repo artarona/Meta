@@ -208,13 +208,14 @@ No hay horarios para el {fecha_display}.
             estado_usuario['paso'] = 'esperando_email_cita'
             actualizar_estado_usuario(user_id, estado_usuario)
             
-            return f"""📅 *FECHA SELECCIONADA:* {fecha_display} a las {hora_ingresada} hs.
-
-📧 *¿Te gustaría dejarnos tu correo electrónico?* (Opcional)
-Esto nos permite enviarte recordatorios y más detalles de la propiedad.
-
-1️⃣ *Escribí tu email*
-2️⃣ *No, saltar este paso* ⏭️"""
+            return {
+                "type": "interactive_buttons",
+                "body": f"📅 *FECHA SELECCIONADA:* {fecha_display} a las {hora_ingresada} hs.\n\n📧 *¿Te gustaría dejarnos tu correo electrónico?* (Opcional)\nEsto nos permite enviarte recordatorios y más detalles de la propiedad.",
+                "buttons": [
+                    {"id": "1", "title": "✍️ Escribir email"},
+                    {"id": "2", "title": "⏭️ Saltar Paso"}
+                ]
+            }
         else:
             # Hora inválida o ocupada
             return f"""❌ *Horario no disponible*
@@ -448,13 +449,14 @@ Por favor elegí uno de la lista:
     estado_usuario['paso'] = 'esperando_email_cita' 
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    return f"""📅 *HORARIO SELECCIONADO:* {hora_elegida} hs.
-
-📧 *¿Te gustaría dejarnos tu correo electrónico?* (Opcional)
-Esto nos permite enviarte recordatorios y más detalles de la propiedad.
-
-1️⃣ *Escribí tu email*
-2️⃣ *No, saltar este paso* ⏭️"""
+    return {
+        "type": "interactive_buttons",
+        "body": f"📅 *HORARIO SELECCIONADO:* {hora_elegida} hs.\n\n📧 *¿Te gustaría dejarnos tu correo electrónico?* (Opcional)\nEsto nos permite enviarte recordatorios y más detalles de la propiedad.",
+        "buttons": [
+            {"id": "1", "title": "✍️ Escribir email"},
+            {"id": "2", "title": "⏭️ Saltar Paso"}
+        ]
+    }
 
 
 def manejar_email_cita(text, estado_usuario, user_id):
@@ -489,8 +491,7 @@ def manejar_email_cita(text, estado_usuario, user_id):
     email = estado_usuario.get('email_cliente', 'No proporcionado')
     
     # Mostrar resumen con opciones de confirmación
-    return f"""
-📅 *RESUMEN DE TU VISITA*
+    resumen = f"""📅 *RESUMEN DE TU VISITA*
 
 📍 *Propiedad:* {obtener_titulo_propiedad(estado_usuario)}
 👤 *Nombre:* {estado_usuario.get('nombre_cliente', 'Cliente')}
@@ -499,16 +500,18 @@ def manejar_email_cita(text, estado_usuario, user_id):
 📅 *Fecha:* {fecha_display}
 ⏰ *Hora:* {hora} hs
 
-━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━"""
 
-✅ *¿Qué deseas hacer?*
-
-1️⃣ *CONFIRMAR CITA* ✅
-2️⃣ *MODIFICAR FECHA/HORA* 🔄
-3️⃣ *CANCELAR CITA* ❌
-
-👉 Respondé con el número de la opción que desees.
-"""
+    return {
+        "type": "interactive_buttons",
+        "body": resumen,
+        "buttons": [
+            {"id": "1", "title": "CONFIRMAR ✅"},
+            {"id": "2", "title": "MODIFICAR 🔄"},
+            {"id": "3", "title": "CANCELAR ❌"}
+        ],
+        "footer": "Selecciona una opción 👇"
+    }
 
 
 def obtener_titulo_propiedad(estado_usuario):
@@ -621,12 +624,16 @@ Un asesor te contactará en los próximos **15 minutos** para gestionar tu ofert
         return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
     
     else:
-        return """❌ Opción no válida. Por favor selecciona:
-
-1️⃣ *SÍ, AGENDAR CITA* 📅
-2️⃣ *No por ahora, solo información* 📋
-3️⃣ *Ya la vi, quiero ofertar* 💰
-0️⃣ *❌ SALIR*"""
+        return {
+            "type": "interactive_buttons",
+            "body": "❌ Opción no válida. Por favor selecciona una opción del menú:",
+            "buttons": [
+                {"id": "1", "title": "SÍ, AGENDAR 📅"},
+                {"id": "2", "title": "SOLO INFO 📋"},
+                {"id": "3", "title": "OFERTAR 💰"}
+            ],
+            "footer": "0️⃣ Salir del chat"
+        }
 
 
 def cargar_configuracion_horarios():

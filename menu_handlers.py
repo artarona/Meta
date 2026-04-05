@@ -35,13 +35,15 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
         # Hablar con asesor
         estado_usuario['paso'] = 'submenu_asesor'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return """👤 *HABLAR CON UN ASESOR*
-
-1️⃣ Enviar mensaje al asesor
-2️⃣ Solicitar llamada
-
-9️⃣ Volver al menú principal
-0️⃣ Salir"""
+        return {
+            "type": "interactive_buttons",
+            "body": "👤 *HABLAR CON UN ASESOR*",
+            "buttons": [
+                {"id": "1", "title": "Enviar mensaje"},
+                {"id": "2", "title": "Solicitar llamada"},
+                {"id": "9", "title": "Volver al menú"}
+            ]
+        }
 
     elif text_lower == "6":
         # FAQs
@@ -176,19 +178,26 @@ def manejar_filtro_tipo(text_lower, estado_usuario, user_id):
              actualizar_estado_usuario(user_id, estado_usuario)
              return f"📭 Lo siento, no tenemos {tipo_seleccionado}s disponibles para {operacion} en este momento.\n\n9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*\n0️⃣ *❌ SALIR*"
 
-        return f"""🔢 *¿CUÁNTOS AMBIENTES?*
-
-Por favor, elegí la cantidad de ambientes:
-1️⃣ 1 Ambiente
-2️⃣ 2 Ambientes
-3️⃣ 3 Ambientes
-4️⃣ 4 o más Ambientes
-5️⃣ Cualquiera / Sin preferencia
-
-9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*
-0️⃣ *❌ SALIR*"""
+        return {
+            "type": "interactive_list",
+            "body": "🔢 *¿CUÁNTOS AMBIENTES?*\n\nPor favor, elegí la cantidad de ambientes:",
+            "button_text": "Ambientes",
+            "sections": [
+                {
+                    "title": "Cantidad",
+                    "rows": [
+                        {"id": "1", "title": "1 Ambiente"},
+                        {"id": "2", "title": "2 Ambientes"},
+                        {"id": "3", "title": "3 Ambientes"},
+                        {"id": "4", "title": "4 o más Ambientes"},
+                        {"id": "5", "title": "Cualquiera"}
+                    ]
+                }
+            ],
+            "footer": "Selecciona una opción 👇"
+        }
     else:
-        return "⚠️ Por favor, elegí una opción válida (1 al 5) o enviá 9 para volver al menú."
+        return "⚠️ Por favor, elegí una opción válida o usá el menú."
 
 
 def manejar_filtro_ambientes(text_lower, estado_usuario, user_id):
@@ -277,17 +286,24 @@ def procesar_opcion_venta(estado_usuario, user_id):
     })
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    return """🏡 *¿QUÉ TIPO DE PROPIEDAD BUSCÁS?*
-
-Por favor, elegí un número:
-1️⃣ Departamento
-2️⃣ Casa
-3️⃣ PH
-4️⃣ Oficina / Local
-5️⃣ Terreno / Lote
-
-9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*
-0️⃣ *❌ SALIR*"""
+    return {
+        "type": "interactive_list",
+        "body": "🏡 *¿QUÉ TIPO DE PROPIEDAD BUSCÁS?*\n\nPor favor, elegí una opción:",
+        "button_text": "Tipos",
+        "sections": [
+            {
+                "title": "Tipo de Propiedad",
+                "rows": [
+                    {"id": "1", "title": "Departamento", "description": "Departamentos y pisos"},
+                    {"id": "2", "title": "Casa", "description": "Casas y chalets"},
+                    {"id": "3", "title": "PH", "description": "Propiedad Horizontal"},
+                    {"id": "4", "title": "Oficina / Local", "description": "Locales y comerciales"},
+                    {"id": "5", "title": "Terreno / Lote", "description": "Terrenos y lotes"}
+                ]
+            }
+        ],
+        "footer": "9️⃣ Menú Principal | 0️⃣ Salir"
+    }
 
 
 def procesar_opcion_alquiler(estado_usuario, user_id):
@@ -298,17 +314,24 @@ def procesar_opcion_alquiler(estado_usuario, user_id):
     })
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    return """🔑 *¿QUÉ TIPO DE PROPIEDAD BUSCÁS?*
-
-Por favor, elegí un número:
-1️⃣ Departamento
-2️⃣ Casa
-3️⃣ PH
-4️⃣ Oficina / Local
-5️⃣ Terreno / Lote
-
-9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*
-0️⃣ *❌ SALIR*"""
+    return {
+        "type": "interactive_list",
+        "body": "🔑 *¿QUÉ TIPO DE PROPIEDAD BUSCÁS?*\n\nPor favor, elegí una opción:",
+        "button_text": "Tipos",
+        "sections": [
+            {
+                "title": "Tipo de Propiedad",
+                "rows": [
+                    {"id": "1", "title": "Departamento"},
+                    {"id": "2", "title": "Casa"},
+                    {"id": "3", "title": "PH"},
+                    {"id": "4", "title": "Oficina / Local"},
+                    {"id": "5", "title": "Terreno / Lote"}
+                ]
+            }
+        ],
+        "footer": "9️⃣ Menú Principal | 0️⃣ Salir"
+    }
 
 
 def procesar_opcion_todas(estado_usuario, user_id):
@@ -389,33 +412,16 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}). Elige uno o envía 9 para volver.\n0️⃣ *Salir*"
 
 
-def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
-    """Maneja las opciones en el detalle de propiedad"""
-    if text_lower == "1":
-        estado_usuario.update({
-            'paso': 'menu_principal',
-            'operacion_seleccionada': None,
-            'propiedades_filtradas': [],
-            'ultimo_indice_preguntado': None
-        })
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "WELCOME_FLOW_TRIGGER"
-    
-    if text_lower.isdigit():
-        indice = int(text_lower)
-        propiedades = estado_usuario.get('propiedades_filtradas', [])
-        if 1 <= indice <= len(propiedades):
-            propiedad = propiedades[indice - 1]
-            estado_usuario['ultimo_indice_preguntado'] = indice
-            actualizar_estado_usuario(user_id, estado_usuario)
-            
-            registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_detalle", f"Título: {propiedad.get('titulo')}")
-            
-            operacion = propiedad.get('operacion', '')
-            titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
-            return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
-            
-    return "📷 'F' Fotos | 8️⃣ '8' Me interesa\n9️⃣ Volver al menú | 0️⃣ *Salir*"
+    return {
+        "type": "interactive_buttons",
+        "body": "📸 *Ver Fotos* | 📝 *Me interesa* | 📄 *Ficha PDF*",
+        "buttons": [
+            {"id": "F", "title": "📸 Ver Fotos"},
+            {"id": "8", "title": "📝 Me interesa"},
+            {"id": "P", "title": "📄 Ficha PDF"}
+        ],
+        "footer": "9️⃣ Volver al menú | 0️⃣ Salir"
+    }
 
 
 def manejar_nombre_lead(text, estado_usuario, user_id):

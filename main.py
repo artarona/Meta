@@ -1,4 +1,4 @@
-﻿from config import *
+from config import *
 from utils import *
 from database import *
 from whatsapp_api import *
@@ -1650,24 +1650,49 @@ def procesar_logica_pesada_dante(data):
                             if message_text in boton_a_numero:
                                 message_text = boton_a_numero[message_text]
 
-                            # Llamada a la IA y envÃ­o de respuestas
-                            response_text = get_bot_response(message_text, from_number)
+                            # Llamada a la IA y envío de respuestas
+                            response_data = get_bot_response(message_text, from_number)
                             
-                            # --- TUS TRIGGERS DE FLUJOS (BIENVENIDA, CITAS, FOTOS) ---
-                            if response_text == "WELCOME_FLOW_TRIGGER":
-                                send_welcome_flow(from_number)
-                            elif response_text and response_text.startswith("OFFER_MEETING_TRIGGER|"):
-                                # ... tu lÃ³gica de botones de cita ...
-                                prop_titulo = response_text.split("|")[1]
-                                text_body = f"âœ… *Â¡Perfecto!*\n\nHemos registrado tu interÃ©s en:\nðŸ  *{prop_titulo}*\n\nðŸ“… *Â¿Te gustarÃ­a agendar una cita?*"
-                                botones = [{"id": "agendar", "title": "ðŸ“… SÃ, AGENDAR"}, {"id": "solo info", "title": "ðŸ“‹ Solo info"}]
-                                send_whatsapp_interactive_buttons(from_number, text_body, botones)
-                            elif response_text and response_text.startswith("PHOTOS_TRIGGER|"):
-                                prop_id = response_text.split("|")[1]
-                                # Usamos tu lÃ³gica de thread para fotos tambiÃ©n
-                                threading.Thread(target=send_photos_async, args=(from_number, prop_id, "https://meta-rjpb.onrender.com")).start()
-                            elif response_text:
-                                send_whatsapp_message(from_number, response_text)
+                            # --- MANEJO DE RESPUESTAS ESTRUCTURADAS O STRINGS ---
+                            if isinstance(response_data, str):
+                                if response_data == "WELCOME_FLOW_TRIGGER":
+                                    log("🎯 Enviando flujo de bienvenida interactivo")
+                                    send_welcome_flow(from_number)
+                                elif response_data.startswith("OFFER_MEETING_TRIGGER|"):
+                                    prop_titulo = response_data.split("|")[1]
+                                    text_body = f"✅ *¡Perfecto!*\n\nHemos registrado tu interés en:\n🏠 *{prop_titulo}*\n\n📅 *¿Te gustaría agendar una cita para visitar la propiedad?*"
+                                    botones = [
+                                        {"id": "agendar", "title": "📅 SÍ, AGENDAR CITA"},
+                                        {"id": "solo info", "title": "📋 Solo información"}
+                                    ]
+                                    send_whatsapp_interactive_buttons(from_number, text_body, botones)
+                                elif response_data.startswith("PHOTOS_TRIGGER|"):
+                                    prop_id = response_data.split("|")[1]
+                                    threading.Thread(target=send_photos_async, args=(from_number, prop_id, "https://meta-rjpb.onrender.com")).start()
+                                    confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'Hola' para volver al menú."
+                                    send_whatsapp_message(from_number, confirmacion)
+                                elif response_data:
+                                    send_whatsapp_message(from_number, response_data)
+                            
+                            elif isinstance(response_data, dict):
+                                resp_type = response_data.get("type")
+                                body = response_data.get("body", "")
+                                footer = response_data.get("footer")
+                                header = response_data.get("header")
+                                
+                                if resp_type == "interactive_buttons":
+                                    send_whatsapp_interactive_buttons(
+                                        from_number, body, response_data.get("buttons", []),
+                                        header_text=header, footer_text=footer
+                                    )
+                                elif resp_type == "interactive_list":
+                                    send_whatsapp_list_menu(
+                                        from_number, body, response_data.get("button_text", "Opciones"),
+                                        response_data.get("sections", []),
+                                        header_text=header, footer_text=footer
+                                    )
+                                elif resp_type == "text":
+                                    send_whatsapp_message(from_number, body)
 
         log(f"âœ… Hilo finalizado: {mensajes_procesados} mensajes procesados.")
 

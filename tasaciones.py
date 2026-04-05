@@ -224,15 +224,16 @@ def manejar_menu_tasacion(text_lower, estado_usuario, user_id):
     estado_usuario['data']['datos_tasacion'] = {}
     estado_usuario['paso'] = 'tasacion_operacion'
     actualizar_estado_usuario(user_id, estado_usuario)
-    return """📊 *TASACIÓN VIRTUAL*
-
-¿Qué tipo de operación te interesa tasar?
-
-1️⃣ Venta 🏠
-2️⃣ Alquiler 🗝️
-
-9️⃣ Volver al menú
-0️⃣ Salir"""
+    return {
+        "type": "interactive_buttons",
+        "body": "📊 *TASACIÓN VIRTUAL*\n\n¿Qué tipo de operación te interesa tasar?",
+        "buttons": [
+            {"id": "1", "title": "Venta 🏠"},
+            {"id": "2", "title": "Alquiler 🗝️"},
+            {"id": "9", "title": "Volver 🔙"}
+        ],
+        "footer": "Selecciona una opción 👇"
+    }
 
 
 def manejar_tasacion_operacion(text_lower, estado_usuario, user_id):
@@ -259,16 +260,24 @@ def manejar_tasacion_barrio(text, estado_usuario, user_id):
     estado_usuario['paso'] = 'tasacion_tipo'
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    return """🏠 *¿Qué tipo de propiedad es?*
-
-1️⃣ Departamento
-2️⃣ Casa
-3️⃣ PH
-4️⃣ Oficina / Local
-5️⃣ Terreno
-
-9️⃣ Volver al menú
-0️⃣ Salir"""
+    return {
+        "type": "interactive_list",
+        "body": "🏠 *¿Qué tipo de propiedad es?*",
+        "button_text": "Tipos",
+        "sections": [
+            {
+                "title": "Tipo de Propiedad",
+                "rows": [
+                    {"id": "1", "title": "Departamento"},
+                    {"id": "2", "title": "Casa"},
+                    {"id": "3", "title": "PH"},
+                    {"id": "4", "title": "Oficina / Local"},
+                    {"id": "5", "title": "Terreno"}
+                ]
+            }
+        ],
+        "footer": "9️⃣ Volver | 0️⃣ Salir"
+    }
 
 
 def manejar_tasacion_tipo(text_lower, estado_usuario, user_id):
@@ -333,16 +342,24 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
         estado_usuario['paso'] = 'tasacion_estado'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        return """🏗️ *¿En qué estado se encuentra la propiedad?*
-
-1️⃣ Excelente / A estrenar
-2️⃣ Muy bueno
-3️⃣ Bueno
-4️⃣ Regular
-5️⃣ A refaccionar
-
-9️⃣ Volver al menú
-0️⃣ Salir"""
+        return {
+            "type": "interactive_list",
+            "body": "🏗️ *¿En qué estado se encuentra la propiedad?*",
+            "button_text": "Estado",
+            "sections": [
+                {
+                    "title": "Condición",
+                    "rows": [
+                        {"id": "1", "title": "Excelente / A estrenar"},
+                        {"id": "2", "title": "Muy bueno"},
+                        {"id": "3", "title": "Bueno"},
+                        {"id": "4", "title": "Regular"},
+                        {"id": "5", "title": "A refaccionar"}
+                    ]
+                }
+            ],
+            "footer": "9️⃣ Volver | 0️⃣ Salir"
+        }
     except:
         return "⚠️ Por favor, ingresá un número para los ambientes."
 
@@ -400,7 +417,7 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
             muestra = tasacion.get("muestra", 0)
             info_fuentes = f"\n🔍 *Análisis:* basado en {muestra} propiedades de {fuentes_str}."
 
-            mensaje = f"""📊 *RESULTADO DE TU TASACIÓN VIRTUAL*
+        mensaje_body = f"""📊 *RESULTADO DE TU TASACIÓN VIRTUAL*
 
 {intro_mercado}
 
@@ -410,29 +427,19 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
 📈 *Precio promedio m²:* {tasacion['moneda']} ${tasacion['precio_m2']:,.0f}
 {info_fuentes}
 
-⚠️ *Nota:* Esta es una estimación orientativa basada en datos de mercado. Para una tasación profesional y exacta, un asesor debe visitar la propiedad.
-
-¿Te gustaría que un tasador te contacte para una visita formal?
-1️⃣ Sí, quiero una tasación profesional
-2️⃣ No por ahora, gracias
-
-9️⃣ Volver al menú
-0️⃣ Salir"""
-        else:
-            mensaje = f"""✅ *¡Datos recibidos!*
-
-Aún no tenemos suficientes datos comparativos en *{datos['barrio']}* para darte una cifra automática exacta, pero un asesor experto va a analizar tu caso personalmente.
-
-¿Te gustaría que un tasador te contacte para coordinar una visita y darte el valor real?
-1️⃣ Sí, por favor
-2️⃣ No por ahora
-
-9️⃣ Volver al menú
-0️⃣ Salir"""
-            
+⚠️ *Nota:* Esta es una estimación orientativa basada en datos de mercado. Para una tasación profesional, un asesor debe visitar la propiedad."""
         estado_usuario['paso'] = 'tasacion_esperando_contacto'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return mensaje
+        
+        return {
+            "type": "interactive_buttons",
+            "body": mensaje_body,
+            "buttons": [
+                {"id": "1", "title": "SÍ, tasación pro"},
+                {"id": "2", "title": "No por ahora"}
+            ],
+            "footer": "9️⃣ Volver | 0️⃣ Salir"
+        }
     except Exception as e:
         log(f"🔥 Error en _finalizar_tasacion_y_responder: {e}")
         import traceback

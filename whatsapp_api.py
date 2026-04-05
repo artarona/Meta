@@ -133,6 +133,14 @@ def send_whatsapp_interactive_buttons(to_number, text_body, buttons, header_text
     """Envía un mensaje con botones interactivos (máximo 3 botones).
     buttons: list de dicts [{"id": "btn_1", "title": "Opción 1"}, ...]"""
     try:
+        # Validar máximo 3 botones
+        if not buttons:
+            return {"status": "error", "error_message": "No buttons provided"}
+            
+        if len(buttons) > 3:
+            log("⚠️ Se intentó mandar más de 3 botones. Recortando a 3.", "WARNING")
+            buttons = buttons[:3]
+
         token_valid, _ = check_token_validity()
         if not token_valid:
             log("❌ Token inválido - No se puede enviar botones", "ERROR")
@@ -146,11 +154,6 @@ def send_whatsapp_interactive_buttons(to_number, text_body, buttons, header_text
             "Content-Type": "application/json"
         }
         
-        # Validar máximo 3 botones
-        if len(buttons) > 3:
-            log("⚠️ Se intentó mandar más de 3 botones. Recortando a 3.", "WARNING")
-            buttons = buttons[:3]
-
         interactive_content = {
             "type": "button",
             "body": {"text": text_body[:1024]},
@@ -159,8 +162,8 @@ def send_whatsapp_interactive_buttons(to_number, text_body, buttons, header_text
                     {
                         "type": "reply",
                         "reply": {
-                            "id": btn.get("id")[:256],
-                            "title": btn.get("title")[:20]
+                            "id": str(btn.get("id"))[:256],
+                            "title": str(btn.get("title"))[:20]
                         }
                     } for btn in buttons
                 ]
@@ -199,9 +202,12 @@ def send_whatsapp_interactive_buttons(to_number, text_body, buttons, header_text
 
 
 def send_whatsapp_list_menu(to_number, text_body, button_text, sections, header_text=None, footer_text=None):
-    """Envía un menú de lista desplegable (hasta 10 opciones).
+    """Envía un menú de lista desplegable (hasta 10 opciones en total en todas las secciones).
     sections: list de dicts [{"title": "Sección 1", "rows": [{"id": "id1", "title": "Op 1", "description": "Desc"}]}]"""
     try:
+        if not sections:
+            return {"status": "error", "error_message": "No sections provided"}
+
         token_valid, _ = check_token_validity()
         if not token_valid:
             log("❌ Token inválido - No se puede enviar lista", "ERROR")
@@ -224,20 +230,27 @@ def send_whatsapp_list_menu(to_number, text_body, button_text, sections, header_
             }
         }
         
+        total_rows = 0
         for idx, sec in enumerate(sections[:10]):
             section_data = {
                 "title": sec.get("title", f"Sección {idx+1}")[:24],
                 "rows": []
             }
-            for row in sec.get("rows", [])[:10]:
+            for row in sec.get("rows", []):
+                if total_rows >= 10: break
                 row_data = {
-                    "id": row.get("id")[:200],
-                    "title": row.get("title")[:24]
+                    "id": str(row.get("id"))[:200],
+                    "title": str(row.get("title"))[:24]
                 }
                 if "description" in row and row["description"]:
-                    row_data["description"] = row["description"][:72]
+                    row_data["description"] = str(row["description"])[:72]
                 section_data["rows"].append(row_data)
-            interactive_content["action"]["sections"].append(section_data)
+                total_rows += 1
+            
+            if section_data["rows"]:
+                interactive_content["action"]["sections"].append(section_data)
+            
+            if total_rows >= 10: break
 
         if header_text:
             interactive_content["header"] = {"type": "text", "text": header_text[:60]}
