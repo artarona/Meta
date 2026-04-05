@@ -1081,9 +1081,16 @@ def webhook():
                                 # Llamar a get_bot_response
                                 print(f"🤖 Llamando a get_bot_response con input: '{message_text}'")
                                 response_text = get_bot_response(message_text, from_number)
-                                print(f"🤖 Respuesta del bot: {response_text[:100]}..." if response_text else "🤖 Respuesta vacía")
+                                print(f"🤖 Respuesta del bot: {str(response_text)[:100]}..." if response_text else "🤖 Respuesta vacía")
                                 
-                                if response_text == "WELCOME_FLOW_TRIGGER":
+                                if isinstance(response_text, dict):
+                                    if response_text.get("type") == "interactive_buttons":
+                                        result = send_whatsapp_interactive_buttons(from_number, response_text["body"], response_text["buttons"])
+                                    elif response_text.get("type") == "interactive_list":
+                                        result = send_whatsapp_list_menu(from_number, response_text["body"], response_text["button_text"], response_text["sections"], footer_text=response_text.get("footer", ""))
+                                    else:
+                                        result = send_whatsapp_message(from_number, str(response_text))
+                                elif response_text == "WELCOME_FLOW_TRIGGER":
                                     log("🎯 Enviando flujo de bienvenida interactivo")
                                     print("🎯 Enviando flujo de bienvenida interactivo")
                                     result = send_welcome_flow(from_number)
@@ -1123,7 +1130,7 @@ def webhook():
                                     confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'Hola' para volver al menú."
                                     result = send_whatsapp_message(from_number, confirmacion)
                                 elif response_text:
-                                    print(f"📤 Enviando mensaje: {response_text[:100]}...")
+                                    print(f"📤 Enviando mensaje: {str(response_text)[:100]}...")
                                     result = send_whatsapp_message(from_number, response_text)
                                 else:
                                     print("⚠️ response_text vacío, omitiendo envío")
