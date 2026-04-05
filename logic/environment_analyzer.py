@@ -9,9 +9,9 @@ import sys
 from typing import Dict, Any, List, Optional
 
 # Agregar el directorio raíz al path para importar módulos
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend.logic.gemini_client import call_gemini_with_rotation
+from logic.gemini_client import call_gemini_with_rotation
 
 def generate_analysis(nombre_barrio: str) -> Dict[str, Any]:
     """
@@ -26,7 +26,7 @@ def generate_analysis(nombre_barrio: str) -> Dict[str, Any]:
     
     # Verificar si hay API key configurada
     try:
-        from backend.logic.gemini_client import API_KEYS
+        from logic.gemini_client import API_KEYS
         if not API_KEYS:
             print("⚠️ No hay API keys de Gemini configuradas")
             return get_fallback_analysis(nombre_barrio)

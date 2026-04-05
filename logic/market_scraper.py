@@ -1,58 +1,64 @@
-import logging
-
-# Configurar logging INMEDIATAMENTE al inicio
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# Luego el resto de imports
-import hashlib
+"""
+Módulo de Scraping y Análisis de Mercado Inmobiliario
+Extrae datos de portales inmobiliarios argentinos y genera estadísticas de mercado
+"""
 import os
 import sys
 import json
 import time
 import random
+import logging
 import re
 import requests
 from typing import Optional, Dict, Any, List
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from urllib.parse import urlparse
 
-# ========================================
-# IMPORTAR CONSTANTES CENTRALIZADAS
-# ========================================
+# Importaciones de Selenium para renderizado avanzado
 try:
-    # Si se ejecuta como módulo (desde la carpeta logic)
-    from .constants import (
-        BARRIOS_VALIDOS,
-        BARRIOS_DISPLAY,
-        UBICACIONES_EXCLUIDAS,
-        BARRIOS_URL_MAP
-    )
-    print("✅ Constantes importadas desde .constants")
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    SELENIUM_AVAILABLE = True
 except ImportError:
-    try:
-        # Si se ejecuta directamente (desde la carpeta backend/logic)
-        from constants import (
-            BARRIOS_VALIDOS,
-            BARRIOS_DISPLAY,
-            UBICACIONES_EXCLUIDAS,
-            BARRIOS_URL_MAP
-        )
-        print("✅ Constantes importadas desde constants")
-    except ImportError as e:
-        print(f"⚠️ Error importando constantes: {e}")
-        # Fallback manual
-        BARRIOS_VALIDOS = ['belgrano', 'palermo', 'recoleta', 'microcentro', 'puerto madero']
-        BARRIOS_DISPLAY = {}
-        UBICACIONES_EXCLUIDAS = ['general belgrano', 'villa general belgrano']
-        BARRIOS_URL_MAP = {}
+    SELENIUM_AVAILABLE = False
 
-# Resto del código...
+
+
+
+# Configurar logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# ========================================
+# DETECCIÓN DE ENTORNO RENDER
+# ========================================
+
+def is_render_environment():
+    """Detecta si estamos en Render.com"""
+    # 1. Verificar variable de entorno de Render
+    if os.environ.get('RENDER', False):
+        return True
+    
+    # 2. Verificar si Chrome está disponible (en Render suele estar en una ruta específica o faltar)
+    chrome_bin = os.environ.get("GOOGLE_CHROME_BIN")
+    if chrome_bin and not os.path.exists(chrome_bin):
+        return True
+        
+    return False
+
+# Variable global para controlar Selenium
+USE_SELENIUM = not is_render_environment()
+
+logger.info(f"🌍 Entorno: {'Render' if is_render_environment() else 'Local'}")
+logger.info(f"🕷️ Selenium: {'ACTIVADO' if USE_SELENIUM else 'DESACTIVADO (solo requests)'}")
 
 # ========================================
 # ESTRUCTURAS DE DATOS
@@ -91,170 +97,14 @@ class MarketStats:
     max_price_per_m2: Optional[float]
     price_range_total: Optional[str]
     currency_distribution: Dict[str, int]
-    source_breakdown: Dict[str, int]
+    source_breakdown: Dict[str, int] = field(default_factory=dict)
+    neighborhood_stats: Dict[str, Dict] = field(default_factory=dict)
     properties: List[Dict] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
 
 # ========================================
 # CLASE BASE DEL SCRAPER
 # ========================================
-
-
-def normalize_url(url: str) -> str:
-        if not url:
-            return ""
-    
-        url = url.lower().strip()
-
-        # eliminar params
-        url = url.split("?")[0]
-
-        # eliminar trailing slash
-        url = url.rstrip("/")
-
-        # eliminar www
-        url = url.replace("www.", "")
-
-        return url
-    
-def clean_text(text: str) -> str:
-    if not text:
-        return ""
-
-    text = text.lower()
-    text = re.sub(r"\s+", " ", text)
-    text = re.sub(r"[^\w\s]", "", text)
-
-    return text.strip()
-
-
-
-def generate_fingerprint(prop) -> str:
-    try:
-        price = normalize_price(
-            getattr(prop, "price", None) or prop.get("price", "")
-        )
-
-        surface = normalize_surface(
-            getattr(prop, "surface", None) or prop.get("surface", "")
-        )
-
-        barrio = normalize_barrio(
-            getattr(prop, "barrio", None) or prop.get("barrio", "")
-        )
-
-        base = f"{price}_{surface}_{barrio}"
-
-        return hashlib.md5(base.encode()).hexdigest()
-
-    except Exception:
-        return ""
-
-def es_barrio_valido(texto: str, barrio_objetivo: str) -> bool:
-        if not texto:
-            return False
-
-        texto = texto.lower()
-        barrio = barrio_objetivo.lower()
-
-        # match exacto como palabra (evita "belgrano r", etc.)
-        match = re.search(rf"\b{re.escape(barrio)}\b", texto)
-
-        if not match:
-            return False
-
-        # exclusiones genéricas
-        exclusiones = [
-            "cerca de",
-            "a metros de",
-            "próximo a",
-            "zona",
-        ]
-
-        for ex in exclusiones:
-            if ex in texto:
-                return False
-
-        return True
-    
-def normalize_surface(surface):
-        if not surface:
-            return ""
-
-        surface = str(surface).lower()
-        surface = re.sub(r"[^\d]", "", surface)  # deja solo números
-
-        return surface
-
-
-def normalize_price(price):
-        if not price:
-            return ""
-
-        price = str(price)
-        price = re.sub(r"[^\d]", "", price)
-
-        return price
-    
-    
-def normalize_barrio(barrio: str) -> str:
-        if not barrio:
-            return ""
-
-        barrio = barrio.lower()
-
-        if "belgrano" in barrio:
-            return "belgrano"
-
-        return barrio   
-    
-def normalize_text(text):
-    import re
-    text = (text or "").lower()
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
-
-
-
-
-def is_exact_barrio(texto, barrio_objetivo):
-    texto = normalize_text(texto)
-    barrio_objetivo = normalize_text(barrio_objetivo)
-
-    # match exacto tipo palabra completa
-    pattern = rf"\b{re.escape(barrio_objetivo)}\b"
-
-    if not re.search(pattern, texto):
-        return False
-
-    # excluir variantes
-    blacklist = ["r", "c", "norte", "sur", "este", "oeste"]
-
-    for suffix in blacklist:
-        if f"{barrio_objetivo} {suffix}" in texto:
-            return False
-
-    return True
-
- 
-
-        
-    
-
-    
-    
-
-
-
-
-
-
-
-
-
-
-
-
 
 class BaseScraper(ABC):
     """Clase base para todos los scrapers de portales inmobiliarios"""
@@ -288,15 +138,6 @@ class BaseScraper(ABC):
             "Sec-Fetch-User": "?1",
             "Cache-Control": "max-age=0"
         })
-    
-    
-    
-    
-    
-    
-    
-    
-    
     
     def _normalize_zone(self, zone: str) -> str:
         """Normaliza el nombre del barrio para URLs"""
@@ -475,23 +316,54 @@ class BaseScraper(ABC):
         return price / surface
     
     def _make_request(self, url: str, max_retries: int = 3) -> Optional[str]:
-        """Realiza request con reintentos y delay"""
+        """Realiza request con reintentos y delay - optimizado para Render"""
         for attempt in range(max_retries):
             try:
-                # Delay aleatorio para evitar bloqueos
-                time.sleep(random.uniform(1.5, 3.5))
+                # Delay aleatorio con más variación para evitar bloqueos
+                base_delay = 2.0
+                if attempt > 0:
+                    base_delay = 2 ** attempt
+                time.sleep(random.uniform(base_delay, base_delay + 2.0))
                 
-                response = self.session.get(url, timeout=30)
+                # Headers mejorados para evitar 403
+                self.session.headers.update({
+                    "User-Agent": random.choice([
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    ]),
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                    "Accept-Language": "es-AR,es;q=0.9,en;q=0.8",
+                    "Accept-Encoding": "gzip, deflate, br",
+                    "DNT": "1",
+                    "Connection": "keep-alive",
+                    "Upgrade-Insecure-Requests": "1",
+                    "Sec-Fetch-Dest": "document",
+                    "Sec-Fetch-Mode": "navigate",
+                    "Sec-Fetch-Site": "none",
+                    "Sec-Fetch-User": "?1",
+                    "Cache-Control": "max-age=0",
+                })
+                
+                response = self.session.get(url, timeout=45)
                 
                 if response.status_code == 200:
                     return response.text
-                elif response.status_code in [429, 403, 503]:
+                elif response.status_code == 403:
+                    # 403 Forbidden - esperar más tiempo
+                    wait_time = (2 ** attempt) * random.uniform(3, 6)
+                    logger.warning(f"[{self.source_name}] Error 403, esperando {wait_time:.1f}s...")
+                    time.sleep(wait_time)
+                elif response.status_code in [429, 503]:
                     wait_time = (2 ** attempt) * random.uniform(2, 4)
                     logger.warning(f"[{self.source_name}] Error {response.status_code}, esperando {wait_time:.1f}s...")
                     time.sleep(wait_time)
                 else:
                     logger.error(f"[{self.source_name}] Error {response.status_code}: {url}")
                     
+            except requests.exceptions.Timeout:
+                logger.warning(f"[{self.source_name}] Timeout en intento {attempt+1}")
+                time.sleep(random.uniform(2, 4))
             except Exception as e:
                 logger.error(f"[{self.source_name}] Exception: {e}")
                 time.sleep(random.uniform(2, 4))
@@ -505,79 +377,146 @@ class BaseScraper(ABC):
         pass
     
     @abstractmethod
-    def parse_properties(self, html: str) -> List[PropertyData]:
-        """Parsea el HTML y extrae propiedades"""
-        pass
+    def parse_properties(self, html: str, operation: str = "venta", property_type: str = "departamento") -> List[PropertyData]:
+        """Parsea propiedades de Zonaprop con eliminación de duplicados"""
+        properties = []
+        seen_ids = set()  # Para evitar duplicados
+        
+        try:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(html, 'html.parser')
+            
+            # Selectores para Zonaprop
+            cards = soup.select('[data-qa*="posting"], div[class*="posting-card"], div[data-id]')
+            
+            if not cards:
+                cards = soup.select('.postingsList-module__card-container > div')
+            
+            for card in cards:
+                try:
+                    # Intentar obtener ID único
+                    prop_id = None
+                    if card.has_attr('data-id'):
+                        prop_id = card['data-id']
+                    elif card.has_attr('id'):
+                        prop_id = card['id']
+                    
+                    # Si ya procesamos este ID, saltar
+                    if prop_id and prop_id in seen_ids:
+                        continue
+                    
+                    prop = self._parse_card(card, operation, property_type)
+                    if prop:
+                        if prop_id:
+                            seen_ids.add(prop_id)
+                        # También usar URL como identificador alternativo
+                        if prop.url:
+                            url_key = prop.url.split('?')[0]
+                            if url_key in seen_ids:
+                                continue
+                            seen_ids.add(url_key)
+                        properties.append(prop)
+                except Exception as e:
+                    logger.debug(f"Error parseando tarjeta: {e}")
+                    continue
+            
+            logger.info(f"[Zonaprop] Extraídas {len(properties)} propiedades únicas")
+            
+        except ImportError:
+            logger.error("BeautifulSoup no instalado")
+        except Exception as e:
+            logger.error(f"[Zonaprop] Error parseando: {e}")
+        
+        return properties
+    
+    
+    
 
     def _render_with_selenium(self, url: str) -> Optional[str]:
         """
-        Usa Selenium con Edge para renderizar JavaScript.
+        Usa Selenium con Chrome (Headless) para renderizar JavaScript.
+        En Render, desactivado automáticamente para ahorrar tiempo.
         """
+        # SI ESTAMOS EN RENDER, NO INTENTAR SELENIUM
+        if not USE_SELENIUM:
+            return None
+    
+        if not SELENIUM_AVAILABLE:
+            logger.error(f"[{self.source_name}] Selenium no está disponible")
+            return None
+
         driver = None
         try:
-            from selenium import webdriver
-            from selenium.webdriver.edge.options import Options
-            from selenium.webdriver.edge.service import Service
-            from selenium.webdriver.common.by import By
-            from selenium.webdriver.support.ui import WebDriverWait
-            from selenium.webdriver.support import expected_conditions as EC
-            from webdriver_manager.microsoft import EdgeChromiumDriverManager
-            import time
+            logger.info(f"[{self.source_name}] Iniciando Selenium para: {url}")
             
-            # Configurar Edge en modo headless
-            edge_options = Options()
-            edge_options.add_argument("--headless")
-            edge_options.add_argument("--no-sandbox")
-            edge_options.add_argument("--disable-dev-shm-usage")
-            edge_options.add_argument("--disable-gpu")
-            edge_options.add_argument("--window-size=1920,1080")
-            # User agent real para evitar detección de headless
-            edge_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0")
-            edge_options.add_argument("--disable-blink-features=AutomationControlled")
-            edge_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            edge_options.add_experimental_option("useAutomationExtension", False)
-            
-            # Inicializar driver con manager para asegurar que el driver existe
-            try:
-                service = Service(EdgeChromiumDriverManager().install())
-                driver = webdriver.Edge(service=service, options=edge_options)
-            except Exception as e_driver:
-                logger.warning(f"[{self.source_name}] No se pudo usar webdriver-manager, intentando directo: {e_driver}")
-                driver = webdriver.Edge(options=edge_options)
-            
-            # Ejecutar script para deshabilitar indicador de webdriver
-            driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-                'source': 'Object.defineProperty(navigator, "webdriver", {get: () => undefined})'
-            })
-            
-            logger.info(f"[{self.source_name}] Navegando a: {url}")
+            chrome_options = Options()
+
+            # 🔑 IMPORTANTE: usar Chrome de Render
+            chrome_bin = os.environ.get("GOOGLE_CHROME_BIN")
+            if chrome_bin:
+                chrome_options.binary_location = chrome_bin
+                logger.info(f"[{self.source_name}] Usando Chrome: {chrome_bin}")
+            else:
+                logger.error(f"[{self.source_name}] Chrome NO disponible")
+                return None  # 🚨 cortar directo
+
+            # Flags necesarias en Render
+            chrome_options.add_argument("--headless=new")
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--window-size=1920,1080")
+
+            # User agent rotativo
+            user_agents = [
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+            ]
+            chrome_options.add_argument(f"user-agent={random.choice(user_agents)}")
+
+            # 🔑 USAR CHROMEDRIVER DE RENDER (NO webdriver_manager)
+            chromedriver_path = os.environ.get("CHROMEDRIVER_PATH")
+
+            if not chromedriver_path:
+                logger.error(f"[{self.source_name}] Chromedriver NO definido")
+                return None
+
+            logger.info(f"[{self.source_name}] Usando Chromedriver: {chromedriver_path}")
+            service = Service(executable_path=chromedriver_path)
+
+            # 🚀 DRIVER
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+            driver.set_page_load_timeout(45)
+
             driver.get(url)
-            
-            # Esperar a que aparezcan los resultados (más robusto que sleep fijo)
-            wait = WebDriverWait(driver, 15)
-            try:
-                # Buscar cualquier indicador de que hay contenido
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "body")))
-                # Dar un tiempo extra para JS dinámico
-                time.sleep(random.uniform(5, 8))
-            except:
-                logger.warning(f"[{self.source_name}] Timeout esperando carga completa, continuando...")
-            
-            # Intentar scroll para cargar contenido perezoso
-            try:
-                driver.execute_script("window.scrollTo(0, 800);")
-                time.sleep(1)
-            except:
-                pass
-            
+
+            wait = WebDriverWait(driver, 20)
+
+            selectors = [
+                (By.CLASS_NAME, 'posting-card'),
+                (By.CLASS_NAME, 'listing__item'),
+                (By.CLASS_NAME, 'ui-search-layout__item'),
+                (By.TAG_NAME, 'body')
+            ]
+
+            for by_type, selector in selectors:
+                try:
+                    wait.until(EC.presence_of_element_located((by_type, selector)))
+                    break
+                except:
+                    continue
+
+            time.sleep(random.uniform(2, 4))
+
             html = driver.page_source
-            logger.info(f"[{self.source_name}] Exito: {len(html)} bytes")
+            logger.info(f"[{self.source_name}] Renderizado OK ({len(html)} bytes)")
+
+            driver.quit()
+
             return html
-            
+
         except Exception as e:
-            logger.error(f"[{self.source_name}] Error fatal en Selenium: {str(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
+            logger.error(f"[{self.source_name}] Error en Selenium: {e}")
             return None
         finally:
             if driver:
@@ -585,51 +524,203 @@ class BaseScraper(ABC):
                     driver.quit()
                 except:
                     pass
+                
+                
 
     def _render_with_playwright(self, url: str) -> Optional[str]:
         """Fallback con Playwright si Selenium falla"""
-        try:
-            from playwright.sync_api import sync_playwright
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
-                page = browser.new_page()
-                page.goto(url, wait_until="networkidle", timeout=60000)
-                html = page.content()
-                browser.close()
-                return html
-        except Exception as e:
-            logger.error(f"[{self.source_name}] Error con Playwright: {e}")
-            return None
+        # DESACTIVADO PARA RENDER/SERVER
+        return None
 
 # ========================================
 # SCRAPER DE ARGENPROP
 # ========================================
 
+class ArgenpropScraper(BaseScraper):
+    """Scraper específico para Argenprop"""
+    
+    def __init__(self):
+        super().__init__("https://www.argenprop.com", "argenprop")
+    
+    def build_url(self, zone: str, operation: str, property_type: str) -> str:
+        """Construye URL para Argenprop"""
+        # Mapeo de operaciones
+        op_map = {
+            "venta": "venta",
+            "alquiler": "alquiler"
+        }
+        
+        # Mapeo de tipos de propiedad
+        type_map = {
+            "departamento": "departamentos",
+            "casa": "casas",
+            "ph": "ph",
+            "terreno": "terrenos",
+            "local": "locales-comerciales",
+            "oficina": "oficinas",
+            "cochera": "cocheras",
+            "deposito": "depositos-galpones"
+        }
+        
+        op = op_map.get(operation.lower(), "venta")
+        p_type = type_map.get(property_type.lower(), "departamentos")
+        
+        # Normalizar zona
+        z_norm = self._normalize_zone(zone)
+        
+        # Construir URL
+        if z_norm:
+            url = f"{self.base_url}/{p_type}/{op}/{z_norm}"
+        else:
+            url = f"{self.base_url}/{p_type}/{op}"
+        
+        return url
+    
+    def parse_properties(self, html: str, operation: str = "venta", property_type: str = "departamento") -> List[PropertyData]:
+        """Parsea propiedades de Argenprop"""
+        properties = []
+        
+        try:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(html, 'html.parser')
+            
+            # Selectores para Argenprop (adaptativos a cambios)
+            cards = soup.select('div.listing__item, div.card, div[class*="listing__item"]')
+            
+            if not cards:
+                # Intentar selectores alternativos
+                cards = soup.select('article.posting-card, div.posting-card, .listing-item')
+            
+            for card in cards:
+                try:
+                    prop = self._parse_card(card, operation, property_type)
+                    if prop:
+                        properties.append(prop)
+                except Exception as e:
+                    logger.debug(f"Error parseando tarjeta: {e}")
+                    continue
+            
+            logger.info(f"[Argenprop] Extraídas {len(properties)} propiedades")
+            
+        except ImportError:
+            logger.error("BeautifulSoup no instalado. Instalar: pip install beautifulsoup4")
+        except Exception as e:
+            logger.error(f"[Argenprop] Error parseando: {e}")
+        
+        return properties
+    
+    def _parse_card(self, card, operation: str = "venta", property_type: str = "departamento") -> Optional[PropertyData]:
+        """Parsea una tarjeta individual de Argenprop"""
+        try:
+            # Extraer precio
+            price_elem = card.select_one('.card__price, [data-qa="card-price"], .price')
+            price_text = ""
+            if price_elem:
+                # Argenprop suele tener la moneda en un span
+                currency_span = price_elem.select_one('.card__currency')
+                if currency_span:
+                    currency_text = currency_span.get_text(strip=True)
+                    # Eliminar el span para obtener solo el número
+                    temp_price = price_elem.get_text(strip=True).replace(currency_text, "").strip()
+                    price_text = f"{currency_text} {temp_price}"
+                else:
+                    price_text = price_elem.get_text(strip=True)
+            
+            price, currency = self._clean_price(price_text)
+            
+            if price == 0:
+                return None  # Saltar propiedades sin precio
+            
+            # Extraer dirección
+            addr_elem = card.select_one('.card__address, [data-qa="card-address"], .address')
+            address = addr_elem.get_text(strip=True) if addr_elem else ""
+            
+            # Extraer título
+            title_elem = card.select_one('.card__title, h2, h3, [data-qa="card-title"]')
+            title = title_elem.get_text(strip=True) if title_elem else address
+            
+            # Extraer superficie
+            surface_elem = card.select_one('.card__main-features, [data-qa="card-features"]')
+            surface_text = surface_elem.get_text(strip=True) if surface_elem else ""
+            surface = self._clean_surface(surface_text)
+            
+            # Calcular precio por m2
+            price_m2 = self._calculate_price_per_m2(price, surface, currency)
+            
+            # Extraer URL
+            link_elem = card.select_one('a[href]')
+            url = link_elem['href'] if link_elem and link_elem.has_attr('href') else ""
+            if url and not url.startswith('http'):
+                url = f"{self.base_url}{url}"
+            
+            # Extraer ID externo
+            prop_id = ""
+            if card.has_attr('data-id'):
+                prop_id = card['data-id']
+            elif card.has_attr('id'):
+                prop_id = card['id']
+            
+            # Ubicación y Dirección
+            location = address.split(',')[-1].strip() if ',' in address else address
+            
+            # Enriquecer ubicación con el barrio buscado si no está presente
+            if self.target_zone and self.target_zone.lower() not in location.lower():
+                location = f"{location}, {self.target_zone}"
+
+            return PropertyData(
+                source=self.source_name,
+                external_id=prop_id or url.split('/')[-1] if url else "",
+                title=title,
+                price_amount=price,
+                price_currency=currency,
+                price_per_m2=price_m2,
+                surface_total=surface,
+                surface_covered=surface,
+                location=location,
+                address=address,
+                property_type=property_type,
+                operation_type=operation,
+                url=url
+            )
+            
+        except Exception as e:
+            logger.debug(f"Error en _parse_card: {e}")
+            return None
 
 # ========================================
 # SCRAPER DE ZONAPROP
 # ========================================
 
 class ZonapropScraper(BaseScraper):
-    """Scraper específico para Zonaprop"""
+    """Scraper específico para Zonaprop con mejoras anti-bloqueo"""
     
     def __init__(self):
         super().__init__("https://www.zonaprop.com.ar", "zonaprop")
-        self.target_zone = ""  # Se seteará antes de parsear
-    
-    def _normalize_zone(self, zone: str) -> str:
-        """Normaliza el nombre de la zona para la URL"""
-        # Convertir a minúsculas y reemplazar espacios por guiones
-        normalized = zone.lower().strip()
-        normalized = normalized.replace(' ', '-')
-        # Eliminar acentos básicos
-        replacements = {
-            'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
-            'ñ': 'n', 'ü': 'u'
-        }
-        for acc, plain in replacements.items():
-            normalized = normalized.replace(acc, plain)
-        return normalized
+        
+        # Headers más realistas para Zonaprop
+        self.session.headers.update({
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "es-AR,es;q=0.9,en;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Cache-Control": "max-age=0",
+        })
+        
+        # Lista de User-Agents para rotar
+        self.user_agents = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+        ]
     
     def build_url(self, zone: str, operation: str, property_type: str) -> str:
         """Construye URL para Zonaprop"""
@@ -650,8 +741,6 @@ class ZonapropScraper(BaseScraper):
         op = op_map.get(operation.lower(), "venta")
         p_type = type_map.get(property_type.lower(), "departamentos")
         
-        # Zonaprop ahora usa preferentemente formato con guiones
-        # departamentos-venta-villa-lugano.html
         z_norm = self._normalize_zone(zone)
         
         if z_norm:
@@ -661,16 +750,82 @@ class ZonapropScraper(BaseScraper):
         
         return url
     
+    def _get_with_cookies(self, url: str) -> Optional[str]:
+        """Intenta obtener la página con cookies persistentes"""
+        try:
+            # Primero visita la página principal para obtener cookies
+            self.session.get("https://www.zonaprop.com.ar", timeout=30)
+            time.sleep(random.uniform(1.5, 2.5))
+            
+            # Luego la página de búsqueda
+            response = self.session.get(url, timeout=45)
+            
+            if response.status_code == 200:
+                return response.text
+            return None
+        except Exception as e:
+            logger.debug(f"[{self.source_name}] Error con cookies: {e}")
+            return None
+    
+    def _make_request(self, url: str, max_retries: int = 3) -> Optional[str]:
+        """Realiza request con reintentos y delay - ESPECIAL PARA ZONAPROP"""
+        for attempt in range(max_retries):
+            try:
+                # Delay más largo para Zonaprop (3-6 segundos)
+                time.sleep(random.uniform(3, 6))
+                
+                # Rotar User-Agent y Referer en cada intento
+                self.session.headers.update({
+                    "User-Agent": random.choice(self.user_agents),
+                    "Referer": random.choice([
+                        "https://www.google.com/",
+                        "https://www.google.com.ar/",
+                        "https://www.zonaprop.com.ar/",
+                        "https://www.zonaprop.com.ar/venta-departamentos/",
+                    ])
+                })
+                
+                response = self.session.get(url, timeout=50)
+                
+                if response.status_code == 200:
+                    logger.info(f"[{self.source_name}] Request exitoso en intento {attempt+1}")
+                    return response.text
+                elif response.status_code == 403:
+                    # Zonaprop nos bloqueó, esperar más tiempo
+                    wait_time = (3 ** attempt) * random.uniform(3, 5)
+                    logger.warning(f"[{self.source_name}] Error 403, esperando {wait_time:.1f}s...")
+                    time.sleep(wait_time)
+                elif response.status_code == 404:
+                    logger.warning(f"[{self.source_name}] URL no encontrada (404): {url}")
+                    return None
+                elif response.status_code in [429, 503]:
+                    wait_time = (2 ** attempt) * random.uniform(2, 4)
+                    logger.warning(f"[{self.source_name}] Error {response.status_code}, esperando {wait_time:.1f}s...")
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"[{self.source_name}] Error {response.status_code}: {url}")
+                    time.sleep(random.uniform(2, 3))
+                    
+            except requests.exceptions.Timeout:
+                logger.warning(f"[{self.source_name}] Timeout en intento {attempt+1}")
+                time.sleep(random.uniform(3, 5))
+            except Exception as e:
+                logger.error(f"[{self.source_name}] Exception: {e}")
+                time.sleep(random.uniform(2, 4))
+        
+        logger.error(f"[{self.source_name}] Falló después de {max_retries} intentos")
+        return None
+    
     def parse_properties(self, html: str, operation: str = "venta", property_type: str = "departamento") -> List[PropertyData]:
-        """Parsea propiedades de Zonaprop"""
+        """Parsea propiedades de Zonaprop con eliminación de duplicados"""
         properties = []
+        seen_ids = set()
         
         try:
             from bs4 import BeautifulSoup
             soup = BeautifulSoup(html, 'html.parser')
             
             # Selectores para Zonaprop
-            # Las tarjetas ahora tienen data-qa="posting PROPERTY"
             cards = soup.select('[data-qa*="posting"], div[class*="posting-card"], div[data-id]')
             
             if not cards:
@@ -678,14 +833,33 @@ class ZonapropScraper(BaseScraper):
             
             for card in cards:
                 try:
+                    # Obtener ID único para evitar duplicados
+                    prop_id = None
+                    if card.has_attr('data-id'):
+                        prop_id = card['data-id']
+                    elif card.has_attr('id'):
+                        prop_id = card['id']
+                    
+                    # Si ya procesamos este ID, saltar
+                    if prop_id and prop_id in seen_ids:
+                        continue
+                    
                     prop = self._parse_card(card, operation, property_type)
                     if prop:
+                        if prop_id:
+                            seen_ids.add(prop_id)
+                        # También usar URL como identificador alternativo
+                        if prop.url:
+                            url_key = prop.url.split('?')[0]
+                            if url_key in seen_ids:
+                                continue
+                            seen_ids.add(url_key)
                         properties.append(prop)
                 except Exception as e:
                     logger.debug(f"Error parseando tarjeta: {e}")
                     continue
             
-            logger.info(f"[Zonaprop] Extraídas {len(properties)} propiedades")
+            logger.info(f"[Zonaprop] Extraídas {len(properties)} propiedades únicas")
             
         except ImportError:
             logger.error("BeautifulSoup no instalado")
@@ -723,24 +897,10 @@ class ZonapropScraper(BaseScraper):
             
             if not location and address:
                 location = address
-            
-            # ========================================
-            # EXTRAER BARRIO DE LA DIRECCIÓN/UBICACIÓN
-            # ========================================
-            barrio = ""
-            # Primero intentar con location
-            if location:
-                partes_loc = location.split(',')
-                if len(partes_loc) >= 2:
-                    barrio = partes_loc[1].strip().lower()
-                else:
-                    barrio = location.strip().lower()
-            elif address:
-                partes_dir = address.split(',')
-                if len(partes_dir) >= 2:
-                    barrio = partes_dir[1].strip().lower()
-                elif len(partes_dir) == 1:
-                    barrio = address.strip().lower()
+                
+            # Enriquecer ubicación con el barrio buscado si no está presente
+            if self.target_zone and self.target_zone.lower() not in location.lower():
+                location = f"{location}, {self.target_zone}"
             
             # Extraer título / descripción
             title_elem = card.select_one('[data-qa="POSTING_CARD_DESCRIPTION"], .postingCard-module__posting-description, h2')
@@ -752,15 +912,6 @@ class ZonapropScraper(BaseScraper):
             if features_elem:
                 features_text = features_elem.get_text(" ", strip=True)
                 surface = self._clean_surface(features_text)
-            
-            # Si no se encontró superficie, buscar en otros elementos
-            if surface == 0:
-                features = card.select('[data-qa="POSTING_CARD_FEATURES"], .features, .posting-features li')
-                for feature in features:
-                    text = feature.get_text(strip=True)
-                    if 'm²' in text or 'm2' in text.lower():
-                        surface = self._clean_surface(text)
-                        break
             
             # Extraer URL
             link_elem = card.select_one('a[href], [data-to-posting]')
@@ -793,7 +944,7 @@ class ZonapropScraper(BaseScraper):
                 price_per_m2=price_m2,
                 surface_total=surface,
                 surface_covered=surface,
-                location=barrio,  # ← Guardar el barrio extraído
+                location=location or (address.split(',')[-1].strip() if ',' in address else address),
                 address=address,
                 property_type=property_type,
                 operation_type=operation,
@@ -803,7 +954,6 @@ class ZonapropScraper(BaseScraper):
         except Exception as e:
             logger.debug(f"Error en _parse_card: {e}")
             return None
-
 # ========================================
 # SCRAPER DE MERCADOLIBRE
 # ========================================
@@ -813,7 +963,6 @@ class MercadoLibreScraper(BaseScraper):
     
     def __init__(self):
         super().__init__("https://inmuebles.mercadolibre.com.ar", "mercadolibre")
-        self.target_zone = ""  # Se seteará antes de parsear
     
     def build_url(self, zone: str, operation: str, property_type: str) -> str:
         """Construye URL para MercadoLibre Inmuebles"""
@@ -840,6 +989,7 @@ class MercadoLibreScraper(BaseScraper):
         
         # MercadoLibre usa estructura: /tipo/op/provincia/ciudad/
         if zone:
+            # Asumimos que zone ya viene formateada o la pasamos tal cual
             url = f"{self.base_url}/{p_type}/{op}/{zone}/"
         else:
             url = f"{self.base_url}/{p_type}/{op}/"
@@ -847,30 +997,35 @@ class MercadoLibreScraper(BaseScraper):
         return url
     
     def parse_properties(self, html: str, operation: str = "venta", property_type: str = "departamento") -> List[PropertyData]:
-        """Parsea propiedades de MercadoLibre"""
+        """Parsea propiedades de MercadoLibre usando Playwright para renderizar JS"""
         properties = []
         
         try:
             from bs4 import BeautifulSoup
             soup = BeautifulSoup(html, 'html.parser')
             
-            # Selectores para MercadoLibre Inmuebles
+            # Selectores para MercadoLibre Inmuebles - nueva estructura poly-component
             cards = soup.select('li.ui-search-layout__item')
             
+            # Estrategia 2: Buscar en ol.ui-search-layout
             if not cards:
                 ol_layout = soup.select_one('ol.ui-search-layout')
                 if ol_layout:
                     cards = ol_layout.select('li')
             
+            # Estrategia 3: Buscar por artículos con clase de resultado (estructura vieja)
             if not cards:
                 cards = soup.select('article.ui-search-result')
             
+            # Estrategia 4: Buscar divs con classe de item
             if not cards:
                 cards = soup.select('div.ui-search-result__item')
             
+            # Estrategia 5: Buscar por data-qa attribute
             if not cards:
                 cards = soup.select('[data-qa="listing-item"]')
             
+            # Estrategia 6: Buscar todos los enlaces con /ML y filtrar por container
             if not cards:
                 ml_items = soup.select('a[href*="/ML"]')
                 for item in ml_items[:50]:
@@ -901,7 +1056,7 @@ class MercadoLibreScraper(BaseScraper):
     def _parse_card(self, card, operation: str = "venta", property_type: str = "departamento") -> Optional[PropertyData]:
         """Parsea una tarjeta individual de MercadoLibre"""
         try:
-            # Extraer precio
+            # Extraer precio - nueva estructura poly-component
             price_text = ""
             price = 0.0
             currency = "ARS"
@@ -919,7 +1074,7 @@ class MercadoLibreScraper(BaseScraper):
                 else:
                     price_text = price_elem.get_text(strip=True)
             
-            # Estrategia 2: Buscar cualquier andes-money-amount
+            # Estrategia 2: Buscar cualquier andes-money-amount en la tarjeta
             if not price_text:
                 money_elem = card.select_one('.andes-money-amount')
                 if money_elem:
@@ -939,18 +1094,21 @@ class MercadoLibreScraper(BaseScraper):
             
             price, currency = self._clean_price(price_text)
             
-            # Extraer título
+            # Extraer título - nueva estructura poly-component
             title = ""
             
+            # Estrategia 1: poly-component__title > a
             title_elem = card.select_one('.poly-component__title a')
             if title_elem:
                 title = title_elem.get_text(strip=True)
             
+            # Estrategia 2: img con atributo alt
             if not title:
                 img_elem = card.select_one('.poly-component__picture')
                 if img_elem and img_elem.has_attr('alt'):
                     title = img_elem['alt']
             
+            # Estrategia 3: ui-search-item__title (estructura vieja)
             if not title:
                 title_elem = card.select_one('.ui-search-item__title')
                 if title_elem:
@@ -966,45 +1124,31 @@ class MercadoLibreScraper(BaseScraper):
                 if link_elem:
                     url = link_elem['href']
             
-            # ========================================
-            # EXTRAER UBICACIÓN Y BARRIO
-            # ========================================
+            # Extraer ubicación - nueva estructura poly-component
             address = ""
-            barrio = ""
-            
             location_elem = card.select_one('.poly-component__location')
             if location_elem:
                 address = location_elem.get_text(strip=True)
-                # MercadoLibre formato: "Dirección, Barrio, Ciudad"
-                partes = address.split(',')
-                if len(partes) >= 2:
-                    barrio = partes[1].strip().lower()
-                else:
-                    barrio = address.strip().lower()
             
             if not address:
                 location_elem = card.select_one('.ui-search-item__location')
                 if location_elem:
                     address = location_elem.get_text(strip=True)
-                    partes = address.split(',')
-                    if len(partes) >= 2:
-                        barrio = partes[1].strip().lower()
-                    else:
-                        barrio = address.strip().lower()
             
-            # Extraer superficie
+            # Extraer atributos (superficie, ambientes) - MEJORADO
             surface = 0.0
             rooms = None
             
-            # Estrategia 1: Buscar en poly-component__card
+            # Estrategia 1: Buscar en poly-component__card con todos los atributos
             card_content = card.select_one('.poly-component__card, .poly-card')
             if card_content:
                 all_text = card_content.get_text(strip=True)
+                # Buscar patrón de superficie en todo el texto
                 surface_patterns = re.findall(r'(\d{1,4})\s*(?:m²|m2|mts2|mts²)', all_text, re.IGNORECASE)
                 if surface_patterns:
                     surface = float(surface_patterns[0])
             
-            # Estrategia 2: Buscar en contenedores de atributos
+            # Estrategia 2: Buscar en contenedores de atributos específicos
             if surface == 0:
                 attrs_containers = card.select('.poly-card__attributes, .poly-component__attributes, .poly-card__card, .ui-search-result-attributes, .ui-search-card-attributes')
                 for attrs_container in attrs_containers:
@@ -1022,11 +1166,54 @@ class MercadoLibreScraper(BaseScraper):
                     if surface > 0:
                         break
             
-            # Estrategia 3: Buscar en el título
+            # Estrategia 3: Buscar elementos con clase que contenga 'surface' o 'area'
+            if surface == 0:
+                surface_elems = card.select('[class*="surface"], [class*="area"], [class*="m2"], [data-qa*="surface"]')
+                for elem in surface_elems:
+                    text = elem.get_text(strip=True)
+                    if 'm²' in text or 'm2' in text.lower():
+                        surface = self._clean_surface(text)
+                        if surface > 0:
+                            break
+            
+            # Estrategia 4: Buscar en toda la tarjeta elementos que contengan m²
+            if surface == 0:
+                m2_elements = card.select('span:contains("m²"), span:contains("m2"), div:contains("m²")')
+                for elem in m2_elements:
+                    text = elem.get_text(strip=True)
+                    surface = self._clean_surface(text)
+                    if surface > 0:
+                        break
+            
+            # Estrategia 5: Buscar en el título por patrones de superficie
             if surface == 0 and title:
                 surface_patterns = re.findall(r'(\d{1,4})\s*(?:m²|m2|mts2|mts²)', title, re.IGNORECASE)
                 if surface_patterns:
                     surface = float(surface_patterns[0])
+            
+            # Estrategia 6: Buscar elementos específicos de ML con aria-label o title
+            if surface == 0:
+                area_elements = card.select('[aria-label*="superficie"], [title*="superficie"], [title*="m²"]')
+                for elem in area_elements:
+                    text = elem.get_text(strip=True) or elem.get('title', '')
+                    if 'm²' in text or 'm2' in text.lower():
+                        surface = self._clean_surface(text)
+                        if surface > 0:
+                            break
+            
+            # Estrategia 7: Buscar en etiquetas svg que contengan m²
+            if surface == 0:
+                svg_elements = card.select('svg')
+                for svg in svg_elements:
+                    next_siblings = svg.find_next_siblings(['span', 'div', 'li'])
+                    for sibling in next_siblings[:2]:  # Solo primeros 2 hermanos
+                        text = sibling.get_text(strip=True)
+                        if 'm²' in text or 'm2' in text.lower():
+                            surface = self._clean_surface(text)
+                            if surface > 0:
+                                break
+                    if surface > 0:
+                        break
             
             # Calcular precio por m2
             price_m2 = self._calculate_price_per_m2(price, surface, currency)
@@ -1058,7 +1245,7 @@ class MercadoLibreScraper(BaseScraper):
                 price_per_m2=price_m2,
                 surface_total=surface,
                 surface_covered=surface,
-                location=barrio,  # ← Guardar el barrio extraído
+                location=address.split(',')[-1].strip() if ',' in address else address,
                 address=address,
                 property_type=property_type,
                 operation_type=operation,
@@ -1070,8 +1257,7 @@ class MercadoLibreScraper(BaseScraper):
             logger.debug(f"Error en _parse_card ML: {e}")
             return None
 
-    
-    
+
 # ========================================
 # ANALIZADOR DE MERCADO
 # ========================================
@@ -1082,54 +1268,26 @@ class MarketAnalyzer:
     # Umbral mínimo de superficie (en m²) para estadísticas válidas
     MIN_SURFACE_THRESHOLD = 10
     
-
-  
     @staticmethod
     def _is_in_zone(prop_location: str, prop_address: str, zone: str) -> bool:
-        if not zone:
+        """Verifica si la propiedad está realmente en la zona solicitada"""
+        # Caso especial: Si no hay información de ubicación, confiamos en la URL 
+        # (pero marcamos para revisión si fuera necesario)
+        if not prop_location and not prop_address:
             return True
-
-        zone = zone.lower().strip()
-        text = f"{prop_location} {prop_address}".lower()
-
-        # ========================================
-        # ❌ EXCLUSIONES FUERTES (PRIMERO)
-        # ========================================
-        forbidden_patterns = [
-            rf"villa\s+general\s+{zone}",
-            rf"villa\s+gral\.?\s+{zone}",
-            rf"villa\s+{zone}",              # Villa Belgrano (Córdoba)
-            rf"{zone}\s+al\s+\d+",           # Belgrano al 5800 (calle)
-            rf"av\.?\s+{zone}",              # Av Belgrano
-            rf"avenida\s+{zone}",
-        ]
-
-        for pattern in forbidden_patterns:
-            if re.search(pattern, text):
-                return False
-
-        # ========================================
-        # ✅ MATCH REAL DE BARRIO (CABA)
-        # ========================================
-        valid_patterns = [
-            rf"\b{zone}\b\s*,\s*(caba|capital federal|bs as|buenos aires)",
-            rf"(caba|capital federal).*\b{zone}\b",
-            rf"\b{zone}\b\s*,\s*[a-z\s]+,\s*(caba|capital federal)",
-        ]
-
-        for pattern in valid_patterns:
-            if re.search(pattern, text):
-                return True
-
-        # ========================================
-        # ⚠️ FALLBACK CONTROLADO
-        # ========================================
-        # Solo aceptar si NO hay otra provincia
-        if re.search(rf"\b{zone}\b", text):
-            if any(x in text for x in ["córdoba", "santa fe", "mendoza", "tucumán"]):
-                return False
+            
+        zone_clean = zone.lower().replace("villa ", "").strip()
+        loc_text = f"{prop_location} {prop_address}".lower()
+        
+        # Lugano / Villa Lugano special case
+        if "lugano" in zone_clean and "lugano" in loc_text:
             return True
-
+            
+        # Caso general: que el nombre del barrio esté en la ubicación o dirección
+        if zone.lower() in loc_text or zone_clean in loc_text:
+            return True
+            
+        # Si no hay coincidencia directa, rechazar (Zonaprop suele meter Belgrano en Villa Lugano)
         return False
 
     @staticmethod
@@ -1139,6 +1297,7 @@ class MarketAnalyzer:
         source_breakdown = {}
         currency_dist = {}
         properties_list = []
+        neighborhood_dict = {}  # Para neighborhood_stats
         low_surface_count = 0  # Contador de propiedades con superficie muy baja
         
         if not properties:
@@ -1177,6 +1336,23 @@ class MarketAnalyzer:
             # Contabilizar por fuente
             source_breakdown[prop.source] = source_breakdown.get(prop.source, 0) + 1
             
+            # Contabilizar por barrio (si existe en prop.location)
+            # Extraer barrio de la locación (Zonaprop/Argenprop suelen ponerlo al final o en un formato similar)
+            nh_name = zone.title() # Default al barrio de búsqueda
+            if prop.location:
+                # Intento simple de extraer barrio si es distinto
+                parts = [p.strip() for p in prop.location.split(',')]
+                if len(parts) > 0:
+                    nh_candidate = parts[0]
+                    if len(nh_candidate) < 30: nh_name = nh_candidate
+            
+            if nh_name not in neighborhood_dict:
+                neighborhood_dict[nh_name] = {"count": 0, "total_price_m2": 0, "avg_price_m2": 0}
+            
+            neighborhood_dict[nh_name]["count"] += 1
+            if prop.price_per_m2 > 0:
+                neighborhood_dict[nh_name]["total_price_m2"] += prop.price_per_m2
+            
             # Contabilizar por moneda
             currency_dist[prop.price_currency] = currency_dist.get(prop.price_currency, 0) + 1
             
@@ -1203,6 +1379,11 @@ class MarketAnalyzer:
                 "property_type": prop.property_type,
                 "surface_warning": has_low_surface  # Marcar propiedades con superficie irreal
             })
+
+        # Calcular promedios por barrio
+        for nh in neighborhood_dict:
+            if neighborhood_dict[nh]["count"] > 0:
+                neighborhood_dict[nh]["avg_price_m2"] = round(neighborhood_dict[nh]["total_price_m2"] / neighborhood_dict[nh]["count"], 2)
         
         # Calcular estadísticas
         from statistics import mean, median, stdev
@@ -1247,6 +1428,7 @@ class MarketAnalyzer:
             price_range_total=price_range,
             currency_distribution=currency_dist,
             source_breakdown=source_breakdown,
+            neighborhood_stats=neighborhood_dict,
             properties=properties_list,
             errors=warnings if warnings else errors
         )
@@ -1269,184 +1451,14 @@ class MarketAnalyzer:
             },
             "currency_distribution": stats.currency_distribution,
             "source_breakdown": stats.source_breakdown,
-            "properties_sample": stats.properties,  # Primeros 50
+            "neighborhood_stats": stats.neighborhood_stats,
+            "properties": stats.properties,  # Renombrado de properties_sample a properties
             "total_properties_analyzed": len(stats.properties),
             "analysis_timestamp": datetime.now().isoformat(),
             "errors": stats.errors
         }
 
-    
 
-   
-
-# ========================================
-# SCRAPER DE ARGENPROP
-# ========================================
-
-class ArgenpropScraper(BaseScraper):
-    """Scraper específico para Argenprop"""
-    
-    def __init__(self):
-        super().__init__("https://www.argenprop.com", "argenprop")
-        self.target_zone = ""  # Se seteará antes de parsear
-    
-    def _normalize_zone(self, zone: str) -> str:
-        """Normaliza el nombre de la zona para la URL"""
-        normalized = zone.lower().strip()
-        normalized = normalized.replace(' ', '-')
-        replacements = {
-            'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
-            'ñ': 'n', 'ü': 'u'
-        }
-        for acc, plain in replacements.items():
-            normalized = normalized.replace(acc, plain)
-        return normalized
-    
-    def build_url(self, zone: str, operation: str, property_type: str) -> str:
-        """Construye URL para Argenprop"""
-        op_map = {
-            "venta": "venta",
-            "alquiler": "alquiler"
-        }
-        
-        type_map = {
-            "departamento": "departamentos",
-            "casa": "casas",
-            "ph": "ph",
-            "terreno": "terrenos",
-            "local": "locales-comerciales",
-            "oficina": "oficinas",
-            "cochera": "cocheras",
-            "deposito": "depositos-galpones"
-        }
-        
-        op = op_map.get(operation.lower(), "venta")
-        p_type = type_map.get(property_type.lower(), "departamentos")
-        
-        z_norm = self._normalize_zone(zone)
-        
-        if z_norm:
-            url = f"{self.base_url}/{p_type}/{op}/{z_norm}"
-        else:
-            url = f"{self.base_url}/{p_type}/{op}"
-        
-        return url
-    
-    def parse_properties(self, html: str, operation: str = "venta", property_type: str = "departamento") -> List[PropertyData]:
-        """Parsea propiedades de Argenprop"""
-        properties = []
-        
-        try:
-            from bs4 import BeautifulSoup
-            soup = BeautifulSoup(html, 'html.parser')
-            
-            cards = soup.select('div.listing__item, div.card, div[data-qa="posting"]')
-            
-            if not cards:
-                cards = soup.select('articleposting-card, divposting')
-            
-            for card in cards:
-                try:
-                    prop = self._parse_card(card, operation, property_type)
-                    if prop:
-                        properties.append(prop)
-                except Exception as e:
-                    logger.debug(f"Error parseando tarjeta: {e}")
-                    continue
-            
-            logger.info(f"[Argenprop] Extraídas {len(properties)} propiedades")
-            
-        except ImportError:
-            logger.error("BeautifulSoup no instalado. Instalar: pip install beautifulsoup4")
-        except Exception as e:
-            logger.error(f"[Argenprop] Error parseando: {e}")
-        
-        return properties
-    
-    def _parse_card(self, card, operation: str = "venta", property_type: str = "departamento") -> Optional[PropertyData]:
-        """Parsea una tarjeta individual de Argenprop"""
-        try:
-            # Extraer precio
-            price_elem = card.select_one('.card__price, [data-qa="card-price"], .price')
-            price_text = ""
-            if price_elem:
-                currency_span = price_elem.select_one('.card__currency')
-                if currency_span:
-                    currency_text = currency_span.get_text(strip=True)
-                    temp_price = price_elem.get_text(strip=True).replace(currency_text, "").strip()
-                    price_text = f"{currency_text} {temp_price}"
-                else:
-                    price_text = price_elem.get_text(strip=True)
-            
-            price, currency = self._clean_price(price_text)
-            
-            if price == 0:
-                return None
-            
-            # Extraer dirección
-            addr_elem = card.select_one('.card__address, [data-qa="card-address"], .address')
-            address = addr_elem.get_text(strip=True) if addr_elem else ""
-            
-            # ========================================
-            # EXTRAER BARRIO DE LA DIRECCIÓN
-            # ========================================
-            barrio = ""
-            if address:
-                partes = address.split(',')
-                if len(partes) >= 2:
-                    barrio = partes[1].strip().lower()
-                else:
-                    barrio = address.strip().lower()
-            
-            # Extraer título
-            title_elem = card.select_one('.card__title, h2, h3, [data-qa="card-title"]')
-            title = title_elem.get_text(strip=True) if title_elem else address
-            
-            # Extraer superficie
-            surface_elem = card.select_one('.card__main-features, [data-qa="card-features"]')
-            surface_text = surface_elem.get_text(strip=True) if surface_elem else ""
-            surface = self._clean_surface(surface_text)
-            
-            # Calcular precio por m2
-            price_m2 = self._calculate_price_per_m2(price, surface, currency)
-            
-            # Extraer URL
-            link_elem = card.select_one('a[href]')
-            url = link_elem['href'] if link_elem and link_elem.has_attr('href') else ""
-            if url and not url.startswith('http'):
-                url = f"{self.base_url}{url}"
-            
-            # Extraer ID externo
-            prop_id = ""
-            if card.has_attr('data-id'):
-                prop_id = card['data-id']
-            elif card.has_attr('id'):
-                prop_id = card['id']
-            
-            return PropertyData(
-                source=self.source_name,
-                external_id=prop_id or url.split('/')[-1] if url else "",
-                title=title,
-                price_amount=price,
-                price_currency=currency,
-                price_per_m2=price_m2,
-                surface_total=surface,
-                surface_covered=surface,
-                location=barrio,  # ← Guardar el barrio extraído
-                address=address,
-                property_type=property_type,
-                operation_type=operation,
-                url=url
-            )
-            
-        except Exception as e:
-            logger.debug(f"Error en _parse_card: {e}")
-            return None
-
-
-
-
-    
 # ========================================
 # GESTOR DE SCRAPING
 # ========================================
@@ -1460,82 +1472,14 @@ class ScrapingManager:
         self.mercadolibre = MercadoLibreScraper()
         self.analyzer = MarketAnalyzer()
     
-    def _filter_by_exact_barrio(self, properties, target_barrio):
-        """Filtra propiedades usando constantes centralizadas"""
-        # Importar constantes (por si no están en el ámbito global)
-        try:
-            from .constants import BARRIOS_VALIDOS, UBICACIONES_EXCLUIDAS
-        except ImportError:
-            try:
-                from constants import BARRIOS_VALIDOS, UBICACIONES_EXCLUIDAS
-            except ImportError:
-                # Fallback
-                BARRIOS_VALIDOS = ['belgrano', 'palermo', 'recoleta', 'microcentro']
-                UBICACIONES_EXCLUIDAS = ['general belgrano', 'villa general belgrano']
-        
-        filtered = []
-        target_lower = target_barrio.lower()
-        
-        # Validar que el barrio esté en la lista
-        if target_lower not in BARRIOS_VALIDOS:
-            print(f"⚠️ Barrio '{target_barrio}' no está en la lista de válidos")
-            return []
-        
-        for prop in properties:
-            location = prop.location.lower() if prop.location else ''
-            address = prop.address.lower() if prop.address else ''
-            
-            # ❌ Excluir ubicaciones no deseadas
-            es_excluido = False
-            for excl in UBICACIONES_EXCLUIDAS:
-                if excl in location or excl in address:
-                    es_excluido = True
-                    print(f"  ⚠️ Excluido ({excl}): {prop.title[:50]}...")
-                    break
-            
-            if es_excluido:
-                continue
-            
-            # ✅ Incluir si es el barrio buscado en CABA
-            es_valido = False
-            
-            if location == target_lower:
-                es_valido = True
-            elif f"{target_lower}, capital federal" in location or f"{target_lower}, caba" in location:
-                es_valido = True
-            elif target_lower in address and ('caba' in address or 'capital federal' in address):
-                es_valido = True
-            
-            if es_valido:
-                filtered.append(prop)
-            else:
-                print(f"  ⚠️ Excluido: {prop.title[:50]}... (ubicación: {prop.location})")
-        
-        print(f"📌 Filtro exacto: {len(properties)} → {len(filtered)} propiedades")
-        return filtered
     
-    def _deduplicate_properties(self, properties):
-        """Elimina propiedades duplicadas basado en URL y título"""
-        seen = {}
-        unique = []
-        
-        for prop in properties:
-            # Usar URL como clave principal para deduplicación
-            key = prop.url if prop.url else prop.title.lower()
-            
-            if key not in seen:
-                seen[key] = True
-                unique.append(prop)
-        
-        print(f"🔄 Eliminados {len(properties) - len(unique)} duplicados")
-        return unique
+    
     
     def scrape_market(self, zone: str, operation: str = "venta", 
-                      property_type: str = "departamento") -> Dict[str, Any]:
+                    property_type: str = "departamento") -> Dict[str, Any]:
         """
-        Realiza scraping de mercado inmobiliario
+        Realiza scraping de mercado inmobiliario con estrategias optimizadas
         """
-        # Normalizar barrio para la búsqueda
         search_zone = zone
         if "lugano" in zone.lower() and "villa" not in zone.lower():
             search_zone = "villa lugano"
@@ -1545,73 +1489,76 @@ class ScrapingManager:
         all_properties = []
         errors = []
         
-        # Escanear Argenprop
+        # 1. Argenprop
         try:
             self.argenprop.target_zone = search_zone
             argenprop_url = self.argenprop.build_url(search_zone, operation, property_type)
             logger.info(f"[Argenprop] URL: {argenprop_url}")
             
-            html = self.argenprop._render_with_selenium(argenprop_url)
-            if not html:
-                html = self.argenprop._make_request(argenprop_url)
+            html = self.argenprop._make_request(argenprop_url)
             
             if html:
                 properties = self.argenprop.parse_properties(html, operation, property_type)
                 all_properties.extend(properties)
+                logger.info(f"[Argenprop] Extraídas {len(properties)} propiedades")
             else:
                 errors.append("Argenprop: No se pudo obtener respuesta")
         except Exception as e:
             errors.append(f"Argenprop: {str(e)}")
         
-        # Escanear Zonaprop
+        # 2. Zonaprop (con múltiples estrategias)
         try:
             self.zonaprop.target_zone = search_zone
             zonaprop_url = self.zonaprop.build_url(search_zone, operation, property_type)
             logger.info(f"[Zonaprop] URL: {zonaprop_url}")
             
-            html = self.zonaprop._render_with_selenium(zonaprop_url)
+            html = None
+            
+            # Estrategia 1: Intentar con cookies primero
+            html = self.zonaprop._get_with_cookies(zonaprop_url)
+            
+            # Estrategia 2: Si falla, intentar con requests normal
             if not html:
+                logger.info("[Zonaprop] Falló con cookies, intentando requests normal...")
                 html = self.zonaprop._make_request(zonaprop_url)
+            
+            # Estrategia 3: Último recurso, usar Selenium si está disponible
+            if not html and USE_SELENIUM:
+                logger.info("[Zonaprop] Intentando con Selenium...")
+                html = self.zonaprop._render_with_selenium(zonaprop_url)
             
             if html:
                 properties = self.zonaprop.parse_properties(html, operation, property_type)
                 all_properties.extend(properties)
+                logger.info(f"[Zonaprop] Extraídas {len(properties)} propiedades")
             else:
                 errors.append("Zonaprop: No se pudo obtener respuesta")
         except Exception as e:
             errors.append(f"Zonaprop: {str(e)}")
         
-        # Escanear MercadoLibre
+        # 3. MercadoLibre
         try:
             self.mercadolibre.target_zone = search_zone
             mercadolibre_url = self.mercadolibre.build_url(search_zone, operation, property_type)
             logger.info(f"[MercadoLibre] URL: {mercadolibre_url}")
             
-            html = self.mercadolibre._render_with_selenium(mercadolibre_url)
-            if not html:
-                html = self.mercadolibre._make_request(mercadolibre_url)
+            html = self.mercadolibre._make_request(mercadolibre_url)
             
             if html:
                 properties = self.mercadolibre.parse_properties(html, operation, property_type)
                 all_properties.extend(properties)
+                logger.info(f"[MercadoLibre] Extraídas {len(properties)} propiedades")
             else:
                 errors.append("MercadoLibre: No se pudo obtener respuesta")
         except Exception as e:
             errors.append(f"MercadoLibre: {str(e)}")
         
         # Calcular estadísticas
-        print("ANTES DEDUP:", len(all_properties))
-        all_properties = self._deduplicate_properties(all_properties)
-        print("DESPUÉS DEDUP:", len(all_properties))
-        all_properties = self._filter_by_exact_barrio(all_properties, zone)
-        print(f"DESPUÉS FILTRO EXACTO: {len(all_properties)}")
-        
         stats = self.analyzer.calculate_stats(all_properties, search_zone, operation, property_type)
         
         if errors:
             stats.errors.extend(errors)
         
-        # Convertir a diccionario
         result = MarketAnalyzer.to_dict(stats)
         result['raw_properties_count'] = len(all_properties)
         
@@ -1619,9 +1566,6 @@ class ScrapingManager:
         
         return result
 
-    
-    
-    
 # ========================================
 # INTEGRACIÓN CON MAIN-AI
 # ========================================
@@ -1713,27 +1657,18 @@ def integrate_with_main_ai(app, gemini_client_func=None):
 
 if __name__ == "__main__":
     import argparse
-    import json
-
+    
     parser = argparse.ArgumentParser(description="Scraper de Mercado Inmobiliario")
-
-    # 🔴 mismos nombres que usa tu backend
-    parser.add_argument("--zona", required=True, help="Zona a analizar")
-    parser.add_argument("--operacion", default="venta")
-    parser.add_argument("--tipo", default="departamento")
-    parser.add_argument("--output", default="scraping_data.json")
-
+    parser.add_argument("zone", help="Zona a analizar (ej: palermo, microcentro)")
+    parser.add_argument("--operation", default="venta", help="Tipo de operación")
+    parser.add_argument("--type", default="departamento", help="Tipo de propiedad")
+    
     args = parser.parse_args()
-
+    
     manager = ScrapingManager()
-    result = manager.scrape_market(args.zona, args.operacion, args.tipo)
-
-    # ✅ AGREGAR ESTO (CLAVE)
-    result["zone"] = args.zona
-    result["operation"] = args.operacion
-
-    # ✅ GUARDAR ARCHIVO (CLAVE)
-    with open(args.output, "w", encoding="utf-8") as f:
-        json.dump(result, f, ensure_ascii=False, indent=2)
-
-    print(f"✅ Resultado guardado en {args.output}")
+    result = manager.scrape_market(args.zone, args.operation, args.type)
+    
+    print("\n" + "=" * 70)
+    print("📊 RESULTADO DEL ANÁLISIS DE MERCADO")
+    print("=" * 70)
+    print(json.dumps(result, indent=2, ensure_ascii=False))
