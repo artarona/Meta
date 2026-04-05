@@ -392,7 +392,10 @@ def procesar_opcion_todas(estado_usuario, user_id):
 def procesar_opcion_mis_citas(user_id):
     """Procesa la opción de ver mis citas"""
     citas = cargar_citas()
-    citas_usuario = [c for c in citas if c['telefono'] == user_id and c['estado'] != 'cancelada']
+    if not citas:
+        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
+    
+    citas_usuario = [c for c in citas if c.get('telefono') == user_id and c.get('estado', '').lower() != 'cancelada']
     
     if not citas_usuario:
         return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
@@ -400,14 +403,17 @@ def procesar_opcion_mis_citas(user_id):
     mensaje = f"📅 *TUS CITAS AGENDADAS*\n\nTienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
     
     for i, cita in enumerate(citas_usuario, 1):
-        fecha_obj = datetime.strptime(cita['fecha'], "%Y-%m-%d")
-        fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
+        try:
+            fecha_obj = datetime.strptime(cita.get('fecha', ''), "%Y-%m-%d")
+            fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
+        except (ValueError, TypeError):
+            fecha_formateada = cita.get('fecha', 'Sin fecha')
         
-        mensaje += f"{i}. *{cita['propiedad_id']}*\n"
-        mensaje += f"   📅 {fecha_formateada} - ⏰ {cita['hora']}\n"
-        mensaje += f"   📍 Estado: {cita['estado'].upper()}\n"
+        mensaje += f"{i}. *{cita.get('propiedad_id', 'Propiedad')}*\n"
+        mensaje += f"   📅 {fecha_formateada} - ⏰ {cita.get('hora', 'Sin hora')}\n"
+        mensaje += f"   📍 Estado: {cita.get('estado', 'Pendiente').upper()}\n"
         
-        if cita.get('notas') and cita['notas'] != 'Sin notas adicionales':
+        if cita.get('notas') and cita['notas'] not in ('Sin notas', 'Sin notas adicionales', ''):
             mensaje += f"   📝 Notas: {cita['notas'][:50]}...\n"
         
         mensaje += "   ───────────────\n"

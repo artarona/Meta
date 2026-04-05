@@ -582,7 +582,7 @@ def cargar_citas():
                 citas = json.load(f)
                 if not isinstance(citas, list):
                     log(f"⚠️ Formato inválido en {CITAS_FILE}")
-                    return None
+                    return []
                 for cita in citas:
                     if 'telefono' not in cita and 'user_id' in cita:
                         cita['telefono'] = cita['user_id']
@@ -592,7 +592,7 @@ def cargar_citas():
         return []
     except Exception as e:
         log(f"❌ Error cargando citas: {e}")
-        return None # Retorna None en caso de error de parseo (crítico para no borrar datos)
+        return []  # Retorna lista vacía en caso de error
 
 
 def guardar_citas(citas):
