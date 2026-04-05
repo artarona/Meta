@@ -1,5 +1,6 @@
 import os
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from typing import Optional, Dict, Any, List
 
 # ============================================================
@@ -65,25 +66,21 @@ def call_gemini_with_rotation(prompt: str) -> str:
             print(f"🔄 Probando clave {i+1}/{len(API_KEYS)}...")
             
             # ✅ CONFIGURACIÓN EXPLÍCITA
-            genai.configure(
-                api_key=key,
-                transport='rest',
-            )
-            
-            model = genai.GenerativeModel(MODEL)
+            client = genai.Client(api_key=key)
             
             print(f"   📝 Prompt length: {len(prompt)} caracteres")
-            response = model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
+            response = client.models.generate_content(
+                model=MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
                     temperature=0.7,
                     max_output_tokens=4000,
                 )
             )
             
-            print(f"   ✅ Respuesta recibida, partes: {len(response.parts) if response.parts else 0}")
+            print(f"   ✅ Respuesta recibida, partes: {len(response.candidates[0].content.parts) if response.candidates and response.candidates[0].content.parts else 0}")
             
-            if not response.parts:
+            if not response.candidates or not response.candidates[0].content.parts:
                 raise Exception("Respuesta vacía de Gemini")
             
             answer = response.text.strip()
