@@ -1056,7 +1056,10 @@ def webhook():
                                 log(f"⚠️ Tipo de mensaje no manejado: {message.get('type')}")
                             
                             if from_number and message_text:
-                                # Convertir IDs de botones a los comandos originales numéricos para compatibilidad
+                                # Normalizar texto para comandos de usuario y botones
+                                processed_text = message_text.strip().lower()
+                                
+                                # Convertir IDs de botones y sinónimos a comandos numéricos
                                 boton_a_numero = {
                                     "opcion_1": "1",  # Ventas
                                     "opcion_2": "2",  # Alquiler
@@ -1067,14 +1070,20 @@ def webhook():
                                     "opcion_7": "7",  # Todos los Inmuebles
                                     "opcion_tasacion": "10", # Tasación
                                     "volver_menu": "9",
-                                    "salir_chat": "0"
+                                    "salir_chat": "0",
+                                    "mis citas": "4",
+                                    "ver mis citas": "4",
+                                    "mis citas programadas": "4",
+                                    "mis visitas": "4",
+                                    "mis visitas programadas": "4"
                                 }
                                 
-                                # Si el mensaje fue un botón/lista del menú principal, traducirlo
-                                if message_text in boton_a_numero:
+                                if processed_text in boton_a_numero:
                                     original_text = message_text
-                                    message_text = boton_a_numero[message_text]
-                                    print(f"🔄 Traduciendo botón: '{original_text}' → '{message_text}'")
+                                    message_text = boton_a_numero[processed_text]
+                                    print(f"🔄 Traduciendo botón/comando: '{original_text}' → '{message_text}'")
+                                else:
+                                    message_text = message_text.strip()
                                 
                                 print(f"👤 Usuario: {from_number}, Input Procesado: '{message_text}'")
                                 log(f"👤 Usuario: {from_number}, Input Procesado: {message_text}")
