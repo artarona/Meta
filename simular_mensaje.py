@@ -1,4 +1,4 @@
-import os
+﻿import os
 import sys
 import json
 from datetime import datetime
@@ -6,7 +6,7 @@ from datetime import datetime
 # Añadir el directorio actual al path para importar módulos locales
 sys.path.append(os.getcwd())
 
-print("🚀 Iniciando Simulador de Mensajes para Dante Propiedades...")
+print(" Iniciando Simulador de Mensajes para Dante Propiedades...")
 
 try:
     # Intentar importar la lógica del bot
@@ -17,7 +17,7 @@ try:
     print("✅ Lógica del bot cargada correctamente.\n")
 except ImportError as e:
     print(f"❌ Error de importación: {e}")
-    print("\n💡 TIP: Este error suele deberse a que falta la librería 'google-genai'.")
+    print("\n TIP: Este error suele deberse a que falta la librería 'google-genai'.")
     print("Prueba ejecutando: pip install google-genai")
     print("\nIntentando cargar el simulador en modo 'Sin IA' para que puedas probar los menús...")
     
@@ -29,7 +29,7 @@ except ImportError as e:
     if 'genai' in str(e) or 'gemini' in str(e):
         mock_logic = MagicMock()
         sys.modules['logic.gemini_client'] = mock_logic
-        mock_logic.call_gemini_with_rotation.return_value = "🤖 [Modo Simulación: IA Desactivada]"
+        mock_logic.call_gemini_with_rotation.return_value = " [Modo Simulación: IA Desactivada]"
         
         # Re-intentar importación
         try:
@@ -51,20 +51,20 @@ def print_separator():
 
 def main():
     user_id = "sim_user_123456"
-    print(f"👤 Iniciando sesión de simulacro para el Usuario ID: {user_id}")
+    print(f" Iniciando sesión de simulacro para el Usuario ID: {user_id}")
     print("Escribe 'salir' para terminar o 'estado' para ver el contexto actual.\n")
     
     while True:
         try:
-            user_input = input("👉 Mensaje (Tú): ").strip()
+            user_input = input(" Mensaje (Tú): ").strip()
             
             if user_input.lower() in ['salir', 'exit', 'quit']:
-                print("👋 Simulador terminado.")
+                print(" Simulador terminado.")
                 break
                 
             if user_input.lower() == 'estado':
                 estado = obtener_estado_usuario(user_id)
-                print("\n📊 ESTADO ACTUAL DEL USUARIO:")
+                print("\n ESTADO ACTUAL DEL USUARIO:")
                 print(json.dumps(estado, indent=4, default=str, ensure_ascii=False))
                 print()
                 continue
@@ -79,7 +79,7 @@ def main():
             # get_bot_response maneja tanto el procesamiento como la actualización del estado
             respuesta = get_bot_response(user_input, user_id)
             
-            print(f"\n🤖 RESPUESTA DEL BOT:")
+            print(f"\n RESPUESTA DEL BOT:")
             
             if isinstance(respuesta, dict):
                 # UI de Simulación de WhatsApp
@@ -98,7 +98,7 @@ def main():
                 
                 # Menú de lista (Tipo Interactive List)
                 if 'sections' in respuesta:
-                    print("┃ 📋 Menú de opciones:                             ┃")
+                    print("┃  Menú de opciones:                             ┃")
                     for s in respuesta['sections']:
                         if s.get('title'):
                             print(f"┃ --- {s.get('title').ljust(42)} --- ┃")
@@ -116,11 +116,11 @@ def main():
             
             # Ver el nuevo paso del estado
             nuevo_estado = obtener_estado_usuario(user_id)
-            print(f"\n📍 Nuevo paso: {nuevo_estado.get('paso', 'S/D')}")
+            print(f"\n Nuevo paso: {nuevo_estado.get('paso', 'S/D')}")
             print_separator()
             
         except KeyboardInterrupt:
-            print("\n👋 Simulador terminado.")
+            print("\n Simulador terminado.")
             break
         except Exception as e:
             print(f"\n❌ Error procesando mensaje: {e}")

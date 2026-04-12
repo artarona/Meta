@@ -70,6 +70,7 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
 
     elif text_lower == "8" and user_id == ADMIN_NUMBER.lstrip('549'):
         # Panel admin (solo para número autorizado)
+        print("[ADMIN] Solicitud de panel admin")
         return mostrar_panel_admin()
     
     elif text_lower == "10":
@@ -218,6 +219,8 @@ def manejar_filtro_tipo(text_lower, estado_usuario, user_id):
                     
         if not filtradas_temp:
              estado_usuario['paso'] = 'listado_propiedades'
+           # 🛡️ MANTENIMIENTO: Asegurar que propiedades_filtradas sea una lista
+    # (Para evitar errores de 'NoneType' or 'str' if JSON parsed incorrectly)
              estado_usuario['propiedades_filtradas'] = []
              actualizar_estado_usuario(user_id, estado_usuario)
              return f"📭 Lo siento, no tenemos {tipo_seleccionado}s disponibles para {operacion} en este momento.\n\n9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*\n0️⃣ *❌ SALIR*"
@@ -418,8 +421,8 @@ def procesar_opcion_mis_citas(user_id):
 
 def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
     """Maneja la selección de propiedades del listado"""
-    log(f"🐞 DEBUG manejar_listado_propiedades: text_lower='{text_lower}', paso={estado_usuario.get('paso')}, ultimo_indice={estado_usuario.get('ultimo_indice_preguntado')}, propiedades_count={len(estado_usuario.get('propiedades_filtradas', []))}, operacion={estado_usuario.get('operacion_seleccionada')}")
-    print(f"🐞 DEBUG manejar_listado_propiedades: text_lower='{text_lower}', paso={estado_usuario.get('paso')}, ultimo_indice={estado_usuario.get('ultimo_indice_preguntado')}, propiedades_count={len(estado_usuario.get('propiedades_filtradas', []))}, operacion={estado_usuario.get('operacion_seleccionada')}")
+    log(f"[DEBUG] manejar_listado_propiedades: text_lower='{text_lower}', paso={estado_usuario.get('paso')}, ultimo_indice={estado_usuario.get('ultimo_indice_preguntado')}, propiedades_count={len(estado_usuario.get('propiedades_filtradas', []))}, operacion={estado_usuario.get('operacion_seleccionada')}")
+    print(f"[DEBUG] manejar_listado_propiedades: text_lower='{text_lower}', paso={estado_usuario.get('paso')}, ultimo_indice={estado_usuario.get('ultimo_indice_preguntado')}, propiedades_count={len(estado_usuario.get('propiedades_filtradas', []))}, operacion={estado_usuario.get('operacion_seleccionada')}")
     if not text_lower.isdigit():
         return "Por favor, elegí un número del listado o enviá 'Hola' para volver.\n0️⃣ *❌ SALIR*"
     

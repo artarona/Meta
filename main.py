@@ -33,7 +33,7 @@ try:
     SCRAPER_AVAILABLE = True
 except Exception as e:
     SCRAPER_AVAILABLE = False
-    print(f"⚠️ Error cargando ScrapingManager: {e}")
+    print(f"[WARN] Error cargando ScrapingManager: {e}")
     logger.error(f"Error cargando ScrapingManager: {e}")
 
 # Inicializar scraping manager
@@ -41,10 +41,10 @@ scraping_manager = None
 if SCRAPER_AVAILABLE:
     try:
         scraping_manager = ScrapingManager()
-        print("✅ Scraping Manager inicializado correctamente")
+        print("[OK] Scraping Manager inicializado correctamente")
         logger.info("Scraping Manager inicializado correctamente")
     except Exception as e:
-        print(f"❌ Error inicializando Scraping Manager: {e}")
+        print(f"[ERROR] Error inicializando Scraping Manager: {e}")
         logger.error(f"Error inicializando Scraping Manager: {e}")
         scraping_manager = None
 
@@ -61,7 +61,7 @@ def init_scraping_data():
                     data = json.load(f)
                 timestamp = data.get('scraping_timestamp', 'desconocida')
                 sample = data.get('data', {}).get('sample_size', 0)
-                print(f"📊 Datos de scraping previos cargados: {sample} propiedades ({timestamp})")
+                print(f"[DATA] Datos de scraping previos cargados: {sample} propiedades ({timestamp})")
                 logger.info(f"Datos de scraping previos cargados: {sample} propiedades")
             else:
                 print("📊 No hay datos de scraping previos. Ejecuta /api/market/run-scrape para obtenerlos.")
@@ -307,8 +307,13 @@ def get_bot_response(text, user_id):
         estado_usuario = obtener_estado_usuario(user_id)
         
         # Guardar mensaje en el historial para análisis de IA (Phase 7)
-        if 'data' not in estado_usuario: estado_usuario['data'] = {}
-        historial = estado_usuario['data'].get('mensajes_recientes', [])
+        if not isinstance(estado_usuario.get('data'), dict):
+            estado_usuario['data'] = {}
+            
+        historial = estado_usuario['data'].get('mensajes_recientes')
+        if not isinstance(historial, list):
+            historial = []
+            
         # Evitar duplicar el mismo mensaje (reintentos de webhook)
         if not historial or historial[-1].get('text') != text:
             historial.append({'role': 'user', 'text': text, 'timestamp': datetime.now().isoformat()})
