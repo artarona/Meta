@@ -305,6 +305,16 @@ def get_bot_response(text, user_id):
         text_lower = text.lower().strip()
         
         estado_usuario = obtener_estado_usuario(user_id)
+        
+        # Guardar mensaje en el historial para análisis de IA (Phase 7)
+        if 'data' not in estado_usuario: estado_usuario['data'] = {}
+        historial = estado_usuario['data'].get('mensajes_recientes', [])
+        # Evitar duplicar el mismo mensaje (reintentos de webhook)
+        if not historial or historial[-1].get('text') != text:
+            historial.append({'role': 'user', 'text': text, 'timestamp': datetime.now().isoformat()})
+            estado_usuario['data']['mensajes_recientes'] = historial[-10:]
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
         log(f"👤 Usuario {user_id}: {estado_usuario['paso']}")
         
         # 1. COMANDOS UNIVERSALES

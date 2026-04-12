@@ -377,12 +377,14 @@ def obtener_estado_usuario(user_id):
                     return estado
             except Exception as e:
                 log(f"⚠️ Error recuperando estado de DB: {e}", "WARNING", user_id=user_id)
-                # FALLBACK: Si PostgreSQL falla, usar caché en memoria
-                if cached_state:
-                    log(f"🔄 Usando estado cacheado como fallback (paso: {cached_state.get('paso')})", user_id=user_id)
-                    return cached_state
+                # El fallback se maneja abajo si res es None o si hay excepción
         
-    # 3. Si no existe, crear nuevo
+    # 3. Fallback a memoria si la DB falló o no devolvió resultado
+    if cached_state:
+        # log(f"🔄 Usando estado cacheado como fallback (paso: {cached_state.get('paso')})", user_id=user_id)
+        return cached_state
+            
+    # 4. Si no existe en ningún lado, crear nuevo
     estado_nuevo = {
         'paso': 'menu_principal',
         'operacion_seleccionada': None,
@@ -391,7 +393,9 @@ def obtener_estado_usuario(user_id):
         'tipo_seleccionado': None,
         'ambientes_seleccionados': None,
         'timestamp': datetime.now().isoformat(),
-        'data': {}
+        'data': {
+            'mensajes_recientes': [] # Historial para análisis de IA
+        }
     }
     estados_usuarios[user_id] = estado_nuevo
     return estado_nuevo

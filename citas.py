@@ -7,6 +7,7 @@ from config import *
 from database import *
 from utils import log, analizar_hora, analizar_fecha
 from whatsapp_api import *
+from logic.ai_prioritization import obtener_prioridad_lead
 
 def get_calendar_service():
     """Obtener servicio de Google Calendar API.
@@ -145,6 +146,18 @@ def notificar_cita_admin(cita):
         mensaje += f"🆔 *ID Cita:* {cita['id']}\n"
         mensaje += f"📝 *Notas:* {cita.get('notas', 'Sin notas')}\n\n"
         mensaje += f"📍 *Estado:* {cita['estado'].upper()}"
+        
+        # Análisis de IA de prioridad (Phase 7)
+        estado_usuario = obtener_estado_usuario(cita['user_id'])
+        historial = estado_usuario.get('data', {}).get('mensajes_recientes', [])
+        
+        # Obtener info de propiedad para el análisis
+        propiedades = cargar_propiedades_cached()
+        propiedad = next((p for p in propiedades if p.get('id_temporal') == cita['propiedad_id']), {})
+        
+        analisis = obtener_prioridad_lead(cita['user_id'], historial, propiedad)
+        
+        mensaje += f"\n\n🤖 *VEREDICTO IA*\n🌡️ Temperatura: {analisis['label_emoji']}\n💡 Razón: _{analisis['razonamiento']}_"
         
         # Usar notificar_agente para centralizar los logs de avisos al admin
         return notificar_agente(mensaje)
@@ -569,7 +582,12 @@ Vamos a agendar tu visita.
     elif text_lower in ["2", "no", "solo info", "informacion", "información"]:
         nombre_cliente = estado_usuario.get('nombre_cliente', 'Cliente')
         
-        notificar_agente(f"📋 *LEAD SIN CITA - SOLO INFO*\n👤 {nombre_cliente}\n📞 +{user_id}\n📝 Solo solicitó información")
+        # Análisis de IA de prioridad (Phase 7)
+        historial = estado_usuario.get('data', {}).get('mensajes_recientes', [])
+        analisis = obtener_prioridad_lead(user_id, historial, {})
+        prioridad_msg = f"\n🌡️ IA Veredicto: {analisis['label_emoji']}\n💡 Razón: {analisis['razonamiento']}"
+        
+        notificar_agente(f"📋 *LEAD SIN CITA - SOLO INFO*\n👤 {nombre_cliente}\n📞 +{user_id}\n📝 Solo solicitó información{prioridad_msg}")
         
         estado_usuario.update({
             'paso': 'menu_principal',
@@ -587,7 +605,12 @@ Un asesor se contactará contigo para brindarte toda la información.
     elif text_lower in ["3", "ofertar", "oferta", "comprar", "alquilar ya"]:
         nombre_cliente = estado_usuario.get('nombre_cliente', 'Cliente')
         
-        notificar_agente(f"🔥🔥 *LEAD CALIENTE - QUIERE OFERTAR!* 🔥🔥\n👤 {nombre_cliente}\n📞 +{user_id}\n💸 LISTO PARA OPERAR")
+        # Análisis de IA de prioridad (Phase 7)
+        historial = estado_usuario.get('data', {}).get('mensajes_recientes', [])
+        analisis = obtener_prioridad_lead(user_id, historial, {})
+        prioridad_msg = f"\n🌡️ IA Veredicto: {analisis['label_emoji']}\n💡 Razón: {analisis['razonamiento']}"
+        
+        notificar_agente(f"🔥🔥 *LEAD CALIENTE - QUIERE OFERTAR!* 🔥🔥\n👤 {nombre_cliente}\n📞 +{user_id}\n💸 LISTO PARA OPERAR{prioridad_msg}")
         
         indice = estado_usuario.get('ultimo_indice_preguntado')
         propiedades = estado_usuario.get('propiedades_filtradas', [])

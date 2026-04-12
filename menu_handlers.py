@@ -8,7 +8,9 @@ import time
 import os
 import json
 from datetime import datetime
+from database import *
 from logic.response_builder import WhatsAppResponse
+from logic.ai_prioritization import obtener_prioridad_lead
 
 def manejar_menu_principal(text_lower, estado_usuario, user_id):
     """Maneja las opciones del menú principal"""
@@ -478,7 +480,13 @@ def manejar_nombre_lead(text, estado_usuario, user_id):
         
         registrar_lead(user_id, propiedad_id, "lead_completo", f"Nombre: {nombre_cliente}")
         
-        notificar_agente(f"🔥 *NUEVO INTERESADO*\n👤 Cliente: {nombre_cliente}\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad_titulo}")
+        # Análisis de IA de prioridad (Phase 7)
+        historial = estado_usuario.get('data', {}).get('mensajes_recientes', [])
+        analisis = obtener_prioridad_lead(user_id, historial, propiedad)
+        
+        prioridad_msg = f"\n\n🤖 *VEREDICTO IA*\n🌡️ Temperatura: {analisis['label_emoji']} (Score: {analisis['score']}/10)\n💡 Razón: _{analisis['razonamiento']}_"
+        
+        notificar_agente(f"🔥 *NUEVO INTERESADO*\n👤 Cliente: {nombre_cliente}\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad_titulo}{prioridad_msg}")
         
         estado_usuario['paso'] = 'ofrecer_cita'
         actualizar_estado_usuario(user_id, estado_usuario)
