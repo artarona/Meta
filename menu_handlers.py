@@ -296,8 +296,7 @@ def manejar_filtro_ambientes(text_lower, estado_usuario, user_id):
         estado_usuario.update({
             'paso': 'listado_propiedades',
             'ambientes_seleccionados': ambientes_sel,
-            'propiedades_filtradas': propiedades_filtradas,
-            'ultima_accion': 'mostrar_listado'
+            'propiedades_filtradas': propiedades_filtradas
         })
         actualizar_estado_usuario(user_id, estado_usuario)
         
@@ -306,8 +305,7 @@ def manejar_filtro_ambientes(text_lower, estado_usuario, user_id):
             estado_usuario.update({
                 'paso': 'listado_propiedades',
                 'ambientes_seleccionados': None,
-                'propiedades_filtradas': [p for p in todas if str(p.get('operacion', '')).lower() == operacion.lower() and tipo in str(p.get('tipo', '')).lower()],
-                'ultima_accion': 'mostrar_listado'
+                'propiedades_filtradas': [p for p in todas if str(p.get('operacion', '')).lower() == operacion.lower() and tipo in str(p.get('tipo', '')).lower()]
             })
             actualizar_estado_usuario(user_id, estado_usuario)
             
@@ -385,8 +383,7 @@ def procesar_opcion_todas(estado_usuario, user_id):
     estado_usuario.update({
         'paso': 'listado_propiedades',
         'operacion_seleccionada': 'todas',
-        'propiedades_filtradas': cargar_propiedades_cached(),
-        'ultima_accion': 'mostrar_listado'
+        'propiedades_filtradas': cargar_propiedades_cached()
     })
     actualizar_estado_usuario(user_id, estado_usuario)
     return "📋 *TODAS LAS PROPIEDADES*\n\n" + generar_listado_propiedades(estado_usuario['propiedades_filtradas'])
@@ -429,32 +426,22 @@ def procesar_opcion_mis_citas(user_id):
 
 def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
     """Maneja la selección de propiedades del listado"""
-    log(f"🐞 DEBUG manejar_listado_propiedades: text_lower='{text_lower}', paso={estado_usuario.get('paso')}, ultimo_indice={estado_usuario.get('ultimo_indice_preguntado')}, propiedades_count={len(estado_usuario.get('propiedades_filtradas', []))}, operacion={estado_usuario.get('operacion_seleccionada')}")
-    print(f"🐞 DEBUG manejar_listado_propiedades: text_lower='{text_lower}', paso={estado_usuario.get('paso')}, ultimo_indice={estado_usuario.get('ultimo_indice_preguntado')}, propiedades_count={len(estado_usuario.get('propiedades_filtradas', []))}, operacion={estado_usuario.get('operacion_seleccionada')}")
     if not text_lower.isdigit():
         return "Por favor, elegí un número del listado o enviá 'Hola' para volver.\n0️⃣ *❌ SALIR*"
     
     indice = int(text_lower)
     propiedades = estado_usuario.get('propiedades_filtradas', [])
     
-    # REPARACIÓN: Si la lista está vacía pero sabemos que venía de "todas", recargar de cache
-    if not propiedades and estado_usuario.get('operacion_seleccionada') == 'todas':
-        log(f"🔄 Recargando propiedades desde cache para usuario {user_id}")
-        propiedades = cargar_propiedades_cached()
-        estado_usuario['propiedades_filtradas'] = propiedades
-    
     if not propiedades:
         estado_usuario['paso'] = 'menu_principal'
-        estado_usuario['ultima_accion'] = None
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "⚠️ No hay propiedades para mostrar o la sesión expiró. Envía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
+        return "⚠️ No hay propiedades para mostrar. Envía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
     
     if indice == 0:
         estado_usuario['paso'] = 'menu_principal'
         estado_usuario['operacion_seleccionada'] = None
         estado_usuario['propiedades_filtradas'] = []
         estado_usuario['ultimo_indice_preguntado'] = None
-        estado_usuario['ultima_accion'] = None
         actualizar_estado_usuario(user_id, estado_usuario)
         return "WELCOME_FLOW_TRIGGER"
     
@@ -462,8 +449,7 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         propiedad = propiedades[indice - 1]
         estado_usuario.update({
             'paso': 'detalle_propiedad',
-            'ultimo_indice_preguntado': indice,
-            'ultima_accion': None
+            'ultimo_indice_preguntado': indice
         })
         actualizar_estado_usuario(user_id, estado_usuario)
         
