@@ -527,6 +527,46 @@ def registrar_lead(user_id, propiedad_id, accion, detalle=""):
         log(f"🔍 TRACEBACK COMPLETO:\n{traceback.format_exc()}")
 
 
+def obtener_todas_citas_usuario(user_id):
+    """Obtiene todas las citas activas de un usuario desde PostgreSQL"""
+    conn = None
+    try:
+        conn = get_db_connection()
+        if not conn: return []
+        cursor = conn.cursor()
+        
+        # Buscar por user_id o telefono. Excluir canceladas.
+        # Ordenar por fecha y hora ascendente.
+        cursor.execute("""
+            SELECT id, nombre, fecha_cita, hora_cita, propiedad_id, estado, notas, telefono
+            FROM citas
+            WHERE (telefono = %s OR user_id = %s)
+            AND estado != 'cancelada'
+            AND (fecha_cita >= CURRENT_DATE OR estado = 'pendiente')
+            ORDER BY fecha_cita ASC, hora_cita ASC
+        """, (user_id, user_id))
+        
+        rows = cursor.fetchall()
+        citas = []
+        for res in rows:
+            citas.append({
+                'id': res[0],
+                'nombre': res[1],
+                'fecha': res[2].strftime("%Y-%m-%d") if res[2] and hasattr(res[2], 'strftime') else str(res[2] or ''),
+                'hora': res[3],
+                'propiedad_id': res[4],
+                'estado': res[5],
+                'notas': res[6],
+                'telefono': res[7]
+            })
+        return citas
+    except Exception as e:
+        log(f"❌ Error obteniendo todas las citas de DB: {e}", "ERROR")
+        return []
+    finally:
+        if conn: conn.close()
+
+
 def buscar_cita_activa_usuario(user_id):
     """Busca la cita más próxima y activa de un usuario"""
     conn = None

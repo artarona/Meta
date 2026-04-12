@@ -20,6 +20,32 @@ def normalizar_numero_argentina(numero):
     return numero
 
 
+def normalizar_numero_whatsapp(numero):
+    """
+    Normaliza un número de WhatsApp quitando prefijos comunes
+    y el '9' de Argentina para facilitar comparaciones de identidad.
+    Retorna el número normalizado sin el '9' de móvil si es 549.
+    """
+    if not numero:
+        return ""
+    # Solo números
+    num = ''.join(filter(str.isdigit, str(numero)))
+    
+    # Si empieza con 549 (Argentina móvil), normalizamos quitando el 9
+    if num.startswith("549") and len(num) >= 12:
+        num = "54" + num[3:]
+    # Si empieza con 54 y no tiene el 9, pero tiene la longitud correcta, se deja
+    
+    return num
+
+
+def son_numeros_identicos(num1, num2):
+    """Compara dos números de teléfono de forma flexible para Argentina"""
+    if not num1 or not num2:
+        return False
+    return normalizar_numero_whatsapp(num1) == normalizar_numero_whatsapp(num2)
+
+
 def analizar_hora(texto):
     """
     Parsea horarios en lenguaje natural.

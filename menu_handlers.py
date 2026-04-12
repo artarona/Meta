@@ -375,12 +375,20 @@ def procesar_opcion_todas(estado_usuario, user_id):
 
 
 def procesar_opcion_mis_citas(user_id):
-    """Procesa la opción de ver mis citas"""
-    citas = cargar_citas()
-    if not citas:
-        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
+    """Procesa la opción de ver mis citas consultando DB y JSON con normalización"""
+    # 1. Intentar obtener de PostgreSQL (fuente primaria)
+    citas_usuario = obtener_todas_citas_usuario(user_id)
     
-    citas_usuario = [c for c in citas if c.get('telefono') == user_id and c.get('estado', '').lower() != 'cancelada']
+    # 2. Si no hay en DB, buscar en JSON con normalización de números
+    if not citas_usuario:
+        citas_json = cargar_citas()
+        if citas_json:
+            citas_usuario = [
+                c for c in citas_json 
+                if (son_numeros_identicos(c.get('telefono'), user_id) or son_numeros_identicos(c.get('user_id'), user_id))
+                and c.get('estado', '').lower() != 'cancelada'
+                and c.get('estado', '').lower() != 'finalizada'
+            ]
     
     if not citas_usuario:
         return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
