@@ -1040,16 +1040,22 @@ def webhook():
                                 interactive = message.get("interactive", {})
                                 int_type = interactive.get("type")
                                 print(f"🔘 Mensaje interactivo tipo: {int_type}")
+                                print(f"🔘 Payload interactivo: {json.dumps(interactive, ensure_ascii=False)}")
+                                log(f"🔘 Payload interactivo: {json.dumps(interactive, ensure_ascii=False)}")
                                 
                                 if int_type == "button_reply":
-                                    message_text = interactive.get("button_reply", {}).get("id", "")
-                                    log(f"🔘 Botón presionado: {message_text}")
-                                    print(f"🔘 Botón presionado ID: {message_text}")
+                                    button_reply = interactive.get("button_reply", {})
+                                    message_text = button_reply.get("id", "") or button_reply.get("title", "")
+                                    log(f"🔘 Botón presionado: {message_text} - Objeto: {json.dumps(button_reply, ensure_ascii=False)}")
+                                    print(f"🔘 Botón presionado ID/Título: {message_text}")
+                                    print(f"🔘 Button reply completo: {json.dumps(button_reply, ensure_ascii=False)}")
                                     
                                 elif int_type == "list_reply":
-                                    message_text = interactive.get("list_reply", {}).get("id", "")
-                                    log(f"📋 Opción de lista seleccionada: {message_text}")
-                                    print(f"📋 Lista seleccionada ID: {message_text}")
+                                    list_reply = interactive.get("list_reply", {})
+                                    message_text = list_reply.get("id", "") or list_reply.get("title", "")
+                                    log(f"📋 Opción de lista seleccionada: {message_text} - Objeto: {json.dumps(list_reply, ensure_ascii=False)}")
+                                    print(f"📋 Lista seleccionada ID/Título: {message_text}")
+                                    print(f"📋 List reply completo: {json.dumps(list_reply, ensure_ascii=False)}")
                             
                             else:
                                 print(f"⚠️ Tipo de mensaje no manejado: {message.get('type')}")
@@ -1075,7 +1081,36 @@ def webhook():
                                     "ver mis citas": "4",
                                     "mis citas programadas": "4",
                                     "mis visitas": "4",
-                                    "mis visitas programadas": "4"
+                                    "mis visitas programadas": "4",
+                                    "venta": "1",
+                                    "en venta": "1",
+                                    "comprar": "1",
+                                    "alquiler": "2",
+                                    "en alquiler": "2",
+                                    "todos los inmuebles": "7",
+                                    "mis citas": "4",
+                                    "hablar con asesor": "5",
+                                    "asesor": "5",
+                                    "requisitos": "6",
+                                    "faqs": "6",
+                                    "requisitos / faqs": "6",
+                                    "sitio web": "3",
+                                    "web": "3",
+                                    "tasación virtual": "10",
+                                    "tasacion virtual": "10",
+                                    "tasación": "10",
+                                    "tasacion": "10",
+                                    "enviar mensaje": "1",
+                                    "solicitar llamada": "2",
+                                    "departamento": "1",
+                                    "casa": "2",
+                                    "ph": "3",
+                                    "oficina / local": "4",
+                                    "oficina": "4",
+                                    "local": "4",
+                                    "terreno / lote": "5",
+                                    "terreno": "5",
+                                    "lote": "5"
                                 }
                                 
                                 if processed_text in boton_a_numero:
@@ -1083,7 +1118,11 @@ def webhook():
                                     message_text = boton_a_numero[processed_text]
                                     print(f"🔄 Traduciendo botón/comando: '{original_text}' → '{message_text}'")
                                 else:
-                                    message_text = message_text.strip()
+                                    # Si el texto viene de un título de botón/lista, intentar normalizar opciones conocidas
+                                    texto_normalizado = processed_text.replace('🏠', '').replace('🔑', '').replace('🏢', '').replace('📋', '').replace('❓', '').replace('👤', '').replace('🌐', '').replace('📈', '').strip()
+                                    message_text = boton_a_numero.get(texto_normalizado, message_text.strip())
+                                    if message_text != texto_normalizado and texto_normalizado in boton_a_numero:
+                                        print(f"🔄 Traduciendo título de botón/comando: '{texto_normalizado}' → '{message_text}'")
                                 
                                 print(f"👤 Usuario: {from_number}, Input Procesado: '{message_text}'")
                                 log(f"👤 Usuario: {from_number}, Input Procesado: {message_text}")
