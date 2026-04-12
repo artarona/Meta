@@ -61,9 +61,14 @@ def get_db_connection(max_retries=5):
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
             error_str = str(e)
             if "SSL connection has been closed unexpectedly" in error_str or "connection to server at" in error_str or "Name or service not known" in error_str:
+                # Si es un error de DNS local (Render internal URL), fallar rápido
+                if "Name or service not known" in error_str:
+                     log(f"⚠️ Error de DNS: Host no alcanzable (¿Estás usando una URL interna de Render localmente?)", "WARNING")
+                     break # No reintentar si el host no existe
+                
                 log(f"⚠️ Error de conexión (Intento {i+1}/{max_retries}): {error_str}", "WARNING")
                 if i < max_retries - 1:
-                    time.sleep(2) # Esperar dos segundos antes de reintentar
+                    time.sleep(2)
                     continue
             log(f"❌ Error fatal conectando a PostgreSQL: {e}", "ERROR")
             if "Name or service not known" in error_str:
