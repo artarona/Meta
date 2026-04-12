@@ -327,10 +327,10 @@
     "balcon": "No",
     "pileta": "No",
     "acepta_mascotas": "No",
-    "aire_acondicionado": "No",
+    "aire_acondicionado": "Si",
     "info_multimedia": "Fotos de la propiedad y terraza",
     "documentos": [
-      "fichas/FICHA_UF006.pdf"
+      "fichas/FICHA_UF007.pdf"
     ],
     "videos": [],
     "fotos": [
@@ -343,8 +343,7 @@
       "imgs/UF007-6.jpg",
       "imgs/UF007-7.jpg"
     ],
-    "imagenes_360": [
-    ],
+    "imagenes_360": [],
     "fecha_procesamiento": "2025-11-06T14:30:15.456789"
   },
   {
@@ -372,7 +371,9 @@
     "acepta_mascotas": "Sí",
     "aire_acondicionado": "No",
     "info_multimedia": "Fotos de la propiedad y terraza",
-    "documentos": [],
+    "documentos": [
+      "fichas/FICHA_UF014.pdf"
+    ],
     "videos": [],
     "fotos": [
       "INSTITUCIONALES/INSTITUCIONAL 1.png",
