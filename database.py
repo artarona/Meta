@@ -4,6 +4,7 @@ import time
 import psycopg2
 from datetime import datetime
 from functools import lru_cache
+from contextlib import contextmanager
 from config import *
 from utils import log, _strip_media_fields, save_json_atomic
 
@@ -73,6 +74,27 @@ def get_db_connection(max_retries=5):
             break
             
     return None
+
+
+
+@contextmanager
+def db_session():
+    """Context manager for PostgreSQL sessions. Ensures connections are closed."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        if conn:
+            yield conn
+        else:
+            yield None
+    except Exception as e:
+        log(f"❌ Database session error: {e}", "ERROR")
+        if conn:
+            conn.rollback()
+        yield None
+    finally:
+        if conn:
+            conn.close()
 
 
 def init_db(conn):
@@ -240,39 +262,34 @@ def init_db(conn):
 
 def guardar_en_postgresql(telefono, nombre, accion, detalles=""):
     """Guardar lead/cita en PostgreSQL de Render"""
-    conn = None
-    try:
-        log(f"🔄 Iniciando guardado en DB: Tel: {telefono}, Acción: {accion}")
-        conn = get_db_connection()
+    with db_session() as conn:
         if not conn:
             return None
+        try:
+            log(f"🔄 Iniciando guardado en DB: Tel: {telefono}, Acción: {accion}", user_id=telefono)
+            # Asegurar esquema
+            init_db(conn)
             
-        # Asegurar esquema
-        init_db(conn)
-        
-        cursor = conn.cursor()
-        
-        # Insertar en leads (log general de actividad)
-        cursor.execute("""
-            INSERT INTO leads (telefono, nombre, accion, detalles)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id
-        """, (telefono, nombre, accion, detalles))
-        
-        lead_id = cursor.fetchone()[0]
-        conn.commit()
-        
-        log(f"✅ Guardado en PostgreSQL exitoso - ID: {lead_id}")
-        return lead_id
-        
-    except Exception as e:
-        log(f"❌ ERROR en guardar_en_postgresql: {e}", "ERROR")
-        if conn:
-            conn.rollback()
-        return None
-    finally:
-        if conn:
-            conn.close()
+            cursor = conn.cursor()
+            
+            # Insertar en leads (log general de actividad)
+            cursor.execute("""
+                INSERT INTO leads (telefono, nombre, accion, detalles)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id
+            """, (telefono, nombre, accion, detalles))
+            
+            lead_id = cursor.fetchone()[0]
+            conn.commit()
+            
+            log(f"✅ Guardado en PostgreSQL exitoso - ID: {lead_id}", user_id=telefono)
+            return lead_id
+            
+        except Exception as e:
+            log(f"❌ ERROR en guardar_en_postgresql: {e}", "ERROR", user_id=telefono)
+            if conn:
+                conn.rollback()
+            return None
 
 
 def obtener_estado_usuario(user_id):
@@ -281,87 +298,84 @@ def obtener_estado_usuario(user_id):
     cached_state = estados_usuarios.get(user_id)
         
     # 2. Intentar desde PostgreSQL (fuente primaria)
-    conn = None
-    try:
-        conn = get_db_connection()
+    with db_session() as conn:
         if conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data, tipo_seleccionado, ambientes_seleccionados, timestamp, ultima_accion FROM user_states WHERE user_id = %s", (user_id,))
-            res = cursor.fetchone()
-            if res:
-                # Función auxiliar para parseo seguro y profundo
-                def safe_json_loads(data, default):
-                    if not data: return default
-                    # Si ya es un objeto (dict/list), devolverlo
-                    if isinstance(data, (dict, list)): return data
-                    
-                    # Si es un string, intentar parsear
-                    current_data = data
-                    max_depth = 3 # Evitar bucles infinitos
-                    for _ in range(max_depth):
-                        if not isinstance(current_data, str):
-                            break
-                        try:
-                            # Trim para ver si parece JSON
-                            trimmed = current_data.strip()
-                            if (trimmed.startswith('{') and trimmed.endswith('}')) or (trimmed.startswith('[') and trimmed.endswith(']')):
-                                parsed = json.loads(current_data)
-                                if parsed is not None:
-                                    current_data = parsed
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data, tipo_seleccionado, ambientes_seleccionados, timestamp, ultima_accion FROM user_states WHERE user_id = %s", (user_id,))
+                res = cursor.fetchone()
+                if res:
+                    # Función auxiliar para parseo seguro y profundo
+                    def safe_json_loads(data, default):
+                        if not data: return default
+                        # Si ya es un objeto (dict/list), devolverlo
+                        if isinstance(data, (dict, list)): return data
+                        
+                        # Si es un string, intentar parsear
+                        current_data = data
+                        max_depth = 3 # Evitar bucles infinitos
+                        for _ in range(max_depth):
+                            if not isinstance(current_data, str):
+                                break
+                            try:
+                                # Trim para ver si parece JSON
+                                trimmed = current_data.strip()
+                                if (trimmed.startswith('{') and trimmed.endswith('}')) or (trimmed.startswith('[') and trimmed.endswith(']')):
+                                    parsed = json.loads(current_data)
+                                    if parsed is not None:
+                                        current_data = parsed
+                                    else:
+                                        break
                                 else:
-                                    break
-                            else:
-                                break # No parece JSON
-                        except:
-                            break
-                            
-                    # Si al final es un dict/list, éxito. Si no, devolver default si era string basura
-                    if isinstance(current_data, (dict, list)):
-                        return current_data
-                    return default if isinstance(data, str) and not isinstance(current_data, (dict, list)) else current_data
+                                    break # No parece JSON
+                            except:
+                                break
+                                
+                        # Si al final es un dict/list, éxito. Si no, devolver default si era string basura
+                        if isinstance(current_data, (dict, list)):
+                            return current_data
+                        return default if isinstance(data, str) and not isinstance(current_data, (dict, list)) else current_data
 
-                row_timestamp = res[12] if len(res) > 12 else None
-                estado = {
-                    'paso': res[0],
-                    'operacion_seleccionada': res[1],
-                    'propiedades_filtradas': safe_json_loads(res[2], []),
-                    'ultimo_indice_preguntado': res[3],
-                    'nombre_cliente': res[4],
-                    'email_cliente': res[5],
-                    'fecha_cita': res[6],
-                    'hora_cita': res[7],
-                    'horarios_disponibles': safe_json_loads(res[8], []),
-                    'data': safe_json_loads(res[9], {}),
-                    'tipo_seleccionado': res[10],
-                    'ambientes_seleccionados': res[11],
-                    'timestamp': row_timestamp if row_timestamp else datetime.now().isoformat(),
-                    'ultima_accion': res[13] if len(res) > 13 else None
-                }
-                
-                # REPARACIÓN GLOBAL: Si la lista está vacía pero la operación es 'todas', recargarla
-                # Esto soluciona que 'F' (fotos) falle después de elegir una propiedad de la lista completa
-                if not estado['propiedades_filtradas'] and estado['operacion_seleccionada'] == 'todas':
-                    log(f"🔄 [GLOBAL] Recargando propiedades desde cache para usuario {user_id}")
-                    estado['propiedades_filtradas'] = cargar_propiedades_cached()
+                    row_timestamp = res[12] if len(res) > 12 else None
+                    estado = {
+                        'paso': res[0],
+                        'operacion_seleccionada': res[1],
+                        'propiedades_filtradas': safe_json_loads(res[2], []),
+                        'ultimo_indice_preguntado': res[3],
+                        'nombre_cliente': res[4],
+                        'email_cliente': res[5],
+                        'fecha_cita': res[6],
+                        'hora_cita': res[7],
+                        'horarios_disponibles': safe_json_loads(res[8], []),
+                        'data': safe_json_loads(res[9], {}),
+                        'tipo_seleccionado': res[10],
+                        'ambientes_seleccionados': res[11],
+                        'timestamp': row_timestamp if row_timestamp else datetime.now().isoformat(),
+                        'ultima_accion': res[13] if len(res) > 13 else None
+                    }
+                    
+                    # REPARACIÓN GLOBAL: Si la lista está vacía pero la operación es 'todas', recargarla
+                    # Esto soluciona que 'F' (fotos) falle después de elegir una propiedad de la lista completa
+                    if not estado['propiedades_filtradas'] and estado['operacion_seleccionada'] == 'todas':
+                        log(f"🔄 [GLOBAL] Recargando propiedades desde cache", user_id=user_id)
+                        estado['propiedades_filtradas'] = cargar_propiedades_cached()
 
-                if cached_state and cached_state.get('timestamp') and row_timestamp:
-                    try:
-                        if cached_state['timestamp'] > row_timestamp:
-                            log(f"🔄 Usando estado cacheado más reciente para {user_id} (DB: {row_timestamp}, Cache: {cached_state['timestamp']})")
-                            return cached_state
-                    except Exception:
-                        pass
+                    if cached_state and cached_state.get('timestamp') and row_timestamp:
+                        try:
+                            if cached_state['timestamp'] > row_timestamp:
+                                log(f"🔄 Usando estado cacheado más reciente (DB: {row_timestamp}, Cache: {cached_state['timestamp']})", user_id=user_id)
+                                return cached_state
+                        except Exception:
+                            pass
 
-                estados_usuarios[user_id] = estado
-                return estado
-    except Exception as e:
-        log(f"⚠️ Error recuperando estado de DB: {e}")
-        # FALLBACK: Si PostgreSQL falla, usar caché en memoria
-        if cached_state:
-            log(f"🔄 Usando estado cacheado como fallback para {user_id} (paso: {cached_state.get('paso')})")
-            return cached_state
-    finally:
-        if conn: conn.close()
+                    estados_usuarios[user_id] = estado
+                    return estado
+            except Exception as e:
+                log(f"⚠️ Error recuperando estado de DB: {e}", "WARNING", user_id=user_id)
+                # FALLBACK: Si PostgreSQL falla, usar caché en memoria
+                if cached_state:
+                    log(f"🔄 Usando estado cacheado como fallback (paso: {cached_state.get('paso')})", user_id=user_id)
+                    return cached_state
         
     # 3. Si no existe, crear nuevo
     estado_nuevo = {
@@ -384,59 +398,55 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
     estados_usuarios[user_id] = nuevo_estado
     
     # Sincronizar con PostgreSQL
-    conn = None
-    try:
-        conn = get_db_connection()
+    with db_session() as conn:
         if conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO user_states (
-                    user_id, paso, operacion_seleccionada, propiedades_filtradas, 
-                    ultimo_indice_preguntado, nombre_cliente, email_cliente, 
-                    fecha_cita, hora_cita, horarios_disponibles, data, 
-                    tipo_seleccionado, ambientes_seleccionados, timestamp, ultima_accion
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (user_id) DO UPDATE SET
-                    paso = EXCLUDED.paso,
-                    operacion_seleccionada = EXCLUDED.operacion_seleccionada,
-                    propiedades_filtradas = EXCLUDED.propiedades_filtradas,
-                    ultimo_indice_preguntado = EXCLUDED.ultimo_indice_preguntado,
-                    nombre_cliente = EXCLUDED.nombre_cliente,
-                    email_cliente = EXCLUDED.email_cliente,
-                    fecha_cita = EXCLUDED.fecha_cita,
-                    hora_cita = EXCLUDED.hora_cita,
-                    horarios_disponibles = EXCLUDED.horarios_disponibles,
-                    data = EXCLUDED.data,
-                    tipo_seleccionado = EXCLUDED.tipo_seleccionado,
-                    ambientes_seleccionados = EXCLUDED.ambientes_seleccionados,
-                    timestamp = EXCLUDED.timestamp,
-                    ultima_accion = EXCLUDED.ultima_accion
-            """, (
-                user_id, 
-                nuevo_estado.get('paso'),
-                nuevo_estado.get('operacion_seleccionada'),
-                json.dumps(_strip_media_fields(nuevo_estado.get('propiedades_filtradas', []))) if nuevo_estado.get('operacion_seleccionada') != 'todas' else "[]",
-                nuevo_estado.get('ultimo_indice_preguntado'),
-                nuevo_estado.get('nombre_cliente'),
-                nuevo_estado.get('email_cliente'),
-                nuevo_estado.get('fecha_cita'),
-                nuevo_estado.get('hora_cita'),
-                json.dumps(nuevo_estado.get('horarios_disponibles', [])),
-                json.dumps(nuevo_estado.get('data', {})),
-                nuevo_estado.get('tipo_seleccionado'),
-                nuevo_estado.get('ambientes_seleccionados'),
-                nuevo_estado.get('timestamp'),
-                nuevo_estado.get('ultima_accion')
-            ))
-            conn.commit()
-            log(f"✅ Estado persistido en DB para {user_id} (paso: {nuevo_estado.get('paso')})")
-    except Exception as e:
-        log(f"🔥 Error persistiendo estado en DB para {user_id} (paso: {nuevo_estado.get('paso')}): {e}", "ERROR")
-        import traceback
-        log(f"🔍 Traceback: {traceback.format_exc()}", "ERROR")
-    finally:
-        if conn:
-            conn.close()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO user_states (
+                        user_id, paso, operacion_seleccionada, propiedades_filtradas, 
+                        ultimo_indice_preguntado, nombre_cliente, email_cliente, 
+                        fecha_cita, hora_cita, horarios_disponibles, data, 
+                        tipo_seleccionado, ambientes_seleccionados, timestamp, ultima_accion
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (user_id) DO UPDATE SET
+                        paso = EXCLUDED.paso,
+                        operacion_seleccionada = EXCLUDED.operacion_seleccionada,
+                        propiedades_filtradas = EXCLUDED.propiedades_filtradas,
+                        ultimo_indice_preguntado = EXCLUDED.ultimo_indice_preguntado,
+                        nombre_cliente = EXCLUDED.nombre_cliente,
+                        email_cliente = EXCLUDED.email_cliente,
+                        fecha_cita = EXCLUDED.fecha_cita,
+                        hora_cita = EXCLUDED.hora_cita,
+                        horarios_disponibles = EXCLUDED.horarios_disponibles,
+                        data = EXCLUDED.data,
+                        tipo_seleccionado = EXCLUDED.tipo_seleccionado,
+                        ambientes_seleccionados = EXCLUDED.ambientes_seleccionados,
+                        timestamp = EXCLUDED.timestamp,
+                        ultima_accion = EXCLUDED.ultima_accion
+                """, (
+                    user_id, 
+                    nuevo_estado.get('paso'),
+                    nuevo_estado.get('operacion_seleccionada'),
+                    json.dumps(_strip_media_fields(nuevo_estado.get('propiedades_filtradas', []))) if nuevo_estado.get('operacion_seleccionada') != 'todas' else "[]",
+                    nuevo_estado.get('ultimo_indice_preguntado'),
+                    nuevo_estado.get('nombre_cliente'),
+                    nuevo_estado.get('email_cliente'),
+                    nuevo_estado.get('fecha_cita'),
+                    nuevo_estado.get('hora_cita'),
+                    json.dumps(nuevo_estado.get('horarios_disponibles', [])),
+                    json.dumps(nuevo_estado.get('data', {})),
+                    nuevo_estado.get('tipo_seleccionado'),
+                    nuevo_estado.get('ambientes_seleccionados'),
+                    nuevo_estado.get('timestamp'),
+                    nuevo_estado.get('ultima_accion')
+                ))
+                conn.commit()
+                log(f"✅ Estado persistido en DB (paso: {nuevo_estado.get('paso')})", user_id=user_id)
+            except Exception as e:
+                log(f"🔥 Error persistiendo estado en DB (paso: {nuevo_estado.get('paso')}): {e}", "ERROR", user_id=user_id)
+                import traceback
+                log(f"🔍 Traceback: {traceback.format_exc()}", "ERROR", user_id=user_id)
 
 
 def registrar_lead(user_id, propiedad_id, accion, detalle=""):

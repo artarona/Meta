@@ -195,18 +195,27 @@ def _strip_media_fields(propiedades_list):
     ]
 
 
-def log(message, level="INFO"):
-    """Función para logging con niveles"""
+def log(message, level="INFO", user_id=None):
+    """
+    Función para logging con niveles y contexto de usuario opcional.
+    """
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     level_icons = {
-        "INFO": "ℹ️",
-        "ERROR": "❌",
-        "WARNING": "⚠️",
-        "SUCCESS": "✅",
-        "DEBUG": "🐛"
+        "INFO": "ℹ️ ",
+        "ERROR": "❌ ",
+        "WARNING": "⚠️ ",
+        "SUCCESS": "✅ ",
+        "DEBUG": "🐛 "
     }
-    icon = level_icons.get(level, "📝")
-    print(f"{timestamp} {icon} {message}", flush=True)
+    icon = level_icons.get(level.upper(), "📝 ")
+    
+    # Agregar contexto de usuario si está presente
+    user_context = f" [USR: {user_id}]" if user_id else ""
+    
+    # Formatear el mensaje final
+    full_message = f"{timestamp} {icon}{user_context} {message}"
+    
+    print(full_message, flush=True)
 
 
 def numero_a_emoji(n):
