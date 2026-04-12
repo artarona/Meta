@@ -82,22 +82,37 @@ def main():
             print(f"\n🤖 RESPUESTA DEL BOT:")
             
             if isinstance(respuesta, dict):
-                print(f"[TIPO: {respuesta.get('type', 'desconocido')}]")
-                print(f"Cuerpo: {respuesta.get('body', respuesta.get('text', ''))}")
+                # UI de Simulación de WhatsApp
+                print("┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
                 
+                # Cuerpo del mensaje
+                body = respuesta.get('body', respuesta.get('text', ''))
+                print(f"┃ {body}")
+                print("┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫")
+                
+                # Botones (Tipo Interactive Button)
                 if 'buttons' in respuesta:
-                    print("Botones:")
                     for b in respuesta['buttons']:
-                        print(f"  [{b.get('id')}] {b.get('title')}")
+                        title = b.get('title', '').center(48)
+                        print(f"┃ [ {title} ] ┃")
                 
+                # Menú de lista (Tipo Interactive List)
                 if 'sections' in respuesta:
-                    print("Secciones de Lista:")
+                    print("┃ 📋 Menú de opciones:                             ┃")
                     for s in respuesta['sections']:
-                        print(f"  - {s.get('title')}:")
+                        if s.get('title'):
+                            print(f"┃ --- {s.get('title').ljust(42)} --- ┃")
                         for r in s.get('rows', []):
-                            print(f"    [{r.get('id')}] {r.get('title')}: {r.get('description', '')}")
+                            row_text = f"[{r.get('id')}] {r.get('title')}"
+                            print(f"┃ • {row_text.ljust(45)} ┃")
+                
+                print("┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
             else:
-                print(respuesta)
+                # Texto simple con recuadro
+                print("┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
+                for line in str(respuesta).split('\n'):
+                    print(f"┃ {line.ljust(48)} ┃")
+                print("┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
             
             # Ver el nuevo paso del estado
             nuevo_estado = obtener_estado_usuario(user_id)

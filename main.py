@@ -264,7 +264,8 @@ def catalog_feed():
 
 
 # ========== GESTIÓN DE ESTADO DE USUARIOS ==========
-estados_usuarios = {}
+# Nota: estados_usuarios ahora se gestiona centralizadamente en database.py
+
 processed_message_ids = deque(maxlen=1000)  # Aumentado para manejar más mensajes
 
 # ========== CONEXIÓN A POSTGRESQL (Render) ==========
