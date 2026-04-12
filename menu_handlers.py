@@ -296,7 +296,8 @@ def manejar_filtro_ambientes(text_lower, estado_usuario, user_id):
         estado_usuario.update({
             'paso': 'listado_propiedades',
             'ambientes_seleccionados': ambientes_sel,
-            'propiedades_filtradas': propiedades_filtradas
+            'propiedades_filtradas': propiedades_filtradas,
+            'ultima_accion': 'mostrar_listado'
         })
         actualizar_estado_usuario(user_id, estado_usuario)
         
@@ -305,7 +306,8 @@ def manejar_filtro_ambientes(text_lower, estado_usuario, user_id):
             estado_usuario.update({
                 'paso': 'listado_propiedades',
                 'ambientes_seleccionados': None,
-                'propiedades_filtradas': [p for p in todas if str(p.get('operacion', '')).lower() == operacion.lower() and tipo in str(p.get('tipo', '')).lower()]
+                'propiedades_filtradas': [p for p in todas if str(p.get('operacion', '')).lower() == operacion.lower() and tipo in str(p.get('tipo', '')).lower()],
+                'ultima_accion': 'mostrar_listado'
             })
             actualizar_estado_usuario(user_id, estado_usuario)
             
@@ -383,7 +385,8 @@ def procesar_opcion_todas(estado_usuario, user_id):
     estado_usuario.update({
         'paso': 'listado_propiedades',
         'operacion_seleccionada': 'todas',
-        'propiedades_filtradas': cargar_propiedades_cached()
+        'propiedades_filtradas': cargar_propiedades_cached(),
+        'ultima_accion': 'mostrar_listado'
     })
     actualizar_estado_usuario(user_id, estado_usuario)
     return "📋 *TODAS LAS PROPIEDADES*\n\n" + generar_listado_propiedades(estado_usuario['propiedades_filtradas'])
@@ -436,6 +439,7 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
     
     if not propiedades:
         estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['ultima_accion'] = None
         actualizar_estado_usuario(user_id, estado_usuario)
         return "⚠️ No hay propiedades para mostrar. Envía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
     
@@ -444,6 +448,7 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         estado_usuario['operacion_seleccionada'] = None
         estado_usuario['propiedades_filtradas'] = []
         estado_usuario['ultimo_indice_preguntado'] = None
+        estado_usuario['ultima_accion'] = None
         actualizar_estado_usuario(user_id, estado_usuario)
         return "WELCOME_FLOW_TRIGGER"
     
@@ -451,7 +456,8 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         propiedad = propiedades[indice - 1]
         estado_usuario.update({
             'paso': 'detalle_propiedad',
-            'ultimo_indice_preguntado': indice
+            'ultimo_indice_preguntado': indice,
+            'ultima_accion': None
         })
         actualizar_estado_usuario(user_id, estado_usuario)
         

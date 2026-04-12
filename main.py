@@ -456,6 +456,17 @@ def get_bot_response(text, user_id):
         elif paso == 'vista_fotos':
             return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
 
+        # Fallback seguro si se perdió el paso pero el usuario ya venía de un listado de propiedades
+        if text_lower.isdigit() and estado_usuario.get('ultima_accion') == 'mostrar_listado':
+            propiedades = estado_usuario.get('propiedades_filtradas', [])
+            try:
+                opcion_num = int(text_lower)
+                if 1 <= opcion_num <= len(propiedades):
+                    log(f"🐞 DEBUG fallback a manejar_listado_propiedades: paso={paso}, text={text_lower}, ultima_accion={estado_usuario.get('ultima_accion')}")
+                    return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
+            except ValueError:
+                pass
+
         # 4. BUSCADOR POR TEXTO (Nuevo) - SOLAMENTE SI NO HAY ESTADO ACTIVO PRIORITARIO
         # Y si el paso es menu_principal o resultado_busqueda
         if text_lower.startswith("buscar ") or (len(text_lower) > 3 and paso == 'menu_principal' and not text_lower.isdigit()):
