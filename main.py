@@ -1064,6 +1064,20 @@ def webhook():
                             if from_number and message_text:
                                 # Normalizar texto para comandos de usuario y botones
                                 processed_text = message_text.strip().lower()
+                                emoji_digit_map = {
+                                    "0️⃣": "0",
+                                    "1️⃣": "1",
+                                    "2️⃣": "2",
+                                    "3️⃣": "3",
+                                    "4️⃣": "4",
+                                    "5️⃣": "5",
+                                    "6️⃣": "6",
+                                    "7️⃣": "7",
+                                    "8️⃣": "8",
+                                    "9️⃣": "9",
+                                    "🔟": "10"
+                                }
+                                processed_text = emoji_digit_map.get(processed_text, processed_text)
                                 
                                 # Convertir IDs de botones y sinónimos a comandos numéricos
                                 boton_a_numero = {
@@ -1110,7 +1124,18 @@ def webhook():
                                     "local": "4",
                                     "terreno / lote": "5",
                                     "terreno": "5",
-                                    "lote": "5"
+                                    "lote": "5",
+                                    "0️⃣": "0",
+                                    "1️⃣": "1",
+                                    "2️⃣": "2",
+                                    "3️⃣": "3",
+                                    "4️⃣": "4",
+                                    "5️⃣": "5",
+                                    "6️⃣": "6",
+                                    "7️⃣": "7",
+                                    "8️⃣": "8",
+                                    "9️⃣": "9",
+                                    "🔟": "10"
                                 }
                                 
                                 if processed_text in boton_a_numero:

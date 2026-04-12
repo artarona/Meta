@@ -276,7 +276,7 @@ def obtener_estado_usuario(user_id):
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data, tipo_seleccionado, ambientes_seleccionados FROM user_states WHERE user_id = %s", (user_id,))
+            cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data, tipo_seleccionado, ambientes_seleccionados, timestamp FROM user_states WHERE user_id = %s", (user_id,))
             res = cursor.fetchone()
             if res:
                 # Función auxiliar para parseo seguro y profundo
@@ -310,6 +310,7 @@ def obtener_estado_usuario(user_id):
                         return current_data
                     return default if isinstance(data, str) and not isinstance(current_data, (dict, list)) else current_data
 
+                row_timestamp = res[12] if len(res) > 12 else None
                 estado = {
                     'paso': res[0],
                     'operacion_seleccionada': res[1],
@@ -323,8 +324,17 @@ def obtener_estado_usuario(user_id):
                     'data': safe_json_loads(res[9], {}),
                     'tipo_seleccionado': res[10],
                     'ambientes_seleccionados': res[11],
-                    'timestamp': datetime.now().isoformat()
+                    'timestamp': row_timestamp if row_timestamp else datetime.now().isoformat()
                 }
+
+                if cached_state and cached_state.get('timestamp') and row_timestamp:
+                    try:
+                        if cached_state['timestamp'] > row_timestamp:
+                            log(f"🔄 Usando estado cacheado más reciente para {user_id} (DB: {row_timestamp}, Cache: {cached_state['timestamp']})")
+                            return cached_state
+                    except Exception:
+                        pass
+
                 estados_usuarios[user_id] = estado
                 return estado
     except Exception as e:
