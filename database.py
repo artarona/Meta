@@ -29,18 +29,24 @@ def get_db_connection(max_retries=5):
     
     log(f"🔗 DSN formato: {database_url[:30]}...")
 
+    # Neon y Supabase suelen requerir SSL. Si no viene en la URL, lo forzamos.
+    connect_params = {
+        "dsn": database_url,
+        "connect_timeout": 15,
+        "keepalives": 1,
+        "keepalives_idle": 30,
+        "keepalives_interval": 10,
+        "keepalives_count": 5,
+        "options": '-c statement_timeout=30000'
+    }
+    
+    # Solo añadir sslmode='require' si no está explícito en la URL para evitar conflictos
+    if "sslmode=" not in database_url.lower():
+        connect_params["sslmode"] = "require"
+
     for i in range(max_retries):
         try:
-            conn = psycopg2.connect(
-                database_url,
-                sslmode='require',
-                connect_timeout=15,
-                keepalives=1,
-                keepalives_idle=30,
-                keepalives_interval=10,
-                keepalives_count=5,
-                options='-c statement_timeout=30000'
-            )
+            conn = psycopg2.connect(**connect_params)
             # Verificar si la conexión es funcional
             with conn.cursor() as cur:
                 cur.execute("SELECT 1")
@@ -53,12 +59,14 @@ def get_db_connection(max_retries=5):
             
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
             error_str = str(e)
-            if "SSL connection has been closed unexpectedly" in error_str or "connection to server at" in error_str:
+            if "SSL connection has been closed unexpectedly" in error_str or "connection to server at" in error_str or "Name or service not known" in error_str:
                 log(f"⚠️ Error de conexión (Intento {i+1}/{max_retries}): {error_str}", "WARNING")
                 if i < max_retries - 1:
                     time.sleep(2) # Esperar dos segundos antes de reintentar
                     continue
             log(f"❌ Error fatal conectando a PostgreSQL: {e}", "ERROR")
+            if "Name or service not known" in error_str:
+                log("💡 TIP: Si estás usando Render, asegúrate de usar la 'External Database URL' de Neon/Supabase.", "TIP")
             break
         except Exception as e:
             log(f"❌ Error inesperado conectando a PostgreSQL: {e}", "ERROR")
