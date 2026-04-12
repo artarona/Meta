@@ -145,6 +145,7 @@ def init_db(conn):
                 horarios_disponibles TEXT,
                 tipo_seleccionado VARCHAR(50),
                 ambientes_seleccionados INTEGER,
+                ultima_accion VARCHAR(50),
                 data TEXT,
                 timestamp TIMESTAMP
             );
@@ -190,6 +191,7 @@ def init_db(conn):
         -- Columnas para user_states si la tabla ya existía
         ALTER TABLE user_states ADD COLUMN IF NOT EXISTS tipo_seleccionado VARCHAR(50);
         ALTER TABLE user_states ADD COLUMN IF NOT EXISTS ambientes_seleccionados INTEGER;
+        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS ultima_accion VARCHAR(50);
     """)
         
         # 3. Asegurar secuencias para tablas existentes
@@ -276,7 +278,7 @@ def obtener_estado_usuario(user_id):
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data, tipo_seleccionado, ambientes_seleccionados, timestamp FROM user_states WHERE user_id = %s", (user_id,))
+            cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data, tipo_seleccionado, ambientes_seleccionados, timestamp, ultima_accion FROM user_states WHERE user_id = %s", (user_id,))
             res = cursor.fetchone()
             if res:
                 # Función auxiliar para parseo seguro y profundo
@@ -324,7 +326,8 @@ def obtener_estado_usuario(user_id):
                     'data': safe_json_loads(res[9], {}),
                     'tipo_seleccionado': res[10],
                     'ambientes_seleccionados': res[11],
-                    'timestamp': row_timestamp if row_timestamp else datetime.now().isoformat()
+                    'timestamp': row_timestamp if row_timestamp else datetime.now().isoformat(),
+                    'ultima_accion': res[13] if len(res) > 13 else None
                 }
 
                 if cached_state and cached_state.get('timestamp') and row_timestamp:
@@ -377,8 +380,8 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                     user_id, paso, operacion_seleccionada, propiedades_filtradas, 
                     ultimo_indice_preguntado, nombre_cliente, email_cliente, 
                     fecha_cita, hora_cita, horarios_disponibles, data, 
-                    tipo_seleccionado, ambientes_seleccionados, timestamp
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    tipo_seleccionado, ambientes_seleccionados, timestamp, ultima_accion
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (user_id) DO UPDATE SET
                     paso = EXCLUDED.paso,
                     operacion_seleccionada = EXCLUDED.operacion_seleccionada,
@@ -392,12 +395,13 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                     data = EXCLUDED.data,
                     tipo_seleccionado = EXCLUDED.tipo_seleccionado,
                     ambientes_seleccionados = EXCLUDED.ambientes_seleccionados,
-                    timestamp = EXCLUDED.timestamp
+                    timestamp = EXCLUDED.timestamp,
+                    ultima_accion = EXCLUDED.ultima_accion
             """, (
                 user_id, 
                 nuevo_estado.get('paso'),
                 nuevo_estado.get('operacion_seleccionada'),
-                json.dumps(_strip_media_fields(nuevo_estado.get('propiedades_filtradas', []))),
+                json.dumps(_strip_media_fields(nuevo_estado.get('propiedades_filtradas', []))) if nuevo_estado.get('operacion_seleccionada') != 'todas' else "[]",
                 nuevo_estado.get('ultimo_indice_preguntado'),
                 nuevo_estado.get('nombre_cliente'),
                 nuevo_estado.get('email_cliente'),
@@ -407,7 +411,8 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                 json.dumps(nuevo_estado.get('data', {})),
                 nuevo_estado.get('tipo_seleccionado'),
                 nuevo_estado.get('ambientes_seleccionados'),
-                nuevo_estado.get('timestamp')
+                nuevo_estado.get('timestamp'),
+                nuevo_estado.get('ultima_accion')
             ))
             conn.commit()
             log(f"✅ Estado persistido en DB para {user_id} (paso: {nuevo_estado.get('paso')})")

@@ -437,11 +437,17 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
     indice = int(text_lower)
     propiedades = estado_usuario.get('propiedades_filtradas', [])
     
+    # REPARACIÓN: Si la lista está vacía pero sabemos que venía de "todas", recargar de cache
+    if not propiedades and estado_usuario.get('operacion_seleccionada') == 'todas':
+        log(f"🔄 Recargando propiedades desde cache para usuario {user_id}")
+        propiedades = cargar_propiedades_cached()
+        estado_usuario['propiedades_filtradas'] = propiedades
+    
     if not propiedades:
         estado_usuario['paso'] = 'menu_principal'
         estado_usuario['ultima_accion'] = None
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "⚠️ No hay propiedades para mostrar. Envía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
+        return "⚠️ No hay propiedades para mostrar o la sesión expiró. Envía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
     
     if indice == 0:
         estado_usuario['paso'] = 'menu_principal'
