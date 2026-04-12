@@ -435,7 +435,7 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
             "type": "interactive_buttons",
             "body": mensaje_body,
             "buttons": [
-                {"id": "1", "title": "Te interesaria una tasación pro?"},
+                {"id": "1", "title": "Deseas una tasación pro?"},
                 {"id": "2", "title": "No por ahora"}
             ],
             "footer": "9️⃣ Volver | 0️⃣ Salir"
