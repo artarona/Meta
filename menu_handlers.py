@@ -325,59 +325,41 @@ def manejar_filtro_ambientes(text_lower, estado_usuario, user_id):
 
 
 def procesar_opcion_venta(estado_usuario, user_id):
-    """Procesa la opción de venta preguntando el tipo de propiedad"""
+    """Procesa la opción de venta listando todas directamente"""
+    todas = cargar_propiedades_cached()
+    filtradas = [p for p in todas if str(p.get('operacion', '')).lower() == 'venta']
+    
     estado_usuario.update({
-        'paso': 'filtro_tipo',
-        'operacion_seleccionada': 'venta'
+        'paso': 'listado_propiedades',
+        'operacion_seleccionada': 'venta',
+        'propiedades_filtradas': filtradas,
+        'ultima_accion': 'mostrar_listado'
     })
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    return {
-        "type": "interactive_list",
-        "body": "🏡 *¿QUÉ TIPO DE PROPIEDAD BUSCÁS?*\n\nPor favor, elegí una opción:",
-        "button_text": "Tipos",
-        "sections": [
-            {
-                "title": "Tipo de Propiedad",
-                "rows": [
-                    {"id": "1", "title": "Departamento", "description": "Departamentos y pisos"},
-                    {"id": "2", "title": "Casa", "description": "Casas y chalets"},
-                    {"id": "3", "title": "PH", "description": "Propiedad Horizontal"},
-                    {"id": "4", "title": "Oficina / Local", "description": "Locales y comerciales"},
-                    {"id": "5", "title": "Terreno / Lote", "description": "Terrenos y lotes"}
-                ]
-            }
-        ],
-        "footer": "9️⃣ Menú Principal | 0️⃣ Salir"
-    }
+    if not filtradas:
+        return "📭 Actualmente no tenemos propiedades en *venta*.\n\n9️⃣ *VOLVER AL MENÚ*\n0️⃣ *SALIR*"
+    
+    return "💰 *INMUEBLES EN VENTA*\n\n" + generar_listado_propiedades(filtradas)
 
 
 def procesar_opcion_alquiler(estado_usuario, user_id):
-    """Procesa la opción de alquiler preguntando el tipo de propiedad"""
+    """Procesa la opción de alquiler listando todas directamente"""
+    todas = cargar_propiedades_cached()
+    filtradas = [p for p in todas if str(p.get('operacion', '')).lower() == 'alquiler']
+    
     estado_usuario.update({
-        'paso': 'filtro_tipo',
-        'operacion_seleccionada': 'alquiler'
+        'paso': 'listado_propiedades',
+        'operacion_seleccionada': 'alquiler',
+        'propiedades_filtradas': filtradas,
+        'ultima_accion': 'mostrar_listado'
     })
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    return {
-        "type": "interactive_list",
-        "body": "🔑 *¿QUÉ TIPO DE PROPIEDAD BUSCÁS?*\n\nPor favor, elegí una opción:",
-        "button_text": "Tipos",
-        "sections": [
-            {
-                "title": "Tipo de Propiedad",
-                "rows": [
-                    {"id": "1", "title": "Departamento"},
-                    {"id": "2", "title": "Casa"},
-                    {"id": "3", "title": "PH"},
-                    {"id": "4", "title": "Oficina / Local"},
-                    {"id": "5", "title": "Terreno / Lote"}
-                ]
-            }
-        ],
-        "footer": "9️⃣ Menú Principal | 0️⃣ Salir"
-    }
+    if not filtradas:
+        return "📭 Actualmente no tenemos propiedades en *alquiler*.\n\n9️⃣ *VOLVER AL MENÚ*\n0️⃣ *SALIR*"
+    
+    return "🔑 *INMUEBLES EN ALQUILER*\n\n" + generar_listado_propiedades(filtradas)
 
 
 def procesar_opcion_todas(estado_usuario, user_id):
