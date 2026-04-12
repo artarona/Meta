@@ -8,6 +8,7 @@ import time
 import os
 import json
 from datetime import datetime
+from logic.response_builder import WhatsAppResponse
 
 def manejar_menu_principal(text_lower, estado_usuario, user_id):
     """Maneja las opciones del menú principal"""
@@ -35,29 +36,27 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
         # Hablar con asesor
         estado_usuario['paso'] = 'submenu_asesor'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return {
-            "type": "interactive_buttons",
-            "body": "👤 *HABLAR CON UN ASESOR*",
-            "buttons": [
+        return WhatsAppResponse.buttons(
+            body="👤 *HABLAR CON UN ASESOR*",
+            buttons=[
                 {"id": "1", "title": "Enviar mensaje"},
                 {"id": "2", "title": "Solicitar llamada"},
                 {"id": "9", "title": "Volver al menú"}
             ]
-        }
+        )
 
     elif text_lower == "6":
         # FAQs
         estado_usuario['paso'] = 'submenu_faqs'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return {
-            "type": "interactive_buttons",
-            "body": "❓ *REQUISITOS Y PREGUNTAS FRECUENTES*\n\nElige una opción:",
-            "buttons": [
+        return WhatsAppResponse.buttons(
+            body="❓ *REQUISITOS Y PREGUNTAS FRECUENTES*\n\nElige una opción:",
+            buttons=[
                 {"id": "req_alquiler", "title": "Requisitos Alquiler"},
                 {"id": "mascotas", "title": "¿Aceptan Mascotas?"},
                 {"id": "permutas", "title": "¿Permutas?"}
             ]
-        }
+        )
 
     elif text_lower == "9":
         # Volver al menú
@@ -165,15 +164,14 @@ Sí, evaluamos permutas caso por caso. Escribinos para tasación.
         # Volver a FAQs
         estado_usuario['paso'] = 'submenu_faqs'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return {
-            "type": "interactive_buttons",
-            "body": "❓ *REQUISITOS Y PREGUNTAS FRECUENTES*\n\nElige una opción:",
-            "buttons": [
+        return WhatsAppResponse.buttons(
+            body="❓ *REQUISITOS Y PREGUNTAS FRECUENTES*\n\nElige una opción:",
+            buttons=[
                 {"id": "req_alquiler", "title": "Requisitos Alquiler"},
                 {"id": "mascotas", "title": "¿Aceptan Mascotas?"},
                 {"id": "permutas", "title": "¿Permutas?"}
             ]
-        }
+        )
     elif text_lower == "0":
         # Salir
         return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
@@ -222,11 +220,10 @@ def manejar_filtro_tipo(text_lower, estado_usuario, user_id):
              actualizar_estado_usuario(user_id, estado_usuario)
              return f"📭 Lo siento, no tenemos {tipo_seleccionado}s disponibles para {operacion} en este momento.\n\n9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*\n0️⃣ *❌ SALIR*"
 
-        return {
-            "type": "interactive_list",
-            "body": "🔢 *¿CUÁNTOS AMBIENTES?*\n\nPor favor, elegí la cantidad de ambientes:",
-            "button_text": "Ambientes",
-            "sections": [
+        return WhatsAppResponse.list_menu(
+            body="🔢 *¿CUÁNTOS AMBIENTES?*\n\nPor favor, elegí la cantidad de ambientes:",
+            button_text="Ambientes",
+            sections=[
                 {
                     "title": "Cantidad",
                     "rows": [
@@ -238,8 +235,8 @@ def manejar_filtro_tipo(text_lower, estado_usuario, user_id):
                     ]
                 }
             ],
-            "footer": "Selecciona una opción 👇"
-        }
+            footer="Selecciona una opción 👇"
+        )
     else:
         return "⚠️ Por favor, elegí una opción válida o usá el menú."
 
@@ -460,16 +457,6 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}). Elige uno o envía 9 para volver.\n0️⃣ *Salir*"
 
 
-    return {
-        "type": "interactive_buttons",
-        "body": "📸 *Ver Fotos* | 📝 *Me interesa* | 📄 *Ficha PDF*",
-        "buttons": [
-            {"id": "F", "title": "📸 Ver Fotos"},
-            {"id": "8", "title": "📝 Me interesa"},
-            {"id": "P", "title": "📄 Ficha PDF"}
-        ],
-        "footer": "9️⃣ Volver al menú | 0️⃣ Salir"
-    }
 
 
 def manejar_nombre_lead(text, estado_usuario, user_id):
