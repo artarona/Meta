@@ -337,6 +337,12 @@ def obtener_estado_usuario(user_id):
                     'timestamp': row_timestamp if row_timestamp else datetime.now().isoformat(),
                     'ultima_accion': res[13] if len(res) > 13 else None
                 }
+                
+                # REPARACIÓN GLOBAL: Si la lista está vacía pero la operación es 'todas', recargarla
+                # Esto soluciona que 'F' (fotos) falle después de elegir una propiedad de la lista completa
+                if not estado['propiedades_filtradas'] and estado['operacion_seleccionada'] == 'todas':
+                    log(f"🔄 [GLOBAL] Recargando propiedades desde cache para usuario {user_id}")
+                    estado['propiedades_filtradas'] = cargar_propiedades_cached()
 
                 if cached_state and cached_state.get('timestamp') and row_timestamp:
                     try:
