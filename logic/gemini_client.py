@@ -28,27 +28,27 @@ for i in range(1, 10):
     if key_value and key_value.strip():
         if key_value.strip().startswith('AIza'):
             API_KEYS.append(key_value.strip())
-            print(f"✅ {key_name}: Clave cargada exitosamente")
+            print(f"[OK] {key_name}: Clave cargada exitosamente")
 
 # Si no hay claves, intentar con variable simple o usar los fallbacks de config.py
 if not API_KEYS:
     single_key = os.environ.get("GEMINI_API_KEY")
     if single_key and single_key.strip().startswith('AIza'):
         API_KEYS.append(single_key.strip())
-        print(f"✅ GEMINI_API_KEY: Clave cargada")
+        print(f"[OK] GEMINI_API_KEY: Clave cargada")
     else:
         # Claves de respaldo (mismas que en config.py)
         API_KEYS = [
             "AIzaSyCf_UBys6b4_uceLlN3HtVVy64W_MLkpcw",
             "AIzaSyBIRmNG2iJVWieK5Z4qY5xWpJWzQwlrkow"
         ]
-        print(f"⚠️ Usando {len(API_KEYS)} claves de respaldo (fallback)")
+        print(f"[WARN] Usando {len(API_KEYS)} claves de respaldo (fallback)")
 
 # Modelo a usar
 MODEL = os.environ.get("WORKING_MODEL", "gemini-2.0-flash-001")
 
-print(f"🎯 CONFIGURACIÓN FINAL: Modelo={MODEL}")
-print(f"🔑 Claves API disponibles: {len(API_KEYS)}")
+print(f"[CONFIG] CONFIGURACIÓN FINAL: Modelo={MODEL}")
+print(f"[KEYS] Claves API disponibles: {len(API_KEYS)}")
 print("=" * 50)
 
 def call_gemini_with_rotation(prompt: str) -> str:
