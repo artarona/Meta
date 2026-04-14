@@ -243,7 +243,7 @@ def generar_listado_propiedades(propiedades):
         titulo = p.get('titulo', 'Propiedad')
         precio = p.get('precio', 'Consultar')
         operacion = p.get('operacion', '')
-        simbolo = "💰" if operacion == 'venta' else "🔑"
+        simbolo = "💰 Venta" if operacion == 'venta' else "🔑 Alquiler"
         mensaje += f"*{i}.* {simbolo} {titulo}\n"
         mensaje += f"   💵 {precio}\n"
         mensaje += f"   📍 {p.get('barrio', 'Sin barrio')}\n\n"
