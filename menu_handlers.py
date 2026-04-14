@@ -295,25 +295,28 @@ def manejar_filtro_ambientes(text_lower, estado_usuario, user_id):
                     
             propiedades_filtradas.append(p)
             
-        estado_usuario.update({
+    estado_usuario.update({
             'paso': 'listado_propiedades',
             'ambientes_seleccionados': ambientes_sel,
             'propiedades_filtradas': propiedades_filtradas,
             'ultima_accion': 'mostrar_listado'
         })
-        actualizar_estado_usuario(user_id, estado_usuario)
+    actualizar_estado_usuario(user_id, estado_usuario)
         
-        if not propiedades_filtradas:
-            # OPTIMIZACIÓN: Si no hay resultados exactos por ambientes, ofrecer ver todas del mismo tipo
-            estado_usuario.update({
-                'paso': 'listado_propiedades',
-                'ambientes_seleccionados': None,
-                'propiedades_filtradas': [p for p in todas if str(p.get('operacion', '')).lower() == operacion.lower() and tipo in str(p.get('tipo', '')).lower()],
-                'ultima_accion': 'mostrar_listado'
-            })
-            actualizar_estado_usuario(user_id, estado_usuario)
+        # 👇 AGREGÁ ESTE PRINT AQUÍ 👇
+    log(f"[DEBUG] FILTRO AMBIENTES - Propiedades encontradas: {len(propiedades_filtradas)}")
+        
+    if not propiedades_filtradas:
+        # OPTIMIZACIÓN: Si no hay resultados exactos por ambientes, ofrecer ver todas del mismo tipo
+        estado_usuario.update({
+            'paso': 'listado_propiedades',
+            'ambientes_seleccionados': None,
+            'propiedades_filtradas': [p for p in todas if str(p.get('operacion', '')).lower() == operacion.lower() and tipo in str(p.get('tipo', '')).lower()],
+            'ultima_accion': 'mostrar_listado'
+        })
+        actualizar_estado_usuario(user_id, estado_usuario)
             
-            return f"📭 No encontramos {tipo}s de {ambientes_sel} ambientes en {operacion}.\n\n🔍 *Pero tenemos otras opciones de {tipo} que te pueden interesar:* \n\n" + generar_listado_propiedades(estado_usuario['propiedades_filtradas'])
+        return f"📭 No encontramos {tipo}s de {ambientes_sel} ambientes en {operacion}.\n\n🔍 *Pero tenemos otras opciones de {tipo} que te pueden interesar:* \n\n" + generar_listado_propiedades(estado_usuario['propiedades_filtradas'])
         
         titulo_op = "💰 *VENTA*" if operacion == "venta" else "🔑 *ALQUILER*"
         tipo_str = tipo.title()
@@ -326,10 +329,26 @@ def manejar_filtro_ambientes(text_lower, estado_usuario, user_id):
          return "⚠️ Por favor, elegí una opción válida (1 al 5) o enviá 9 para volver al menú."
 
 
+
+def restaurar_listado_si_es_necesario(estado_usuario):
+    # Si no hay propiedades pero hay contexto, reconstruye la lista
+    if not estado_usuario.get('propiedades_filtradas') and estado_usuario.get('ultimo_contexto'):
+        contexto = estado_usuario['ultimo_contexto']
+        if contexto['tipo'] == 'venta':
+            # Vuelve a filtrar por venta
+            nuevas_props = [p for p in cargar_propiedades_cached() if p.get('operacion') == 'venta']
+            estado_usuario['propiedades_filtradas'] = nuevas_props
+            return nuevas_props
+    return estado_usuario.get('propiedades_filtradas', [])
+
+
 def procesar_opcion_venta(estado_usuario, user_id):
     """Procesa la opción de venta listando todas directamente"""
     todas = cargar_propiedades_cached()
     filtradas = [p for p in todas if str(p.get('operacion', '')).lower() == 'venta']
+    
+    # 👇 AGREGÁ ESTE PRINT AQUÍ 👇
+    log(f"[DEBUG] VENTA - Total propiedades filtradas: {len(filtradas)}")
     
     estado_usuario.update({
         'paso': 'listado_propiedades',
@@ -337,6 +356,8 @@ def procesar_opcion_venta(estado_usuario, user_id):
         'propiedades_filtradas': filtradas,
         'ultima_accion': 'mostrar_listado'
     })
+
+    
     actualizar_estado_usuario(user_id, estado_usuario)
     
     if not filtradas:
@@ -349,6 +370,9 @@ def procesar_opcion_alquiler(estado_usuario, user_id):
     """Procesa la opción de alquiler listando todas directamente"""
     todas = cargar_propiedades_cached()
     filtradas = [p for p in todas if str(p.get('operacion', '')).lower() == 'alquiler']
+    
+    # 👇 AGREGÁ ESTE PRINT AQUÍ 👇
+    log(f"[DEBUG] ALQUILER - Total propiedades filtradas: {len(filtradas)}")
     
     estado_usuario.update({
         'paso': 'listado_propiedades',
@@ -422,12 +446,17 @@ def procesar_opcion_mis_citas(user_id):
 def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
     """Maneja la selección de propiedades del listado"""
     log(f"[DEBUG] manejar_listado_propiedades: text_lower='{text_lower}', paso={estado_usuario.get('paso')}, ultimo_indice={estado_usuario.get('ultimo_indice_preguntado')}, propiedades_count={len(estado_usuario.get('propiedades_filtradas', []))}, operacion={estado_usuario.get('operacion_seleccionada')}")
-    print(f"[DEBUG] manejar_listado_propiedades: text_lower='{text_lower}', paso={estado_usuario.get('paso')}, ultimo_indice={estado_usuario.get('ultimo_indice_preguntado')}, propiedades_count={len(estado_usuario.get('propiedades_filtradas', []))}, operacion={estado_usuario.get('operacion_seleccionada')}")
+    log(f"[DEBUG] manejar_listado_propiedades: text_lower='{text_lower}', paso={estado_usuario.get('paso')}, ultimo_indice={estado_usuario.get('ultimo_indice_preguntado')}, propiedades_count={len(estado_usuario.get('propiedades_filtradas', []))}, operacion={estado_usuario.get('operacion_seleccionada')}")
+    
     if not text_lower.isdigit():
         return "Por favor, elegí un número del listado o enviá 'Hola' para volver.\n0️⃣ *❌ SALIR*"
     
     indice = int(text_lower)
     propiedades = estado_usuario.get('propiedades_filtradas', [])
+    
+    # 👇 AGREGÁ ESTE PRINT AQUÍ 👇
+    log(f"[DEBUG] Propiedades encontradas en estado: {len(propiedades)} propiedades")
+    
     
     if not propiedades:
         estado_usuario['paso'] = 'menu_principal'
@@ -436,6 +465,7 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         return "⚠️ No hay propiedades para mostrar o la sesión expiró. Envía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
     
     if indice == 0:
+        log(f"[DEBUG] Usuario seleccionó SALIR. Propiedades que se van a perder: {len(estado_usuario.get('propiedades_filtradas', []))}")
         estado_usuario['paso'] = 'menu_principal'
         estado_usuario['operacion_seleccionada'] = None
         estado_usuario['propiedades_filtradas'] = []
