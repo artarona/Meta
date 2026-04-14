@@ -646,3 +646,84 @@ def manejar_busqueda_keywords(termino, estado_usuario, user_id):
     mensaje += "\n👉 *Respondé con el número* (1, 2, 3...) para ver más detalle.\n"
     mensaje += "0️⃣ *❌ SALIR*"
     return mensaje
+
+def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
+    """Maneja las interacciones cuando el usuario está viendo el detalle de una propiedad"""
+    
+    # Comandos de navegación
+    if text_lower in ["menu", "volver", "hola"]:
+        estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['propiedades_filtradas'] = []
+        estado_usuario['ultimo_indice_preguntado'] = None
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "WELCOME_FLOW_TRIGGER"
+    
+    if text_lower in ["salir", "chau", "adios", "0"]:
+        estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['propiedades_filtradas'] = []
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
+    
+    # Comando para volver al listado de propiedades
+    if text_lower == "listado":
+        propiedades = estado_usuario.get('propiedades_filtradas', [])
+        if propiedades:
+            estado_usuario['paso'] = 'listado_propiedades'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return generar_listado_propiedades(propiedades)
+        else:
+            estado_usuario['paso'] = 'menu_principal'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "⚠️ No hay propiedades en el listado. Envía 'MENU' para volver al inicio."
+    
+    # Comando "8" - Me interesa
+    if text_lower == "8":
+        indice = estado_usuario.get('ultimo_indice_preguntado')
+        propiedades = estado_usuario.get('propiedades_filtradas', [])
+        
+        if indice and 1 <= indice <= len(propiedades):
+            propiedad = propiedades[indice - 1]
+            estado_usuario['paso'] = 'esperando_nombre_lead'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            try:
+                registrar_lead(user_id, propiedad.get('id_temporal'), 'click_me_interesa', f"Interés expresado en Propiedad: {propiedad.get('titulo')}")
+                notificar_agente(f"👀 *INTERÉS INICIAL*\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad.get('titulo')}\n_(Esperando que el usuario ingrese su nombre...)_")
+            except Exception as e:
+                log(f"⚠️ Error registrando lead inicial: {e}")
+                
+            return f"✅ ¡Genial! Me interesa la propiedad: *{propiedad.get('titulo')}*.\n\nPor favor, decime tu *Nombre y Apellido* para que un asesor te contacte."
+        else:
+            return "⚠️ Error: No se pudo identificar la propiedad. Por favor, volvé al listado y seleccioná la propiedad nuevamente."
+    
+    # Comando "f" - Ver fotos
+    if text_lower == "f":
+        indice = estado_usuario.get('ultimo_indice_preguntado')
+        propiedades = estado_usuario.get('propiedades_filtradas', [])
+        if indice and 1 <= indice <= len(propiedades):
+            propiedad = propiedades[indice - 1]
+            return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
+        else:
+            return "⚠️ Error: No se pudo identificar la propiedad para mostrar las fotos."
+    
+    # Comando "p" - Descargar PDF
+    if text_lower == "p":
+        indice = estado_usuario.get('ultimo_indice_preguntado')
+        propiedades = estado_usuario.get('propiedades_filtradas', [])
+        if indice and 1 <= indice <= len(propiedades):
+            propiedad = propiedades[indice - 1]
+            prop_id = propiedad.get('id_temporal')
+            BASE_URL = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")
+            return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
+        else:
+            return "⚠️ Error: No se pudo identificar la propiedad para generar el PDF."
+    
+    # Si no se reconoce el comando, mostrar opciones disponibles
+    return """📌 *Opciones disponibles:*
+
+• Enviá *8* - Me interesa esta propiedad
+• Enviá *F* - Ver todas las fotos
+• Enviá *P* - Descargar ficha técnica en PDF
+• Enviá *LISTADO* - Volver al listado de propiedades
+• Enviá *MENU* - Volver al menú principal
+• Enviá *SALIR* - Terminar conversación"""
