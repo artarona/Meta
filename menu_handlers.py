@@ -446,26 +446,13 @@ def procesar_opcion_mis_citas(user_id):
 def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
     """Maneja la selección de propiedades del listado"""
     log(f"[DEBUG] manejar_listado_propiedades: text_lower='{text_lower}', paso={estado_usuario.get('paso')}, ultimo_indice={estado_usuario.get('ultimo_indice_preguntado')}, propiedades_count={len(estado_usuario.get('propiedades_filtradas', []))}, operacion={estado_usuario.get('operacion_seleccionada')}")
-    log(f"[DEBUG] manejar_listado_propiedades: text_lower='{text_lower}', paso={estado_usuario.get('paso')}, ultimo_indice={estado_usuario.get('ultimo_indice_preguntado')}, propiedades_count={len(estado_usuario.get('propiedades_filtradas', []))}, operacion={estado_usuario.get('operacion_seleccionada')}")
     
-    if not text_lower.isdigit():
-        return "Por favor, elegí un número del listado o enviá 'Hola' para volver.\n0️⃣ *❌ SALIR*"
+    # 👇 NUEVO: Comandos de navegación en LETRAS (prioritarios)
+    text_lower_clean = text_lower.lower().strip()
     
-    indice = int(text_lower)
-    propiedades = estado_usuario.get('propiedades_filtradas', [])
-    
-    # 👇 AGREGÁ ESTE PRINT AQUÍ 👇
-    log(f"[DEBUG] Propiedades encontradas en estado: {len(propiedades)} propiedades")
-    
-    
-    if not propiedades:
-        estado_usuario['paso'] = 'menu_principal'
-        estado_usuario['ultima_accion'] = None
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "⚠️ No hay propiedades para mostrar o la sesión expiró. Envía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
-    
-    if indice == 0:
-        log(f"[DEBUG] Usuario seleccionó SALIR. Propiedades que se van a perder: {len(estado_usuario.get('propiedades_filtradas', []))}")
+    # Comando para volver al menú principal
+    if text_lower_clean in ["menu", "volver", "hola", "menu principal"]:
+        log(f"[DEBUG] Usuario solicitó volver al MENÚ principal")
         estado_usuario['paso'] = 'menu_principal'
         estado_usuario['operacion_seleccionada'] = None
         estado_usuario['propiedades_filtradas'] = []
@@ -474,8 +461,45 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         actualizar_estado_usuario(user_id, estado_usuario)
         return "WELCOME_FLOW_TRIGGER"
     
+    # Comando para salir completamente
+    if text_lower_clean in ["salir", "chau", "adios", "exit", "0"]:
+        log(f"[DEBUG] Usuario solicitó SALIR")
+        estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['propiedades_filtradas'] = []
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
+    
+    # Si NO es un número, mostrar ayuda (pero ya manejamos los comandos arriba)
+    if not text_lower.isdigit():
+        propiedades_count = len(estado_usuario.get('propiedades_filtradas', []))
+        return f"""❌ No entendí '{text_lower}'
+
+📌 *Comandos válidos ahora:*
+• Enviá el *NÚMERO de la propiedad* (1 al {propiedades_count}) para ver detalles
+• Enviá *MENU* para volver al menú principal
+• Enviá *SALIR* para terminar la conversación
+
+💡 *Ejemplo:* Si querés la propiedad 9, enviá '9' (sin comillas)"""
+    
+    # A partir de acá, text_lower ES un número
+    indice = int(text_lower)
+    propiedades = estado_usuario.get('propiedades_filtradas', [])
+    
+    log(f"[DEBUG] Propiedades encontradas en estado: {len(propiedades)} propiedades")
+    
+    if not propiedades:
+        estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['ultima_accion'] = None
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "⚠️ No hay propiedades para mostrar o la sesión expiró.\n\n📱 Enviá *MENU* para volver al inicio."
+    
+    # NOTA: Ya NO tratamos el "0" como número especial porque "0" se captura arriba como "salir"
+    # Si el usuario envía "0" (cero), va a entrar en el comando SALIR
+    
     if 1 <= indice <= len(propiedades):
         propiedad = propiedades[indice - 1]
+        log(f"[DEBUG] Usuario seleccionó propiedad {indice}: {propiedad.get('titulo')}")
+        
         estado_usuario.update({
             'paso': 'detalle_propiedad',
             'ultimo_indice_preguntado': indice,
@@ -489,10 +513,7 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
         return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
     else:
-        return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}). Elige uno o envía 9 para volver.\n0️⃣ *Salir*"
-
-
-
+        return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}).\n\n📱 Enviá *MENU* para volver al inicio o *SALIR* para terminar."
 
 def manejar_nombre_lead(text, estado_usuario, user_id):
     """Maneja la captura del nombre del lead"""
