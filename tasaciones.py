@@ -457,4 +457,5 @@ def manejar_tasacion_contacto(text_lower, estado_usuario, user_id):
     else:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "Entendido. Si necesitás algo más, acá estoy. 😊\n\n9️⃣ Volver al menú"
+        # return "Entendido. Si necesitás algo más, acá estoy. 😊\n\n9️⃣ Volver al menú"
+        return ""   # No se envía ningún mensaje VUELVE AL MENU PRINCIPAL
