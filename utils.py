@@ -241,12 +241,24 @@ def generar_listado_propiedades(propiedades):
     
     for i, p in enumerate(propiedades, 1):
         titulo = p.get('titulo', 'Propiedad')
-        precio = p.get('precio', 'Consultar')
+
+        precio_raw = p.get('precio', None)
+        moneda = p.get('moneda_precio', '')  # USD / AR$ / etc.
+
+        if isinstance(precio_raw, (int, float)):
+            precio_formateado = f"{precio_raw:,.0f}".replace(",", ".")
+        else:
+            precio_formateado = precio_raw or "Consultar"
+
+        precio = f"{moneda} {precio_formateado}".strip()
+
         operacion = p.get('operacion', '')
-        simbolo = "💰" if operacion == 'venta' else "🔑"
+        simbolo = "💰 Venta -" if operacion == 'venta' else "🔑 Alquiler -"
+
         mensaje += f"*{i}.* {simbolo} {titulo}\n"
         mensaje += f"   💵 {precio}\n"
         mensaje += f"   📍 {p.get('barrio', 'Sin barrio')}\n\n"
+
     
     # 👇 NUEVO mensaje de ayuda
     mensaje += f"{'='*40}\n\n"
