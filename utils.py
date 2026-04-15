@@ -208,7 +208,12 @@ def log(message, level="INFO", user_id=None):
     # Formatear el mensaje final
     full_message = f"{timestamp} {user_context} {message}"
     
-    print(full_message, flush=True)
+    try:
+        print(full_message, flush=True)
+    except UnicodeEncodeError:
+        # Fallback para Windows/Terminales sin UTF-8: eliminar emojis o caracteres no-ascii
+        clean_message = full_message.encode('ascii', 'replace').decode('ascii')
+        print(clean_message, flush=True)
 
 
 def numero_a_emoji(n):
@@ -227,40 +232,30 @@ def filtrar_propiedades_por_operacion(operacion):
 
 
 def generar_listado_propiedades(propiedades):
-    """Genera un listado formateado de propiedades para WhatsApp"""
+    """Genera el mensaje de listado de propiedades"""
     if not propiedades:
         return "📭 No hay propiedades disponibles en este momento."
     
-    listado = "📋 *LISTADO DE PROPIEDADES*\n\n"
+    mensaje = f"📋 *PROPIEDADES DISPONIBLES*\n\n"
+    mensaje += f"Encontramos *{len(propiedades)}* propiedades:\n\n"
     
-    for i, prop in enumerate(propiedades[:10], 1):
-        operacion = prop.get('operacion', '').upper()
-        listado += f"{numero_a_emoji(i)} {prop.get('titulo', 'Sin título')} -- {operacion} --\n"
-        listado += f"   📍 {prop.get('barrio', 'N/A')} | "
-        
-        precio = prop.get('precio', 0)
-        moneda = prop.get('moneda_precio', 'USD')
-        if moneda == 'USD':
-            listado += f"💰 USD ${precio:,.0f}\n"
-        else:
-            listado += f"💰 $ {precio:,.0f} ARS\n"
-        
-        listado += f"   🛏️ {prop.get('ambientes', 0)} amb. | "
-        listado += f"📐 {prop.get('metros_cuadrados', 0)} m²\n"
-        
-        if prop.get('operacion') == 'venta':
-            estado = prop.get('estado', 'N/A')
-            listado += f"   🏗️ Estado: {estado.capitalize()}\n"
-        
-        listado += "─" * 20 + "\n"
+    for i, p in enumerate(propiedades, 1):
+        titulo = p.get('titulo', 'Propiedad')
+        precio = p.get('precio', 'Consultar')
+        operacion = p.get('operacion', '')
+        simbolo = "💰" if operacion == 'venta' else "🔑"
+        mensaje += f"*{i}.* {simbolo} {titulo}\n"
+        mensaje += f"   💵 {precio}\n"
+        mensaje += f"   📍 {p.get('barrio', 'Sin barrio')}\n\n"
     
-    if len(propiedades) > 10:
-        listado += f"\n📊 ...y {len(propiedades) - 10} propiedades más.\n"
+    # 👇 NUEVO mensaje de ayuda
+    mensaje += f"{'='*40}\n\n"
+    mensaje += f"👉 *Respondé con el NÚMERO* de la propiedad que te interesa\n"
+    mensaje += f"   (Ej: '1', '2', '3', ... '{len(propiedades)}')\n\n"
+    mensaje += f"📱 *Envía 'MENU'* para volver al menú principal\n"
+    mensaje += f"👋 *Envía 'SALIR'* para terminar la conversación"
     
-    listado += "\nPara ver detalles, responde con el número (ej: 1️⃣)\n"
-    listado += f"{numero_a_emoji(0)} *❌ SALIR*"
-    
-    return listado
+    return mensaje
 
 
 def formatear_detalle_propiedad(propiedad):
