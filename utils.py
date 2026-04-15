@@ -236,7 +236,7 @@ def generar_listado_propiedades(propiedades):
     if not propiedades:
         return "📭 No hay propiedades disponibles en este momento."
     
-    mensaje = f"📋 *PROPIEDADES DISPONIBLES*\n\n"
+    # mensaje = f"📋 *PROPIEDADES DISPONIBLES*\n\n"
     mensaje += f"Encontramos *{len(propiedades)}* propiedades:\n\n"
     
     for i, p in enumerate(propiedades, 1):
@@ -245,12 +245,17 @@ def generar_listado_propiedades(propiedades):
         precio_raw = p.get('precio', None)
         moneda = p.get('moneda_precio', '')  # USD / AR$ / etc.
 
-        if isinstance(precio_raw, (int, float)):
-            precio_formateado = f"{precio_raw:,.0f}".replace(",", ".")
+        # Si el precio es 0 o None → Consultar
+        if precio_raw in (0, None):
+            precio = "Consultar"
         else:
-            precio_formateado = precio_raw or "Consultar"
+            # Formateo normal
+            if isinstance(precio_raw, (int, float)):
+                precio_formateado = f"{precio_raw:,.0f}".replace(",", ".")
+            else:
+                precio_formateado = precio_raw
 
-        precio = f"{moneda} {precio_formateado}".strip()
+            precio = f"{moneda} {precio_formateado}".strip()
 
         operacion = p.get('operacion', '')
         simbolo = "💰 Venta -" if operacion == 'venta' else "🔑 Alquiler -"
@@ -258,6 +263,7 @@ def generar_listado_propiedades(propiedades):
         mensaje += f"*{i}.* {simbolo} {titulo}\n"
         mensaje += f"   💵 {precio}\n"
         mensaje += f"   📍 {p.get('barrio', 'Sin barrio')}\n\n"
+
 
     
     # 👇 NUEVO mensaje de ayuda
