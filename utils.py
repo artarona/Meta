@@ -236,7 +236,8 @@ def generar_listado_propiedades(propiedades):
     if not propiedades:
         return "📭 No hay propiedades disponibles en este momento."
     
-    # mensaje = f"📋 *PROPIEDADES DISPONIBLES*\n\n"
+    # ✅ Descomentar esta línea o crearla
+    mensaje = f"📋 *PROPIEDADES DISPONIBLES*\n\n"
     mensaje += f"Encontramos *{len(propiedades)}* propiedades:\n\n"
     
     for i, p in enumerate(propiedades, 1):
@@ -263,8 +264,6 @@ def generar_listado_propiedades(propiedades):
         mensaje += f"*{i}.* {simbolo} {titulo}\n"
         mensaje += f"   💵 {precio}\n"
         mensaje += f"   📍 {p.get('barrio', 'Sin barrio')}\n\n"
-
-
     
     # 👇 NUEVO mensaje de ayuda
     mensaje += f"{'='*40}\n\n"
