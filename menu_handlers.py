@@ -8,9 +8,7 @@ import time
 import os
 import json
 from datetime import datetime
-from database import *
 from logic.response_builder import WhatsAppResponse
-from logic.ai_prioritization import obtener_prioridad_lead
 
 def manejar_menu_principal(text_lower, estado_usuario, user_id):
     """Maneja las opciones del menú principal"""
@@ -70,7 +68,6 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
 
     elif text_lower == "8" and user_id == ADMIN_NUMBER.lstrip('549'):
         # Panel admin (solo para número autorizado)
-        print("[ADMIN] Solicitud de panel admin")
         return mostrar_panel_admin()
     
     elif text_lower == "10":
@@ -219,8 +216,6 @@ def manejar_filtro_tipo(text_lower, estado_usuario, user_id):
                     
         if not filtradas_temp:
              estado_usuario['paso'] = 'listado_propiedades'
-           # 🛡️ MANTENIMIENTO: Asegurar que propiedades_filtradas sea una lista
-    # (Para evitar errores de 'NoneType' or 'str' if JSON parsed incorrectly)
              estado_usuario['propiedades_filtradas'] = []
              actualizar_estado_usuario(user_id, estado_usuario)
              return f"📭 Lo siento, no tenemos {tipo_seleccionado}s disponibles para {operacion} en este momento.\n\n9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*\n0️⃣ *❌ SALIR*"
@@ -295,28 +290,25 @@ def manejar_filtro_ambientes(text_lower, estado_usuario, user_id):
                     
             propiedades_filtradas.append(p)
             
-    estado_usuario.update({
+        estado_usuario.update({
             'paso': 'listado_propiedades',
             'ambientes_seleccionados': ambientes_sel,
             'propiedades_filtradas': propiedades_filtradas,
             'ultima_accion': 'mostrar_listado'
         })
-    actualizar_estado_usuario(user_id, estado_usuario)
-        
-        # 👇 AGREGÁ ESTE PRINT AQUÍ 👇
-    log(f"[DEBUG] FILTRO AMBIENTES - Propiedades encontradas: {len(propiedades_filtradas)}")
-        
-    if not propiedades_filtradas:
-        # OPTIMIZACIÓN: Si no hay resultados exactos por ambientes, ofrecer ver todas del mismo tipo
-        estado_usuario.update({
-            'paso': 'listado_propiedades',
-            'ambientes_seleccionados': None,
-            'propiedades_filtradas': [p for p in todas if str(p.get('operacion', '')).lower() == operacion.lower() and tipo in str(p.get('tipo', '')).lower()],
-            'ultima_accion': 'mostrar_listado'
-        })
         actualizar_estado_usuario(user_id, estado_usuario)
+        
+        if not propiedades_filtradas:
+            # OPTIMIZACIÓN: Si no hay resultados exactos por ambientes, ofrecer ver todas del mismo tipo
+            estado_usuario.update({
+                'paso': 'listado_propiedades',
+                'ambientes_seleccionados': None,
+                'propiedades_filtradas': [p for p in todas if str(p.get('operacion', '')).lower() == operacion.lower() and tipo in str(p.get('tipo', '')).lower()],
+                'ultima_accion': 'mostrar_listado'
+            })
+            actualizar_estado_usuario(user_id, estado_usuario)
             
-        return f"📭 No encontramos {tipo}s de {ambientes_sel} ambientes en {operacion}.\n\n🔍 *Pero tenemos otras opciones de {tipo} que te pueden interesar:* \n\n" + generar_listado_propiedades(estado_usuario['propiedades_filtradas'])
+            return f"📭 No encontramos {tipo}s de {ambientes_sel} ambientes en {operacion}.\n\n🔍 *Pero tenemos otras opciones de {tipo} que te pueden interesar:* \n\n" + generar_listado_propiedades(estado_usuario['propiedades_filtradas'])
         
         titulo_op = "💰 *VENTA*" if operacion == "venta" else "🔑 *ALQUILER*"
         tipo_str = tipo.title()
@@ -329,26 +321,10 @@ def manejar_filtro_ambientes(text_lower, estado_usuario, user_id):
          return "⚠️ Por favor, elegí una opción válida (1 al 5) o enviá 9 para volver al menú."
 
 
-
-def restaurar_listado_si_es_necesario(estado_usuario):
-    # Si no hay propiedades pero hay contexto, reconstruye la lista
-    if not estado_usuario.get('propiedades_filtradas') and estado_usuario.get('ultimo_contexto'):
-        contexto = estado_usuario['ultimo_contexto']
-        if contexto['tipo'] == 'venta':
-            # Vuelve a filtrar por venta
-            nuevas_props = [p for p in cargar_propiedades_cached() if p.get('operacion') == 'venta']
-            estado_usuario['propiedades_filtradas'] = nuevas_props
-            return nuevas_props
-    return estado_usuario.get('propiedades_filtradas', [])
-
-
 def procesar_opcion_venta(estado_usuario, user_id):
     """Procesa la opción de venta listando todas directamente"""
     todas = cargar_propiedades_cached()
     filtradas = [p for p in todas if str(p.get('operacion', '')).lower() == 'venta']
-    
-    # 👇 AGREGÁ ESTE PRINT AQUÍ 👇
-    log(f"[DEBUG] VENTA - Total propiedades filtradas: {len(filtradas)}")
     
     estado_usuario.update({
         'paso': 'listado_propiedades',
@@ -356,8 +332,6 @@ def procesar_opcion_venta(estado_usuario, user_id):
         'propiedades_filtradas': filtradas,
         'ultima_accion': 'mostrar_listado'
     })
-
-    
     actualizar_estado_usuario(user_id, estado_usuario)
     
     if not filtradas:
@@ -370,9 +344,6 @@ def procesar_opcion_alquiler(estado_usuario, user_id):
     """Procesa la opción de alquiler listando todas directamente"""
     todas = cargar_propiedades_cached()
     filtradas = [p for p in todas if str(p.get('operacion', '')).lower() == 'alquiler']
-    
-    # 👇 AGREGÁ ESTE PRINT AQUÍ 👇
-    log(f"[DEBUG] ALQUILER - Total propiedades filtradas: {len(filtradas)}")
     
     estado_usuario.update({
         'paso': 'listado_propiedades',
@@ -445,14 +416,21 @@ def procesar_opcion_mis_citas(user_id):
 
 def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
     """Maneja la selección de propiedades del listado"""
-    log(f"[DEBUG] manejar_listado_propiedades: text_lower='{text_lower}', paso={estado_usuario.get('paso')}, ultimo_indice={estado_usuario.get('ultimo_indice_preguntado')}, propiedades_count={len(estado_usuario.get('propiedades_filtradas', []))}, operacion={estado_usuario.get('operacion_seleccionada')}")
+    log(f"🐞 DEBUG manejar_listado_propiedades: text_lower='{text_lower}', paso={estado_usuario.get('paso')}, ultimo_indice={estado_usuario.get('ultimo_indice_preguntado')}, propiedades_count={len(estado_usuario.get('propiedades_filtradas', []))}, operacion={estado_usuario.get('operacion_seleccionada')}")
+    print(f"🐞 DEBUG manejar_listado_propiedades: text_lower='{text_lower}', paso={estado_usuario.get('paso')}, ultimo_indice={estado_usuario.get('ultimo_indice_preguntado')}, propiedades_count={len(estado_usuario.get('propiedades_filtradas', []))}, operacion={estado_usuario.get('operacion_seleccionada')}")
+    if not text_lower.isdigit():
+        return "Por favor, elegí un número del listado o enviá 'Hola' para volver.\n0️⃣ *❌ SALIR*"
     
-    # 👇 NUEVO: Comandos de navegación en LETRAS (prioritarios)
-    text_lower_clean = text_lower.lower().strip()
+    indice = int(text_lower)
+    propiedades = estado_usuario.get('propiedades_filtradas', [])
     
-    # Comando para volver al menú principal
-    if text_lower_clean in ["menu", "volver", "hola", "menu principal"]:
-        log(f"[DEBUG] Usuario solicitó volver al MENÚ principal")
+    if not propiedades:
+        estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['ultima_accion'] = None
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "⚠️ No hay propiedades para mostrar o la sesión expiró. Envía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
+    
+    if indice == 0:
         estado_usuario['paso'] = 'menu_principal'
         estado_usuario['operacion_seleccionada'] = None
         estado_usuario['propiedades_filtradas'] = []
@@ -461,45 +439,8 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         actualizar_estado_usuario(user_id, estado_usuario)
         return "WELCOME_FLOW_TRIGGER"
     
-    # Comando para salir completamente
-    if text_lower_clean in ["salir", "chau", "adios", "exit", "0"]:
-        log(f"[DEBUG] Usuario solicitó SALIR")
-        estado_usuario['paso'] = 'menu_principal'
-        estado_usuario['propiedades_filtradas'] = []
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
-    
-    # Si NO es un número, mostrar ayuda (pero ya manejamos los comandos arriba)
-    if not text_lower.isdigit():
-        propiedades_count = len(estado_usuario.get('propiedades_filtradas', []))
-        return f"""❌ No entendí '{text_lower}'
-
-📌 *Comandos válidos ahora:*
-• Enviá el *NÚMERO de la propiedad* (1 al {propiedades_count}) para ver detalles
-• Enviá *MENU* para volver al menú principal
-• Enviá *SALIR* para terminar la conversación
-
-💡 *Ejemplo:* Si querés la propiedad 9, enviá '9' (sin comillas)"""
-    
-    # A partir de acá, text_lower ES un número
-    indice = int(text_lower)
-    propiedades = estado_usuario.get('propiedades_filtradas', [])
-    
-    log(f"[DEBUG] Propiedades encontradas en estado: {len(propiedades)} propiedades")
-    
-    if not propiedades:
-        estado_usuario['paso'] = 'menu_principal'
-        estado_usuario['ultima_accion'] = None
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "⚠️ No hay propiedades para mostrar o la sesión expiró.\n\n📱 Enviá *MENU* para volver al inicio."
-    
-    # NOTA: Ya NO tratamos el "0" como número especial porque "0" se captura arriba como "salir"
-    # Si el usuario envía "0" (cero), va a entrar en el comando SALIR
-    
     if 1 <= indice <= len(propiedades):
         propiedad = propiedades[indice - 1]
-        log(f"[DEBUG] Usuario seleccionó propiedad {indice}: {propiedad.get('titulo')}")
-        
         estado_usuario.update({
             'paso': 'detalle_propiedad',
             'ultimo_indice_preguntado': indice,
@@ -513,7 +454,10 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
         return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
     else:
-        return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}).\n\n📱 Enviá *MENU* para volver al inicio o *SALIR* para terminar."
+        return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}). Elige uno o envía 9 para volver.\n0️⃣ *Salir*"
+
+
+
 
 def manejar_nombre_lead(text, estado_usuario, user_id):
     """Maneja la captura del nombre del lead"""
@@ -534,13 +478,7 @@ def manejar_nombre_lead(text, estado_usuario, user_id):
         
         registrar_lead(user_id, propiedad_id, "lead_completo", f"Nombre: {nombre_cliente}")
         
-        # Análisis de IA de prioridad (Phase 7)
-        historial = estado_usuario.get('data', {}).get('mensajes_recientes', [])
-        analisis = obtener_prioridad_lead(user_id, historial, propiedad)
-        
-        prioridad_msg = f"\n\n🤖 *VEREDICTO IA*\n🌡️ Temperatura: {analisis['label_emoji']} (Score: {analisis['score']}/10)\n💡 Razón: _{analisis['razonamiento']}_"
-        
-        notificar_agente(f"🔥 *NUEVO INTERESADO*\n👤 Cliente: {nombre_cliente}\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad_titulo}{prioridad_msg}")
+        notificar_agente(f"🔥 *NUEVO INTERESADO*\n👤 Cliente: {nombre_cliente}\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad_titulo}")
         
         estado_usuario['paso'] = 'ofrecer_cita'
         actualizar_estado_usuario(user_id, estado_usuario)
@@ -646,84 +584,3 @@ def manejar_busqueda_keywords(termino, estado_usuario, user_id):
     mensaje += "\n👉 *Respondé con el número* (1, 2, 3...) para ver más detalle.\n"
     mensaje += "0️⃣ *❌ SALIR*"
     return mensaje
-
-def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
-    """Maneja las interacciones cuando el usuario está viendo el detalle de una propiedad"""
-    
-    # Comandos de navegación
-    if text_lower in ["menu", "volver", "hola"]:
-        estado_usuario['paso'] = 'menu_principal'
-        estado_usuario['propiedades_filtradas'] = []
-        estado_usuario['ultimo_indice_preguntado'] = None
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "WELCOME_FLOW_TRIGGER"
-    
-    if text_lower in ["salir", "chau", "adios", "0"]:
-        estado_usuario['paso'] = 'menu_principal'
-        estado_usuario['propiedades_filtradas'] = []
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
-    
-    # Comando para volver al listado de propiedades
-    if text_lower == "listado":
-        propiedades = estado_usuario.get('propiedades_filtradas', [])
-        if propiedades:
-            estado_usuario['paso'] = 'listado_propiedades'
-            actualizar_estado_usuario(user_id, estado_usuario)
-            return generar_listado_propiedades(propiedades)
-        else:
-            estado_usuario['paso'] = 'menu_principal'
-            actualizar_estado_usuario(user_id, estado_usuario)
-            return "⚠️ No hay propiedades en el listado. Envía 'MENU' para volver al inicio."
-    
-    # Comando "8" - Me interesa
-    if text_lower == "8":
-        indice = estado_usuario.get('ultimo_indice_preguntado')
-        propiedades = estado_usuario.get('propiedades_filtradas', [])
-        
-        if indice and 1 <= indice <= len(propiedades):
-            propiedad = propiedades[indice - 1]
-            estado_usuario['paso'] = 'esperando_nombre_lead'
-            actualizar_estado_usuario(user_id, estado_usuario)
-            
-            try:
-                registrar_lead(user_id, propiedad.get('id_temporal'), 'click_me_interesa', f"Interés expresado en Propiedad: {propiedad.get('titulo')}")
-                notificar_agente(f"👀 *INTERÉS INICIAL*\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad.get('titulo')}\n_(Esperando que el usuario ingrese su nombre...)_")
-            except Exception as e:
-                log(f"⚠️ Error registrando lead inicial: {e}")
-                
-            return f"✅ ¡Genial! Me interesa la propiedad: *{propiedad.get('titulo')}*.\n\nPor favor, decime tu *Nombre y Apellido* para que un asesor te contacte."
-        else:
-            return "⚠️ Error: No se pudo identificar la propiedad. Por favor, volvé al listado y seleccioná la propiedad nuevamente."
-    
-    # Comando "f" - Ver fotos
-    if text_lower == "f":
-        indice = estado_usuario.get('ultimo_indice_preguntado')
-        propiedades = estado_usuario.get('propiedades_filtradas', [])
-        if indice and 1 <= indice <= len(propiedades):
-            propiedad = propiedades[indice - 1]
-            return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
-        else:
-            return "⚠️ Error: No se pudo identificar la propiedad para mostrar las fotos."
-    
-    # Comando "p" - Descargar PDF
-    if text_lower == "p":
-        indice = estado_usuario.get('ultimo_indice_preguntado')
-        propiedades = estado_usuario.get('propiedades_filtradas', [])
-        if indice and 1 <= indice <= len(propiedades):
-            propiedad = propiedades[indice - 1]
-            prop_id = propiedad.get('id_temporal')
-            BASE_URL = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")
-            return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
-        else:
-            return "⚠️ Error: No se pudo identificar la propiedad para generar el PDF."
-    
-    # Si no se reconoce el comando, mostrar opciones disponibles
-    return """📌 *Opciones disponibles:*
-
-• Enviá *8* - Me interesa esta propiedad
-• Enviá *F* - Ver todas las fotos
-• Enviá *P* - Descargar ficha técnica en PDF
-• Enviá *LISTADO* - Volver al listado de propiedades
-• Enviá *MENU* - Volver al menú principal
-• Enviá *SALIR* - Terminar conversación"""

@@ -33,7 +33,7 @@ try:
     SCRAPER_AVAILABLE = True
 except Exception as e:
     SCRAPER_AVAILABLE = False
-    print(f"[WARN] Error cargando ScrapingManager: {e}")
+    print(f"⚠️ Error cargando ScrapingManager: {e}")
     logger.error(f"Error cargando ScrapingManager: {e}")
 
 # Inicializar scraping manager
@@ -41,10 +41,10 @@ scraping_manager = None
 if SCRAPER_AVAILABLE:
     try:
         scraping_manager = ScrapingManager()
-        print("[OK] Scraping Manager inicializado correctamente")
+        print("✅ Scraping Manager inicializado correctamente")
         logger.info("Scraping Manager inicializado correctamente")
     except Exception as e:
-        print(f"[ERROR] Error inicializando Scraping Manager: {e}")
+        print(f"❌ Error inicializando Scraping Manager: {e}")
         logger.error(f"Error inicializando Scraping Manager: {e}")
         scraping_manager = None
 
@@ -61,7 +61,7 @@ def init_scraping_data():
                     data = json.load(f)
                 timestamp = data.get('scraping_timestamp', 'desconocida')
                 sample = data.get('data', {}).get('sample_size', 0)
-                print(f"[DATA] Datos de scraping previos cargados: {sample} propiedades ({timestamp})")
+                print(f"📊 Datos de scraping previos cargados: {sample} propiedades ({timestamp})")
                 logger.info(f"Datos de scraping previos cargados: {sample} propiedades")
             else:
                 print("📊 No hay datos de scraping previos. Ejecuta /api/market/run-scrape para obtenerlos.")
@@ -305,27 +305,86 @@ def get_bot_response(text, user_id):
         text_lower = text.lower().strip()
         
         estado_usuario = obtener_estado_usuario(user_id)
-        
-        # Guardar mensaje en el historial para análisis de IA (Phase 7)
-        if not isinstance(estado_usuario.get('data'), dict):
-            estado_usuario['data'] = {}
-            
-        historial = estado_usuario['data'].get('mensajes_recientes')
-        if not isinstance(historial, list):
-            historial = []
-            
-        # Evitar duplicar el mismo mensaje (reintentos de webhook)
-        if not historial or historial[-1].get('text') != text:
-            historial.append({'role': 'user', 'text': text, 'timestamp': datetime.now().isoformat()})
-            estado_usuario['data']['mensajes_recientes'] = historial[-10:]
-            actualizar_estado_usuario(user_id, estado_usuario)
-            
         log(f"👤 Usuario {user_id}: {estado_usuario['paso']}")
         
-        # ========== NUEVO ORDEN: PRIMERO VERIFICAR EL PASO ==========
+        # 1. COMANDOS UNIVERSALES
+        if text_lower in ["9", "menu", "principal", "inicio"]:
+            estado_usuario.update({
+                'paso': 'menu_principal',
+                'operacion_seleccionada': None,
+                'propiedades_filtradas': [],
+                'ultimo_indice_preguntado': None,
+                'timestamp': datetime.now().isoformat()
+            })
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "WELCOME_FLOW_TRIGGER"
+        
+        if text_lower in ["0", "salir", "exit"]:
+            estado_usuario.update({
+                'paso': 'menu_principal',
+                'operacion_seleccionada': None,
+                'propiedades_filtradas': []
+            })
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
+
+        # Comandos de compatibilidad
+        if text_lower in ["hola", "hi", "hello", "volver", "atras"]:
+            estado_usuario.update({
+                'paso': 'menu_principal',
+                'operacion_seleccionada': None,
+                'propiedades_filtradas': [],
+                'ultimo_indice_preguntado': None,
+                'timestamp': datetime.now().isoformat()
+            })
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "WELCOME_FLOW_TRIGGER"
+        
+        # 2. ACCIONES ESPECIALES
+        if text_lower == "8":
+            indice = estado_usuario.get('ultimo_indice_preguntado')
+            propiedades = estado_usuario.get('propiedades_filtradas', [])
+            
+            if indice and 1 <= indice <= len(propiedades):
+                propiedad = propiedades[indice - 1]
+                log(f"🎯 ACCIÓN: Me interesa (Prop ID: {propiedad.get('id_temporal')})")
+                estado_usuario['paso'] = 'esperando_nombre_lead'
+                actualizar_estado_usuario(user_id, estado_usuario)
+                
+                # REGISTRAR LEAD INMEDIATAMENTE - FIX PostgreSQL
+                try:
+                    registrar_lead(user_id, propiedad.get('id_temporal'), 'click_me_interesa', f"Interés expresado en Propiedad: {propiedad.get('titulo')}")
+                    # NOTIFICACIÓN INMEDIATA AL AGENTE
+                    notificar_agente(f"👀 *INTERÉS INICIAL*\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad.get('titulo')}\n_(Esperando que el usuario ingrese su nombre...)_")
+                except Exception as e:
+                    log(f"⚠️ Error registrando lead inicial: {e}")
+                    
+                return f"✅ ¡Genial! Me interesa la propiedad: *{propiedad.get('titulo')}*.\n\nPor favor, decime tu *Nombre y Apellido* para que un asesor te contacte."
+            else:
+                return "⚠️ Por favor, primero selecciona una propiedad del listado."
+
+        if text_lower == "f":
+            indice = estado_usuario.get('ultimo_indice_preguntado')
+            propiedades = estado_usuario.get('propiedades_filtradas', [])
+            if indice and 1 <= indice <= len(propiedades):
+                propiedad = propiedades[indice - 1]
+                return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
+            else:
+                return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
+        
+        if text_lower == "p":
+            indice = estado_usuario.get('ultimo_indice_preguntado')
+            propiedades = estado_usuario.get('propiedades_filtradas', [])
+            if indice and 1 <= indice <= len(propiedades):
+                propiedad = propiedades[indice - 1]
+                prop_id = propiedad.get('id_temporal')
+                return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
+            else:
+                return "⚠️ Por favor, primero selecciona una propiedad del listado para obtener el PDF."
+        
+        # 3. LÓGICA POR ESTADO
         paso = estado_usuario['paso']
         
-        # --- LÓGICA POR ESTADO (PRIMERO) ---
         if paso == 'submenu_consultar':
             return manejar_submenu_consultar(text_lower, estado_usuario, user_id)
             
@@ -398,79 +457,6 @@ def get_bot_response(text, user_id):
         elif paso == 'vista_fotos':
             return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
 
-        # ========== COMANDOS UNIVERSALES (SOLO SI NO HAY PASO ESPECÍFICO) ==========
-        if text_lower in ["9", "menu", "principal", "inicio"]:
-            estado_usuario.update({
-                'paso': 'menu_principal',
-                'operacion_seleccionada': None,
-                'propiedades_filtradas': [],
-                'ultimo_indice_preguntado': None,
-                'timestamp': datetime.now().isoformat()
-            })
-            actualizar_estado_usuario(user_id, estado_usuario)
-            return "WELCOME_FLOW_TRIGGER"
-        
-        if text_lower in ["0", "salir", "exit"]:
-            estado_usuario.update({
-                'paso': 'menu_principal',
-                'operacion_seleccionada': None,
-                'propiedades_filtradas': []
-            })
-            actualizar_estado_usuario(user_id, estado_usuario)
-            return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
-
-        # Comandos de compatibilidad
-        if text_lower in ["hola", "hi", "hello", "volver", "atras"]:
-            estado_usuario.update({
-                'paso': 'menu_principal',
-                'operacion_seleccionada': None,
-                'propiedades_filtradas': [],
-                'ultimo_indice_preguntado': None,
-                'timestamp': datetime.now().isoformat()
-            })
-            actualizar_estado_usuario(user_id, estado_usuario)
-            return "WELCOME_FLOW_TRIGGER"
-        
-        # ========== ACCIONES ESPECIALES ==========
-        if text_lower == "8":
-            indice = estado_usuario.get('ultimo_indice_preguntado')
-            propiedades = estado_usuario.get('propiedades_filtradas', [])
-            
-            if indice and 1 <= indice <= len(propiedades):
-                propiedad = propiedades[indice - 1]
-                log(f"🎯 ACCIÓN: Me interesa (Prop ID: {propiedad.get('id_temporal')})")
-                estado_usuario['paso'] = 'esperando_nombre_lead'
-                actualizar_estado_usuario(user_id, estado_usuario)
-                
-                try:
-                    registrar_lead(user_id, propiedad.get('id_temporal'), 'click_me_interesa', f"Interés expresado en Propiedad: {propiedad.get('titulo')}")
-                    notificar_agente(f"👀 *INTERÉS INICIAL*\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad.get('titulo')}\n_(Esperando que el usuario ingrese su nombre...)_")
-                except Exception as e:
-                    log(f"⚠️ Error registrando lead inicial: {e}")
-                    
-                return f"✅ ¡Genial! Me interesa la propiedad: *{propiedad.get('titulo')}*.\n\nPor favor, decime tu *Nombre y Apellido* para que un asesor te contacte."
-            else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado."
-
-        if text_lower == "f":
-            indice = estado_usuario.get('ultimo_indice_preguntado')
-            propiedades = estado_usuario.get('propiedades_filtradas', [])
-            if indice and 1 <= indice <= len(propiedades):
-                propiedad = propiedades[indice - 1]
-                return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
-            else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
-        
-        if text_lower == "p":
-            indice = estado_usuario.get('ultimo_indice_preguntado')
-            propiedades = estado_usuario.get('propiedades_filtradas', [])
-            if indice and 1 <= indice <= len(propiedades):
-                propiedad = propiedades[indice - 1]
-                prop_id = propiedad.get('id_temporal')
-                return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
-            else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado para obtener el PDF."
-
         # Fallback seguro si se perdió el paso pero el usuario ya venía de un listado de propiedades
         if text_lower.isdigit() and estado_usuario.get('ultima_accion') == 'mostrar_listado':
             propiedades = estado_usuario.get('propiedades_filtradas', [])
@@ -482,10 +468,12 @@ def get_bot_response(text, user_id):
             except ValueError:
                 pass
 
-        # BUSCADOR POR TEXTO
+        # 4. BUSCADOR POR TEXTO (Nuevo) - SOLAMENTE SI NO HAY ESTADO ACTIVO PRIORITARIO
+        # Y si el paso es menu_principal o resultado_busqueda
         if text_lower.startswith("buscar ") or (len(text_lower) > 3 and paso == 'menu_principal' and not text_lower.isdigit()):
+            # DETECTAR SI ES UNA FECHA PERO SE PERDIÓ EL CONTEXTO
             fecha_detectada = analizar_fecha(text_lower)
-            if fecha_detectada and len(text_lower.split()) <= 3:
+            if fecha_detectada and len(text_lower.split()) <= 3: # Si es una fecha corta
                 return """⚠️ *Sesión expirada o contexto perdido*
                 
 Parece que querías agendar una fecha, pero no tengo seleccionada ninguna propiedad en este momento.
@@ -498,7 +486,7 @@ Por favor:
             termino = text_lower.replace("buscar ", "").strip()
             return manejar_busqueda_keywords(termino, estado_usuario, user_id)
 
-        # OPCIONES DEL MENÚ PRINCIPAL
+        # 5. OPCIONES DEL MENÚ PRINCIPAL
         if paso == 'menu_principal':
             return manejar_menu_principal(text_lower, estado_usuario, user_id)
         
@@ -513,6 +501,19 @@ Por favor:
         error_trace = traceback.format_exc()
         log(f"🔥 ERROR EN get_bot_response: {e}\n{error_trace}")
         return "❌ *Lo siento, ocurrió un error interno.*\n\nPor favor, intenta de nuevo enviando 'Hola' o contacta al administrador."
+
+# ========== MANEJAD
+# Manejadores secundarios (Movidos a menu_handlers.py)
+
+
+    
+    if len(resultados) > 5:
+        mensaje += "📝 _Mostrando los primeros 5 resultados..._\n"
+        
+    mensaje += "\n👉 *Respondé con el número* (1, 2, 3...) para ver más detalle.\n"
+    mensaje += "0️⃣ *❌ SALIR*"
+    return mensaje
+
 
 # ========== FUNCIONES DE WHATSAPP API MEJORADAS ==========
 # def check_token_validity():
