@@ -432,7 +432,7 @@ def get_bot_response(text, user_id):
             return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
 
         # ========== ACCIONES ESPECIALES ==========
-        if text_lower in ["i", "8"]:
+        if text_lower in ["i", "interesa", "me interesa"]:
             indice = estado_usuario.get('ultimo_indice_preguntado')
             propiedades = estado_usuario.get('propiedades_filtradas', [])
             
@@ -470,6 +470,16 @@ def get_bot_response(text, user_id):
                 return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
             else:
                 return "⚠️ Por favor, primero selecciona una propiedad del listado para obtener el PDF."
+                
+        if text_lower in ["l", "listado"]:
+            propiedades = estado_usuario.get('propiedades_filtradas', [])
+            if propiedades:
+                estado_usuario['paso'] = 'listado_propiedades'
+                actualizar_estado_usuario(user_id, estado_usuario)
+                from utils import generar_listado_propiedades
+                return generar_listado_propiedades(propiedades)
+            else:
+                return "⚠️ No hay propiedades en el listado. Envía 'MENU' para volver al inicio."
 
         # Fallback seguro si se perdió el paso pero el usuario ya venía de un listado de propiedades
         if text_lower.isdigit() and estado_usuario.get('ultima_accion') == 'mostrar_listado':

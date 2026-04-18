@@ -359,8 +359,9 @@ def formatear_detalle_propiedad(propiedad):
         
     detalle += "────────────────────\n"
     detalle += "¿Te gustaría que arreglemos una visita para esta semana, o querés conocer los requisitos de ingreso?\n\n"
-    detalle += "📷 *FOTOS* (F) | 📄 *PDF* (P) | 👁️ *ME INTERESA (Envía I)*\n"
-    detalle += "Ⓜ️ *VOLVER (Envía M)* | ❌ *SALIR (Envía S)*"
+    detalle += "📷 *FOTOS* (F) | 📄 *PDF* (P) | 👁️ *ME INTERESA (letra I)*\n"
+    detalle += "📋 *LISTADO* Propiedades (Envía L) | Ⓜ️ *VOLVER* al Menú (Envía M)\n"
+    detalle += "❌ *SALIR* (Envía S)"
     
     return detalle
 

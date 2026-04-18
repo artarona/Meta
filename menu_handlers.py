@@ -417,7 +417,7 @@ def procesar_opcion_mis_citas(user_id):
             ]
     
     if not citas_usuario:
-        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' ('I').\n\nⓂ️ *VOLVER AL MENÚ (Envía 'M')* 🏠\n❌ *SALIR (Envía 'S')*"
+        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (letra I).\n\nⓂ️ *VOLVER AL MENÚ (Envía 'M')* 🏠\n❌ *SALIR (Envía 'S')*"
     
     mensaje = f"📅 *TUS CITAS AGENDADAS*\n\nTienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
     
@@ -665,7 +665,7 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
         return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
     
     # Comando para volver al listado de propiedades
-    if text_lower == "listado":
+    if text_lower in ["listado", "l", "listado propiedades"]:
         propiedades = estado_usuario.get('propiedades_filtradas', [])
         if propiedades:
             estado_usuario['paso'] = 'listado_propiedades'
@@ -676,8 +676,8 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             return "⚠️ No hay propiedades en el listado. Envía 'MENU' para volver al inicio."
     
-    # Comando "8" - Me interesa
-    if text_lower == "8":
+    # Comando "I" - Me interesa
+    if text_lower in ["i", "interesa", "me interesa"]:
         indice = estado_usuario.get('ultimo_indice_preguntado')
         propiedades = estado_usuario.get('propiedades_filtradas', [])
         
@@ -721,9 +721,9 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
     # Si no se reconoce el comando, mostrar opciones disponibles
     return """📌 *Opciones disponibles:*
 
-• Enviá *I* - Me interesa esta propiedad
+• Enviá la letra *I* - Me interesa esta propiedad
 • Enviá *F* - Ver todas las fotos
 • Enviá *P* - Descargar ficha técnica en PDF
-• Enviá *LISTADO* - Volver al listado de propiedades
+• Enviá *L* - Volver al listado de propiedades
 • Enviá *M* - Volver al menú principal
 • Enviá *S* - Terminar conversación"""
