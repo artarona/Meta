@@ -269,8 +269,8 @@ def generar_listado_propiedades(propiedades):
     mensaje += f"{'='*40}\n\n"
     mensaje += f"👉 *Respondé con el NÚMERO* de la propiedad que te interesa\n"
     mensaje += f"   (Ej: '1', '2', '3', ... '{len(propiedades)}')\n\n"
-    mensaje += f"📱 *Envía 'MENU'* para volver al menú principal\n"
-    mensaje += f"👋 *Envía 'SALIR'* para terminar la conversación"
+    mensaje += f"📱 *Envía 'M'* para volver al menú principal\n"
+    mensaje += f"👋 *Envía 'S'* para terminar la conversación"
     
     return mensaje
 
@@ -359,8 +359,8 @@ def formatear_detalle_propiedad(propiedad):
         
     detalle += "────────────────────\n"
     detalle += "¿Te gustaría que arreglemos una visita para esta semana, o querés conocer los requisitos de ingreso?\n\n"
-    detalle += "📷 *FOTOS* (F) | 📄 *PDF* (P) | 8️⃣ *ME INTERESA*\n"
-    detalle += "1️⃣ *VOLVER* | 0️⃣ *❌ SALIR*"
+    detalle += "📷 *FOTOS* (F) | 📄 *PDF* (P) | 👁️ *ME INTERESA (Envía I)*\n"
+    detalle += "Ⓜ️ *VOLVER (Envía M)* | ❌ *SALIR (Envía S)*"
     
     return detalle
 
