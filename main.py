@@ -322,7 +322,40 @@ def get_bot_response(text, user_id):
             
         log(f"👤 Usuario {user_id}: {estado_usuario['paso']}")
         
-        # ========== NUEVO ORDEN: PRIMERO VERIFICAR EL PASO ==========
+        # ========== COMANDOS UNIVERSALES (NUEVO ORDEN: EJECUTAR PRIMERO) ==========
+        if text_lower in ["m", "menu", "principal", "inicio"]:
+            estado_usuario.update({
+                'paso': 'menu_principal',
+                'operacion_seleccionada': None,
+                'propiedades_filtradas': [],
+                'ultimo_indice_preguntado': None,
+                'timestamp': datetime.now().isoformat()
+            })
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "WELCOME_FLOW_TRIGGER"
+        
+        if text_lower in ["s", "salir", "exit"]:
+            estado_usuario.update({
+                'paso': 'menu_principal',
+                'operacion_seleccionada': None,
+                'propiedades_filtradas': []
+            })
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
+
+        # Comandos de compatibilidad
+        if text_lower in ["hola", "hi", "hello", "volver", "atras"]:
+            estado_usuario.update({
+                'paso': 'menu_principal',
+                'operacion_seleccionada': None,
+                'propiedades_filtradas': [],
+                'ultimo_indice_preguntado': None,
+                'timestamp': datetime.now().isoformat()
+            })
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "WELCOME_FLOW_TRIGGER"
+        
+        # --- LÓGICA POR ESTADO ---
         paso = estado_usuario['paso']
         
         # --- LÓGICA POR ESTADO (PRIMERO) ---
@@ -398,41 +431,8 @@ def get_bot_response(text, user_id):
         elif paso == 'vista_fotos':
             return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
 
-        # ========== COMANDOS UNIVERSALES (SOLO SI NO HAY PASO ESPECÍFICO) ==========
-        if text_lower in ["9", "menu", "principal", "inicio"]:
-            estado_usuario.update({
-                'paso': 'menu_principal',
-                'operacion_seleccionada': None,
-                'propiedades_filtradas': [],
-                'ultimo_indice_preguntado': None,
-                'timestamp': datetime.now().isoformat()
-            })
-            actualizar_estado_usuario(user_id, estado_usuario)
-            return "WELCOME_FLOW_TRIGGER"
-        
-        if text_lower in ["0", "salir", "exit"]:
-            estado_usuario.update({
-                'paso': 'menu_principal',
-                'operacion_seleccionada': None,
-                'propiedades_filtradas': []
-            })
-            actualizar_estado_usuario(user_id, estado_usuario)
-            return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
-
-        # Comandos de compatibilidad
-        if text_lower in ["hola", "hi", "hello", "volver", "atras"]:
-            estado_usuario.update({
-                'paso': 'menu_principal',
-                'operacion_seleccionada': None,
-                'propiedades_filtradas': [],
-                'ultimo_indice_preguntado': None,
-                'timestamp': datetime.now().isoformat()
-            })
-            actualizar_estado_usuario(user_id, estado_usuario)
-            return "WELCOME_FLOW_TRIGGER"
-        
         # ========== ACCIONES ESPECIALES ==========
-        if text_lower == "8":
+        if text_lower in ["i", "8"]:
             indice = estado_usuario.get('ultimo_indice_preguntado')
             propiedades = estado_usuario.get('propiedades_filtradas', [])
             

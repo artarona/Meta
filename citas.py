@@ -182,7 +182,7 @@ Por favor, probá con:
 ✅ "25-10-2026"
 
 1️⃣ *Ver fechas* (Ver disponibilidad)
-0️⃣ *Volver* (Ir al menú)"""
+Ⓜ️ *Volver* (Ir al menú - Envía 'M')"""
 
     # Validaciones de fecha
     hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -209,7 +209,7 @@ Por favor, probá con:
 No hay horarios para el {fecha_display}.
 
 1️⃣ *Ver fechas* (Elegir otro día)
-0️⃣ *Volver* (Ir al menú)"""
+Ⓜ️ *Volver* (Ir al menú - Envía 'M')"""
 
     estado_usuario['fecha_cita'] = fecha_str
     
@@ -239,7 +239,7 @@ El horario {hora_ingresada} no está disponible para el {fecha_display}.
 
 Por favor, escribí uno de los horarios disponibles:
 
-0️⃣ *❌ SALIR*"""
+❌ *SALIR (Envía 'S')*"""
 
     # CASO B: Solicitó solo fecha -> Pedir hora
     estado_usuario['paso'] = 'seleccionar_hora_cita'
@@ -288,7 +288,7 @@ def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
         # Verificar que tenemos los datos mínimos necesarios
         if not fecha or not hora:
             log("❌ Error: Fecha u hora no están en estado_usuario")
-            return "❌ *Error interno*: No pude recuperar los datos de la cita. Por favor, intentá agendar nuevamente.\n\n1️⃣ *VOLVER AL MENÚ* 🏠"
+            return "❌ *Error interno*: No pude recuperar los datos de la cita. Por favor, intentá agendar nuevamente.\n\nⓂ️ *VOLVER AL MENÚ (Envía 'M')* 🏠"
 
         # Crear la cita
         log("🔄 Llamando a crear_cita...")
@@ -305,7 +305,7 @@ def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
         
         if not cita_resultado:
             log("❌ Error: crear_cita devolvió None")
-            return "❌ *Error al agendar la cita*\n\nPor favor, intentá nuevamente más tarde o contactá a un asesor.\n\n1️⃣ *VOLVER AL MENÚ* 🏠"
+            return "❌ *Error al agendar la cita*\n\nPor favor, intentá nuevamente más tarde o contactá a un asesor.\n\nⓂ️ *VOLVER AL MENÚ (Envía 'M')* 🏠"
         
         log(f"✅ Cita creada exitosamente: {cita_resultado}")
         
@@ -344,8 +344,8 @@ def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
 
 👋 *¡Muchas gracias por confiar en Dante Propiedades!*
 
-1️⃣ *VOLVER AL MENÚ* 🏠
-0️⃣ *❌ SALIR*
+Ⓜ️ *VOLVER AL MENÚ (Envía 'M')* 🏠
+❌ *SALIR (Envía 'S')*
 """
         return mensaje_confirmacion
     
@@ -391,8 +391,8 @@ def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
 
 Si en otro momento deseas agendar una visita, podes volver a empezar.
 
-1️⃣ *VOLVER AL MENÚ* 🏠
-0️⃣ *❌ SALIR*
+Ⓜ️ *VOLVER AL MENÚ (Envía 'M')* 🏠
+❌ *SALIR (Envía 'S')*
 """
         
     else:
@@ -434,7 +434,7 @@ def manejar_seleccionar_hora_cita(text, estado_usuario, user_id):
     if text_lower in ["0", "salir", "cancelar"]:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "❌ Operación cancelada.\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
+        return "❌ Operación cancelada.\n\nⓂ️ *VOLVER AL MENÚ (Envía 'M')* 🏠\n❌ *SALIR (Envía 'S')*"
     
     if text_lower in ["ver fechas", "cambiar fecha", "atrás", "atras"]:
         estado_usuario['paso'] = 'solicitar_fecha_cita'
@@ -455,7 +455,7 @@ Por favor elegí uno de la lista:
 {", ".join(horarios_disponibles)}
 
 1️⃣ *Cambiar fecha* (Elegir otro día)
-0️⃣ *Volver* (Ir al menú)"""
+Ⓜ️ *Volver* (Ir al menú - Envía 'M')"""
             
     # Hora válida
     estado_usuario['hora_cita'] = hora_elegida
@@ -599,8 +599,8 @@ Vamos a agendar tu visita.
 
 Un asesor se contactará contigo para brindarte toda la información.
 
-1️⃣ *VOLVER AL MENÚ* 🏠
-0️⃣ *❌ SALIR*"""
+Ⓜ️ *VOLVER AL MENÚ (Envía 'M')* 🏠
+❌ *SALIR (Envía 'S')*"""
     
     elif text_lower in ["3", "ofertar", "oferta", "comprar", "alquilar ya"]:
         nombre_cliente = estado_usuario.get('nombre_cliente', 'Cliente')
@@ -635,8 +635,8 @@ Un asesor te contactará en los próximos **15 minutos** para gestionar tu ofert
 
 ¡Gracias por tu interés! 🏠💸
 
-1️⃣ *VOLVER AL MENÚ* 🏠
-0️⃣ *❌ SALIR*"""
+Ⓜ️ *VOLVER AL MENÚ (Envía 'M')* 🏠
+❌ *SALIR (Envía 'S')*"""
     
     elif text_lower in ["0", "salir", "chau", "adiós"]:
         estado_usuario.update({
@@ -655,7 +655,7 @@ Un asesor te contactará en los próximos **15 minutos** para gestionar tu ofert
                 {"id": "2", "title": "SOLO INFO 📋"},
                 {"id": "3", "title": "OFERTAR 💰"}
             ],
-            "footer": "0️⃣ Salir del chat"
+            "footer": "❌ Envía 'S' para Salir"
         }
 
 

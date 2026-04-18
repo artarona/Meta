@@ -230,7 +230,7 @@ def manejar_menu_tasacion(text_lower, estado_usuario, user_id):
         "buttons": [
             {"id": "1", "title": "Venta 🏠"},
             {"id": "2", "title": "Alquiler 🗝️"},
-            {"id": "9", "title": "Volver 🔙"}
+            {"id": "m", "title": "Volver 🔙"}
         ],
         "footer": "Selecciona una opción 👇"
     }
@@ -276,7 +276,7 @@ def manejar_tasacion_barrio(text, estado_usuario, user_id):
                 ]
             }
         ],
-        "footer": "9️⃣ Volver | 0️⃣ Salir"
+        "footer": "Ⓜ️ Envía 'M' para Volver | ❌ Envía 'S' para Salir"
     }
 
 
@@ -358,7 +358,7 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
                     ]
                 }
             ],
-            "footer": "9️⃣ Volver | 0️⃣ Salir"
+            "footer": "Ⓜ️ Envía 'M' para Volver | ❌ Envía 'S' para Salir"
         }
     except:
         return "⚠️ Por favor, ingresá un número para los ambientes."
@@ -438,7 +438,7 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
                 {"id": "1", "title": "Deseas una tasación pro?"},
                 {"id": "2", "title": "No por ahora"}
             ],
-            "footer": "9️⃣ Volver | 0️⃣ Salir"
+            "footer": "Ⓜ️ Envía 'M' para Volver | ❌ Envía 'S' para Salir"
         }
     except Exception as e:
         log(f"🔥 Error en _finalizar_tasacion_y_responder: {e}")
@@ -457,5 +457,5 @@ def manejar_tasacion_contacto(text_lower, estado_usuario, user_id):
     else:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "Entendido. Si necesitás algo más, acá estoy. 😊\n\n9️⃣ Volver al menú"
+        return "Entendido. Si necesitás algo más, acá estoy. 😊\n\nⓂ️ Volver al menú (Envía 'M')"
         

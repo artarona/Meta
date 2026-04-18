@@ -28,7 +28,7 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
         
     elif text_lower == "3":
         # Visitar sitio web
-        return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
+        return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'Hola' para volver al menú.\n❌ *Envía 'S' para SALIR*"
 
     elif text_lower == "4":
         # Ver mis citas
@@ -60,11 +60,11 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
             ]
         )
 
-    elif text_lower == "9":
+    elif text_lower == "m":
         # Volver al menú
         return "WELCOME_FLOW_TRIGGER"
         
-    elif text_lower == "0":
+    elif text_lower == "s":
         # Salir
         return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
 
@@ -88,23 +88,23 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
 5️⃣ *Hablar con un asesor* 👤
 6️⃣ *Requisitos y FAQs* ❓
 
-9️⃣ *Volver al menú principal*
-0️⃣ *Salir del chat*"""
+Ⓜ️ *Envía 'M' para volver al menú principal*
+❌ *Envía 'S' para salir del chat*"""
 
 
 def manejar_submenu_consultar(text_lower, estado_usuario, user_id):
     """Maneja las opciones del submenú de consulta"""
     if text_lower == "1":
-        return "🔎 *Búsqueda por código*\n\nPor favor, enviá el código de la propiedad (ej: UF002).\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+        return "🔎 *Búsqueda por código*\n\nPor favor, enviá el código de la propiedad (ej: UF002).\n\nⓂ️ Volver al menú principal\n❌ Salir (Envía 'S')"
     elif text_lower == "2":
-        return "📍 *Búsqueda por zona*\n\n¿En qué zona estás buscando? (ej: Palermo, Belgrano, Tigre...)\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+        return "📍 *Búsqueda por zona*\n\n¿En qué zona estás buscando? (ej: Palermo, Belgrano, Tigre...)\n\nⓂ️ Volver al menú principal\n❌ Salir (Envía 'S')"
     elif text_lower == "3":
         return procesar_opcion_todas(estado_usuario, user_id)
     else:
         return """No pude identificar esa opción. Por favor elegí un número del menú.
 
-9️⃣ *Volver al menú principal*
-0️⃣ *Salir del chat*"""
+Ⓜ️ *Envía 'M' para volver al menú principal*
+❌ *Envía 'S' para salir del chat*"""
 
 
 def manejar_submenu_visita(text_lower, estado_usuario, user_id):
@@ -112,29 +112,29 @@ def manejar_submenu_visita(text_lower, estado_usuario, user_id):
     if text_lower == "1":
         return procesar_opcion_todas(estado_usuario, user_id)
     elif text_lower == "2":
-        return "📅 *Días y horarios disponibles*\n\nNuestros horarios generales son de Lunes a Viernes de 9 a 18:30 hs.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+        return "📅 *Días y horarios disponibles*\n\nNuestros horarios generales son de Lunes a Viernes de 9 a 18:30 hs.\n\nⓂ️ Volver al menú principal\n❌ Salir (Envía 'S')"
     elif text_lower == "3":
-        return "✅ *Confirmar visita*\n\nPara confirmar una visita, primero debemos seleccionar una propiedad. \n\n1️⃣ Ver propiedades\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+        return "✅ *Confirmar visita*\n\nPara confirmar una visita, primero debemos seleccionar una propiedad. \n\n1️⃣ Ver propiedades\nⓂ️ Volver al menú principal\n❌ Salir (Envía 'S')"
     else:
         return """No pude identificar esa opción. Por favor elegí un número del menú.
 
-9️⃣ *Volver al menú principal*
-0️⃣ *Salir del chat*"""
+Ⓜ️ *Envía 'M' para volver al menú principal*
+❌ *Envía 'S' para salir del chat*"""
 
 
 def manejar_submenu_asesor(text_lower, estado_usuario, user_id):
     """Maneja las opciones del submenú de asesor"""
     if text_lower == "1":
         notificar_agente(f"👤 *SOLICITUD DE ASESOR*\n📞 Tel: +{user_id}\n📝 El cliente desea enviar un mensaje.")
-        return "✅ *Mensaje enviado!*\n\nUn asesor se pondrá en contacto con vos a la brevedad.\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+        return "✅ *Mensaje enviado!*\n\nUn asesor se pondrá en contacto con vos a la brevedad.\n\nⓂ️ Volver al menú principal\n❌ Salir (Envía 'S')"
     elif text_lower == "2":
         notificar_agente(f"📞 *SOLICITUD DE LLAMADA*\n📞 Tel: +{user_id}\n📝 El cliente solicita ser llamado.")
-        return f"✅ *Solicitud registrada!*\n\nTe llamaremos en el horario más conveniente.\n\n📱 *O si preferís hablar ahora mismo, escribime acá:* \nhttps://wa.me/{AGENT_NUMBER.lstrip('+')}\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+        return f"✅ *Solicitud registrada!*\n\nTe llamaremos en el horario más conveniente.\n\n📱 *O si preferís hablar ahora mismo, escribime acá:* \nhttps://wa.me/{AGENT_NUMBER.lstrip('+')}\n\nⓂ️ Volver al menú principal\n❌ Salir (Envía 'S')"
     else:
         return """No pude identificar esa opción. Por favor elegí un número del menú.
 
-9️⃣ *Volver al menú principal*
-0️⃣ *Salir del chat*"""
+Ⓜ️ *Envía 'M' para volver al menú principal*
+❌ *Envía 'S' para salir del chat*"""
 
 
 def manejar_submenu_faqs(text_lower, estado_usuario, user_id):
@@ -147,23 +147,23 @@ def manejar_submenu_faqs(text_lower, estado_usuario, user_id):
 • Garantía propietaria (CABA/GBA) o Seguro de Caución (Finaer)
 • Demostración de ingresos (últimos 3 recibos)
 
-9️⃣ *Volver a FAQs*
-0️⃣ *Salir*"""
+Ⓜ️ *Envía 'M' para volver a FAQs*
+❌ *Envía 'S' para salir*"""
     elif text_lower == "mascotas":
         return """*¿ACEPTAN MASCOTAS?*
 
 Depende estrictamente de la propiedad y el consorcio. Consultalo en el detalle de cada departamento.
 
-9️⃣ *Volver a FAQs*
-0️⃣ *Salir*"""
+Ⓜ️ *Envía 'M' para volver a FAQs*
+❌ *Envía 'S' para salir*"""
     elif text_lower == "permutas":
         return """*¿TOMAN PROPIEDADES EN PARTE DE PAGO?*
 
 Sí, evaluamos permutas caso por caso. Escribinos para tasación.
 
-9️⃣ *Volver a FAQs*
-0️⃣ *Salir*"""
-    elif text_lower == "9":
+Ⓜ️ *Envía 'M' para volver a FAQs*
+❌ *Envía 'S' para salir*"""
+    elif text_lower == "m":
         # Volver a FAQs
         estado_usuario['paso'] = 'submenu_faqs'
         actualizar_estado_usuario(user_id, estado_usuario)
@@ -175,14 +175,14 @@ Sí, evaluamos permutas caso por caso. Escribinos para tasación.
                 {"id": "permutas", "title": "¿Permutas?"}
             ]
         )
-    elif text_lower == "0":
+    elif text_lower == "s":
         # Salir
         return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
     else:
         return """No pude identificar esa opción.
 
-9️⃣ *Volver a FAQs*
-0️⃣ *Salir*"""
+Ⓜ️ *Envía 'M' para volver a FAQs*
+❌ *Envía 'S' para salir*"""
 
 
 def manejar_filtro_tipo(text_lower, estado_usuario, user_id):
@@ -223,7 +223,7 @@ def manejar_filtro_tipo(text_lower, estado_usuario, user_id):
     # (Para evitar errores de 'NoneType' or 'str' if JSON parsed incorrectly)
              estado_usuario['propiedades_filtradas'] = []
              actualizar_estado_usuario(user_id, estado_usuario)
-             return f"📭 Lo siento, no tenemos {tipo_seleccionado}s disponibles para {operacion} en este momento.\n\n9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*\n0️⃣ *❌ SALIR*"
+             return f"📭 Lo siento, no tenemos {tipo_seleccionado}s disponibles para {operacion} en este momento.\n\nⓂ️ *🔙 VOLVER AL MENÚ PRINCIPAL (Envía 'M')*\n❌ *SALIR (Envía 'S')*"
 
         return WhatsAppResponse.list_menu(
             body="🔢 *¿CUÁNTOS AMBIENTES?*\n\nPor favor, elegí la cantidad de ambientes:",
@@ -326,7 +326,7 @@ def manejar_filtro_ambientes(text_lower, estado_usuario, user_id):
         return f"{titulo_op}\nBuscando: {tipo_str} {amb_str}\nEncontramos *{len(propiedades_filtradas)}* opciones:\n\n" + generar_listado_propiedades(propiedades_filtradas)
     
     else:
-         return "⚠️ Por favor, elegí una opción válida (1 al 5) o enviá 9 para volver al menú."
+         return "⚠️ Por favor, elegí una opción válida (1 al 5) o enviá 'M' para volver al menú."
 
 
 
@@ -361,7 +361,7 @@ def procesar_opcion_venta(estado_usuario, user_id):
     actualizar_estado_usuario(user_id, estado_usuario)
     
     if not filtradas:
-        return "📭 Actualmente no tenemos propiedades en *venta*.\n\n9️⃣ *VOLVER AL MENÚ*\n0️⃣ *SALIR*"
+        return "📭 Actualmente no tenemos propiedades en *venta*.\n\nⓂ️ *VOLVER AL MENÚ (Envía 'M')*\n❌ *SALIR (Envía 'S')*"
     
     return "💰 *INMUEBLES EN VENTA*\n\n" + generar_listado_propiedades(filtradas)
 
@@ -383,7 +383,7 @@ def procesar_opcion_alquiler(estado_usuario, user_id):
     actualizar_estado_usuario(user_id, estado_usuario)
     
     if not filtradas:
-        return "📭 Actualmente no tenemos propiedades en *alquiler*.\n\n9️⃣ *VOLVER AL MENÚ*\n0️⃣ *SALIR*"
+        return "📭 Actualmente no tenemos propiedades en *alquiler*.\n\nⓂ️ *VOLVER AL MENÚ (Envía 'M')*\n❌ *SALIR (Envía 'S')*"
     
     return "🔑 *INMUEBLES EN ALQUILER*\n\n" + generar_listado_propiedades(filtradas)
 
@@ -417,7 +417,7 @@ def procesar_opcion_mis_citas(user_id):
             ]
     
     if not citas_usuario:
-        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (8).\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*"
+        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' ('I').\n\nⓂ️ *VOLVER AL MENÚ (Envía 'M')* 🏠\n❌ *SALIR (Envía 'S')*"
     
     mensaje = f"📅 *TUS CITAS AGENDADAS*\n\nTienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
     
@@ -438,7 +438,7 @@ def procesar_opcion_mis_citas(user_id):
         mensaje += "   ───────────────\n"
     
     mensaje += f"\nPara consultar o modificar una cita, contacta al administrador.\n\n"
-    mensaje += f"Envía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
+    mensaje += f"Envía 'M' para volver al menú.\n❌ *Envía 'S' para SALIR*"
     
     return mensaje
 
@@ -476,8 +476,8 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
 
 📌 *Comandos válidos ahora:*
 • Enviá el *NÚMERO de la propiedad* (1 al {propiedades_count}) para ver detalles
-• Enviá *MENU* para volver al menú principal
-• Enviá *SALIR* para terminar la conversación
+• Enviá *M* para volver al menú principal
+• Enviá *S* para terminar la conversación
 
 💡 *Ejemplo:* Si querés la propiedad 9, enviá '9' (sin comillas)"""
     
@@ -520,7 +520,7 @@ def manejar_nombre_lead(text, estado_usuario, user_id):
     nombre_cliente = text.strip()
     
     if len(nombre_cliente) < 2:
-        return "❌ Por favor, ingresa tu nombre completo (mínimo 2 caracteres).\n\n9️⃣ *Volver al menú principal*\n0️⃣ *Salir*"
+        return "❌ Por favor, ingresa tu nombre completo (mínimo 2 caracteres).\n\nⓂ️ *Volver al menú principal (Envía 'M')*\n❌ *Salir (Envía 'S')*"
     
     estado_usuario['nombre_cliente'] = nombre_cliente
     
@@ -549,7 +549,7 @@ def manejar_nombre_lead(text, estado_usuario, user_id):
     else:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "❌ Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad.\n\n9️⃣ Volver al menú principal\n0️⃣ *Salir*"
+        return "❌ Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad.\n\nⓂ️ Volver al menú principal (Envía 'M')\n❌ *Salir (Envía 'S')*"
 
 
 
@@ -587,7 +587,7 @@ def manejar_respuesta_feedback(text, estado_usuario, user_id):
     })
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    return f"¡Muchas gracias por tu respuesta, *{nombre}*! 🙌 Ya le pasé tus comentarios al asesor responsable. Se va a estar contactando con vos a la brevedad. 😊\n\n¿En qué más te puedo ayudar?\n\n1️⃣ Ver más propiedades\n9️⃣ Volver al menú principal"
+    return f"¡Muchas gracias por tu respuesta, *{nombre}*! 🙌 Ya le pasé tus comentarios al asesor responsable. Se va a estar contactando con vos a la brevedad. 😊\n\n¿En qué más te puedo ayudar?\n\n1️⃣ Ver más propiedades\nⓂ️ Volver al menú principal (Envía 'M')"
 
 
 def mostrar_panel_admin():
@@ -604,7 +604,7 @@ Opciones disponibles:
 🏠 *4. Gestionar propiedades*
 📈 *5. Ver estadísticas*
 
-📱 *0. Volver al menú principal*"""
+📱 *Envía 'M' para volver al menú principal*"""
 
 
 def manejar_busqueda_keywords(termino, estado_usuario, user_id):
@@ -627,7 +627,7 @@ def manejar_busqueda_keywords(termino, estado_usuario, user_id):
             resultados.append(p)
             
     if not resultados:
-        return f"🔍 No encontré propiedades que coincidan con *'{termino}*. \n\nIntentá con otras palabras (ej: 'casa parque') o enviá 'Hola' para ver todo.\n0️⃣ *❌ SALIR*"
+        return f"🔍 No encontré propiedades que coincidan con *'{termino}*. \n\nIntentá con otras palabras (ej: 'casa parque') o enviá 'M' para ver todo.\n❌ *Envía 'S' para SALIR*"
         
     estado_usuario.update({
         'paso': 'listado_propiedades',
@@ -644,7 +644,7 @@ def manejar_busqueda_keywords(termino, estado_usuario, user_id):
         mensaje += "📝 _Mostrando los primeros 5 resultados..._\n"
         
     mensaje += "\n👉 *Respondé con el número* (1, 2, 3...) para ver más detalle.\n"
-    mensaje += "0️⃣ *❌ SALIR*"
+    mensaje += "❌ *Envía 'S' para SALIR*"
     return mensaje
 
 def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
@@ -721,9 +721,9 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
     # Si no se reconoce el comando, mostrar opciones disponibles
     return """📌 *Opciones disponibles:*
 
-• Enviá *8* - Me interesa esta propiedad
+• Enviá *I* - Me interesa esta propiedad
 • Enviá *F* - Ver todas las fotos
 • Enviá *P* - Descargar ficha técnica en PDF
 • Enviá *LISTADO* - Volver al listado de propiedades
-• Enviá *MENU* - Volver al menú principal
-• Enviá *SALIR* - Terminar conversación"""
+• Enviá *M* - Volver al menú principal
+• Enviá *S* - Terminar conversación"""
