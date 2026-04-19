@@ -52,7 +52,7 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
         estado_usuario['paso'] = 'submenu_faqs'
         actualizar_estado_usuario(user_id, estado_usuario)
         return WhatsAppResponse.buttons(
-            body="❓ *REQUISITOS Y PREGUNTAS FRECUENTES*\n\nElige una opción:",
+            body="❓ *REQUISITOS Y PREGUNTAS FRECUENTES*\n\nElige una opción, o enviá 'M' para Menú / 'S' para Salir:",
             buttons=[
                 {"id": "req_alquiler", "title": "Requisitos Alquiler"},
                 {"id": "mascotas", "title": "¿Aceptan Mascotas?"},
@@ -168,7 +168,7 @@ Sí, evaluamos permutas caso por caso. Escribinos para tasación.
         estado_usuario['paso'] = 'submenu_faqs'
         actualizar_estado_usuario(user_id, estado_usuario)
         return WhatsAppResponse.buttons(
-            body="❓ *REQUISITOS Y PREGUNTAS FRECUENTES*\n\nElige una opción:",
+            body="❓ *REQUISITOS Y PREGUNTAS FRECUENTES*\n\nElige una opción, o enviá 'M' para Menú / 'S' para Salir:",
             buttons=[
                 {"id": "req_alquiler", "title": "Requisitos Alquiler"},
                 {"id": "mascotas", "title": "¿Aceptan Mascotas?"},
