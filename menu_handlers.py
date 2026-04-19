@@ -28,7 +28,7 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
         
     elif text_lower == "3":
         # Visitar sitio web
-        return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'Hola' para volver al menú.\n❌ *Envía 'S' para SALIR*"
+        return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'M' para volver al menú.\n❌ *Envía 'S' para SALIR*"
 
     elif text_lower == "4":
         # Ver mis citas

@@ -501,7 +501,7 @@ def get_bot_response(text, user_id):
 Parece que querías agendar una fecha, pero no tengo seleccionada ninguna propiedad en este momento.
 
 Por favor:
-1. Envía 'Hola' para ver el menú
+1. Envía 'M' para ver el menú
 2. Busca la propiedad nuevamente
 3. Selecciona 'Agendar Cita'"""
 
@@ -513,16 +513,16 @@ Por favor:
             return manejar_menu_principal(text_lower, estado_usuario, user_id)
         
         # Respuesta por defecto
-        return """No pude identificar esa opción. Por favor elegí un número del menú.
+        return """No pude identificar esa opción. Por favor elegí una opción válida del menú.
 
-9️⃣ *Volver al menú principal*
-0️⃣ *Salir del chat*"""
+Ⓜ️ *Volver al menú principal (Envía 'M')*
+❌ *Salir del chat (Envía 'S')*"""
 
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
         log(f"🔥 ERROR EN get_bot_response: {e}\n{error_trace}")
-        return "❌ *Lo siento, ocurrió un error interno.*\n\nPor favor, intenta de nuevo enviando 'Hola' o contacta al administrador."
+        return "❌ *Lo siento, ocurrió un error interno.*\n\nPor favor, intenta de nuevo enviando 'M' o contacta al administrador."
 
 # ========== FUNCIONES DE WHATSAPP API MEJORADAS ==========
 # def check_token_validity():
