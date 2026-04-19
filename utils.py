@@ -232,11 +232,10 @@ def filtrar_propiedades_por_operacion(operacion):
 
 
 def generar_listado_propiedades(propiedades):
-    """Genera el mensaje de listado de propiedades"""
+    """Genera el mensaje de listado de propiedades (sin navegación — el caller agrega botones)"""
     if not propiedades:
         return "📭 No hay propiedades disponibles en este momento."
     
-    # ✅ Descomentar esta línea o crearla
     mensaje = f"📋 *PROPIEDADES DISPONIBLES*\n\n"
     mensaje += f"Encontramos *{len(propiedades)}* propiedades:\n\n"
     
@@ -244,18 +243,15 @@ def generar_listado_propiedades(propiedades):
         titulo = p.get('titulo', 'Propiedad')
 
         precio_raw = p.get('precio', None)
-        moneda = p.get('moneda_precio', '')  # USD / AR$ / etc.
+        moneda = p.get('moneda_precio', '')
 
-        # Si el precio es 0 o None → Consultar
         if precio_raw in (0, None):
             precio = "Consultar"
         else:
-            # Formateo normal
             if isinstance(precio_raw, (int, float)):
                 precio_formateado = f"{precio_raw:,.0f}".replace(",", ".")
             else:
                 precio_formateado = precio_raw
-
             precio = f"{moneda} {precio_formateado}".strip()
 
         operacion = p.get('operacion', '')
@@ -265,12 +261,9 @@ def generar_listado_propiedades(propiedades):
         mensaje += f"   💵 {precio}\n"
         mensaje += f"   📍 {p.get('barrio', 'Sin barrio')}\n\n"
     
-    # 👇 NUEVO mensaje de ayuda
     mensaje += f"{'='*40}\n\n"
     mensaje += f"👉 *Respondé con el NÚMERO* de la propiedad que te interesa\n"
-    mensaje += f"   (Ej: '1', '2', '3', ... '{len(propiedades)}')\n\n"
-    mensaje += f"📱 *Envía 'M'* para volver al menú principal\n"
-    mensaje += f"👋 *Envía 'S'* para terminar la conversación"
+    mensaje += f"   (Ej: '1', '2', '3', ... '{len(propiedades)}')"
     
     return mensaje
 

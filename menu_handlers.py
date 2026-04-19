@@ -349,14 +349,8 @@ def manejar_filtro_ambientes(text_lower, estado_usuario, user_id):
         })
         actualizar_estado_usuario(user_id, estado_usuario)
             
-        return f"📭 No encontramos {tipo}s de {ambientes_sel} ambientes en {operacion}.\n\n🔍 *Pero tenemos otras opciones de {tipo} que te pueden interesar:* \n\n" + generar_listado_propiedades(estado_usuario['propiedades_filtradas'])
-        
-        titulo_op = "💰 *VENTA*" if operacion == "venta" else "🔑 *ALQUILER*"
-        tipo_str = tipo.title()
-        amb_str = f"de {ambientes_sel} amb." if ambientes_sel else ""
-        if ambientes_sel == 4: amb_str = "de 4+ amb."
-        
-        return f"{titulo_op}\nBuscando: {tipo_str} {amb_str}\nEncontramos *{len(propiedades_filtradas)}* opciones:\n\n" + generar_listado_propiedades(propiedades_filtradas)
+        texto = f"📭 No encontramos {tipo}s de {ambientes_sel} ambientes en {operacion}.\n\n🔍 *Pero tenemos otras opciones de {tipo} que te pueden interesar:* \n\n" + generar_listado_propiedades(estado_usuario['propiedades_filtradas'])
+        return [texto, _nav_listado_buttons()]
     
     else:
          return "⚠️ Por favor, elegí una opción válida (1 al 5) o enviá 'M' para volver al menú."
@@ -368,11 +362,22 @@ def restaurar_listado_si_es_necesario(estado_usuario):
     if not estado_usuario.get('propiedades_filtradas') and estado_usuario.get('ultimo_contexto'):
         contexto = estado_usuario['ultimo_contexto']
         if contexto['tipo'] == 'venta':
-            # Vuelve a filtrar por venta
             nuevas_props = [p for p in cargar_propiedades_cached() if p.get('operacion') == 'venta']
             estado_usuario['propiedades_filtradas'] = nuevas_props
             return nuevas_props
     return estado_usuario.get('propiedades_filtradas', [])
+
+
+def _nav_listado_buttons():
+    """Botones de navegación estándares para el listado de propiedades (Opción A)."""
+    return WhatsAppResponse.buttons(
+        header="📍 NAVEGAR",
+        body="¿Qué querés hacer?",
+        buttons=[
+            {"id": "m", "title": "Volver al menú"},
+            {"id": "s", "title": "Salir"}
+        ]
+    )
 
 
 def procesar_opcion_venta(estado_usuario, user_id):
@@ -394,9 +399,17 @@ def procesar_opcion_venta(estado_usuario, user_id):
     actualizar_estado_usuario(user_id, estado_usuario)
     
     if not filtradas:
-        return "📭 Actualmente no tenemos propiedades en *venta*.\n\nⓂ️ *VOLVER AL MENÚ (Envía 'M')*\n❌ *SALIR (Envía 'S')*"
+        return WhatsAppResponse.buttons(
+            header="📭 SIN PROPIEDADES EN VENTA",
+            body="Actualmente no tenemos propiedades en venta. Probá con otra categoría.",
+            buttons=[
+                {"id": "opcion_2", "title": "Ver Alquileres"},
+                {"id": "m", "title": "Volver al menú"}
+            ]
+        )
     
-    return "💰 *INMUEBLES EN VENTA*\n\n" + generar_listado_propiedades(filtradas)
+    texto = "💰 *INMUEBLES EN VENTA*\n\n" + generar_listado_propiedades(filtradas)
+    return [texto, _nav_listado_buttons()]
 
 
 def procesar_opcion_alquiler(estado_usuario, user_id):
@@ -416,9 +429,17 @@ def procesar_opcion_alquiler(estado_usuario, user_id):
     actualizar_estado_usuario(user_id, estado_usuario)
     
     if not filtradas:
-        return "📭 Actualmente no tenemos propiedades en *alquiler*.\n\nⓂ️ *VOLVER AL MENÚ (Envía 'M')*\n❌ *SALIR (Envía 'S')*"
+        return WhatsAppResponse.buttons(
+            header="📭 SIN PROPIEDADES EN ALQUILER",
+            body="Actualmente no tenemos propiedades en alquiler. Probá con otra categoría.",
+            buttons=[
+                {"id": "opcion_1", "title": "Ver Ventas"},
+                {"id": "m", "title": "Volver al menú"}
+            ]
+        )
     
-    return "🔑 *INMUEBLES EN ALQUILER*\n\n" + generar_listado_propiedades(filtradas)
+    texto = "🔑 *INMUEBLES EN ALQUILER*\n\n" + generar_listado_propiedades(filtradas)
+    return [texto, _nav_listado_buttons()]
 
 
 def procesar_opcion_todas(estado_usuario, user_id):
@@ -430,7 +451,8 @@ def procesar_opcion_todas(estado_usuario, user_id):
         'ultima_accion': 'mostrar_listado'
     })
     actualizar_estado_usuario(user_id, estado_usuario)
-    return "📋 *TODAS LAS PROPIEDADES*\n\n" + generar_listado_propiedades(estado_usuario['propiedades_filtradas'])
+    texto = "📋 *TODAS LAS PROPIEDADES*\n\n" + generar_listado_propiedades(estado_usuario['propiedades_filtradas'])
+    return [texto, _nav_listado_buttons()]
 
 
 def procesar_opcion_mis_citas(user_id):
