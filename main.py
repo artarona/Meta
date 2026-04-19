@@ -1063,7 +1063,13 @@ def webhook():
                                 
                                 if isinstance(response_text, dict):
                                     if response_text.get("type") == "interactive_buttons":
-                                        result = send_whatsapp_interactive_buttons(from_number, response_text["body"], response_text["buttons"])
+                                        result = send_whatsapp_interactive_buttons(
+                                            from_number,
+                                            response_text["body"],
+                                            response_text["buttons"],
+                                            header_text=response_text.get("header"),
+                                            footer_text=response_text.get("footer")
+                                        )
                                     elif response_text.get("type") == "interactive_list":
                                         result = send_whatsapp_list_menu(from_number, response_text["body"], response_text["button_text"], response_text["sections"], footer_text=response_text.get("footer", ""))
                                     else:

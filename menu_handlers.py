@@ -39,11 +39,12 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
         estado_usuario['paso'] = 'submenu_asesor'
         actualizar_estado_usuario(user_id, estado_usuario)
         return WhatsAppResponse.buttons(
-            body="👤 *HABLAR CON UN ASESOR*",
+            body="¿Cómo querés comunicarte con un asesor?",
+            header="👤 HABLAR CON UN ASESOR",
             buttons=[
-                {"id": "1", "title": "Enviar mensaje"},
-                {"id": "2", "title": "Solicitar llamada"},
-                {"id": "9", "title": "Volver al menú"}
+                {"id": "asesor_mensaje", "title": "Enviar mensaje"},
+                {"id": "asesor_llamada", "title": "Solicitar llamada"},
+                {"id": "m", "title": "Volver al menú"}
             ]
         )
 
@@ -124,14 +125,14 @@ def manejar_submenu_visita(text_lower, estado_usuario, user_id):
 
 def manejar_submenu_asesor(text_lower, estado_usuario, user_id):
     """Maneja las opciones del submenú de asesor"""
-    if text_lower == "1":
+    if text_lower in ["1", "asesor_mensaje", "enviar mensaje"]:
         notificar_agente(f"👤 *SOLICITUD DE ASESOR*\n📞 Tel: +{user_id}\n📝 El cliente desea enviar un mensaje.")
         return "✅ *Mensaje enviado!*\n\nUn asesor se pondrá en contacto con vos a la brevedad.\n\nⓂ️ Volver al menú principal\n❌ Salir (Envía 'S')"
-    elif text_lower == "2":
+    elif text_lower in ["2", "asesor_llamada", "solicitar llamada"]:
         notificar_agente(f"📞 *SOLICITUD DE LLAMADA*\n📞 Tel: +{user_id}\n📝 El cliente solicita ser llamado.")
         return f"✅ *Solicitud registrada!*\n\nTe llamaremos en el horario más conveniente.\n\n📱 *O si preferís hablar ahora mismo, escribime acá:* \nhttps://wa.me/{AGENT_NUMBER.lstrip('+')}\n\nⓂ️ Volver al menú principal\n❌ Salir (Envía 'S')"
     else:
-        return """No pude identificar esa opción. Por favor elegí un número del menú.
+        return """No pude identificar esa opción.
 
 Ⓜ️ *Envía 'M' para volver al menú principal*
 ❌ *Envía 'S' para salir del chat*"""
