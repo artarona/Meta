@@ -1979,9 +1979,9 @@ def procesar_opcion_mis_citas(user_id):
         fecha_obj = datetime.strptime(cita['fecha'], "%Y-%m-%d")
         fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
         
-        propiedad_id = propiedad.get('titulo', 'N/A')
+        titulo = propiedad.get('titulo', 'N/A')
         
-        mensaje += f"{i}. *{cita['propiedad_id']}*\n"
+        mensaje += f"{i}. *{titulo}*\n"
         mensaje += f"   📅 {fecha_formateada} - ⏰ {cita['hora']}\n"
         mensaje += f"   📍 Estado: {cita['estado'].upper()}\n"
         
