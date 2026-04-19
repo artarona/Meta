@@ -1048,20 +1048,8 @@ def get_bot_response(text, user_id):
         # 1. COMANDOS UNIVERSALES (siempre disponibles)
         # ============================================================
         
-        # Comandos para volver al menú principal
-        if text_lower in ["9", "menu", "principal", "inicio", "m", "volver", "atras"]:
-            estado_usuario.update({
-                'paso': 'menu_principal',
-                'operacion_seleccionada': None,
-                'propiedades_filtradas': [],
-                'ultimo_indice_preguntado': None,
-                'timestamp': datetime.now().isoformat()
-            })
-            actualizar_estado_usuario(user_id, estado_usuario)
-            return "WELCOME_FLOW_TRIGGER"
-        
         # Comandos para salir
-        if text_lower in ["0", "salir", "exit", "s"]:
+        if text_lower in ["0", "salir", "exit", "s", "chau", "adios"]:
             estado_usuario.update({
                 'paso': 'menu_principal',
                 'operacion_seleccionada': None,
@@ -1069,18 +1057,6 @@ def get_bot_response(text, user_id):
             })
             actualizar_estado_usuario(user_id, estado_usuario)
             return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
-
-        # Comandos de saludo/bienvenida
-        if text_lower in ["hola", "hi", "hello", "buenas", "buen dia", "buenas tardes"]:
-            estado_usuario.update({
-                'paso': 'menu_principal',
-                'operacion_seleccionada': None,
-                'propiedades_filtradas': [],
-                'ultimo_indice_preguntado': None,
-                'timestamp': datetime.now().isoformat()
-            })
-            actualizar_estado_usuario(user_id, estado_usuario)
-            return "WELCOME_FLOW_TRIGGER"
         
         # ============================================================
         # 2. ACCIONES ESPECIALES (disponibles en detalle de propiedad)
@@ -1195,47 +1171,24 @@ def get_bot_response(text, user_id):
             return "📸 Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
         
         # ============================================================
-        # 4. BUSCADOR POR TEXTO (desde menú principal)
-        # ============================================================
-        if paso == 'menu_principal' and len(text_lower) > 2 and not text_lower.isdigit():
-            # Detectar si es una fecha (contexto perdido)
-            fecha_detectada = analizar_fecha(text_lower)
-            if fecha_detectada and len(text_lower.split()) <= 3:
-                return """⚠️ *Sesión expirada o contexto perdido*
-                
-Parece que querías agendar una fecha, pero no tengo seleccionada ninguna propiedad en este momento.
-
-Por favor:
-1️⃣ Envía 'Hola' para ver el menú
-2️⃣ Busca la propiedad nuevamente
-3️⃣ Selecciona 'Agendar Cita'
-
-0️⃣ *❌ SALIR*"""
-
-            # Búsqueda por palabras clave
-            if text_lower.startswith("buscar "):
-                termino = text_lower.replace("buscar ", "").strip()
-            else:
-                termino = text_lower
-            return manejar_busqueda_keywords(termino, estado_usuario, user_id)
-
-        # ============================================================
-        # 5. MENÚ PRINCIPAL - LÓGICA OPTIMIZADA
+        # 4. MENÚ PRINCIPAL - 🎯 CUALQUIER TECLA MUESTRA EL MENÚ
         # ============================================================
         if paso == 'menu_principal':
-            # Números válidos del menú principal (1-10, 0, M, S ya capturados)
+            # Opciones válidas del menú numérico
             opciones_validas = ["1", "2", "3", "4", "5", "6", "7", "10"]
             
             if text_lower in opciones_validas:
+                # Es un número válido, procesar la opción
                 return manejar_menu_principal(text_lower, estado_usuario, user_id)
             else:
-                # 🎯 MEJORA CLAVE: Cualquier texto no reconocido en menú principal
-                # muestra el menú interactivo en lugar de un mensaje de error
+                # 🎯 CLAVE: CUALQUIER OTRA TECLA (texto, números inválidos, etc.)
+                # muestra el MENÚ INTERACTIVO directamente
                 log(f"📱 Usuario {user_id} escribió '{text}' - Mostrando menú interactivo")
-                return "WELCOME_FLOW_TRIGGER"
+                # Enviamos un marcador especial que el webhook interpretará como "enviar menú"
+                return "SEND_WELCOME_FLOW"
         
         # ============================================================
-        # 6. RESPUESTA POR DEFECTO (fallback seguro)
+        # 5. RESPUESTA POR DEFECTO (fallback seguro)
         # ============================================================
         # Si llegamos aquí, el usuario está en un estado desconocido
         # Reseteamos a menú principal para evitar quedar atrapado
@@ -1247,15 +1200,13 @@ Por favor:
             'ultimo_indice_preguntado': None
         })
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "WELCOME_FLOW_TRIGGER"
+        return "SEND_WELCOME_FLOW"
 
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
         log(f"🔥 ERROR EN get_bot_response: {e}\n{error_trace}")
         return "❌ *Lo siento, ocurrió un error interno.*\n\nPor favor, intenta de nuevo enviando 'Hola' o contacta al administrador."
-
-
 
 
 # ========== MANEJADORES DE ESTADO ==========
@@ -3307,11 +3258,18 @@ def webhook():
                                 
                                 log(f"👤 Usuario: {from_number}, Input Procesado: {message_text}")
                                 
+
                                 response_text = get_bot_response(message_text, from_number)
-                                
-                                if response_text == "WELCOME_FLOW_TRIGGER":
-                                    log("🎯 Enviando flujo de bienvenida interactivo")
+
+                                # 🎯 NUEVO: Manejar el marcador SEND_WELCOME_FLOW
+                                if response_text == "SEND_WELCOME_FLOW":
+                                    log("🎯 Enviando menú interactivo de bienvenida")
                                     result = send_welcome_flow(from_number)
+                                    
+                                elif response_text == "WELCOME_FLOW_TRIGGER":
+                                    log("🎯 Enviando flujo de bienvenida (legacy)")
+                                    result = send_welcome_flow(from_number)
+                                    
                                 elif response_text and response_text.startswith("OFFER_MEETING_TRIGGER|"):
                                     prop_titulo = response_text.split("|")[1]
                                     text_body = f"✅ *¡Perfecto!*\n\nHemos registrado tu interés en:\n🏠 *{prop_titulo}*\n\n📅 *¿Te gustaría agendar una cita para visitar la propiedad?*"
@@ -3321,6 +3279,7 @@ def webhook():
                                         {"id": "ofertar", "title": "💰 Quiero ofertar"}
                                     ]
                                     result = send_whatsapp_interactive_buttons(from_number, text_body, botones)
+                                    
                                 elif response_text and response_text.startswith("CONFIRM_MEETING_TRIGGER|"):
                                     partes = response_text.split("|")
                                     fecha_display = partes[1]
@@ -3334,6 +3293,7 @@ def webhook():
                                         {"id": "cancelar", "title": "❌ Cancelar"}
                                     ]
                                     result = send_whatsapp_interactive_buttons(from_number, text_body, botones)
+                                    
                                 elif response_text and response_text.startswith("PHOTOS_TRIGGER|"):
                                     prop_id = response_text.split("|")[1]
                                     base_url = request.host_url.rstrip('/')
@@ -3346,6 +3306,7 @@ def webhook():
                                     
                                     confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'Hola' para volver al menú."
                                     result = send_whatsapp_message(from_number, confirmacion)
+                                    
                                 elif response_text:
                                     result = send_whatsapp_message(from_number, response_text)
                                 else:
