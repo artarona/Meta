@@ -373,8 +373,8 @@ def _nav_listado_buttons():
     return WhatsAppResponse.buttons(
         # header="📍 NAVEGAR",
         # body="¿Qué querés hacer?",
-        header="Siguientes",
-        body="Pasos",
+        header="Selecciona la propiedad",
+        body="o",
         buttons=[
             {"id": "m", "title": "Volver al menú"},
             {"id": "s", "title": "Salir"}
