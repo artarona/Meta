@@ -1044,8 +1044,12 @@ def get_bot_response(text, user_id):
         estado_usuario = obtener_estado_usuario(user_id)
         log(f"👤 Usuario {user_id}: {estado_usuario['paso']}")
         
-        # 1. COMANDOS UNIVERSALES
-        if text_lower in ["9", "menu", "principal", "inicio"]:
+        # ============================================================
+        # 1. COMANDOS UNIVERSALES (siempre disponibles)
+        # ============================================================
+        
+        # Comandos para volver al menú principal
+        if text_lower in ["9", "menu", "principal", "inicio", "m", "volver", "atras"]:
             estado_usuario.update({
                 'paso': 'menu_principal',
                 'operacion_seleccionada': None,
@@ -1056,7 +1060,8 @@ def get_bot_response(text, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             return "WELCOME_FLOW_TRIGGER"
         
-        if text_lower in ["0", "salir", "exit"]:
+        # Comandos para salir
+        if text_lower in ["0", "salir", "exit", "s"]:
             estado_usuario.update({
                 'paso': 'menu_principal',
                 'operacion_seleccionada': None,
@@ -1065,8 +1070,8 @@ def get_bot_response(text, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
 
-        # Comandos de compatibilidad
-        if text_lower in ["hola", "hi", "hello", "volver", "atras"]:
+        # Comandos de saludo/bienvenida
+        if text_lower in ["hola", "hi", "hello", "buenas", "buen dia", "buenas tardes"]:
             estado_usuario.update({
                 'paso': 'menu_principal',
                 'operacion_seleccionada': None,
@@ -1077,8 +1082,12 @@ def get_bot_response(text, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             return "WELCOME_FLOW_TRIGGER"
         
-        # 2. ACCIONES ESPECIALES
-        if text_lower == "8":
+        # ============================================================
+        # 2. ACCIONES ESPECIALES (disponibles en detalle de propiedad)
+        # ============================================================
+        
+        # "Me interesa" - Solo si hay una propiedad seleccionada
+        if text_lower in ["8", "i", "interesa", "me interesa"]:
             indice = estado_usuario.get('ultimo_indice_preguntado')
             propiedades = estado_usuario.get('propiedades_filtradas', [])
             
@@ -1088,28 +1097,28 @@ def get_bot_response(text, user_id):
                 estado_usuario['paso'] = 'esperando_nombre_lead'
                 actualizar_estado_usuario(user_id, estado_usuario)
                 
-                # REGISTRAR LEAD INMEDIATAMENTE - FIX PostgreSQL
                 try:
                     registrar_lead(user_id, propiedad.get('id_temporal'), 'click_me_interesa', f"Interés expresado en Propiedad: {propiedad.get('titulo')}")
-                    # NOTIFICACIÓN INMEDIATA AL AGENTE
                     notificar_agente(f"👀 *INTERÉS INICIAL*\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad.get('titulo')}\n_(Esperando que el usuario ingrese su nombre...)_")
                 except Exception as e:
                     log(f"⚠️ Error registrando lead inicial: {e}")
                     
                 return f"✅ ¡Genial! Me interesa la propiedad: *{propiedad.get('titulo')}*.\n\nPor favor, decime tu *Nombre y Apellido* para que un asesor te contacte."
             else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado."
+                return "⚠️ Por favor, primero selecciona una propiedad del listado.\n\nEnvía 'Hola' para ver el menú."
 
-        if text_lower == "f":
+        # Ver fotos
+        if text_lower in ["f", "fotos"]:
             indice = estado_usuario.get('ultimo_indice_preguntado')
             propiedades = estado_usuario.get('propiedades_filtradas', [])
             if indice and 1 <= indice <= len(propiedades):
                 propiedad = propiedades[indice - 1]
                 return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
             else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
+                return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos.\n\nEnvía 'Hola' para ver el menú."
         
-        if text_lower == "p":
+        # Descargar PDF
+        if text_lower in ["p", "pdf"]:
             indice = estado_usuario.get('ultimo_indice_preguntado')
             propiedades = estado_usuario.get('propiedades_filtradas', [])
             if indice and 1 <= indice <= len(propiedades):
@@ -1117,113 +1126,137 @@ def get_bot_response(text, user_id):
                 prop_id = propiedad.get('id_temporal')
                 return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
             else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado para obtener el PDF."
+                return "⚠️ Por favor, primero selecciona una propiedad del listado para obtener el PDF.\n\nEnvía 'Hola' para ver el menú."
         
-        # 3. LÓGICA POR ESTADO
+        # ============================================================
+        # 3. LÓGICA POR ESTADO DEL USUARIO
+        # ============================================================
+        
         paso = estado_usuario['paso']
         
+        # Submenús
         if paso == 'submenu_consultar':
             return manejar_submenu_consultar(text_lower, estado_usuario, user_id)
-            
         elif paso == 'submenu_visita':
             return manejar_submenu_visita(text_lower, estado_usuario, user_id)
-            
         elif paso == 'submenu_asesor':
             return manejar_submenu_asesor(text_lower, estado_usuario, user_id)
-
+        
+        # Filtros de propiedades
         elif paso == 'filtro_tipo':
             return manejar_filtro_tipo(text_lower, estado_usuario, user_id)
-            
         elif paso == 'filtro_ambientes':
             return manejar_filtro_ambientes(text_lower, estado_usuario, user_id)
-
+        
+        # Listado y detalle de propiedades
         elif paso == 'listado_propiedades':
             return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
-        
         elif paso == 'detalle_propiedad':
             return manejar_detalle_propiedad(text_lower, estado_usuario, user_id)
         
+        # Flujo de leads y citas
         elif paso == 'esperando_nombre_lead':
             return manejar_nombre_lead(text, estado_usuario, user_id)
-        
         elif paso == 'ofrecer_cita':
             return manejar_ofrecer_cita(text_lower, estado_usuario, user_id)
-        
         elif paso == 'solicitar_fecha_cita':
             return manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id)
-        
         elif paso == 'seleccionar_hora_cita':
             return manejar_seleccionar_hora_cita(text, estado_usuario, user_id)
-            
         elif paso == 'confirmar_cita':
             return manejar_confirmar_cita(text_lower, estado_usuario, user_id)
-        
         elif paso == 'esperando_email_cita':
             return manejar_email_cita(text, estado_usuario, user_id)
         
+        # Feedback y recordatorios
         elif paso == 'esperando_feedback':
             return manejar_respuesta_feedback(text, estado_usuario, user_id)
-        
         elif paso == 'esperando_confirmacion_recordatorio':
             return manejar_confirmacion_recordatorio(text, estado_usuario, user_id)
         
+        # Tasación virtual
         elif paso == 'tasacion_operacion':
             return manejar_tasacion_operacion(text_lower, estado_usuario, user_id)
-        
         elif paso == 'tasacion_barrio':
             return manejar_tasacion_barrio(text, estado_usuario, user_id)
-            
         elif paso == 'tasacion_tipo':
             return manejar_tasacion_tipo(text_lower, estado_usuario, user_id)
-            
         elif paso == 'tasacion_m2':
             return manejar_tasacion_m2(text, estado_usuario, user_id)
-            
         elif paso == 'tasacion_ambientes':
             return manejar_tasacion_ambientes(text, estado_usuario, user_id)
-            
         elif paso == 'tasacion_estado':
             return manejar_tasacion_estado(text_lower, estado_usuario, user_id)
-            
         elif paso == 'tasacion_esperando_contacto':
             return manejar_tasacion_contacto(text_lower, estado_usuario, user_id)
         
+        # Estado especial
         elif paso == 'vista_fotos':
-            return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
-
-        # 4. BUSCADOR POR TEXTO (Nuevo) - SOLAMENTE SI NO HAY ESTADO ACTIVO PRIORITARIO
-        # Y si el paso es menu_principal o resultado_busqueda
-        if text_lower.startswith("buscar ") or (len(text_lower) > 3 and paso == 'menu_principal' and not text_lower.isdigit()):
-            # DETECTAR SI ES UNA FECHA PERO SE PERDIÓ EL CONTEXTO
+            return "📸 Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
+        
+        # ============================================================
+        # 4. BUSCADOR POR TEXTO (desde menú principal)
+        # ============================================================
+        if paso == 'menu_principal' and len(text_lower) > 2 and not text_lower.isdigit():
+            # Detectar si es una fecha (contexto perdido)
             fecha_detectada = analizar_fecha(text_lower)
-            if fecha_detectada and len(text_lower.split()) <= 3: # Si es una fecha corta
+            if fecha_detectada and len(text_lower.split()) <= 3:
                 return """⚠️ *Sesión expirada o contexto perdido*
                 
 Parece que querías agendar una fecha, pero no tengo seleccionada ninguna propiedad en este momento.
 
 Por favor:
-1. Envía 'Hola' para ver el menú
-2. Busca la propiedad nuevamente
-3. Selecciona 'Agendar Cita'"""
+1️⃣ Envía 'Hola' para ver el menú
+2️⃣ Busca la propiedad nuevamente
+3️⃣ Selecciona 'Agendar Cita'
 
-            termino = text_lower.replace("buscar ", "").strip()
+0️⃣ *❌ SALIR*"""
+
+            # Búsqueda por palabras clave
+            if text_lower.startswith("buscar "):
+                termino = text_lower.replace("buscar ", "").strip()
+            else:
+                termino = text_lower
             return manejar_busqueda_keywords(termino, estado_usuario, user_id)
 
-        # 5. OPCIONES DEL MENÚ PRINCIPAL
+        # ============================================================
+        # 5. MENÚ PRINCIPAL - LÓGICA OPTIMIZADA
+        # ============================================================
         if paso == 'menu_principal':
-            return manejar_menu_principal(text_lower, estado_usuario, user_id)
+            # Números válidos del menú principal (1-10, 0, M, S ya capturados)
+            opciones_validas = ["1", "2", "3", "4", "5", "6", "7", "10"]
+            
+            if text_lower in opciones_validas:
+                return manejar_menu_principal(text_lower, estado_usuario, user_id)
+            else:
+                # 🎯 MEJORA CLAVE: Cualquier texto no reconocido en menú principal
+                # muestra el menú interactivo en lugar de un mensaje de error
+                log(f"📱 Usuario {user_id} escribió '{text}' - Mostrando menú interactivo")
+                return "WELCOME_FLOW_TRIGGER"
         
-        # Respuesta por defecto
-        return """No pude identificar esa opción. Por favor elegí un número del menú.
-
-9️⃣ *Volver al menú principal*
-0️⃣ *Salir del chat*"""
+        # ============================================================
+        # 6. RESPUESTA POR DEFECTO (fallback seguro)
+        # ============================================================
+        # Si llegamos aquí, el usuario está en un estado desconocido
+        # Reseteamos a menú principal para evitar quedar atrapado
+        log(f"⚠️ Estado desconocido '{paso}' para usuario {user_id}, reseteando a menú principal")
+        estado_usuario.update({
+            'paso': 'menu_principal',
+            'operacion_seleccionada': None,
+            'propiedades_filtradas': [],
+            'ultimo_indice_preguntado': None
+        })
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "WELCOME_FLOW_TRIGGER"
 
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
         log(f"🔥 ERROR EN get_bot_response: {e}\n{error_trace}")
         return "❌ *Lo siento, ocurrió un error interno.*\n\nPor favor, intenta de nuevo enviando 'Hola' o contacta al administrador."
+
+
+
 
 # ========== MANEJADORES DE ESTADO ==========
 def manejar_menu_principal(text_lower, estado_usuario, user_id):
