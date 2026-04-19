@@ -371,8 +371,8 @@ def restaurar_listado_si_es_necesario(estado_usuario):
 def _nav_listado_buttons():
     """Botones de navegación estándares para el listado de propiedades (Opción A)."""
     return WhatsAppResponse.buttons(
-        # header="📍 NAVEGAR",
-        # body="¿Qué querés hacer?",
+        header="📍 NAVEGAR",
+        body="¿Qué querés hacer?",
         buttons=[
             {"id": "m", "title": "Volver al menú"},
             {"id": "s", "title": "Salir"}
