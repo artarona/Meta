@@ -374,7 +374,7 @@ def _nav_listado_buttons():
         # header="📍 NAVEGAR",
         # body="¿Qué querés hacer?",
         header="📍Selecciona la propiedad",
-        body="o ...👇",
+        body="o selecciona 👇",
         buttons=[
             {"id": "m", "title": "Volver al menú"},
             {"id": "s", "title": "Salir"}
@@ -492,7 +492,9 @@ def procesar_opcion_mis_citas(user_id):
         except (ValueError, TypeError):
             fecha_formateada = cita.get('fecha', 'Sin fecha')
         
-        mensaje += f"{i}. *{cita.get('propiedad_id', 'Propiedad')}*\n"
+        titulo = propiedad.get('titulo', 'N/A')       
+        mensaje += f"{i}. *{titulo}*\n"
+        # mensaje += f"{i}. *{cita.get('propiedad_id', 'Propiedad')}*\n"
         mensaje += f"   📅 {fecha_formateada} - ⏰ {cita.get('hora', 'Sin hora')}\n"
         mensaje += f"   📍 Estado: {cita.get('estado', 'Pendiente').upper()}\n"
         
