@@ -1056,69 +1056,80 @@ def webhook():
                                 print(f"👤 Usuario: {from_number}, Input Procesado: '{message_text}'")
                                 log(f"👤 Usuario: {from_number}, Input Procesado: {message_text}")
                                 
-                                # Llamar a get_bot_response
-                                print(f"🤖 Llamando a get_bot_response con input: '{message_text}'")
-                                response_text = get_bot_response(message_text, from_number)
-                                print(f"🤖 Respuesta del bot: {str(response_text)[:100]}..." if response_text else "🤖 Respuesta vacía")
-                                
-                                if isinstance(response_text, dict):
-                                    if response_text.get("type") == "interactive_buttons":
-                                        result = send_whatsapp_interactive_buttons(
-                                            from_number,
-                                            response_text["body"],
-                                            response_text["buttons"],
-                                            header_text=response_text.get("header"),
-                                            footer_text=response_text.get("footer")
-                                        )
-                                    elif response_text.get("type") == "interactive_list":
-                                        result = send_whatsapp_list_menu(from_number, response_text["body"], response_text["button_text"], response_text["sections"], footer_text=response_text.get("footer", ""))
-                                    else:
-                                        result = send_whatsapp_message(from_number, str(response_text))
-                                elif response_text == "WELCOME_FLOW_TRIGGER":
-                                    log("🎯 Enviando flujo de bienvenida interactivo")
-                                    print("🎯 Enviando flujo de bienvenida interactivo")
-                                    result = send_welcome_flow(from_number)
-                                elif response_text and response_text.startswith("OFFER_MEETING_TRIGGER|"):
-                                    prop_titulo = response_text.split("|")[1]
-                                    text_body = f"✅ *¡Perfecto!*\n\nHemos registrado tu interés en:\n🏠 *{prop_titulo}*\n\n📅 *¿Te gustaría agendar una cita para visitar la propiedad?*"
-                                    botones = [
-                                        {"id": "agendar", "title": "📅 SÍ, AGENDAR CITA"},
-                                        {"id": "solo info", "title": "📋 Solo información"},
-                                        {"id": "ofertar", "title": "💰 Quiero ofertar"}
-                                    ]
-                                    result = send_whatsapp_interactive_buttons(from_number, text_body, botones)
-                                elif response_text and response_text.startswith("CONFIRM_MEETING_TRIGGER|"):
-                                    partes = response_text.split("|")
-                                    fecha_display = partes[1]
-                                    hora = partes[2]
-                                    email = partes[3]
+                                # ── Despacho de respuesta ──────────────────────────────
+                                # Soporta: str, dict (interactive), list[str|dict] (Opción A: 2 mensajes)
+                                def dispatch_single_response(resp, base_url_for_photos=None):
+                                    """Envía una única respuesta al usuario (texto, botones, lista o trigger)."""
+                                    if isinstance(resp, dict):
+                                        if resp.get("type") == "interactive_buttons":
+                                            return send_whatsapp_interactive_buttons(
+                                                from_number,
+                                                resp["body"],
+                                                resp["buttons"],
+                                                header_text=resp.get("header"),
+                                                footer_text=resp.get("footer")
+                                            )
+                                        elif resp.get("type") == "interactive_list":
+                                            return send_whatsapp_list_menu(
+                                                from_number, resp["body"], resp["button_text"],
+                                                resp["sections"], footer_text=resp.get("footer", "")
+                                            )
+                                        else:
+                                            return send_whatsapp_message(from_number, str(resp))
                                     
-                                    text_body = f"📅 *RESUMEN DE TU VISITA*\n\n📅 Fecha: *{fecha_display}*\n⏰ Hora: *{hora} hs*\n📧 Email: *{email}*\n\n¿Confirmas la cita?"
-                                    botones = [
-                                        {"id": "confirmar", "title": "✅ Confirmar cita"},
-                                        {"id": "cambiar", "title": "🔄 Cambiar hora"},
-                                        {"id": "cancelar", "title": "❌ Cancelar"}
-                                    ]
-                                    result = send_whatsapp_interactive_buttons(from_number, text_body, botones)
-                                elif response_text and response_text.startswith("PHOTOS_TRIGGER|"):
-                                    prop_id = response_text.split("|")[1]
-                                    base_url = request.host_url.rstrip('/')
-                                    if "onrender.com" in base_url and not base_url.startswith("https"):
-                                        base_url = base_url.replace("http://", "https://")
+                                    elif resp == "WELCOME_FLOW_TRIGGER":
+                                        log("🎯 Enviando flujo de bienvenida interactivo")
+                                        return send_welcome_flow(from_number)
                                     
-                                    log(f"🚀 Iniciando hilo de fotos para propiedad {prop_id}")
-                                    print(f"🚀 Iniciando hilo de fotos para propiedad {prop_id}")
-                                    thread = threading.Thread(target=send_photos_async, args=(from_number, prop_id, base_url))
-                                    thread.start()
+                                    elif resp and resp.startswith("OFFER_MEETING_TRIGGER|"):
+                                        prop_titulo = resp.split("|")[1]
+                                        text_body = f"✅ *¡Perfecto!*\n\nHemos registrado tu interés en:\n🏠 *{prop_titulo}*\n\n📅 *¿Te gustaría agendar una cita para visitar la propiedad?*"
+                                        botones = [
+                                            {"id": "agendar", "title": "📅 SÍ, AGENDAR CITA"},
+                                            {"id": "solo info", "title": "📋 Solo información"},
+                                            {"id": "ofertar", "title": "💰 Quiero ofertar"}
+                                        ]
+                                        return send_whatsapp_interactive_buttons(from_number, text_body, botones)
                                     
-                                    confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'M' para volver al menú."
-                                    result = send_whatsapp_message(from_number, confirmacion)
-                                elif response_text:
-                                    print(f"📤 Enviando mensaje: {str(response_text)[:100]}...")
-                                    result = send_whatsapp_message(from_number, response_text)
+                                    elif resp and resp.startswith("CONFIRM_MEETING_TRIGGER|"):
+                                        partes = resp.split("|")
+                                        fecha_display = partes[1]
+                                        hora = partes[2]
+                                        email = partes[3]
+                                        text_body = f"📅 *RESUMEN DE TU VISITA*\n\n📅 Fecha: *{fecha_display}*\n⏰ Hora: *{hora} hs*\n📧 Email: *{email}*\n\n¿Confirmas la cita?"
+                                        botones = [
+                                            {"id": "confirmar", "title": "✅ Confirmar cita"},
+                                            {"id": "cambiar", "title": "🔄 Cambiar hora"},
+                                            {"id": "cancelar", "title": "❌ Cancelar"}
+                                        ]
+                                        return send_whatsapp_interactive_buttons(from_number, text_body, botones)
+                                    
+                                    elif resp and resp.startswith("PHOTOS_TRIGGER|"):
+                                        prop_id = resp.split("|")[1]
+                                        b_url = base_url_for_photos or request.host_url.rstrip('/')
+                                        if "onrender.com" in b_url and not b_url.startswith("https"):
+                                            b_url = b_url.replace("http://", "https://")
+                                        log(f"🚀 Iniciando hilo de fotos para propiedad {prop_id}")
+                                        thread = threading.Thread(target=send_photos_async, args=(from_number, prop_id, b_url))
+                                        thread.start()
+                                        return send_whatsapp_message(from_number, "📸 *Enviando fotos...* Esto puede tardar unos segundos.")
+                                    
+                                    elif resp:
+                                        return send_whatsapp_message(from_number, resp)
+                                    
+                                    return {"status": "skipped", "reason": "empty_response"}
+
+                                # ── Ejecutar dispatch ────────────────────────────────
+                                base_url = request.host_url.rstrip('/')
+                                if isinstance(response_text, list):
+                                    # Opción A: múltiples mensajes (ej: texto largo + botones)
+                                    result = {"status": "skipped"}
+                                    for single in response_text:
+                                        result = dispatch_single_response(single, base_url)
+                                        print(f"📊 Enviado sub-mensaje: {result.get('status')}")
                                 else:
-                                    print("⚠️ response_text vacío, omitiendo envío")
-                                    result = {"status": "skipped", "reason": "empty_response"}
+                                    result = dispatch_single_response(response_text, base_url)
+
                                 
                                 print(f"📊 Resultado envío: {result.get('status')}")
                                 log(f"📊 Resultado: {result.get('status')}")

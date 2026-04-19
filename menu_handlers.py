@@ -28,7 +28,14 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
         
     elif text_lower == "3":
         # Visitar sitio web
-        return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'M' para volver al menú.\n❌ *Envía 'S' para SALIR*"
+        return WhatsAppResponse.buttons(
+            header="🌐 SITIO WEB OFICIAL",
+            body="👉 https://www.dantepropiedades.com.ar\n\nVisitá nuestro sitio para ver todas las propiedades y novedades.",
+            buttons=[
+                {"id": "m", "title": "Volver al menú"},
+                {"id": "s", "title": "Salir"}
+            ]
+        )
 
     elif text_lower == "4":
         # Ver mis citas
@@ -159,36 +166,38 @@ def manejar_submenu_asesor(text_lower, estado_usuario, user_id):
 
 def manejar_submenu_faqs(text_lower, estado_usuario, user_id):
     """Maneja las opciones del submenú de FAQs"""
-    if text_lower == "req_alquiler":
-        return """*REQUISITOS PARA ALQUILAR:*
 
-• Mes de adelanto
-• Mes de depósito (en USD)
-• Garantía propietaria (CABA/GBA) o Seguro de Caución (Finaer)
-• Demostración de ingresos (últimos 3 recibos)
+    BTNS_FAQS = [
+        {"id": "faqs", "title": "Ver más FAQs"},
+        {"id": "m", "title": "Volver al menú"},
+        {"id": "s", "title": "Salir"}
+    ]
 
-Ⓜ️ *Envía 'M' para volver a FAQs*
-❌ *Envía 'S' para salir*"""
+    if text_lower in ["req_alquiler", "faqs"]:
+        return WhatsAppResponse.buttons(
+            header="📋 REQUISITOS ALQUILER",
+            body="• Mes de adelanto\n• Mes de depósito (en USD)\n• Garantía propietaria (CABA/GBA) o Seguro de Caución (Finaer)\n• Demostración de ingresos (últimos 3 recibos)",
+            buttons=BTNS_FAQS
+        )
     elif text_lower == "mascotas":
-        return """*¿ACEPTAN MASCOTAS?*
-
-Depende estrictamente de la propiedad y el consorcio. Consultalo en el detalle de cada departamento.
-
-Ⓜ️ *Envía 'M' para volver a FAQs*
-❌ *Envía 'S' para salir*"""
+        return WhatsAppResponse.buttons(
+            header="🐾 ¿ACEPTAN MASCOTAS?",
+            body="Depende estrictamente de la propiedad y el consorcio. Consultalo en el detalle de cada departamento.",
+            buttons=BTNS_FAQS
+        )
     elif text_lower == "permutas":
-        return """*¿TOMAN PROPIEDADES EN PARTE DE PAGO?*
-
-Sí, evaluamos permutas caso por caso. Escribinos para tasación.
-
-Ⓜ️ *Envía 'M' para volver a FAQs*
-❌ *Envía 'S' para salir*"""
+        return WhatsAppResponse.buttons(
+            header="🔄 ¿PERMUTAS / PARTE DE PAGO?",
+            body="Sí, evaluamos permutas caso por caso. Escribinos para tasación.",
+            buttons=BTNS_FAQS
+        )
     elif text_lower == "m":
         # Volver a FAQs
         estado_usuario['paso'] = 'submenu_faqs'
         actualizar_estado_usuario(user_id, estado_usuario)
         return WhatsAppResponse.buttons(
-            body="❓ *REQUISITOS Y PREGUNTAS FRECUENTES*\n\nElige una opción, o enviá 'M' para Menú / 'S' para Salir:",
+            header="❓ REQUISITOS Y PREGUNTAS FRECUENTES",
+            body="Elegí el tema sobre el que querés informarte:",
             buttons=[
                 {"id": "req_alquiler", "title": "Requisitos Alquiler"},
                 {"id": "mascotas", "title": "¿Aceptan Mascotas?"},
@@ -196,13 +205,17 @@ Sí, evaluamos permutas caso por caso. Escribinos para tasación.
             ]
         )
     elif text_lower == "s":
-        # Salir
         return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
     else:
-        return """No pude identificar esa opción.
-
-Ⓜ️ *Envía 'M' para volver a FAQs*
-❌ *Envía 'S' para salir*"""
+        return WhatsAppResponse.buttons(
+            header="❓ PREGUNTAS FRECUENTES",
+            body="No pude identificar esa opción. ¿Sobre qué querés consultar?",
+            buttons=[
+                {"id": "req_alquiler", "title": "Requisitos Alquiler"},
+                {"id": "mascotas", "title": "¿Aceptan Mascotas?"},
+                {"id": "permutas", "title": "¿Permutas?"}
+            ]
+        )
 
 
 def manejar_filtro_tipo(text_lower, estado_usuario, user_id):
@@ -437,7 +450,14 @@ def procesar_opcion_mis_citas(user_id):
             ]
     
     if not citas_usuario:
-        return "📅 *No tienes citas agendadas*\n\nPara agendar una cita, primero selecciona una propiedad y haz clic en 'Me interesa' (letra I).\n\nⓂ️ *VOLVER AL MENÚ (Envía 'M')* 🏠\n❌ *SALIR (Envía 'S')*"
+        return WhatsAppResponse.buttons(
+            header="📅 SIN CITAS AGENDADAS",
+            body="Para agendar una cita, seleccioná una propiedad del catálogo y presã *'Me interesa'* (letra I).",
+            buttons=[
+                {"id": "opcion_7", "title": "Ver propiedades"},
+                {"id": "m", "title": "Volver al menú"}
+            ]
+        )
     
     mensaje = f"📅 *TUS CITAS AGENDADAS*\n\nTienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
     
@@ -457,10 +477,17 @@ def procesar_opcion_mis_citas(user_id):
         
         mensaje += "   ───────────────\n"
     
-    mensaje += f"\nPara consultar o modificar una cita, contacta al administrador.\n\n"
-    mensaje += f"Envía 'M' para volver al menú.\n❌ *Envía 'S' para SALIR*"
-    
-    return mensaje
+    # Opción A: enviar texto rico + botones como 2 mensajes
+    nav_buttons = WhatsAppResponse.buttons(
+        header="📅 TUS CITAS",
+        body="Para consultar o modificar una cita, contactá al administrador.",
+        buttons=[
+            {"id": "opcion_4", "title": "Ver mis citas"},
+            {"id": "m", "title": "Volver al menú"},
+            {"id": "s", "title": "Salir"}
+        ]
+    )
+    return [mensaje, nav_buttons]
 
 
 def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
@@ -540,7 +567,14 @@ def manejar_nombre_lead(text, estado_usuario, user_id):
     nombre_cliente = text.strip()
     
     if len(nombre_cliente) < 2:
-        return "❌ Por favor, ingresa tu nombre completo (mínimo 2 caracteres).\n\nⓂ️ *Volver al menú principal (Envía 'M')*\n❌ *Salir (Envía 'S')*"
+        return WhatsAppResponse.buttons(
+            header="❌ ERROR EN EL NOMBRE",
+            body="Por favor, ingresá tu nombre completo (mínimo 2 caracteres).",
+            buttons=[
+                {"id": "m", "title": "Volver al menú"},
+                {"id": "s", "title": "Salir"}
+            ]
+        )
     
     estado_usuario['nombre_cliente'] = nombre_cliente
     
@@ -569,7 +603,14 @@ def manejar_nombre_lead(text, estado_usuario, user_id):
     else:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "❌ Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad.\n\nⓂ️ Volver al menú principal (Envía 'M')\n❌ *Salir (Envía 'S')*"
+        return WhatsAppResponse.buttons(
+            header="❌ ERROR AL PROCESAR",
+            body="Hubo un error al procesar tu interés. Por favor, volvé a buscar la propiedad.",
+            buttons=[
+                {"id": "opcion_7", "title": "Ver propiedades"},
+                {"id": "m", "title": "Volver al menú"}
+            ]
+        )
 
 
 
@@ -607,7 +648,14 @@ def manejar_respuesta_feedback(text, estado_usuario, user_id):
     })
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    return f"¡Muchas gracias por tu respuesta, *{nombre}*! 🙌 Ya le pasé tus comentarios al asesor responsable. Se va a estar contactando con vos a la brevedad. 😊\n\n¿En qué más te puedo ayudar?\n\n1️⃣ Ver más propiedades\nⓂ️ Volver al menú principal (Envía 'M')"
+    return WhatsAppResponse.buttons(
+        header="🙌 GRACIAS POR TU RESPUESTA",
+        body=f"¡Muchas gracias *{nombre}*! Ya le pasé tus comentarios al asesor responsable. Se va a estar contactando con vos a la brevedad. 😊",
+        buttons=[
+            {"id": "opcion_7", "title": "Ver propiedades"},
+            {"id": "m", "title": "Volver al menú"}
+        ]
+    )
 
 
 def mostrar_panel_admin():
@@ -738,12 +786,14 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
         else:
             return "⚠️ Error: No se pudo identificar la propiedad para generar el PDF."
     
-    # Si no se reconoce el comando, mostrar opciones disponibles
-    return """📌 *Opciones disponibles:*
-
-• Enviá la letra *I* - Me interesa esta propiedad
-• Enviá *F* - Ver todas las fotos
-• Enviá *P* - Descargar ficha técnica en PDF
-• Enviá *L* - Volver al listado de propiedades
-• Enviá *M* - Volver al menú principal
-• Enviá *S* - Terminar conversación"""
+    # Si no se reconoce el comando, mostrar opciones con botones
+    return WhatsAppResponse.buttons(
+        header="🏠 ACCIONES DISPONIBLES",
+        body="Seleccioná qué querés hacer con esta propiedad:",
+        buttons=[
+            {"id": "i", "title": "Me interesa ❤️"},
+            {"id": "f", "title": "Ver fotos 📷"},
+            {"id": "p", "title": "Descargar PDF 📄"}
+        ],
+        footer="L = Listado | M = Menú | S = Salir"
+    )

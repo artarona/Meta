@@ -8,6 +8,7 @@ from database import *
 from utils import log, analizar_hora, analizar_fecha
 from whatsapp_api import *
 from logic.ai_prioritization import obtener_prioridad_lead
+from logic.response_builder import WhatsAppResponse
 
 def get_calendar_service():
     """Obtener servicio de Google Calendar API.
@@ -347,7 +348,17 @@ def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
 Ⓜ️ *VOLVER AL MENÚ (Envía 'M')* 🏠
 ❌ *SALIR (Envía 'S')*
 """
-        return mensaje_confirmacion
+        # Opción A: mensaje rico de confirmación + botones separados
+        nav_buttons = WhatsAppResponse.buttons(
+            header="✅ ¡VISITA CONFIRMADA!",
+            body="Tu cita fue agendada correctamente. Te esperamos!",
+            buttons=[
+                {"id": "opcion_4", "title": "Ver mis citas"},
+                {"id": "m", "title": "Volver al menú"},
+                {"id": "s", "title": "Salir"}
+            ]
+        )
+        return [mensaje_confirmacion, nav_buttons]
     
     # Opción 2: Modificar fecha/hora
     elif text_lower in ["2", "modificar", "cambiar", "cambiar fecha"]:
@@ -386,20 +397,20 @@ def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
         estado_usuario['email_cliente'] = None
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        return f"""
-❌ *Cita cancelada correctamente*
-
-Si en otro momento deseas agendar una visita, podes volver a empezar.
-
-Ⓜ️ *VOLVER AL MENÚ (Envía 'M')* 🏠
-❌ *SALIR (Envía 'S')*
-"""
+        return WhatsAppResponse.buttons(
+            header="❌ CITA CANCELADA",
+            body="Si en otro momento deséas agendar una visita, podés volver a empezar desde el catálogo.",
+            buttons=[
+                {"id": "opcion_7", "title": "Ver propiedades"},
+                {"id": "m", "title": "Volver al menú"},
+                {"id": "s", "title": "Salir"}
+            ]
+        )
         
     else:
         # Mensaje de ayuda para opción no válida
         log(f"⚠️ Opción no reconocida: '{text_lower}'")
-        return f"""
-❌ *Opción no válida*
+        return f"""❌ *Operación cancelada.*
 
 Por favor elegí una de las siguientes opciones:
 
@@ -434,7 +445,14 @@ def manejar_seleccionar_hora_cita(text, estado_usuario, user_id):
     if text_lower in ["0", "salir", "cancelar"]:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "❌ Operación cancelada.\n\nⓂ️ *VOLVER AL MENÚ (Envía 'M')* 🏠\n❌ *SALIR (Envía 'S')*"
+        return WhatsAppResponse.buttons(
+            header="❌ OPERACIÓN CANCELADA",
+            body="Si querés agendar en otro momento, podes buscar una propiedad desde el menú.",
+            buttons=[
+                {"id": "m", "title": "Volver al menú"},
+                {"id": "s", "title": "Salir"}
+            ]
+        )
     
     if text_lower in ["ver fechas", "cambiar fecha", "atrás", "atras"]:
         estado_usuario['paso'] = 'solicitar_fecha_cita'
@@ -595,12 +613,14 @@ Vamos a agendar tu visita.
         })
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        return f"""✅ *Entendido {nombre_cliente}!*
-
-Un asesor se contactará contigo para brindarte toda la información.
-
-Ⓜ️ *VOLVER AL MENÚ (Envía 'M')* 🏠
-❌ *SALIR (Envía 'S')*"""
+        return WhatsAppResponse.buttons(
+            header="✅ ENTENDIDO",
+            body=f"Un asesor se contactará con vos para brindarte toda la información, *{nombre_cliente}*.",
+            buttons=[
+                {"id": "m", "title": "Volver al menú"},
+                {"id": "s", "title": "Salir"}
+            ]
+        )
     
     elif text_lower in ["3", "ofertar", "oferta", "comprar", "alquilar ya"]:
         nombre_cliente = estado_usuario.get('nombre_cliente', 'Cliente')
@@ -624,19 +644,15 @@ Un asesor se contactará contigo para brindarte toda la información.
         })
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        return f"""🎯 *¡EXCELENTE {nombre_cliente}!*
-
-🔥 *PRIORIDAD MÁXIMA*
-Un asesor te contactará en los próximos **15 minutos** para gestionar tu oferta.
-
-📞 *Teléfono de contacto:* +{user_id}
-
-⏰ *Horario de contacto:* Inmediato
-
-¡Gracias por tu interés! 🏠💸
-
-Ⓜ️ *VOLVER AL MENÚ (Envía 'M')* 🏠
-❌ *SALIR (Envía 'S')*"""
+        return WhatsAppResponse.buttons(
+            header="🔥 PRIORIDAD MÁXIMA",
+            body=f"Un asesor te contactará en los próximos *15 minutos* para gestionar tu oferta, *{nombre_cliente}*.",
+            buttons=[
+                {"id": "opcion_4", "title": "Ver mis citas"},
+                {"id": "m", "title": "Volver al menú"},
+                {"id": "s", "title": "Salir"}
+            ]
+        )
     
     elif text_lower in ["0", "salir", "chau", "adiós"]:
         estado_usuario.update({
