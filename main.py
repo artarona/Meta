@@ -1052,10 +1052,14 @@ def webhook():
                                     message_text = boton_a_numero.get(texto_normalizado, message_text.strip())
                                     if message_text != texto_normalizado and texto_normalizado in boton_a_numero:
                                         print(f"🔄 Traduciendo título de botón/comando: '{texto_normalizado}' → '{message_text}'")
-                                
                                 print(f"👤 Usuario: {from_number}, Input Procesado: '{message_text}'")
                                 log(f"👤 Usuario: {from_number}, Input Procesado: {message_text}")
-                                
+
+                                # Llamar a get_bot_response
+                                print(f"🤖 Llamando a get_bot_response con input: '{message_text}'")
+                                response_text = get_bot_response(message_text, from_number)
+                                print(f"🤖 Respuesta del bot: {str(response_text)[:100]}..." if response_text else "🤖 Respuesta vacía")
+
                                 # ── Despacho de respuesta ──────────────────────────────
                                 # Soporta: str, dict (interactive), list[str|dict] (Opción A: 2 mensajes)
                                 def dispatch_single_response(resp, base_url_for_photos=None):
