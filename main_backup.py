@@ -643,39 +643,32 @@ def obtener_estado_usuario(user_id):
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data, tipo_seleccionado, ambientes_seleccionados FROM user_states WHERE user_id = %s", (user_id,))
+            # Agregar columna conversacion_iniciada si no existe
+            try:
+                cursor.execute("ALTER TABLE user_states ADD COLUMN IF NOT EXISTS conversacion_iniciada BOOLEAN DEFAULT FALSE")
+                conn.commit()
+            except:
+                pass
+            
+            cursor.execute("""
+                SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, 
+                       nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, 
+                       data, tipo_seleccionado, ambientes_seleccionados, conversacion_iniciada 
+                FROM user_states WHERE user_id = %s
+            """, (user_id,))
             res = cursor.fetchone()
             if res:
-                # Función auxiliar para parseo seguro y profundo
+                # Función auxiliar para parseo seguro
                 def safe_json_loads(data, default):
                     if not data: return default
-                    # Si ya es un objeto (dict/list), devolverlo
                     if isinstance(data, (dict, list)): return data
-                    
-                    # Si es un string, intentar parsear
-                    current_data = data
-                    max_depth = 3 # Evitar bucles infinitos
-                    for _ in range(max_depth):
-                        if not isinstance(current_data, str):
-                            break
-                        try:
-                            # Trim para ver si parece JSON
-                            trimmed = current_data.strip()
-                            if (trimmed.startswith('{') and trimmed.endswith('}')) or (trimmed.startswith('[') and trimmed.endswith(']')):
-                                parsed = json.loads(current_data)
-                                if parsed is not None:
-                                    current_data = parsed
-                                else:
-                                    break
-                            else:
-                                break # No parece JSON
-                        except:
-                            break
-                            
-                    # Si al final es un dict/list, éxito. Si no, devolver default si era string basura
-                    if isinstance(current_data, (dict, list)):
-                        return current_data
-                    return default if isinstance(data, str) and not isinstance(current_data, (dict, list)) else current_data
+                    try:
+                        trimmed = data.strip()
+                        if (trimmed.startswith('{') and trimmed.endswith('}')) or (trimmed.startswith('[') and trimmed.endswith(']')):
+                            return json.loads(data)
+                    except:
+                        pass
+                    return default
 
                 estado = {
                     'paso': res[0],
@@ -690,20 +683,20 @@ def obtener_estado_usuario(user_id):
                     'data': safe_json_loads(res[9], {}),
                     'tipo_seleccionado': res[10],
                     'ambientes_seleccionados': res[11],
+                    'conversacion_iniciada': res[12] if len(res) > 12 else False,
                     'timestamp': datetime.now().isoformat()
                 }
                 estados_usuarios[user_id] = estado
                 return estado
     except Exception as e:
         log(f"⚠️ Error recuperando estado de DB: {e}")
-        # FALLBACK: Si PostgreSQL falla, usar caché en memoria
         if cached_state:
-            log(f"🔄 Usando estado cacheado como fallback para {user_id} (paso: {cached_state.get('paso')})")
+            log(f"🔄 Usando estado cacheado como fallback para {user_id}")
             return cached_state
     finally:
         if conn: conn.close()
         
-    # 3. Si no existe, crear nuevo
+    # 3. Si no existe, crear nuevo (con conversacion_iniciada = False)
     estado_nuevo = {
         'paso': 'menu_principal',
         'operacion_seleccionada': None,
@@ -711,6 +704,7 @@ def obtener_estado_usuario(user_id):
         'ultimo_indice_preguntado': None,
         'tipo_seleccionado': None,
         'ambientes_seleccionados': None,
+        'conversacion_iniciada': False,  # 🎯 NUEVO FLAG
         'timestamp': datetime.now().isoformat(),
         'data': {}
     }
@@ -745,8 +739,8 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                     user_id, paso, operacion_seleccionada, propiedades_filtradas, 
                     ultimo_indice_preguntado, nombre_cliente, email_cliente, 
                     fecha_cita, hora_cita, horarios_disponibles, data, 
-                    tipo_seleccionado, ambientes_seleccionados, timestamp
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    tipo_seleccionado, ambientes_seleccionados, conversacion_iniciada, timestamp
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (user_id) DO UPDATE SET
                     paso = EXCLUDED.paso,
                     operacion_seleccionada = EXCLUDED.operacion_seleccionada,
@@ -760,6 +754,7 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                     data = EXCLUDED.data,
                     tipo_seleccionado = EXCLUDED.tipo_seleccionado,
                     ambientes_seleccionados = EXCLUDED.ambientes_seleccionados,
+                    conversacion_iniciada = EXCLUDED.conversacion_iniciada,
                     timestamp = EXCLUDED.timestamp
             """, (
                 user_id, 
@@ -775,18 +770,15 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                 json.dumps(nuevo_estado.get('data', {})),
                 nuevo_estado.get('tipo_seleccionado'),
                 nuevo_estado.get('ambientes_seleccionados'),
+                nuevo_estado.get('conversacion_iniciada', False),  # 🎯 NUEVO
                 nuevo_estado.get('timestamp')
             ))
             conn.commit()
-            log(f"✅ Estado persistido en DB para {user_id} (paso: {nuevo_estado.get('paso')})")
     except Exception as e:
-        log(f"🔥 Error persistiendo estado en DB para {user_id} (paso: {nuevo_estado.get('paso')}): {e}", "ERROR")
-        import traceback
-        log(f"🔍 Traceback: {traceback.format_exc()}", "ERROR")
+        log(f"🔥 Error persistiendo estado en DB: {e}", "ERROR")
     finally:
         if conn:
             conn.close()
-            
             
 # ========== GESTIÓN DE LEADS MEJORADA ==========
 
@@ -1038,31 +1030,57 @@ def formatear_detalle_propiedad(propiedad):
 def get_bot_response(text, user_id):
     """Responde con un mensaje simple, manteniendo estado de usuario"""
     try:
-        start_time = time.time()
         text_lower = text.lower().strip()
         
         estado_usuario = obtener_estado_usuario(user_id)
-        log(f"👤 Usuario {user_id}: {estado_usuario['paso']}")
+        log(f"👤 Usuario {user_id}: paso={estado_usuario['paso']}, conversacion_iniciada={estado_usuario.get('conversacion_iniciada', False)}")
+        
+        # 🎯 CLAVE: Si la conversación NO ha sido iniciada, mostrar menú principal
+        # sin importar lo que escriba el usuario
+        if not estado_usuario.get('conversacion_iniciada', False):
+            log(f"🎯 PRIMER MENSAJE del usuario {user_id}: '{text}' - Mostrando menú principal")
+            
+            # Marcar conversación como iniciada
+            estado_usuario['conversacion_iniciada'] = True
+            estado_usuario['paso'] = 'menu_principal'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            # Enviar menú interactivo
+            return "WELCOME_FLOW_TRIGGER"
         
         # ============================================================
-        # 1. COMANDOS UNIVERSALES (siempre disponibles)
+        # 1. COMANDOS UNIVERSALES
         # ============================================================
         
         # Comandos para salir
         if text_lower in ["0", "salir", "exit", "s", "chau", "adios"]:
             estado_usuario.update({
                 'paso': 'menu_principal',
+                'conversacion_iniciada': True,
                 'operacion_seleccionada': None,
                 'propiedades_filtradas': []
             })
             actualizar_estado_usuario(user_id, estado_usuario)
             return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
         
+        # Comando para volver al menú
+        if text_lower in ["9", "menu", "principal", "inicio", "m", "volver", "atras", "hola"]:
+            estado_usuario.update({
+                'paso': 'menu_principal',
+                'conversacion_iniciada': True,
+                'operacion_seleccionada': None,
+                'propiedades_filtradas': [],
+                'ultimo_indice_preguntado': None,
+                'timestamp': datetime.now().isoformat()
+            })
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "WELCOME_FLOW_TRIGGER"
+        
         # ============================================================
-        # 2. ACCIONES ESPECIALES (disponibles en detalle de propiedad)
+        # 2. ACCIONES ESPECIALES (solo si hay propiedad seleccionada)
         # ============================================================
         
-        # "Me interesa" - Solo si hay una propiedad seleccionada
+        # "Me interesa"
         if text_lower in ["8", "i", "interesa", "me interesa"]:
             indice = estado_usuario.get('ultimo_indice_preguntado')
             propiedades = estado_usuario.get('propiedades_filtradas', [])
@@ -1117,6 +1135,8 @@ def get_bot_response(text, user_id):
             return manejar_submenu_visita(text_lower, estado_usuario, user_id)
         elif paso == 'submenu_asesor':
             return manejar_submenu_asesor(text_lower, estado_usuario, user_id)
+        elif paso == 'submenu_faqs':
+            return manejar_submenu_faqs(text_lower, estado_usuario, user_id)
         
         # Filtros de propiedades
         elif paso == 'filtro_tipo':
@@ -1171,43 +1191,29 @@ def get_bot_response(text, user_id):
             return "📸 Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
         
         # ============================================================
-        # 4. MENÚ PRINCIPAL - 🎯 CUALQUIER TECLA MUESTRA EL MENÚ
+        # 4. MENÚ PRINCIPAL (después de iniciada la conversación)
         # ============================================================
         if paso == 'menu_principal':
-            # Opciones válidas del menú numérico
-            opciones_validas = ["1", "2", "3", "4", "5", "6", "7", "10"]
-            
-            if text_lower in opciones_validas:
-                # Es un número válido, procesar la opción
-                return manejar_menu_principal(text_lower, estado_usuario, user_id)
-            else:
-                # 🎯 CLAVE: CUALQUIER OTRA TECLA (texto, números inválidos, etc.)
-                # muestra el MENÚ INTERACTIVO directamente
-                log(f"📱 Usuario {user_id} escribió '{text}' - Mostrando menú interactivo")
-                # Enviamos un marcador especial que el webhook interpretará como "enviar menú"
-                return "SEND_WELCOME_FLOW"
+            return manejar_menu_principal(text_lower, estado_usuario, user_id)
         
         # ============================================================
-        # 5. RESPUESTA POR DEFECTO (fallback seguro)
+        # 5. RESPUESTA POR DEFECTO
         # ============================================================
-        # Si llegamos aquí, el usuario está en un estado desconocido
-        # Reseteamos a menú principal para evitar quedar atrapado
-        log(f"⚠️ Estado desconocido '{paso}' para usuario {user_id}, reseteando a menú principal")
+        log(f"⚠️ Estado desconocido '{paso}' para usuario {user_id}, reseteando")
         estado_usuario.update({
             'paso': 'menu_principal',
+            'conversacion_iniciada': True,
             'operacion_seleccionada': None,
-            'propiedades_filtradas': [],
-            'ultimo_indice_preguntado': None
+            'propiedades_filtradas': []
         })
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "SEND_WELCOME_FLOW"
+        return "WELCOME_FLOW_TRIGGER"
 
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
         log(f"🔥 ERROR EN get_bot_response: {e}\n{error_trace}")
         return "❌ *Lo siento, ocurrió un error interno.*\n\nPor favor, intenta de nuevo enviando 'Hola' o contacta al administrador."
-
 
 # ========== MANEJADORES DE ESTADO ==========
 def manejar_menu_principal(text_lower, estado_usuario, user_id):
