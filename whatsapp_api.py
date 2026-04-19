@@ -77,7 +77,7 @@ def send_photos_async(user_id, propiedad_id, base_url):
         notificar_agente(f"👤 Cliente {user_id} está viendo fotos de: {propiedad.get('titulo')}")
         registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_fotos")
         
-        send_whatsapp_message(user_id, "✅ *¡Fotos enviadas!*\n\n1️⃣ *VOLVER AL MENÚ* 🏠\n0️⃣ *❌ SALIR*")
+        send_whatsapp_message(user_id, "✅ *¡Fotos enviadas!*\n\nⓂ️ *VOLVER al Menú* (Envía M)\n❌ *SALIR* (Envía S)")
         
         log(f"✅ Envío de fotos completado para {user_id}")
     except Exception as e:

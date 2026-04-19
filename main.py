@@ -1105,7 +1105,7 @@ def webhook():
                                     thread = threading.Thread(target=send_photos_async, args=(from_number, prop_id, base_url))
                                     thread.start()
                                     
-                                    confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'Hola' para volver al menú."
+                                    confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'M' para volver al menú."
                                     result = send_whatsapp_message(from_number, confirmacion)
                                 elif response_text:
                                     print(f"📤 Enviando mensaje: {str(response_text)[:100]}...")
