@@ -236,8 +236,10 @@ def generar_listado_propiedades(propiedades):
     if not propiedades:
         return "📭 No hay propiedades disponibles en este momento."
     
-    mensaje = f"📋 *PROPIEDADES DISPONIBLES*\n\n"
-    mensaje += f"Encontramos *{len(propiedades)}* propiedades:\n\n"
+    # mensaje = f"📋 *PROPIEDADES DISPONIBLES*\n\n"
+    # mensaje += f"Encontramos *{len(propiedades)}* propiedades:\n\n"
+    mensaje = f"📋   *{len(propiedades)}*   *PROPIEDADES DISPONIBLES*\n\n"
+
     
     for i, p in enumerate(propiedades, 1):
         titulo = p.get('titulo', 'Propiedad')
