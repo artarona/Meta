@@ -127,15 +127,34 @@ def manejar_submenu_asesor(text_lower, estado_usuario, user_id):
     """Maneja las opciones del submenú de asesor"""
     if text_lower in ["1", "asesor_mensaje", "enviar mensaje"]:
         notificar_agente(f"👤 *SOLICITUD DE ASESOR*\n📞 Tel: +{user_id}\n📝 El cliente desea enviar un mensaje.")
-        return "✅ *Mensaje enviado!*\n\nUn asesor se pondrá en contacto con vos a la brevedad.\n\nⓂ️ Volver al menú principal\n❌ Salir (Envía 'S')"
+        return WhatsAppResponse.buttons(
+            header="✅ MENSAJE ENVIADO",
+            body="Un asesor se pondrá en contacto con vos a la brevedad.",
+            buttons=[
+                {"id": "m", "title": "Volver al menú"},
+                {"id": "s", "title": "Salir"}
+            ]
+        )
     elif text_lower in ["2", "asesor_llamada", "solicitar llamada"]:
         notificar_agente(f"📞 *SOLICITUD DE LLAMADA*\n📞 Tel: +{user_id}\n📝 El cliente solicita ser llamado.")
-        return f"✅ *Solicitud registrada!*\n\nTe llamaremos en el horario más conveniente.\n\n📱 *O si preferís hablar ahora mismo, escribime acá:* \nhttps://wa.me/{AGENT_NUMBER.lstrip('+')}\n\nⓂ️ Volver al menú principal\n❌ Salir (Envía 'S')"
+        return WhatsAppResponse.buttons(
+            header="📞 LLAMADA SOLICITADA",
+            body=f"Te llamaremos en el horario más conveniente.\n\n📱 *Contacto directo:*\nwa.me/{AGENT_NUMBER.lstrip('+')}",
+            buttons=[
+                {"id": "m", "title": "Volver al menú"},
+                {"id": "s", "title": "Salir"}
+            ]
+        )
     else:
-        return """No pude identificar esa opción.
-
-Ⓜ️ *Envía 'M' para volver al menú principal*
-❌ *Envía 'S' para salir del chat*"""
+        return WhatsAppResponse.buttons(
+            header="👤 HABLAR CON UN ASESOR",
+            body="¿Cómo querés comunicarte con un asesor?",
+            buttons=[
+                {"id": "asesor_mensaje", "title": "Enviar mensaje"},
+                {"id": "asesor_llamada", "title": "Solicitar llamada"},
+                {"id": "m", "title": "Volver al menú"}
+            ]
+        )
 
 
 def manejar_submenu_faqs(text_lower, estado_usuario, user_id):
