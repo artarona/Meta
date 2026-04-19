@@ -476,7 +476,7 @@ def procesar_opcion_mis_citas(user_id):
     if not citas_usuario:
         return WhatsAppResponse.buttons(
             header="📅 SIN CITAS AGENDADAS",
-            body="Para agendar una cita, seleccioná una propiedad del catálogo y presã *'Me interesa'* (letra I).",
+            body="Para agendar una cita, seleccioná una propiedad del catálogo y presiona *'Me interesa'* (letra I).",
             buttons=[
                 {"id": "opcion_7", "title": "Ver propiedades"},
                 {"id": "m", "title": "Volver al menú"}
@@ -485,6 +485,11 @@ def procesar_opcion_mis_citas(user_id):
     
     mensaje = f"📅 *TUS CITAS AGENDADAS*\n\nTienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
     
+    # Cargar todas las propiedades para poder buscar por ID
+    todas_propiedades = cargar_propiedades_cached()
+    # Crear un diccionario para búsqueda rápida por id_temporal
+    props_dict = {p.get('id_temporal', ''): p for p in todas_propiedades}
+    
     for i, cita in enumerate(citas_usuario, 1):
         try:
             fecha_obj = datetime.strptime(cita.get('fecha', ''), "%Y-%m-%d")
@@ -492,9 +497,12 @@ def procesar_opcion_mis_citas(user_id):
         except (ValueError, TypeError):
             fecha_formateada = cita.get('fecha', 'Sin fecha')
         
-        titulo = propiedad.get('titulo', 'N/A')       
+        # 🔧 CORREGIDO: Obtener la propiedad usando el propiedad_id de la cita
+        propiedad_id_cita = cita.get('propiedad_id', '')
+        propiedad = props_dict.get(propiedad_id_cita, {})
+        titulo = propiedad.get('titulo', propiedad_id_cita if propiedad_id_cita else 'Propiedad N/A')
+        
         mensaje += f"{i}. *{titulo}*\n"
-        # mensaje += f"{i}. *{cita.get('propiedad_id', 'Propiedad')}*\n"
         mensaje += f"   📅 {fecha_formateada} - ⏰ {cita.get('hora', 'Sin hora')}\n"
         mensaje += f"   📍 Estado: {cita.get('estado', 'Pendiente').upper()}\n"
         
