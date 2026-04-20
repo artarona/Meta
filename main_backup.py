@@ -1035,8 +1035,7 @@ def get_bot_response(text, user_id):
         estado_usuario = obtener_estado_usuario(user_id)
         log(f"👤 Usuario {user_id}: paso={estado_usuario['paso']}, conversacion_iniciada={estado_usuario.get('conversacion_iniciada', False)}")
         
-        # 🎯 CLAVE: Si la conversación NO ha sido iniciada, mostrar menú principal
-        # sin importar lo que escriba el usuario
+        # 🎯 PRIMER MENSAJE: Si la conversación NO ha sido iniciada, mostrar menú
         if not estado_usuario.get('conversacion_iniciada', False):
             log(f"🎯 PRIMER MENSAJE del usuario {user_id}: '{text}' - Mostrando menú principal")
             
@@ -1045,25 +1044,41 @@ def get_bot_response(text, user_id):
             estado_usuario['paso'] = 'menu_principal'
             actualizar_estado_usuario(user_id, estado_usuario)
             
-            # Enviar menú interactivo
-            return "WELCOME_FLOW_TRIGGER"
+            # 🎯 ENVIAR MENÚ DIRECTAMENTE (sin trigger)
+            resultado = send_welcome_flow(user_id)
+            log(f"📤 Resultado envío menú: {resultado}")
+            return None  # No enviar nada más porque ya enviamos el menú
         
         # ============================================================
         # 1. COMANDOS UNIVERSALES
         # ============================================================
         
-        # Comandos para salir
+        # 🎯 COMANDO PARA SALIR - RESETEA EL FLAG conversacion_iniciada
         if text_lower in ["0", "salir", "exit", "s", "chau", "adios"]:
+            log(f"👋 Usuario {user_id} solicitó SALIR - Reseteando conversacion_iniciada a False")
+            
+            # Resetear completamente el estado para la próxima conversación
             estado_usuario.update({
                 'paso': 'menu_principal',
-                'conversacion_iniciada': True,
+                'conversacion_iniciada': False,
                 'operacion_seleccionada': None,
-                'propiedades_filtradas': []
+                'propiedades_filtradas': [],
+                'ultimo_indice_preguntado': None,
+                'nombre_cliente': None,
+                'email_cliente': None,
+                'fecha_cita': None,
+                'hora_cita': None,
+                'tipo_seleccionado': None,
+                'ambientes_seleccionados': None,
+                'data': {}
             })
             actualizar_estado_usuario(user_id, estado_usuario)
-            return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
+            
+            # Enviar mensaje de despedida
+            send_whatsapp_message(user_id, "¡Gracias por confiar en Dante Propiedades! 🏠🗝️")
+            return None
         
-        # Comando para volver al menú
+        # Comando para volver al menú (NO resetea el flag, solo muestra menú)
         if text_lower in ["9", "menu", "principal", "inicio", "m", "volver", "atras", "hola"]:
             estado_usuario.update({
                 'paso': 'menu_principal',
@@ -1074,7 +1089,10 @@ def get_bot_response(text, user_id):
                 'timestamp': datetime.now().isoformat()
             })
             actualizar_estado_usuario(user_id, estado_usuario)
-            return "WELCOME_FLOW_TRIGGER"
+            
+            # 🎯 ENVIAR MENÚ DIRECTAMENTE
+            send_welcome_flow(user_id)
+            return None
         
         # ============================================================
         # 2. ACCIONES ESPECIALES (solo si hay propiedad seleccionada)
@@ -1107,7 +1125,11 @@ def get_bot_response(text, user_id):
             propiedades = estado_usuario.get('propiedades_filtradas', [])
             if indice and 1 <= indice <= len(propiedades):
                 propiedad = propiedades[indice - 1]
-                return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
+                # Enviar fotos directamente
+                base_url = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")
+                thread = threading.Thread(target=send_photos_async, args=(user_id, propiedad.get('id_temporal'), base_url))
+                thread.start()
+                return "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'Hola' para volver al menú."
             else:
                 return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos.\n\nEnvía 'Hola' para ver el menú."
         
@@ -1191,15 +1213,56 @@ def get_bot_response(text, user_id):
             return "📸 Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
         
         # ============================================================
-        # 4. MENÚ PRINCIPAL (después de iniciada la conversación)
+        # 4. MENÚ PRINCIPAL - Procesar opciones numéricas
         # ============================================================
         if paso == 'menu_principal':
-            return manejar_menu_principal(text_lower, estado_usuario, user_id)
+            # Opciones numéricas del menú
+            if text_lower == "1":
+                return procesar_opcion_venta(estado_usuario, user_id)
+            elif text_lower == "2":
+                return procesar_opcion_alquiler(estado_usuario, user_id)
+            elif text_lower == "7":
+                return procesar_opcion_todas(estado_usuario, user_id)
+            elif text_lower == "3":
+                send_whatsapp_message(user_id, "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar")
+                return None
+            elif text_lower == "4":
+                return procesar_opcion_mis_citas(user_id)
+            elif text_lower == "5":
+                estado_usuario['paso'] = 'submenu_asesor'
+                actualizar_estado_usuario(user_id, estado_usuario)
+                return "👤 *HABLAR CON UN ASESOR*\n\n1️⃣ Enviar mensaje al asesor\n2️⃣ Solicitar llamada\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
+            elif text_lower == "6":
+                return """❓ *REQUISITOS Y PREGUNTAS FRECUENTES*
+
+*Para Alquilar:*
+• Mes de adelanto
+• Mes de depósito (en USD)
+• Garantía propietaria (CABA/GBA) o Seguro de Caución (Finaer)
+• Demostración de ingresos (últimos 3 recibos)
+
+*¿Aceptan Mascotas?*
+Depende estrictamente de la propiedad y el consorcio.
+
+*¿Toman propiedades en parte de pago?*
+Sí, evaluamos permutas caso por caso.
+
+9️⃣ Volver al menú principal
+0️⃣ Salir"""
+            elif text_lower == "10":
+                return manejar_menu_tasacion(text_lower, estado_usuario, user_id)
+            elif text_lower == "8" and user_id == ADMIN_NUMBER.lstrip('549'):
+                return mostrar_panel_admin()
+            else:
+                # 🎯 CUALQUIER OTRA COSA - Mostrar menú principal
+                log(f"📱 Texto no reconocido en menú principal: '{text}' - Mostrando menú")
+                send_welcome_flow(user_id)
+                return None
         
         # ============================================================
         # 5. RESPUESTA POR DEFECTO
         # ============================================================
-        log(f"⚠️ Estado desconocido '{paso}' para usuario {user_id}, reseteando")
+        log(f"⚠️ Estado desconocido '{paso}' para usuario {user_id}, mostrando menú")
         estado_usuario.update({
             'paso': 'menu_principal',
             'conversacion_iniciada': True,
@@ -1207,13 +1270,16 @@ def get_bot_response(text, user_id):
             'propiedades_filtradas': []
         })
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "WELCOME_FLOW_TRIGGER"
+        send_welcome_flow(user_id)
+        return None
 
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
         log(f"🔥 ERROR EN get_bot_response: {e}\n{error_trace}")
-        return "❌ *Lo siento, ocurrió un error interno.*\n\nPor favor, intenta de nuevo enviando 'Hola' o contacta al administrador."
+        send_whatsapp_message(user_id, "❌ *Lo siento, ocurrió un error interno.*\n\nPor favor, intenta de nuevo enviando 'Hola' o contacta al administrador.")
+        return None
+
 
 # ========== MANEJADORES DE ESTADO ==========
 def manejar_menu_principal(text_lower, estado_usuario, user_id):
@@ -1285,7 +1351,7 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
         return "WELCOME_FLOW_TRIGGER"
 
 
-        
+
 # ========== MANEJADORES DE TASACIÓN ==========
 
 def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
@@ -3254,13 +3320,13 @@ def webhook():
 
                                 response_text = get_bot_response(message_text, from_number)
 
-                                # 🎯 NUEVO: Manejar el marcador SEND_WELCOME_FLOW
-                                if response_text == "SEND_WELCOME_FLOW":
-                                    log("🎯 Enviando menú interactivo de bienvenida")
-                                    result = send_welcome_flow(from_number)
+                                # 🎯 Si response_text es None, no enviar nada (ya se envió desde get_bot_response)
+                                if response_text is None:
+                                    log("📤 Respuesta ya enviada desde get_bot_response")
+                                    result = {"status": "already_sent"}
                                     
                                 elif response_text == "WELCOME_FLOW_TRIGGER":
-                                    log("🎯 Enviando flujo de bienvenida (legacy)")
+                                    log("🎯 Enviando flujo de bienvenida interactivo")
                                     result = send_welcome_flow(from_number)
                                     
                                 elif response_text and response_text.startswith("OFFER_MEETING_TRIGGER|"):
@@ -3287,24 +3353,10 @@ def webhook():
                                     ]
                                     result = send_whatsapp_interactive_buttons(from_number, text_body, botones)
                                     
-                                elif response_text and response_text.startswith("PHOTOS_TRIGGER|"):
-                                    prop_id = response_text.split("|")[1]
-                                    base_url = request.host_url.rstrip('/')
-                                    if "onrender.com" in base_url and not base_url.startswith("https"):
-                                        base_url = base_url.replace("http://", "https://")
-                                    
-                                    log(f"🚀 Iniciando hilo de fotos para propiedad {prop_id}")
-                                    thread = threading.Thread(target=send_photos_async, args=(from_number, prop_id, base_url))
-                                    thread.start()
-                                    
-                                    confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'Hola' para volver al menú."
-                                    result = send_whatsapp_message(from_number, confirmacion)
-                                    
                                 elif response_text:
                                     result = send_whatsapp_message(from_number, response_text)
                                 else:
                                     result = {"status": "skipped", "reason": "empty_response"}
-                                
                                 log(f"📊 Resultado: {result.get('status')}")
                                 return jsonify({
                                     "status": "processed",
