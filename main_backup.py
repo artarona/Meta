@@ -643,32 +643,39 @@ def obtener_estado_usuario(user_id):
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor()
-            # Agregar columna conversacion_iniciada si no existe
-            try:
-                cursor.execute("ALTER TABLE user_states ADD COLUMN IF NOT EXISTS conversacion_iniciada BOOLEAN DEFAULT FALSE")
-                conn.commit()
-            except:
-                pass
-            
-            cursor.execute("""
-                SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, 
-                       nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, 
-                       data, tipo_seleccionado, ambientes_seleccionados, conversacion_iniciada 
-                FROM user_states WHERE user_id = %s
-            """, (user_id,))
+            cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data, tipo_seleccionado, ambientes_seleccionados FROM user_states WHERE user_id = %s", (user_id,))
             res = cursor.fetchone()
             if res:
-                # Función auxiliar para parseo seguro
+                # Función auxiliar para parseo seguro y profundo
                 def safe_json_loads(data, default):
                     if not data: return default
+                    # Si ya es un objeto (dict/list), devolverlo
                     if isinstance(data, (dict, list)): return data
-                    try:
-                        trimmed = data.strip()
-                        if (trimmed.startswith('{') and trimmed.endswith('}')) or (trimmed.startswith('[') and trimmed.endswith(']')):
-                            return json.loads(data)
-                    except:
-                        pass
-                    return default
+                    
+                    # Si es un string, intentar parsear
+                    current_data = data
+                    max_depth = 3 # Evitar bucles infinitos
+                    for _ in range(max_depth):
+                        if not isinstance(current_data, str):
+                            break
+                        try:
+                            # Trim para ver si parece JSON
+                            trimmed = current_data.strip()
+                            if (trimmed.startswith('{') and trimmed.endswith('}')) or (trimmed.startswith('[') and trimmed.endswith(']')):
+                                parsed = json.loads(current_data)
+                                if parsed is not None:
+                                    current_data = parsed
+                                else:
+                                    break
+                            else:
+                                break # No parece JSON
+                        except:
+                            break
+                            
+                    # Si al final es un dict/list, éxito. Si no, devolver default si era string basura
+                    if isinstance(current_data, (dict, list)):
+                        return current_data
+                    return default if isinstance(data, str) and not isinstance(current_data, (dict, list)) else current_data
 
                 estado = {
                     'paso': res[0],
@@ -683,20 +690,20 @@ def obtener_estado_usuario(user_id):
                     'data': safe_json_loads(res[9], {}),
                     'tipo_seleccionado': res[10],
                     'ambientes_seleccionados': res[11],
-                    'conversacion_iniciada': res[12] if len(res) > 12 else False,
                     'timestamp': datetime.now().isoformat()
                 }
                 estados_usuarios[user_id] = estado
                 return estado
     except Exception as e:
         log(f"⚠️ Error recuperando estado de DB: {e}")
+        # FALLBACK: Si PostgreSQL falla, usar caché en memoria
         if cached_state:
-            log(f"🔄 Usando estado cacheado como fallback para {user_id}")
+            log(f"🔄 Usando estado cacheado como fallback para {user_id} (paso: {cached_state.get('paso')})")
             return cached_state
     finally:
         if conn: conn.close()
         
-    # 3. Si no existe, crear nuevo (con conversacion_iniciada = False)
+    # 3. Si no existe, crear nuevo
     estado_nuevo = {
         'paso': 'menu_principal',
         'operacion_seleccionada': None,
@@ -704,7 +711,6 @@ def obtener_estado_usuario(user_id):
         'ultimo_indice_preguntado': None,
         'tipo_seleccionado': None,
         'ambientes_seleccionados': None,
-        'conversacion_iniciada': False,  # 🎯 NUEVO FLAG
         'timestamp': datetime.now().isoformat(),
         'data': {}
     }
@@ -739,8 +745,8 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                     user_id, paso, operacion_seleccionada, propiedades_filtradas, 
                     ultimo_indice_preguntado, nombre_cliente, email_cliente, 
                     fecha_cita, hora_cita, horarios_disponibles, data, 
-                    tipo_seleccionado, ambientes_seleccionados, conversacion_iniciada, timestamp
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    tipo_seleccionado, ambientes_seleccionados, timestamp
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (user_id) DO UPDATE SET
                     paso = EXCLUDED.paso,
                     operacion_seleccionada = EXCLUDED.operacion_seleccionada,
@@ -754,7 +760,6 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                     data = EXCLUDED.data,
                     tipo_seleccionado = EXCLUDED.tipo_seleccionado,
                     ambientes_seleccionados = EXCLUDED.ambientes_seleccionados,
-                    conversacion_iniciada = EXCLUDED.conversacion_iniciada,
                     timestamp = EXCLUDED.timestamp
             """, (
                 user_id, 
@@ -770,15 +775,18 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                 json.dumps(nuevo_estado.get('data', {})),
                 nuevo_estado.get('tipo_seleccionado'),
                 nuevo_estado.get('ambientes_seleccionados'),
-                nuevo_estado.get('conversacion_iniciada', False),  # 🎯 NUEVO
                 nuevo_estado.get('timestamp')
             ))
             conn.commit()
+            log(f"✅ Estado persistido en DB para {user_id} (paso: {nuevo_estado.get('paso')})")
     except Exception as e:
-        log(f"🔥 Error persistiendo estado en DB: {e}", "ERROR")
+        log(f"🔥 Error persistiendo estado en DB para {user_id} (paso: {nuevo_estado.get('paso')}): {e}", "ERROR")
+        import traceback
+        log(f"🔍 Traceback: {traceback.format_exc()}", "ERROR")
     finally:
         if conn:
             conn.close()
+            
             
 # ========== GESTIÓN DE LEADS MEJORADA ==========
 
@@ -1030,76 +1038,47 @@ def formatear_detalle_propiedad(propiedad):
 def get_bot_response(text, user_id):
     """Responde con un mensaje simple, manteniendo estado de usuario"""
     try:
+        start_time = time.time()
         text_lower = text.lower().strip()
         
         estado_usuario = obtener_estado_usuario(user_id)
-        log(f"👤 Usuario {user_id}: paso={estado_usuario['paso']}, conversacion_iniciada={estado_usuario.get('conversacion_iniciada', False)}")
+        log(f"👤 Usuario {user_id}: {estado_usuario['paso']}")
         
-        # 🎯 PRIMER MENSAJE: Si la conversación NO ha sido iniciada, mostrar menú
-        if not estado_usuario.get('conversacion_iniciada', False):
-            log(f"🎯 PRIMER MENSAJE del usuario {user_id}: '{text}' - Mostrando menú principal")
-            
-            # Marcar conversación como iniciada
-            estado_usuario['conversacion_iniciada'] = True
-            estado_usuario['paso'] = 'menu_principal'
-            actualizar_estado_usuario(user_id, estado_usuario)
-            
-            # 🎯 ENVIAR MENÚ DIRECTAMENTE (sin trigger)
-            resultado = send_welcome_flow(user_id)
-            log(f"📤 Resultado envío menú: {resultado}")
-            return None  # No enviar nada más porque ya enviamos el menú
-        
-        # ============================================================
         # 1. COMANDOS UNIVERSALES
-        # ============================================================
-        
-        # 🎯 COMANDO PARA SALIR - RESETEA EL FLAG conversacion_iniciada
-        if text_lower in ["0", "salir", "exit", "s", "chau", "adios"]:
-            log(f"👋 Usuario {user_id} solicitó SALIR - Reseteando conversacion_iniciada a False")
-            
-            # Resetear completamente el estado para la próxima conversación
+        if text_lower in ["9", "menu", "principal", "inicio"]:
             estado_usuario.update({
                 'paso': 'menu_principal',
-                'conversacion_iniciada': False,
-                'operacion_seleccionada': None,
-                'propiedades_filtradas': [],
-                'ultimo_indice_preguntado': None,
-                'nombre_cliente': None,
-                'email_cliente': None,
-                'fecha_cita': None,
-                'hora_cita': None,
-                'tipo_seleccionado': None,
-                'ambientes_seleccionados': None,
-                'data': {}
-            })
-            actualizar_estado_usuario(user_id, estado_usuario)
-            
-            # Enviar mensaje de despedida
-            send_whatsapp_message(user_id, "¡Gracias por confiar en Dante Propiedades! 🏠🗝️")
-            return None
-        
-        # Comando para volver al menú (NO resetea el flag, solo muestra menú)
-        if text_lower in ["9", "menu", "principal", "inicio", "m", "volver", "atras", "hola"]:
-            estado_usuario.update({
-                'paso': 'menu_principal',
-                'conversacion_iniciada': True,
                 'operacion_seleccionada': None,
                 'propiedades_filtradas': [],
                 'ultimo_indice_preguntado': None,
                 'timestamp': datetime.now().isoformat()
             })
             actualizar_estado_usuario(user_id, estado_usuario)
-            
-            # 🎯 ENVIAR MENÚ DIRECTAMENTE
-            send_welcome_flow(user_id)
-            return None
+            return "WELCOME_FLOW_TRIGGER"
         
-        # ============================================================
-        # 2. ACCIONES ESPECIALES (solo si hay propiedad seleccionada)
-        # ============================================================
+        if text_lower in ["0", "salir", "exit"]:
+            estado_usuario.update({
+                'paso': 'menu_principal',
+                'operacion_seleccionada': None,
+                'propiedades_filtradas': []
+            })
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
+
+        # Comandos de compatibilidad
+        if text_lower in ["hola", "hi", "hello", "volver", "atras"]:
+            estado_usuario.update({
+                'paso': 'menu_principal',
+                'operacion_seleccionada': None,
+                'propiedades_filtradas': [],
+                'ultimo_indice_preguntado': None,
+                'timestamp': datetime.now().isoformat()
+            })
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "WELCOME_FLOW_TRIGGER"
         
-        # "Me interesa"
-        if text_lower in ["8", "i", "interesa", "me interesa"]:
+        # 2. ACCIONES ESPECIALES
+        if text_lower == "8":
             indice = estado_usuario.get('ultimo_indice_preguntado')
             propiedades = estado_usuario.get('propiedades_filtradas', [])
             
@@ -1109,32 +1088,28 @@ def get_bot_response(text, user_id):
                 estado_usuario['paso'] = 'esperando_nombre_lead'
                 actualizar_estado_usuario(user_id, estado_usuario)
                 
+                # REGISTRAR LEAD INMEDIATAMENTE - FIX PostgreSQL
                 try:
                     registrar_lead(user_id, propiedad.get('id_temporal'), 'click_me_interesa', f"Interés expresado en Propiedad: {propiedad.get('titulo')}")
+                    # NOTIFICACIÓN INMEDIATA AL AGENTE
                     notificar_agente(f"👀 *INTERÉS INICIAL*\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad.get('titulo')}\n_(Esperando que el usuario ingrese su nombre...)_")
                 except Exception as e:
                     log(f"⚠️ Error registrando lead inicial: {e}")
                     
                 return f"✅ ¡Genial! Me interesa la propiedad: *{propiedad.get('titulo')}*.\n\nPor favor, decime tu *Nombre y Apellido* para que un asesor te contacte."
             else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado.\n\nEnvía 'Hola' para ver el menú."
+                return "⚠️ Por favor, primero selecciona una propiedad del listado."
 
-        # Ver fotos
-        if text_lower in ["f", "fotos"]:
+        if text_lower == "f":
             indice = estado_usuario.get('ultimo_indice_preguntado')
             propiedades = estado_usuario.get('propiedades_filtradas', [])
             if indice and 1 <= indice <= len(propiedades):
                 propiedad = propiedades[indice - 1]
-                # Enviar fotos directamente
-                base_url = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")
-                thread = threading.Thread(target=send_photos_async, args=(user_id, propiedad.get('id_temporal'), base_url))
-                thread.start()
-                return "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'Hola' para volver al menú."
+                return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
             else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos.\n\nEnvía 'Hola' para ver el menú."
+                return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
         
-        # Descargar PDF
-        if text_lower in ["p", "pdf"]:
+        if text_lower == "p":
             indice = estado_usuario.get('ultimo_indice_preguntado')
             propiedades = estado_usuario.get('propiedades_filtradas', [])
             if indice and 1 <= indice <= len(propiedades):
@@ -1142,98 +1117,152 @@ def get_bot_response(text, user_id):
                 prop_id = propiedad.get('id_temporal')
                 return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
             else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado para obtener el PDF.\n\nEnvía 'Hola' para ver el menú."
+                return "⚠️ Por favor, primero selecciona una propiedad del listado para obtener el PDF."
         
-        # ============================================================
-        # 3. LÓGICA POR ESTADO DEL USUARIO
-        # ============================================================
-        
+        # 3. LÓGICA POR ESTADO
         paso = estado_usuario['paso']
         
-        # Submenús
         if paso == 'submenu_consultar':
             return manejar_submenu_consultar(text_lower, estado_usuario, user_id)
+            
         elif paso == 'submenu_visita':
             return manejar_submenu_visita(text_lower, estado_usuario, user_id)
+            
         elif paso == 'submenu_asesor':
             return manejar_submenu_asesor(text_lower, estado_usuario, user_id)
-        elif paso == 'submenu_faqs':
-            return manejar_submenu_faqs(text_lower, estado_usuario, user_id)
-        
-        # Filtros de propiedades
+
         elif paso == 'filtro_tipo':
             return manejar_filtro_tipo(text_lower, estado_usuario, user_id)
+            
         elif paso == 'filtro_ambientes':
             return manejar_filtro_ambientes(text_lower, estado_usuario, user_id)
-        
-        # Listado y detalle de propiedades
+
         elif paso == 'listado_propiedades':
             return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
+        
         elif paso == 'detalle_propiedad':
             return manejar_detalle_propiedad(text_lower, estado_usuario, user_id)
         
-        # Flujo de leads y citas
         elif paso == 'esperando_nombre_lead':
             return manejar_nombre_lead(text, estado_usuario, user_id)
+        
         elif paso == 'ofrecer_cita':
             return manejar_ofrecer_cita(text_lower, estado_usuario, user_id)
+        
         elif paso == 'solicitar_fecha_cita':
             return manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id)
+        
         elif paso == 'seleccionar_hora_cita':
             return manejar_seleccionar_hora_cita(text, estado_usuario, user_id)
+            
         elif paso == 'confirmar_cita':
             return manejar_confirmar_cita(text_lower, estado_usuario, user_id)
+        
         elif paso == 'esperando_email_cita':
             return manejar_email_cita(text, estado_usuario, user_id)
         
-        # Feedback y recordatorios
         elif paso == 'esperando_feedback':
             return manejar_respuesta_feedback(text, estado_usuario, user_id)
+        
         elif paso == 'esperando_confirmacion_recordatorio':
             return manejar_confirmacion_recordatorio(text, estado_usuario, user_id)
         
-        # Tasación virtual
         elif paso == 'tasacion_operacion':
             return manejar_tasacion_operacion(text_lower, estado_usuario, user_id)
+        
         elif paso == 'tasacion_barrio':
             return manejar_tasacion_barrio(text, estado_usuario, user_id)
+            
         elif paso == 'tasacion_tipo':
             return manejar_tasacion_tipo(text_lower, estado_usuario, user_id)
+            
         elif paso == 'tasacion_m2':
             return manejar_tasacion_m2(text, estado_usuario, user_id)
+            
         elif paso == 'tasacion_ambientes':
             return manejar_tasacion_ambientes(text, estado_usuario, user_id)
+            
         elif paso == 'tasacion_estado':
             return manejar_tasacion_estado(text_lower, estado_usuario, user_id)
+            
         elif paso == 'tasacion_esperando_contacto':
             return manejar_tasacion_contacto(text_lower, estado_usuario, user_id)
         
-        # Estado especial
         elif paso == 'vista_fotos':
-            return "📸 Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
-        
-        # ============================================================
-        # 4. MENÚ PRINCIPAL - Procesar opciones numéricas
-        # ============================================================
+            return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
+
+        # 4. BUSCADOR POR TEXTO (Nuevo) - SOLAMENTE SI NO HAY ESTADO ACTIVO PRIORITARIO
+        # Y si el paso es menu_principal o resultado_busqueda
+        if text_lower.startswith("buscar ") or (len(text_lower) > 3 and paso == 'menu_principal' and not text_lower.isdigit()):
+            # DETECTAR SI ES UNA FECHA PERO SE PERDIÓ EL CONTEXTO
+            fecha_detectada = analizar_fecha(text_lower)
+            if fecha_detectada and len(text_lower.split()) <= 3: # Si es una fecha corta
+                return """⚠️ *Sesión expirada o contexto perdido*
+                
+Parece que querías agendar una fecha, pero no tengo seleccionada ninguna propiedad en este momento.
+
+Por favor:
+1. Envía 'Hola' para ver el menú
+2. Busca la propiedad nuevamente
+3. Selecciona 'Agendar Cita'"""
+
+            termino = text_lower.replace("buscar ", "").strip()
+            return manejar_busqueda_keywords(termino, estado_usuario, user_id)
+
+        # 5. OPCIONES DEL MENÚ PRINCIPAL
         if paso == 'menu_principal':
-            # Opciones numéricas del menú
-            if text_lower == "1":
-                return procesar_opcion_venta(estado_usuario, user_id)
-            elif text_lower == "2":
-                return procesar_opcion_alquiler(estado_usuario, user_id)
-            elif text_lower == "7":
-                return procesar_opcion_todas(estado_usuario, user_id)
-            elif text_lower == "3":
-                send_whatsapp_message(user_id, "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar")
-                return None
-            elif text_lower == "4":
-                return procesar_opcion_mis_citas(user_id)
-            elif text_lower == "5":
-                estado_usuario['paso'] = 'submenu_asesor'
-                actualizar_estado_usuario(user_id, estado_usuario)
-                return "👤 *HABLAR CON UN ASESOR*\n\n1️⃣ Enviar mensaje al asesor\n2️⃣ Solicitar llamada\n\n9️⃣ Volver al menú principal\n0️⃣ Salir"
-            elif text_lower == "6":
-                return """❓ *REQUISITOS Y PREGUNTAS FRECUENTES*
+            return manejar_menu_principal(text_lower, estado_usuario, user_id)
+        
+        # Respuesta por defecto
+        return """No pude identificar esa opción. Por favor elegí un número del menú.
+
+9️⃣ *Volver al menú principal*
+0️⃣ *Salir del chat*"""
+
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        log(f"🔥 ERROR EN get_bot_response: {e}\n{error_trace}")
+        return "❌ *Lo siento, ocurrió un error interno.*\n\nPor favor, intenta de nuevo enviando 'Hola' o contacta al administrador."
+
+# ========== MANEJADORES DE ESTADO ==========
+def manejar_menu_principal(text_lower, estado_usuario, user_id):
+    """Maneja las opciones del menú principal"""
+    if text_lower == "1":
+        # INMUEBLES EN VENTA
+        return procesar_opcion_venta(estado_usuario, user_id)
+        
+    elif text_lower == "2":
+        # INMUEBLES EN ALQUILER
+        return procesar_opcion_alquiler(estado_usuario, user_id)
+        
+    elif text_lower == "7":
+        # TODOS LOS INMUEBLES
+        return procesar_opcion_todas(estado_usuario, user_id)
+        
+    elif text_lower == "3":
+        # Visitar sitio web
+        return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
+
+    elif text_lower == "4":
+        # Ver mis citas
+        return procesar_opcion_mis_citas(user_id)
+
+    elif text_lower == "5":
+        # Hablar con asesor
+        estado_usuario['paso'] = 'submenu_asesor'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return """👤 *HABLAR CON UN ASESOR*
+
+1️⃣ Enviar mensaje al asesor
+2️⃣ Solicitar llamada
+
+9️⃣ Volver al menú principal
+0️⃣ Salir"""
+
+    elif text_lower == "6":
+        # FAQs
+        return """❓ *REQUISITOS Y PREGUNTAS FRECUENTES*
 
 *Para Alquilar:*
 • Mes de adelanto
@@ -1242,115 +1271,43 @@ def get_bot_response(text, user_id):
 • Demostración de ingresos (últimos 3 recibos)
 
 *¿Aceptan Mascotas?*
-Depende estrictamente de la propiedad y el consorcio.
+Depende estrictamente de la propiedad y el consorcio. Consultalo en el detalle de cada departamento.
 
 *¿Toman propiedades en parte de pago?*
-Sí, evaluamos permutas caso por caso.
+Sí, evaluamos permutas caso por caso. Escribinos para tasación.
 
-9️⃣ Volver al menú principal
-0️⃣ Salir"""
-            elif text_lower == "10":
-                return manejar_menu_tasacion(text_lower, estado_usuario, user_id)
-            elif text_lower == "8" and user_id == ADMIN_NUMBER.lstrip('549'):
-                return mostrar_panel_admin()
-            else:
-                # 🎯 CUALQUIER OTRA COSA - Mostrar menú principal
-                log(f"📱 Texto no reconocido en menú principal: '{text}' - Mostrando menú")
-                send_welcome_flow(user_id)
-                return None
+9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*
+0️⃣ *❌ SALIR*"""
+
+    elif text_lower == "9":
+        # Volver al menú
+        return "WELCOME_FLOW_TRIGGER"
         
-        # ============================================================
-        # 5. RESPUESTA POR DEFECTO
-        # ============================================================
-        log(f"⚠️ Estado desconocido '{paso}' para usuario {user_id}, mostrando menú")
-        estado_usuario.update({
-            'paso': 'menu_principal',
-            'conversacion_iniciada': True,
-            'operacion_seleccionada': None,
-            'propiedades_filtradas': []
-        })
-        actualizar_estado_usuario(user_id, estado_usuario)
-        send_welcome_flow(user_id)
-        return None
-
-    except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        log(f"🔥 ERROR EN get_bot_response: {e}\n{error_trace}")
-        send_whatsapp_message(user_id, "❌ *Lo siento, ocurrió un error interno.*\n\nPor favor, intenta de nuevo enviando 'Hola' o contacta al administrador.")
-        return None
-
-
-# ========== MANEJADORES DE ESTADO ==========
-def manejar_menu_principal(text_lower, estado_usuario, user_id):
-    """Maneja las opciones del menú principal"""
-    
-    # 🎯 Comando para salir (desde el menú)
-    if text_lower in ["s", "salir", "0"]:
-        # Resetear conversacion_iniciada a False
-        estado_usuario.update({
-            'paso': 'menu_principal',
-            'conversacion_iniciada': False,
-            'operacion_seleccionada': None,
-            'propiedades_filtradas': []
-        })
-        actualizar_estado_usuario(user_id, estado_usuario)
+    elif text_lower == "0":
+        # Salir
         return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
-    
-    # Comando para volver al menú
-    if text_lower in ["m", "hola", "menu", "volver", "inicio"]:
-        return "WELCOME_FLOW_TRIGGER"
-    
-    # Opciones numéricas del menú (solo si la conversación ya está iniciada)
-    if text_lower == "1":
-        return procesar_opcion_venta(estado_usuario, user_id)
-    elif text_lower == "2":
-        return procesar_opcion_alquiler(estado_usuario, user_id)
-    elif text_lower == "7":
-        return procesar_opcion_todas(estado_usuario, user_id)
-    elif text_lower == "3":
-        return WhatsAppResponse.buttons(
-            header="🌐 SITIO WEB OFICIAL",
-            body="👉 https://www.dantepropiedades.com.ar\n\nVisitá nuestro sitio para ver todas las propiedades y novedades.",
-            buttons=[
-                {"id": "m", "title": "Volver al menú"},
-                {"id": "s", "title": "Salir"}
-            ]
-        )
-    elif text_lower == "4":
-        return procesar_opcion_mis_citas(user_id)
-    elif text_lower == "5":
-        estado_usuario['paso'] = 'submenu_asesor'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return WhatsAppResponse.buttons(
-            body="¿Cómo querés comunicarte con un asesor?",
-            header="👤 HABLAR CON UN ASESOR",
-            buttons=[
-                {"id": "asesor_mensaje", "title": "Enviar mensaje"},
-                {"id": "asesor_llamada", "title": "Solicitar llamada"},
-                {"id": "m", "title": "Volver al menú"}
-            ]
-        )
-    elif text_lower == "6":
-        estado_usuario['paso'] = 'submenu_faqs'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return WhatsAppResponse.buttons(
-            body="❓ *REQUISITOS Y PREGUNTAS FRECUENTES*\n\nElige una opción, o enviá 'M' para Menú / 'S' para Salir:",
-            buttons=[
-                {"id": "req_alquiler", "title": "Requisitos Alquiler"},
-                {"id": "mascotas", "title": "¿Aceptan Mascotas?"},
-                {"id": "permutas", "title": "¿Permutas?"}
-            ]
-        )
+
     elif text_lower == "8" and user_id == ADMIN_NUMBER.lstrip('549'):
+        # Panel admin (solo para número autorizado)
         return mostrar_panel_admin()
+    
     elif text_lower == "10":
+        # TASACION VIRTUAL
         return manejar_menu_tasacion(text_lower, estado_usuario, user_id)
+    
     else:
-        # Cualquier otra cosa muestra el menú
-        return "WELCOME_FLOW_TRIGGER"
+        return """No pude identificar esa opción. Por favor elegí un número del menú.
 
+1️⃣ *Inmuebles en Venta* 🏠
+2️⃣ *Inmuebles en Alquiler* 🔑
+7️⃣ *Todos los Inmuebles* 🏢
+3️⃣ *Visitar nuestro sitio web* 🌐
+4️⃣ *Ver mis citas programadas* 📋
+5️⃣ *Hablar con un asesor* 👤
+6️⃣ *Requisitos y FAQs* ❓
 
+9️⃣ *Volver al menú principal*
+0️⃣ *Salir del chat*"""
 
 # ========== MANEJADORES DE TASACIÓN ==========
 
@@ -3317,18 +3274,11 @@ def webhook():
                                 
                                 log(f"👤 Usuario: {from_number}, Input Procesado: {message_text}")
                                 
-
                                 response_text = get_bot_response(message_text, from_number)
-
-                                # 🎯 Si response_text es None, no enviar nada (ya se envió desde get_bot_response)
-                                if response_text is None:
-                                    log("📤 Respuesta ya enviada desde get_bot_response")
-                                    result = {"status": "already_sent"}
-                                    
-                                elif response_text == "WELCOME_FLOW_TRIGGER":
+                                
+                                if response_text == "WELCOME_FLOW_TRIGGER":
                                     log("🎯 Enviando flujo de bienvenida interactivo")
                                     result = send_welcome_flow(from_number)
-                                    
                                 elif response_text and response_text.startswith("OFFER_MEETING_TRIGGER|"):
                                     prop_titulo = response_text.split("|")[1]
                                     text_body = f"✅ *¡Perfecto!*\n\nHemos registrado tu interés en:\n🏠 *{prop_titulo}*\n\n📅 *¿Te gustaría agendar una cita para visitar la propiedad?*"
@@ -3338,7 +3288,6 @@ def webhook():
                                         {"id": "ofertar", "title": "💰 Quiero ofertar"}
                                     ]
                                     result = send_whatsapp_interactive_buttons(from_number, text_body, botones)
-                                    
                                 elif response_text and response_text.startswith("CONFIRM_MEETING_TRIGGER|"):
                                     partes = response_text.split("|")
                                     fecha_display = partes[1]
@@ -3352,11 +3301,23 @@ def webhook():
                                         {"id": "cancelar", "title": "❌ Cancelar"}
                                     ]
                                     result = send_whatsapp_interactive_buttons(from_number, text_body, botones)
+                                elif response_text and response_text.startswith("PHOTOS_TRIGGER|"):
+                                    prop_id = response_text.split("|")[1]
+                                    base_url = request.host_url.rstrip('/')
+                                    if "onrender.com" in base_url and not base_url.startswith("https"):
+                                        base_url = base_url.replace("http://", "https://")
                                     
+                                    log(f"🚀 Iniciando hilo de fotos para propiedad {prop_id}")
+                                    thread = threading.Thread(target=send_photos_async, args=(from_number, prop_id, base_url))
+                                    thread.start()
+                                    
+                                    confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'Hola' para volver al menú."
+                                    result = send_whatsapp_message(from_number, confirmacion)
                                 elif response_text:
                                     result = send_whatsapp_message(from_number, response_text)
                                 else:
                                     result = {"status": "skipped", "reason": "empty_response"}
+                                
                                 log(f"📊 Resultado: {result.get('status')}")
                                 return jsonify({
                                     "status": "processed",
