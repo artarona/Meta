@@ -1218,87 +1218,74 @@ def get_bot_response(text, user_id):
 # ========== MANEJADORES DE ESTADO ==========
 def manejar_menu_principal(text_lower, estado_usuario, user_id):
     """Maneja las opciones del menú principal"""
+    
+    # 🎯 Comando para salir (desde el menú)
+    if text_lower in ["s", "salir", "0"]:
+        # Resetear conversacion_iniciada a False
+        estado_usuario.update({
+            'paso': 'menu_principal',
+            'conversacion_iniciada': False,
+            'operacion_seleccionada': None,
+            'propiedades_filtradas': []
+        })
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
+    
+    # Comando para volver al menú
+    if text_lower in ["m", "hola", "menu", "volver", "inicio"]:
+        return "WELCOME_FLOW_TRIGGER"
+    
+    # Opciones numéricas del menú (solo si la conversación ya está iniciada)
     if text_lower == "1":
-        # INMUEBLES EN VENTA
         return procesar_opcion_venta(estado_usuario, user_id)
-        
     elif text_lower == "2":
-        # INMUEBLES EN ALQUILER
         return procesar_opcion_alquiler(estado_usuario, user_id)
-        
     elif text_lower == "7":
-        # TODOS LOS INMUEBLES
         return procesar_opcion_todas(estado_usuario, user_id)
-        
     elif text_lower == "3":
-        # Visitar sitio web
-        return "🌐 *Visita nuestra web oficial:*\n\n👉 https://www.dantepropiedades.com.ar\n\nEnvía 'Hola' para volver al menú.\n0️⃣ *❌ SALIR*"
-
+        return WhatsAppResponse.buttons(
+            header="🌐 SITIO WEB OFICIAL",
+            body="👉 https://www.dantepropiedades.com.ar\n\nVisitá nuestro sitio para ver todas las propiedades y novedades.",
+            buttons=[
+                {"id": "m", "title": "Volver al menú"},
+                {"id": "s", "title": "Salir"}
+            ]
+        )
     elif text_lower == "4":
-        # Ver mis citas
         return procesar_opcion_mis_citas(user_id)
-
     elif text_lower == "5":
-        # Hablar con asesor
         estado_usuario['paso'] = 'submenu_asesor'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return """👤 *HABLAR CON UN ASESOR*
-
-1️⃣ Enviar mensaje al asesor
-2️⃣ Solicitar llamada
-
-9️⃣ Volver al menú principal
-0️⃣ Salir"""
-
+        return WhatsAppResponse.buttons(
+            body="¿Cómo querés comunicarte con un asesor?",
+            header="👤 HABLAR CON UN ASESOR",
+            buttons=[
+                {"id": "asesor_mensaje", "title": "Enviar mensaje"},
+                {"id": "asesor_llamada", "title": "Solicitar llamada"},
+                {"id": "m", "title": "Volver al menú"}
+            ]
+        )
     elif text_lower == "6":
-        # FAQs
-        return """❓ *REQUISITOS Y PREGUNTAS FRECUENTES*
-
-*Para Alquilar:*
-• Mes de adelanto
-• Mes de depósito (en USD)
-• Garantía propietaria (CABA/GBA) o Seguro de Caución (Finaer)
-• Demostración de ingresos (últimos 3 recibos)
-
-*¿Aceptan Mascotas?*
-Depende estrictamente de la propiedad y el consorcio. Consultalo en el detalle de cada departamento.
-
-*¿Toman propiedades en parte de pago?*
-Sí, evaluamos permutas caso por caso. Escribinos para tasación.
-
-9️⃣ *🔙 VOLVER AL MENÚ PRINCIPAL*
-0️⃣ *❌ SALIR*"""
-
-    elif text_lower == "9":
-        # Volver al menú
-        return "WELCOME_FLOW_TRIGGER"
-        
-    elif text_lower == "0":
-        # Salir
-        return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
-
+        estado_usuario['paso'] = 'submenu_faqs'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return WhatsAppResponse.buttons(
+            body="❓ *REQUISITOS Y PREGUNTAS FRECUENTES*\n\nElige una opción, o enviá 'M' para Menú / 'S' para Salir:",
+            buttons=[
+                {"id": "req_alquiler", "title": "Requisitos Alquiler"},
+                {"id": "mascotas", "title": "¿Aceptan Mascotas?"},
+                {"id": "permutas", "title": "¿Permutas?"}
+            ]
+        )
     elif text_lower == "8" and user_id == ADMIN_NUMBER.lstrip('549'):
-        # Panel admin (solo para número autorizado)
         return mostrar_panel_admin()
-    
     elif text_lower == "10":
-        # TASACION VIRTUAL
         return manejar_menu_tasacion(text_lower, estado_usuario, user_id)
-    
     else:
-        return """No pude identificar esa opción. Por favor elegí un número del menú.
+        # Cualquier otra cosa muestra el menú
+        return "WELCOME_FLOW_TRIGGER"
 
-1️⃣ *Inmuebles en Venta* 🏠
-2️⃣ *Inmuebles en Alquiler* 🔑
-7️⃣ *Todos los Inmuebles* 🏢
-3️⃣ *Visitar nuestro sitio web* 🌐
-4️⃣ *Ver mis citas programadas* 📋
-5️⃣ *Hablar con un asesor* 👤
-6️⃣ *Requisitos y FAQs* ❓
 
-9️⃣ *Volver al menú principal*
-0️⃣ *Salir del chat*"""
-
+        
 # ========== MANEJADORES DE TASACIÓN ==========
 
 def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
