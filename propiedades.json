@@ -296,7 +296,10 @@
       "imgs/UF007-4.jpg",
       "imgs/UF007-5.jpg",
       "imgs/UF007-6.jpg",
-      "imgs/UF007-7.jpg"
+      "imgs/UF007-7.jpeg",
+      "imgs/UF007-8.jpeg",
+      "imgs/UF007-9.jpeg",
+      "imgs/UF007-10.jpeg"
     ],
     "imagenes_360": [],
     "fecha_procesamiento": "2025-11-06T14:30:15.456789"
@@ -450,6 +453,45 @@
     "info_multimedia": "Fotos de la propiedad y terraza",
     "documentos": [
       "fichas/FICHA_UF014.pdf"
+    ],
+    "videos": [],
+    "fotos": [
+      "INSTITUCIONALES/INSTITUCIONAL 1.png",
+      "INSTITUCIONALES/INSTITUCIONAL 2.png",
+      "INSTITUCIONALES/INSTITUCIONAL 3.png",
+      "INSTITUCIONALES/INSTITUCIONAL 4.png",
+      "INSTITUCIONALES/INSTITUCIONAL 5.png"
+    ],
+    "imagenes_360": [],
+    "fecha_procesamiento": "2025-11-06T14:30:15.456789"
+  },
+  {
+    "id_temporal": "UF015",
+    "titulo": "Departamento · 49m² · 3 ambientes",
+    "barrio": "Villa Lugano",
+    "precio": 47500,
+    "ambientes": 4,
+    "metros_cuadrados": 67,
+    "operacion": "venta",
+    "tipo": "departamento",
+    "descripcion": "Departamento en Venta - 3 Ambientes con Vista Panorámica Al Parque - Barrio Nágera, CABA",
+    "direccion": "",
+    "direccion_completa": "Pasaje (F.f.de la Cruz 5200) 2401, Parque Avellaneda, CABA",
+    "antiguedad": 50,
+    "estado": "bueno",
+    "orientacion": "NO",
+    "expensas": 120000,
+    "moneda_precio": "USD",
+    "moneda_expensas": "AR$",
+    "amenities": "",
+    "cochera": "No",
+    "balcon": "No",
+    "pileta": "No",
+    "acepta_mascotas": "Sí",
+    "aire_acondicionado": "No",
+    "info_multimedia": "Fotos de la propiedad y terraza",
+    "documentos": [
+      "fichas/FICHA_UF015.pdf"
     ],
     "videos": [],
     "fotos": [
