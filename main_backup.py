@@ -2913,6 +2913,12 @@ def send_welcome_flow(user_id):
                 {"id": "opcion_5", "title": "👤 Hablar con asesor", "description": "Contacto directo con un humano"},
                 {"id": "opcion_3", "title": "🌐 Sitio Web", "description": "Visitar dantepropiedades.com.ar"}
             ]
+        },
+        {
+            "title": "Otras Opciones",
+            "rows": [
+                {"id": "opcion_salir", "title": "❌ Salir", "description": "Salir de la aplicación"}
+            ]
         }
     ]
     
@@ -3264,6 +3270,7 @@ def webhook():
                                     "opcion_6": "6",  # FAQs
                                     "opcion_7": "7",  # Todos los Inmuebles
                                     "opcion_tasacion": "10", # Tasación
+                                    "opcion_salir": "s",  # Salir
                                     "volver_menu": "9",
                                     "salir_chat": "0"
                                 }

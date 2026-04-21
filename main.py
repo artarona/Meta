@@ -993,6 +993,7 @@ def webhook():
                                     "opcion_6": "6",  # FAQs
                                     "opcion_7": "7",  # Todos los Inmuebles
                                     "opcion_tasacion": "10", # Tasación
+                                    "opcion_salir": "s",  # Salir
                                     "volver_menu": "9",
                                     "salir_chat": "0",
                                     "mis citas": "4",

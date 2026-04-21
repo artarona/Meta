@@ -310,6 +310,12 @@ def send_welcome_flow(user_id):
                 {"id": "opcion_5", "title": "👤 Hablar con asesor", "description": "Contacto directo con un humano"},
                 {"id": "opcion_3", "title": "🌐 Sitio Web", "description": "Visitar dantepropiedades.com.ar"}
             ]
+        },
+        {
+            "title": "Otras Opciones",
+            "rows": [
+                {"id": "opcion_salir", "title": "❌ Salir", "description": "Salir de la aplicación"}
+            ]
         }
     ]
     
