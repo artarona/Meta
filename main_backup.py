@@ -1584,6 +1584,10 @@ def manejar_tasacion_m2(text, estado_usuario, user_id):
         m2_str = text.replace(',', '.').strip()
         m2 = float(m2_str)
         
+        # Validar que m2 sea un número positivo y razonable
+        if m2 < 5 or m2 > 10000:
+            return "⚠️ Por favor, ingresá un número válido de m² (entre 5 y 10000).\n\nEjemplo: 65, 120, 200, etc."
+        
         if 'datos_tasacion' not in estado_usuario['data']:
             estado_usuario['data']['datos_tasacion'] = {}
             
@@ -1591,7 +1595,10 @@ def manejar_tasacion_m2(text, estado_usuario, user_id):
         estado_usuario['paso'] = 'tasacion_ambientes'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "🔢 *¿Cuántos ambientes tiene?* (ej: 3)"
-    except:
+    except ValueError:
+        return "⚠️ Por favor, ingresá un número válido para los metros cuadrados (usa . para decimales).\n\nEjemplo: 65, 120.5, 200"
+    except Exception as e:
+        log(f"🔥 Error en manejar_tasacion_m2: {e}")
         return "⚠️ Por favor, ingresá un número válido para los metros cuadrados."
 
 def manejar_tasacion_ambientes(text, estado_usuario, user_id):
@@ -1599,6 +1606,10 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
     try:
         amb_str = "".join(filter(str.isdigit, text))
         ambientes = int(amb_str) if amb_str else 0
+        
+        # Validar que haya al menos 1 ambiente
+        if ambientes < 1:
+            return "⚠️ Por favor, ingresá un número válido de ambientes (mínimo 1).\n\nEjemplo: 1, 2, 3, etc."
         
         if 'datos_tasacion' not in estado_usuario['data']:
             estado_usuario['data']['datos_tasacion'] = {}
@@ -1617,7 +1628,9 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
 
 9️⃣ Volver al menú
 0️⃣ Salir"""
-    except:
+    except Exception as e:
+        log(f"⚠️ Error en manejar_tasacion_ambientes: {e}")
+        return "⚠️ Por favor, ingresá un número para los ambientes. (Ejemplo: 2, 3, 4)"
         return "⚠️ Por favor, ingresá un número para los ambientes."
 
 def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
@@ -1632,11 +1645,32 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
     
     if text_lower in estados:
         if 'datos_tasacion' not in estado_usuario['data']:
-             return "⚠️ Ocurrió un error en el flujo. Por favor, enviá 'Hola' para comenzar de nuevo."
-             
-        estado_usuario['data']['datos_tasacion']['estado'] = estados[text_lower]
-        datos = estado_usuario['data']['datos_tasacion']
+            log(f"❌ Error: datos_tasacion no encontrado en estado_usuario['data']")
+            return "⚠️ Ocurrió un error en el flujo. Por favor, enviá 'Hola' para comenzar de nuevo."
         
+        # Validar que todos los datos requeridos estén presentes
+        datos = estado_usuario['data']['datos_tasacion']
+        campos_requeridos = ['barrio', 'tipo', 'm2', 'ambientes']
+        
+        for campo in campos_requeridos:
+            if campo not in datos or datos[campo] is None or str(datos[campo]).strip() == '':
+                log(f"❌ Error: Campo '{campo}' faltante o vacío en datos_tasacion: {datos}")
+                return f"⚠️ Error: Falta información en el campo '{campo}'. Por favor, iniciá nuevamente con 'Hola'."
+        
+        # Convertir m2 y ambientes a números si es necesario
+        try:
+            datos['m2'] = float(datos['m2'])
+            datos['ambientes'] = int(datos['ambientes'])
+        except (ValueError, TypeError) as e:
+            log(f"❌ Error al convertir m2 o ambientes: {e}, datos: {datos}")
+            return f"⚠️ Error al procesar los datos. Por favor, iniciá nuevamente con 'Hola'."
+        
+        # Agregar el estado
+        estado_usuario['data']['datos_tasacion']['estado'] = estados[text_lower]
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        log(f"✅ Datos de tasación completos: {estado_usuario['data']['datos_tasacion']}")
+            
         # 1. Obtener tasación
         tasacion = obtener_tasacion_ia(
             datos['barrio'], 

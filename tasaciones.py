@@ -308,6 +308,10 @@ def manejar_tasacion_m2(text, estado_usuario, user_id):
         m2_str = text.replace(',', '.').strip()
         m2 = float(m2_str)
         
+        # Validar que m2 sea un número positivo y razonable
+        if m2 < 5 or m2 > 10000:
+            return "⚠️ Por favor, ingresá un número válido de m² (entre 5 y 10000).\n\nEjemplo: 65, 120, 200, etc."
+        
         if 'datos_tasacion' not in estado_usuario['data']:
             estado_usuario['data']['datos_tasacion'] = {}
             
@@ -317,15 +321,19 @@ def manejar_tasacion_m2(text, estado_usuario, user_id):
         # SI ES TERRENO, SALTAR AMBIENTES Y ESTADO
         if datos.get('tipo') == 'Terreno':
             log(f"🌱 Propiedad tipo Terreno detectada para {user_id}. Saltando pasos adicionales.")
-            datos['ambientes'] = 0
+            datos['ambientes'] = 1  # Cambiar a 1 en lugar de 0 para evitar problemas en la tasación
             datos['estado'] = 'Bueno' # Factor neutro 1.0
+            actualizar_estado_usuario(user_id, estado_usuario)
             return _finalizar_tasacion_y_responder(user_id, estado_usuario, datos)
             
         estado_usuario['paso'] = 'tasacion_ambientes'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "🔢 *¿Cuántos ambientes tiene?* (ej: 3)"
+    except ValueError:
+        log(f"⚠️ Error: No se pudo convertir '{text}' a número")
+        return "⚠️ Por favor, ingresá un número válido para los metros cuadrados (usa . para decimales si es necesario).\n\nEjemplo: 65, 120.5, 200"
     except Exception as e:
-        log(f"⚠️ Error en manejar_tasacion_m2: {e}")
+        log(f"🔥 Error crítico en manejar_tasacion_m2: {e}")
         return "⚠️ Por favor, ingresá un número válido para los metros cuadrados."
 
 
@@ -334,6 +342,10 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
     try:
         amb_str = "".join(filter(str.isdigit, text))
         ambientes = int(amb_str) if amb_str else 0
+        
+        # Validar que haya al menos 1 ambiente
+        if ambientes < 1:
+            return "⚠️ Por favor, ingresá un número válido de ambientes (mínimo 1).\n\nEjemplo: 1, 2, 3, etc."
         
         if 'datos_tasacion' not in estado_usuario['data']:
             estado_usuario['data']['datos_tasacion'] = {}
@@ -360,8 +372,9 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
             ],
             "footer": "Ⓜ️ Envía 'M' para Volver | ❌ Envía 'S' para Salir"
         }
-    except:
-        return "⚠️ Por favor, ingresá un número para los ambientes."
+    except Exception as e:
+        log(f"⚠️ Error en manejar_tasacion_ambientes: {e}")
+        return "⚠️ Por favor, ingresá un número para los ambientes. (Ejemplo: 2, 3, 4)"
 
 
 def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
@@ -376,11 +389,32 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
     
     if text_lower in estados:
         if 'datos_tasacion' not in estado_usuario['data']:
-             return "⚠️ Ocurrió un error en el flujo. Por favor, enviá 'Hola' para comenzar de nuevo."
-             
-        estado_usuario['data']['datos_tasacion']['estado'] = estados[text_lower]
+            log(f"❌ Error: datos_tasacion no encontrado en estado_usuario['data']")
+            return "⚠️ Ocurrió un error en el flujo. Por favor, enviá 'Hola' para comenzar de nuevo."
+            
+        # Validar que todos los datos requeridos estén presentes
         datos = estado_usuario['data']['datos_tasacion']
-        return _finalizar_tasacion_y_responder(user_id, estado_usuario, datos)
+        campos_requeridos = ['barrio', 'tipo', 'm2', 'ambientes']
+        
+        for campo in campos_requeridos:
+            if campo not in datos or datos[campo] is None or str(datos[campo]).strip() == '':
+                log(f"❌ Error: Campo '{campo}' faltante o vacío en datos_tasacion: {datos}")
+                return f"⚠️ Error: Falta información en el campo '{campo}'. Por favor, iniciá nuevamente con 'Hola'."
+        
+        # Convertir m2 y ambientes a números si es necesario
+        try:
+            datos['m2'] = float(datos['m2'])
+            datos['ambientes'] = int(datos['ambientes'])
+        except (ValueError, TypeError) as e:
+            log(f"❌ Error al convertir m2 o ambientes: {e}, datos: {datos}")
+            return f"⚠️ Error al procesar los datos. Por favor, iniciá nuevamente con 'Hola'."
+        
+        # Agregar el estado
+        estado_usuario['data']['datos_tasacion']['estado'] = estados[text_lower]
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        log(f"✅ Datos de tasación completos: {estado_usuario['data']['datos_tasacion']}")
+        return _finalizar_tasacion_y_responder(user_id, estado_usuario, estado_usuario['data']['datos_tasacion'])
     else:
         return "⚠️ Por favor, elegí una opción válida (1 al 5)."
 
@@ -398,6 +432,20 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
             datos.get('operacion', 'venta')
         )
         
+        # Validar que tasacion no sea None
+        if not tasacion:
+            log(f"⚠️ tasacion_ia retornó None para los datos: {datos}")
+            # Retornar un mensaje de error más descriptivo
+            return WhatsAppResponse.buttons(
+                header="⚠️ ERROR EN LA TASACIÓN",
+                body="Ocurrió un error al procesar tu solicitud. Por favor, intenta de nuevo o contacta a un asesor.",
+                buttons=[
+                    {"id": "10", "title": "📈 Reintentar Tasación"},
+                    {"id": "5", "title": "👤 Hablar con Asesor"},
+                    {"id": "m", "title": "🔙 Volver al Menú"}
+                ]
+            )
+        
         # 2. Registrar Lead
         detalles = f"Tasación solicitada: {datos['tipo']} en {datos['barrio']}, {datos['m2']}m2, {datos['ambientes']} amb, estado {datos['estado']}."
         if tasacion:
@@ -406,16 +454,15 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
         registrar_lead(user_id, "TASACION_VIRTUAL", "tasacion", detalles)
         notificar_agente(f"📈 *NUEVO LEAD DE TASACIÓN*\n📞 Tel: +{user_id}\n📝 {detalles}")
         
-        # 3. Respuesta al usuario
-        if tasacion:
-            intro_mercado = f"Basado en el análisis estadístico de mercado para *{datos['barrio']}*:"
-            if tasacion.get("is_fallback") and tasacion.get("muestra", 0) <= 1:
-                intro_mercado = "Basado en el promedio general del mercado inmobiliario (estamos recolectando más datos específicos de tu zona):"
-                
-            # 4. Info de Fuentes
-            fuentes_str = ", ".join(tasacion.get("fuentes", ["Mercado Local"]))
-            muestra = tasacion.get("muestra", 0)
-            info_fuentes = f"\n🔍 *Análisis:* basado en {muestra} propiedades de {fuentes_str}."
+        # 3. Respuesta al usuario - Preparar variables
+        intro_mercado = f"Basado en el análisis estadístico de mercado para *{datos['barrio']}*:"
+        if tasacion.get("is_fallback") and tasacion.get("muestra", 0) <= 1:
+            intro_mercado = "Basado en el promedio general del mercado inmobiliario (estamos recolectando más datos específicos de tu zona):"
+            
+        # 4. Info de Fuentes
+        fuentes_str = ", ".join(tasacion.get("fuentes", ["Mercado Local"]))
+        muestra = tasacion.get("muestra", 0)
+        info_fuentes = f"\n🔍 *Análisis:* basado en {muestra} propiedades de {fuentes_str}."
 
         mensaje_body = f"""📊 *RESULTADO DE TU TASACIÓN VIRTUAL*
 
