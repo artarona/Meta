@@ -427,19 +427,29 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
 📈 *Precio promedio m²:* {tasacion['moneda']} ${tasacion['precio_m2']:,.0f}
 {info_fuentes}
 
-⚠️ *Nota:* Esta es una estimación orientativa basada en datos de mercado. Para una tasación profesional, un asesor debe visitar la propiedad."""
+⚠️ *Nota:* Esta es una estimación orientativa basada en datos de mercado. Para una tasación profesional, un asesor debe visitar la propiedad.
+
+¿Qué deseas hacer?"""
         estado_usuario['paso'] = 'tasacion_esperando_contacto'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        return {
-            "type": "interactive_buttons",
-            "body": mensaje_body,
-            "buttons": [
-                {"id": "1", "title": "Deseas una tasación pro?"},
-                {"id": "2", "title": "No por ahora"}
+        # Retornar menú de lista interactivo con las 3 opciones
+        return WhatsAppResponse.list_menu(
+            body=mensaje_body,
+            button_text="Opciones",
+            sections=[
+                {
+                    "title": "Acciones",
+                    "rows": [
+                        {"id": "1", "title": "✅ Deseas una Tasación", "description": "Profesional con visita"},
+                        {"id": "2", "title": "⏭️ No por ahora", "description": "Continuar explorando"},
+                        {"id": "m", "title": "🔙 Menú Principal", "description": "Ir al inicio"},
+                        {"id": "s", "title": "❌ Salir", "description": "Terminar sesión"}
+                    ]
+                }
             ],
-            "footer": "Ⓜ️ Envía 'M' para Volver | ❌ Envía 'S' para Salir"
-        }
+            footer="Selecciona una opción 👇"
+        )
     except Exception as e:
         log(f"🔥 Error en _finalizar_tasacion_y_responder: {e}")
         import traceback
@@ -449,13 +459,34 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
 
 def manejar_tasacion_contacto(text_lower, estado_usuario, user_id):
     """Maneja la respuesta final del flujo de tasación"""
-    if text_lower == "1":
+    # Mapear IDs de botones del menú interactivo
+    mapeo_botones = {
+        "1": "1",
+        "2": "2",
+        "m": "menu",
+        "s": "salir"
+    }
+    
+    comando = mapeo_botones.get(text_lower, text_lower)
+    
+    if comando == "1":
         notificar_agente(f"📞 *SOLICITUD DE TASACIÓN PROFESIONAL*\n📞 Tel: +{user_id}\nEl cliente solicitó contacto humano después de la tasación virtual.")
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "✅ ¡Perfecto! Un asesor se pondrá en contacto con vos a la brevedad para coordinar la visita. ¡Gracias por confiar en nosotros! 🏠🗝️\n\nⓂ️ *Envía 'M' para volver al menú*\n❌ *Envía 'S' para salir*"
+        return "✅ ¡Perfecto! Un asesor se pondrá en contacto con vos a la brevedad para coordinar la visita. ¡Gracias por confiar en nosotros! 🏠🗝️"
+    
+    elif comando == "menu":
+        estado_usuario['paso'] = 'menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "WELCOME_FLOW_TRIGGER"
+    
+    elif comando == "salir":
+        estado_usuario['paso'] = 'menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
+    
     else:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "Entendido. Si necesitás algo más, acá estoy. 😊\n\nⓂ️ Volver al menú (Envía 'M')"
+        return "Entendido. Si necesitás algo más, acá estoy. 😊"
         

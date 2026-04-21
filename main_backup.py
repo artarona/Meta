@@ -1676,43 +1676,89 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
 📈 *Precio promedio m²:* {tasacion['moneda']} ${tasacion['precio_m2']:,.0f}
 {info_fuentes}
 
-⚠️ *Nota:* Esta es una estimación orientativa basada en datos de mercado. Para una tasación profesional y exacta, un asesor debe visitar la propiedad.
+⚠️ *Nota:* Esta es una estimación orientativa basada en datos de mercado. Para una tasación profesional, un asesor debe visitar la propiedad.
 
-¿Te gustaría que un tasador te contacte para una visita formal?
-1️⃣ Sí, quiero una tasación profesional
-2️⃣ No por ahora, gracias
-
-9️⃣ Volver al menú
-0️⃣ Salir"""
+¿Qué deseas hacer?"""
+            
+            # Retornar menú de lista interactivo
+            return WhatsAppResponse.list_menu(
+                body=mensaje,
+                button_text="Opciones",
+                sections=[
+                    {
+                        "title": "Acciones",
+                        "rows": [
+                            {"id": "1", "title": "✅ Deseas una Tasación", "description": "Profesional con visita"},
+                            {"id": "2", "title": "⏭️ No por ahora", "description": "Continuar explorando"},
+                            {"id": "m", "title": "🔙 Menú Principal", "description": "Ir al inicio"},
+                            {"id": "s", "title": "❌ Salir", "description": "Terminar sesión"}
+                        ]
+                    }
+                ],
+                footer="Selecciona una opción 👇"
+            )
         else:
             mensaje = f"""✅ *¡Datos recibidos!*
 
 Aún no tenemos suficientes datos comparativos en *{datos['barrio']}* para darte una cifra automática exacta, pero un asesor experto va a analizar tu caso personalmente.
 
-¿Te gustaría que un tasador te contacte para coordinar una visita y darte el valor real?
-1️⃣ Sí, por favor
-2️⃣ No por ahora
-
-9️⃣ Volver al menú
-0️⃣ Salir"""
+¿Qué deseas hacer?"""
+            
+            # Retornar menú de lista interactivo
+            return WhatsAppResponse.list_menu(
+                body=mensaje,
+                button_text="Opciones",
+                sections=[
+                    {
+                        "title": "Acciones",
+                        "rows": [
+                            {"id": "1", "title": "✅ Tasación Profesional", "description": "Con visita personal"},
+                            {"id": "2", "title": "⏭️ No por ahora", "description": "Continuar explorando"},
+                            {"id": "m", "title": "🔙 Menú Principal", "description": "Ir al inicio"},
+                            {"id": "s", "title": "❌ Salir", "description": "Terminar sesión"}
+                        ]
+                    }
+                ],
+                footer="Selecciona una opción 👇"
+            )
             
         estado_usuario['paso'] = 'tasacion_esperando_contacto'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return mensaje
     else:
         return "⚠️ Por favor, elegí una opción válida (1 al 5)."
 
 def manejar_tasacion_contacto(text_lower, estado_usuario, user_id):
     """Maneja la respuesta final del flujo de tasación"""
-    if text_lower == "1":
+    # Mapear IDs de botones del menú interactivo
+    mapeo_botones = {
+        "1": "1",
+        "2": "2",
+        "m": "menu",
+        "s": "salir"
+    }
+    
+    comando = mapeo_botones.get(text_lower, text_lower)
+    
+    if comando == "1":
         notificar_agente(f"📞 *SOLICITUD DE TASACIÓN PROFESIONAL*\n📞 Tel: +{user_id}\nEl cliente solicitó contacto humano después de la tasación virtual.")
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "✅ ¡Perfecto! Un asesor se pondrá en contacto con vos a la brevedad para coordinar la visita. ¡Gracias por confiar en nosotros! 🏠🗝️"
+    
+    elif comando == "menu":
+        estado_usuario['paso'] = 'menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "WELCOME_FLOW_TRIGGER"
+    
+    elif comando == "salir":
+        estado_usuario['paso'] = 'menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
+    
     else:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "Entendido. Si necesitás algo más, acá estoy. 😊\n\n9️⃣ Volver al menú"
+        return "Entendido. Si necesitás algo más, acá estoy. 😊"
 
 # ========== MANEJADORES DE SUBMENÚS ==========
 
