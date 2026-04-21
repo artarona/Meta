@@ -524,6 +524,86 @@ def procesar_opcion_mis_citas(user_id):
     return [mensaje, nav_buttons]
 
 
+def devolver_detalle_propiedad_menu(propiedad):
+    """Devuelve el detalle de propiedad con menú de lista interactivo optimizado"""
+    # Generar el cuerpo con la información de la propiedad (sin los botones al final)
+    titulo = propiedad.get('titulo', 'Propiedad Destacada').strip()
+    operacion = propiedad.get('operacion', '')
+    
+    # Crear resumen compacto para el body del menú
+    barrio = propiedad.get('barrio', '')
+    precio = propiedad.get('precio', 0)
+    moneda = propiedad.get('moneda_precio', 'USD')
+    simbolo = "USD$" if moneda == 'USD' else "$"
+    expensas = propiedad.get('expensas', 0)
+    ambientes = propiedad.get('ambientes', 0)
+    m2 = propiedad.get('metros_cuadrados', 0)
+    
+    # Body más compacto para el menú de lista
+    body = f"""✨ *{titulo}* ✨
+
+📍 {barrio}
+💵 {simbolo} {precio:,.0f}"""
+    
+    if expensas > 0:
+        moneda_exp = propiedad.get('moneda_expensas', 'ARS')
+        simb_exp = "USD$" if moneda_exp == 'USD' else "$"
+        body += f" | 🏢 {simb_exp} {expensas:,.0f}"
+    
+    body += f"\n📐 {ambientes} amb. en {m2} m²"
+    
+    # Amenities
+    amenities = []
+    if str(propiedad.get('balcon', 'No')).lower() in ['si', 'sí', '1', 'true', 'x']:
+        amenities.append("🌆 Balcón")
+    if str(propiedad.get('cochera', 'No')).lower() in ['si', 'sí', '1', 'true', 'x']:
+        amenities.append("🚗 Cochera")
+    if str(propiedad.get('acepta_mascotas', 'No')).lower() in ['si', 'sí', '1', 'true']:
+        amenities.append("🐾 Pet Friendly")
+    if str(propiedad.get('pileta', 'No')).lower() in ['si', 'sí', '1', 'true']:
+        amenities.append("🏊 Pileta")
+    if str(propiedad.get('aire_acondicionado', 'No')).lower() in ['si', 'sí', '1', 'true']:
+        amenities.append("❄️ Aire")
+        
+    if amenities:
+        body += f"\n⭐ {' • '.join(amenities)}"
+    
+    body += "\n\n¿Qué deseas hacer?"
+    
+    # Crear las secciones del menú
+    sections = [
+        {
+            "title": "Ver Información",
+            "rows": [
+                {"id": "ver_fotos", "title": "📷 Ver Fotos", "description": "Galería de imágenes"},
+                {"id": "ver_pdf", "title": "📄 Ver Ficha Técnica", "description": "Descargar PDF completo"},
+            ]
+        },
+        {
+            "title": "Acciones",
+            "rows": [
+                {"id": "me_interesa", "title": "👁️ Me Interesa", "description": "Agendar visita"},
+                {"id": "requisitos", "title": "📋 Ver Requisitos", "description": "Condiciones de ingreso"},
+            ]
+        },
+        {
+            "title": "Navegación",
+            "rows": [
+                {"id": "ver_listado", "title": "📋 Más Propiedades", "description": "Ver otras opciones"},
+                {"id": "m", "title": "Ⓜ️ Menú Principal", "description": "Ir al inicio"},
+                {"id": "s", "title": "❌ Salir", "description": "Terminar sesión"}
+            ]
+        }
+    ]
+    
+    return WhatsAppResponse.list_menu(
+        body=body,
+        button_text="Opciones",
+        sections=sections,
+        footer="Selecciona una opción del menú 👇"
+    )
+
+
 def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
     """Maneja la selección de propiedades del listado"""
     log(f"[DEBUG] manejar_listado_propiedades: text_lower='{text_lower}', paso={estado_usuario.get('paso')}, ultimo_indice={estado_usuario.get('ultimo_indice_preguntado')}, propiedades_count={len(estado_usuario.get('propiedades_filtradas', []))}, operacion={estado_usuario.get('operacion_seleccionada')}")
@@ -590,9 +670,8 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         
         registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_detalle", f"Título: {propiedad.get('titulo')}")
         
-        operacion = propiedad.get('operacion', '')
-        titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
-        return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
+        # Retornar menú interactivo optimizado
+        return devolver_detalle_propiedad_menu(propiedad)
     else:
         return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}).\n\n📱 Enviá *MENU* para volver al inicio o *SALIR* para terminar."
 
@@ -752,22 +831,36 @@ def manejar_busqueda_keywords(termino, estado_usuario, user_id):
 def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
     """Maneja las interacciones cuando el usuario está viendo el detalle de una propiedad"""
     
+    # Mapear IDs de botones del menú interactivo a comandos
+    mapeo_botones = {
+        "ver_fotos": "f",
+        "ver_pdf": "p",
+        "me_interesa": "i",
+        "ver_listado": "l",
+        "m": "m",
+        "s": "s",
+        "requisitos": "req"
+    }
+    
+    # Convertir ID de botón a comando si es necesario
+    comando = mapeo_botones.get(text_lower, text_lower)
+    
     # Comandos de navegación
-    if text_lower in ["menu", "volver", "hola"]:
+    if comando in ["menu", "volver", "hola", "m"]:
         estado_usuario['paso'] = 'menu_principal'
         estado_usuario['propiedades_filtradas'] = []
         estado_usuario['ultimo_indice_preguntado'] = None
         actualizar_estado_usuario(user_id, estado_usuario)
         return "WELCOME_FLOW_TRIGGER"
     
-    if text_lower in ["salir", "chau", "adios", "0"]:
+    if comando in ["salir", "chau", "adios", "0", "s"]:
         estado_usuario['paso'] = 'menu_principal'
         estado_usuario['propiedades_filtradas'] = []
         actualizar_estado_usuario(user_id, estado_usuario)
         return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
     
     # Comando para volver al listado de propiedades
-    if text_lower in ["listado", "l", "listado propiedades"]:
+    if comando in ["listado", "l", "listado propiedades"]:
         propiedades = estado_usuario.get('propiedades_filtradas', [])
         if propiedades:
             estado_usuario['paso'] = 'listado_propiedades'
@@ -778,8 +871,8 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             return "⚠️ No hay propiedades en el listado. Envía 'MENU' para volver al inicio."
     
-    # Comando "I" - Me interesa
-    if text_lower in ["i", "interesa", "me interesa"]:
+    # Comando "I" o "me_interesa" - Me interesa
+    if comando in ["i", "interesa", "me interesa"]:
         indice = estado_usuario.get('ultimo_indice_preguntado')
         propiedades = estado_usuario.get('propiedades_filtradas', [])
         
@@ -798,8 +891,8 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
         else:
             return "⚠️ Error: No se pudo identificar la propiedad. Por favor, volvé al listado y seleccioná la propiedad nuevamente."
     
-    # Comando "f" - Ver fotos
-    if text_lower == "f":
+    # Comando "f" o "ver_fotos" - Ver fotos
+    if comando == "f":
         indice = estado_usuario.get('ultimo_indice_preguntado')
         propiedades = estado_usuario.get('propiedades_filtradas', [])
         if indice and 1 <= indice <= len(propiedades):
@@ -808,8 +901,8 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
         else:
             return "⚠️ Error: No se pudo identificar la propiedad para mostrar las fotos."
     
-    # Comando "p" - Descargar PDF
-    if text_lower == "p":
+    # Comando "p" o "ver_pdf" - Descargar PDF
+    if comando == "p":
         indice = estado_usuario.get('ultimo_indice_preguntado')
         propiedades = estado_usuario.get('propiedades_filtradas', [])
         if indice and 1 <= indice <= len(propiedades):
@@ -819,6 +912,63 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
             return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
         else:
             return "⚠️ Error: No se pudo identificar la propiedad para generar el PDF."
+    
+    # Comando "req" o "requisitos" - Ver requisitos
+    if comando == "req":
+        indice = estado_usuario.get('ultimo_indice_preguntado')
+        propiedades = estado_usuario.get('propiedades_filtradas', [])
+        if indice and 1 <= indice <= len(propiedades):
+            propiedad = propiedades[indice - 1]
+            operacion = propiedad.get('operacion', 'alquiler')
+            
+            if operacion == 'alquiler':
+                return """📋 *REQUISITOS PARA ALQUILER*
+
+Para poder alquilar esta propiedad necesitas:
+
+📝 *Documentación:*
+• DNI vigente
+• CUIL/CUIT
+• Comprobante de ingresos (últimos 3 recibos)
+
+💼 *Laborales:*
+• Constancia de trabajo (con sueldo mínimo 3x la renta)
+• Antiguedad en el trabajo: mín 1 año
+• Referencias laborales
+
+🏠 *Personales:*
+• 2 referencias personales
+• Comprobante de domicilio actual
+
+💰 *Económicos:*
+• Depósito caución: 2 meses de renta
+• 1er mes de renta adelantado
+• Gastos de gestión (según inmobiliaria)
+
+¿Necesitás ayuda para completar la documentación? 📞"""
+            else:
+                return """📋 *REQUISITOS PARA COMPRA*
+
+Para poder comprar esta propiedad necesitas:
+
+📝 *Documentación:*
+• DNI vigente
+• CUIL/CUIT
+• Comprobante de origen de fondos
+• Estado patrimonial
+
+💼 *Financieros:*
+• Capacidad de financiamiento
+• Certificado de no adeudar impuestos
+• Comprobantes de ingresos
+
+🏦 *Bancarios:*
+• Pre-aprobación de crédito (si aplica)
+• Referencias bancarias
+
+¿Necesitás ayuda para la gestión? 📞"""
+        else:
+            return "⚠️ Error: No se pudo identificar la propiedad."
     
     # Si no se reconoce el comando, mostrar opciones con botones
     return WhatsAppResponse.buttons(

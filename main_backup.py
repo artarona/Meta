@@ -2011,6 +2011,85 @@ Opciones disponibles:
 
 📱 *0. Volver al menú principal*"""
 
+def devolver_detalle_propiedad_menu(propiedad):
+    """Devuelve el detalle de propiedad con menú de lista interactivo optimizado"""
+    # Generar el cuerpo con la información de la propiedad
+    titulo = propiedad.get('titulo', 'Propiedad Destacada').strip()
+    operacion = propiedad.get('operacion', '')
+    
+    # Crear resumen compacto para el body del menú
+    barrio = propiedad.get('barrio', '')
+    precio = propiedad.get('precio', 0)
+    moneda = propiedad.get('moneda_precio', 'USD')
+    simbolo = "USD$" if moneda == 'USD' else "$"
+    expensas = propiedad.get('expensas', 0)
+    ambientes = propiedad.get('ambientes', 0)
+    m2 = propiedad.get('metros_cuadrados', 0)
+    
+    # Body más compacto para el menú de lista
+    body = f"""✨ *{titulo}* ✨
+
+📍 {barrio}
+💵 {simbolo} {precio:,.0f}"""
+    
+    if expensas > 0:
+        moneda_exp = propiedad.get('moneda_expensas', 'ARS')
+        simb_exp = "USD$" if moneda_exp == 'USD' else "$"
+        body += f" | 🏢 {simb_exp} {expensas:,.0f}"
+    
+    body += f"\n📐 {ambientes} amb. en {m2} m²"
+    
+    # Amenities
+    amenities = []
+    if str(propiedad.get('balcon', 'No')).lower() in ['si', 'sí', '1', 'true', 'x']:
+        amenities.append("🌆 Balcón")
+    if str(propiedad.get('cochera', 'No')).lower() in ['si', 'sí', '1', 'true', 'x']:
+        amenities.append("🚗 Cochera")
+    if str(propiedad.get('acepta_mascotas', 'No')).lower() in ['si', 'sí', '1', 'true']:
+        amenities.append("🐾 Pet Friendly")
+    if str(propiedad.get('pileta', 'No')).lower() in ['si', 'sí', '1', 'true']:
+        amenities.append("🏊 Pileta")
+    if str(propiedad.get('aire_acondicionado', 'No')).lower() in ['si', 'sí', '1', 'true']:
+        amenities.append("❄️ Aire")
+        
+    if amenities:
+        body += f"\n⭐ {' • '.join(amenities)}"
+    
+    body += "\n\n¿Qué deseas hacer?"
+    
+    # Crear las secciones del menú
+    sections = [
+        {
+            "title": "Ver Información",
+            "rows": [
+                {"id": "ver_fotos", "title": "📷 Ver Fotos", "description": "Galería de imágenes"},
+                {"id": "ver_pdf", "title": "📄 Ver Ficha Técnica", "description": "Descargar PDF completo"},
+            ]
+        },
+        {
+            "title": "Acciones",
+            "rows": [
+                {"id": "me_interesa", "title": "👁️ Me Interesa", "description": "Agendar visita"},
+                {"id": "requisitos", "title": "📋 Ver Requisitos", "description": "Condiciones de ingreso"},
+            ]
+        },
+        {
+            "title": "Navegación",
+            "rows": [
+                {"id": "ver_listado", "title": "📋 Más Propiedades", "description": "Ver otras opciones"},
+                {"id": "m", "title": "Ⓜ️ Menú Principal", "description": "Ir al inicio"},
+                {"id": "s", "title": "❌ Salir", "description": "Terminar sesión"}
+            ]
+        }
+    ]
+    
+    return WhatsAppResponse.list_menu(
+        body=body,
+        button_text="Opciones",
+        sections=sections,
+        footer="Selecciona una opción del menú 👇"
+    )
+
 def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
     """Maneja la selección de propiedades del listado"""
     if not text_lower.isdigit():
@@ -2042,15 +2121,29 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         
         registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_detalle", f"Título: {propiedad.get('titulo')}")
         
-        operacion = propiedad.get('operacion', '')
-        titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
-        return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
+        # Retornar menú interactivo optimizado
+        return devolver_detalle_propiedad_menu(propiedad)
     else:
         return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}). Elige uno o envía 9 para volver.\n0️⃣ *Salir*"
 
 def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
     """Maneja las opciones en el detalle de propiedad"""
-    if text_lower == "1":
+    
+    # Mapear IDs de botones del menú interactivo a comandos
+    mapeo_botones = {
+        "ver_fotos": "f",
+        "ver_pdf": "p",
+        "me_interesa": "i",
+        "ver_listado": "l",
+        "m": "1",
+        "s": "0",
+        "requisitos": "req"
+    }
+    
+    # Convertir ID de botón a comando si es necesario
+    comando = mapeo_botones.get(text_lower, text_lower)
+    
+    if comando == "1":
         estado_usuario.update({
             'paso': 'menu_principal',
             'operacion_seleccionada': None,
@@ -2060,8 +2153,67 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
         actualizar_estado_usuario(user_id, estado_usuario)
         return "WELCOME_FLOW_TRIGGER"
     
-    if text_lower.isdigit():
-        indice = int(text_lower)
+    if comando == "0":
+        estado_usuario.update({
+            'paso': 'menu_principal',
+            'propiedades_filtradas': []
+        })
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
+    
+    if comando in ["l", "listado"]:
+        propiedades = estado_usuario.get('propiedades_filtradas', [])
+        if propiedades:
+            estado_usuario['paso'] = 'listado_propiedades'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return generar_listado_propiedades(propiedades)
+    
+    if comando in ["i", "me_interesa"]:
+        indice = estado_usuario.get('ultimo_indice_preguntado')
+        propiedades = estado_usuario.get('propiedades_filtradas', [])
+        
+        if indice and 1 <= indice <= len(propiedades):
+            propiedad = propiedades[indice - 1]
+            estado_usuario['paso'] = 'esperando_nombre_lead'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            try:
+                registrar_lead(user_id, propiedad.get('id_temporal'), 'click_me_interesa', f"Interés expresado en Propiedad: {propiedad.get('titulo')}")
+                notificar_agente(f"👀 *INTERÉS INICIAL*\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad.get('titulo')}")
+            except Exception as e:
+                log(f"⚠️ Error: {e}")
+            
+            return f"✅ ¡Excelente! Mostraste interés en: *{propiedad.get('titulo')}*\n\n¿Cuál es tu nombre?"
+    
+    if comando == "f":
+        indice = estado_usuario.get('ultimo_indice_preguntado')
+        propiedades = estado_usuario.get('propiedades_filtradas', [])
+        if indice and 1 <= indice <= len(propiedades):
+            propiedad = propiedades[indice - 1]
+            return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
+    
+    if comando == "p":
+        indice = estado_usuario.get('ultimo_indice_preguntado')
+        propiedades = estado_usuario.get('propiedades_filtradas', [])
+        if indice and 1 <= indice <= len(propiedades):
+            propiedad = propiedades[indice - 1]
+            BASE_URL = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")
+            return f"📄 Ficha técnica: {BASE_URL}/fichas/{propiedad.get('id_temporal')}"
+    
+    if comando == "req":
+        return """📋 *REQUISITOS PARA ALQUILER*
+
+📝 Documentación requerida:
+• DNI vigente
+• Comprobante de ingresos (últimos 3 recibos)
+• Constancia de trabajo (mín 3x la renta)
+
+💰 Depósito caución + primer mes adelantado
+
+¿Necesitas más información? Contactanos."""
+    
+    if comando.isdigit():
+        indice = int(comando)
         propiedades = estado_usuario.get('propiedades_filtradas', [])
         if 1 <= indice <= len(propiedades):
             propiedad = propiedades[indice - 1]
@@ -2070,9 +2222,8 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
             
             registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_detalle", f"Título: {propiedad.get('titulo')}")
             
-            operacion = propiedad.get('operacion', '')
-            titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
-            return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
+            # Retornar menú interactivo optimizado
+            return devolver_detalle_propiedad_menu(propiedad)
     
     return "📷 'F' Fotos | 8️⃣ '8' Me interesa\n9️⃣ Volver al menú | 0️⃣ *Salir*"
 
