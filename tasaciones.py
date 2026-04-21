@@ -2,6 +2,7 @@ from utils import log, numero_a_emoji
 from config import *
 from database import *
 from whatsapp_api import *
+from logic.response_builder import WhatsAppResponse
 import json
 import requests
 import os
