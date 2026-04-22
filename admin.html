@@ -1377,6 +1377,8 @@
                     <textarea class="form-control" id="edit-cita-notas" rows="3"></textarea>
                 </div>
                 <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-danger" style="flex: 1;" 
+                        onclick="confirmarEliminarCita(document.getElementById('edit-cita-id').value)">🗑️ Eliminar</button>
                     <button type="button" class="btn btn-outline" style="flex: 1;"
                         onclick="cerrarModal('modal-editar-cita')">Cancelar</button>
                     <button type="submit" class="btn btn-primary" style="flex: 1;">Guardar Cambios</button>
@@ -2894,6 +2896,29 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 cargarDatos();
             } catch (error) {
                 console.error('Error eliminando cita:', error);
+            }
+        }
+
+        async function confirmarEliminarCita(citaId) {
+            if (!citaId) {
+                mostrarToast('❌ Error: ID de cita no encontrado', 'error');
+                return;
+            }
+            
+            // Mostrar confirmación
+            if (!confirm('⚠️ ¿Estás seguro de eliminar esta cita permanentemente? Esta acción no se puede deshacer.')) {
+                return;
+            }
+
+            try {
+                mostrarToast('Eliminando cita...', 'info');
+                await fetchConClave(`/api/citas/${citaId}`, { method: 'DELETE' });
+                mostrarToast('✅ Cita eliminada correctamente', 'success');
+                cerrarModal('modal-editar-cita');
+                cargarDatos();
+            } catch (error) {
+                console.error('Error eliminando cita:', error);
+                mostrarToast('❌ Error al eliminar la cita', 'error');
             }
         }
 
