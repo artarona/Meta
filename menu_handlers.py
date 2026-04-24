@@ -489,7 +489,7 @@ def procesar_opcion_mis_citas(user_id):
     if len(citas_usuario) == 1:
         # Guardar la cita seleccionada y pasar a opciones
         cita_seleccionada = citas_usuario[0]
-        
+        log(f"🔍 DEBUG CITA: {cita_seleccionada}")  # 👈 Agregar este log
         # Obtener información de la propiedad
         todas_propiedades = cargar_propiedades_cached()
         props_dict = {p.get('id_temporal', ''): p for p in todas_propiedades}
