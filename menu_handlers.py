@@ -571,9 +571,9 @@ def procesar_opcion_mis_citas(user_id):
 
 def manejar_seleccion_cita_modificar(text_lower, user_id):
     """Maneja la selección de una cita para modificarla desde el menú de citas"""
-    # Manejar botones de navegación primero
+
+    # Manejar navegación
     if text_lower in ["m", "volver"]:
-        # Volver al menú principal
         estado_usuario = obtener_estado_usuario(user_id)
         estado_usuario['paso'] = 'menu_principal'
         estado_usuario['cita_seleccionada_modificar'] = None
@@ -582,21 +582,19 @@ def manejar_seleccion_cita_modificar(text_lower, user_id):
         return "WELCOME_FLOW_TRIGGER"
     
     if text_lower in ["s", "salir"]:
-        # Salir del chat
         return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
     
-    # Verificar si es un número válido
+    # Validar número
     try:
         numero_cita = int(text_lower)
     except ValueError:
-        return "❌ *Entrada inválida*. Por favor, escribí el número de la cita que deseás modificar (ej: 1, 2, 3, etc.).\n\nⓂ️ *VOLVER AL MENÚ* (Envía 'M')"
+        return "❌ *Entrada inválida*. Escribí el número de la cita.\n\nⓂ️ *VOLVER AL MENÚ* (Envía 'M')"
     
-    # Obtener las citas del usuario
+    # Obtener citas
     estado_usuario = obtener_estado_usuario(user_id)
     citas_usuario = estado_usuario.get('citas_para_modificar', [])
-    
+
     if not citas_usuario:
-        # Fallback: obtener las citas nuevamente
         citas_usuario = obtener_todas_citas_usuario(user_id)
         if not citas_usuario:
             citas_json = cargar_citas()
@@ -604,58 +602,20 @@ def manejar_seleccion_cita_modificar(text_lower, user_id):
                 citas_usuario = [
                     c for c in citas_json 
                     if (son_numeros_identicos(c.get('telefono'), user_id) or son_numeros_identicos(c.get('user_id'), user_id))
-                    and c.get('estado', '').lower() != 'cancelada'
-                    and c.get('estado', '').lower() != 'finalizada'
+                    and c.get('estado', '').lower() not in ['cancelada', 'finalizada']
                 ]
     
-    # Validar que el número esté dentro del rango
+    # Validar rango
     if numero_cita < 1 or numero_cita > len(citas_usuario):
-        return f"❌ *Número inválido*. Debes seleccionar un número entre 1 y {len(citas_usuario)}.\n\nⓂ️ *VOLVER AL MENÚ* (Envía 'M')"
+        return f"❌ *Número inválido*. Seleccioná entre 1 y {len(citas_usuario)}.\n\nⓂ️ *VOLVER AL MENÚ* (Envía 'M')"
     
-    # Obtener la cita seleccionada (índice es 0-based)
+    # Seleccionar cita
     cita_seleccionada = citas_usuario[numero_cita - 1]
-    
-    # Guardar la cita seleccionada en el estado del usuario para procesamiento posterior
     estado_usuario['cita_seleccionada_modificar'] = cita_seleccionada
     estado_usuario['paso'] = 'opciones_modificar_cita'
     actualizar_estado_usuario(user_id, estado_usuario)
-    
-    # Formatear la información de la cita
-    try:
-        fecha_obj = datetime.strptime(cita_seleccionada.get('fecha', ''), "%Y-%m-%d")
-        fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
-    except (ValueError, TypeError):
-        fecha_formateada = cita_seleccionada.get('fecha', 'Sin fecha')
-    
-    # Obtener información de la propiedad
-    todas_propiedades = cargar_propiedades_cached()
-    props_dict = {p.get('id_temporal', ''): p for p in todas_propiedades}
-    propiedad_id_cita = cita_seleccionada.get('propiedad_id', '')
-    propiedad = props_dict.get(propiedad_id_cita, {})
-    titulo = propiedad.get('titulo', propiedad_id_cita if propiedad_id_cita else 'Propiedad N/A')
-    
-    # Guardar el título de la propiedad en la cita para uso posterior
-    cita_seleccionada['propiedad_titulo'] = titulo
-    actualizar_estado_usuario(user_id, estado_usuario)
-    
-    # Mostrar la cita seleccionada y opciones de modificación
-    mensaje = f"""✅ *CITA SELECCIONADA*
 
-━━━━━━━━━━━━━━━━━━━━
-🏠 *Propiedad:* {titulo}
-📅 *Fecha:* {fecha_formateada}
-⏰ *Hora:* {cita_seleccionada.get('hora', 'Sin hora')} hs
-📍 *Estado:* {cita_seleccionada.get('estado', 'Pendiente').upper()}
-━━━━━━━━━━━━━━━━━━━━
-
-# ¿Qué deseás hacer con esta cita?
-
-# 1️⃣ ** 📅
-# 2️⃣ *Cancelar cita* ❌
-# 3️⃣ *Ver detalles* 📋
-# Ⓜ️ *Volver* (Envía 'M')
-# """
-    
+    # Botones (único menú)
     nav_buttons = WhatsAppResponse.buttons(
         header="🔧 MODIFICAR CITA",
         body="Seleccioná qué acción deseás realizar con esta cita.",
@@ -665,8 +625,9 @@ def manejar_seleccion_cita_modificar(text_lower, user_id):
             {"id": "m", "title": "Volver"}
         ]
     )
-    
-    return [mensaje, nav_buttons]
+
+    return nav_buttons
+
 
 
 def manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id):
