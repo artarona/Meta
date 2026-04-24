@@ -566,8 +566,7 @@ def procesar_opcion_mis_citas(user_id):
             {"id": "s", "title": "Salir"}
         ]
     )
-    return [mensaje, nav_buttons]
-
+    return nav_buttons
 
 def manejar_seleccion_cita_modificar(text_lower, user_id):
     """Maneja la selección de una cita para modificarla desde el menú de citas"""
@@ -636,13 +635,8 @@ def manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id):
     
     text_lower = text_lower.lower().strip()
     
-    # Aceptar tanto números como texto de los botones de Meta
-    es_cambiar_fecha = text_lower in ["1", "cambiar fecha", "cambiar fecha/hora", "modificar fecha", "cambiar"]
-    es_cancelar = text_lower in ["2", "cancelar cita", "cancelar", "anular", "cancel"]
-    es_ver_detalles = text_lower in ["3", "ver detalles", "detalles", "información", "info", "ver"]
-    es_volver = text_lower in ["m", "volver", "menu", "atrás", "back", "volver al menú"]
-    
-    if es_cambiar_fecha:
+    # 👇 RECONOCER EL ID EXACTO DEL BOTÓN
+    if text_lower in ["opcion_cambiar_fecha", "1", "cambiar fecha", "cambiar fecha/hora", "modificar fecha"]:
         # Opción: Cambiar fecha/hora
         log(f"🔄 Usuario {user_id} solicita cambiar fecha de cita")
         
@@ -653,17 +647,16 @@ def manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id):
         
         return "🔄 *Perfecto! Vamos a cambiar la fecha de tu visita.*\n\n📅 Enviá la nueva fecha que prefieras (ej: 'mañana 10am', 'jueves 14:30'):"
     
-    elif es_cancelar:
+    # 👇 RECONOCER EL ID EXACTO DEL BOTÓN
+    elif text_lower in ["opcion_cancelar_cita", "2", "cancelar cita", "cancelar", "anular"]:
         # Opción: Cancelar cita
         log(f"❌ Usuario {user_id} solicita cancelar cita")
         
         cita_id = cita_seleccionada.get('id')
         try:
-            # Actualizar el estado en la base de datos
             actualizar_cita_db(cita_id, nuevo_estado='cancelada')
             log(f"✅ Cita {cita_id} cancelada exitosamente")
             
-            # Registrar la cancelación
             guardar_en_postgresql(
                 telefono=user_id,
                 nombre=estado_usuario.get('nombre_cliente', 'Cliente'),
@@ -671,7 +664,6 @@ def manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id):
                 detalles=f"Cita {cita_id} cancelada por el usuario desde 'Modificar cita'"
             )
             
-            # Notificar al agente
             try:
                 titulo_propiedad = cita_seleccionada.get('propiedad_titulo', 'Propiedad N/A')
                 fecha_cita = cita_seleccionada.get('fecha', 'Sin fecha')
@@ -680,7 +672,6 @@ def manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id):
             except:
                 pass
             
-            # Resetear estado
             estado_usuario['paso'] = 'menu_principal'
             estado_usuario['cita_seleccionada_modificar'] = None
             estado_usuario['citas_para_modificar'] = []
@@ -699,55 +690,23 @@ def manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id):
             log(f"❌ Error cancelando cita: {e}")
             return "❌ *Error al cancelar la cita*\n\nPor favor, intentá nuevamente o contactá a un asesor.\n\nⓜ️ *VOLVER AL MENÚ* (Envía 'M')"
     
-    elif es_ver_detalles:
-        # Opción: Ver más detalles de la cita
-        log(f"📋 Usuario {user_id} solicita ver detalles de cita")
-        
-        try:
-            fecha_obj = datetime.strptime(cita_seleccionada.get('fecha', ''), "%Y-%m-%d")
-            fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
-        except (ValueError, TypeError):
-            fecha_formateada = cita_seleccionada.get('fecha', 'Sin fecha')
-        
-        mensaje_detalles = f"""📋 *DETALLES COMPLETOS DE LA CITA*
-
-━━━━━━━━━━━━━━━━━━━━
-📅 *Fecha:* {fecha_formateada}
-⏰ *Hora:* {cita_seleccionada.get('hora', 'Sin hora')} hs
-📍 *Estado:* {cita_seleccionada.get('estado', 'Pendiente').upper()}
-👤 *Nombre:* {cita_seleccionada.get('nombre', 'N/A')}
-📧 *Email:* {cita_seleccionada.get('email', 'No proporcionado')}
-📞 *Teléfono:* +{cita_seleccionada.get('telefono', cita_seleccionada.get('user_id', 'N/A'))}
-📝 *Notas:* {cita_seleccionada.get('notas', 'Sin notas adicionales')}
-━━━━━━━━━━━━━━━━━━━━
-
-¿Qué deseás hacer?
-
-1️⃣ *Cambiar fecha/hora* 📅
-2️⃣ *Cancelar cita* ❌
-Ⓜ️ *Volver* (Envía 'M')
-"""
-        return mensaje_detalles
-    
-    elif es_volver:
+    elif text_lower in ["m", "volver"]:
         # Volver a la lista de citas
         log(f"↩️ Usuario {user_id} volviendo a lista de citas")
         estado_usuario['paso'] = 'menu_principal'
         estado_usuario['cita_seleccionada_modificar'] = None
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        # Mostrar nuevamente la lista de citas
         return procesar_opcion_mis_citas(user_id)
     
     else:
-        # Opción no reconocida - mostrar menú de ayuda
+        # Solo llegar acá si realmente no se reconoce nada
         return """❌ *Operación no reconocida.*
 
 Por favor elegí una de las siguientes opciones:
 
 1️⃣ *Cambiar fecha/hora* 📅
 2️⃣ *Cancelar cita* ❌
-3️⃣ *Ver detalles* 📋
 Ⓜ️ *Volver* (Envía 'M')
 """
 
