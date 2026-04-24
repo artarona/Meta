@@ -510,27 +510,10 @@ def procesar_opcion_mis_citas(user_id):
         except (ValueError, TypeError):
             fecha_formateada = cita_seleccionada.get('fecha', 'Sin fecha')
         
-        # Mostrar la cita seleccionada y opciones de modificación
-        mensaje = f"""✅ *CITA SELECCIONADA*
-
-━━━━━━━━━━━━━━━━━━━━
-🏠 *Propiedad:* {titulo}
-📅 *Fecha:* {fecha_formateada}
-⏰ *Hora:* {cita_seleccionada.get('hora', 'Sin hora')} hs
-📍 *Estado:* {cita_seleccionada.get('estado', 'Pendiente').upper()}
-━━━━━━━━━━━━━━━━━━━━
-
-¿Qué deseás hacer con esta cita?
-
-1️⃣ *Modificar fecha/hora* 📅
-2️⃣ *Cancelar cita* ❌
-3️⃣ *Ver detalles* 📋
-Ⓜ️ *Volver* (Envía 'M')
-"""
-        
+        # Mostrar solo los botones de Meta sin duplicar opciones de texto
         nav_buttons = WhatsAppResponse.buttons(
-            header="🔧 MODIFICAR CITA",
-            body="Seleccioná qué acción deseás realizar con esta cita.",
+            header=f"🔧 CITA: {titulo}",
+            body=f"📅 {fecha_formateada} - ⏰ {cita_seleccionada.get('hora', 'Sin hora')} hs\n\n¿Qué deseás hacer?",
             buttons=[
                 {"id": "opcion_cambiar_fecha", "title": "Cambiar fecha/hora"},
                 {"id": "opcion_cancelar_cita", "title": "Cancelar cita"},
@@ -538,7 +521,7 @@ def procesar_opcion_mis_citas(user_id):
             ]
         )
         
-        return [mensaje, nav_buttons]
+        return nav_buttons
     
     # Si hay 2 o más citas, mostrar lista para elegir
     estado_usuario['citas_para_modificar'] = citas_usuario
@@ -667,7 +650,7 @@ def manejar_seleccion_cita_modificar(text_lower, user_id):
 
 ¿Qué deseás hacer con esta cita?
 
-1️⃣ *Modificar fecha/hora* 📅
+1️⃣ ** 📅
 2️⃣ *Cancelar cita* ❌
 3️⃣ *Ver detalles* 📋
 Ⓜ️ *Volver* (Envía 'M')
