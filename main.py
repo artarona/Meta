@@ -407,6 +407,21 @@ def get_bot_response(text, user_id):
         elif paso == 'esperando_confirmacion_recordatorio':
             return manejar_confirmacion_recordatorio(text, estado_usuario, user_id)
         
+        elif paso == 'seleccionar_cita_modificar':
+            return manejar_seleccion_cita_modificar(text_lower, user_id)
+        
+        elif paso == 'opciones_modificar_cita':
+            return manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'solicitar_fecha_actualizacion_cita':
+            return manejar_solicitar_fecha_actualizacion_cita(text_lower, estado_usuario, user_id)
+        
+        elif paso == 'seleccionar_hora_actualizacion_cita':
+            return manejar_seleccionar_hora_actualizacion_cita(text, estado_usuario, user_id)
+        
+        elif paso == 'confirmar_actualizacion_cita':
+            return manejar_confirmar_actualizacion_cita(text_lower, estado_usuario, user_id)
+        
         elif paso == 'tasacion_operacion':
             return manejar_tasacion_operacion(text_lower, estado_usuario, user_id)
         

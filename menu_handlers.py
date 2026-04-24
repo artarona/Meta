@@ -483,6 +483,12 @@ def procesar_opcion_mis_citas(user_id):
             ]
         )
     
+    # Guardar las citas en el estado del usuario para poder seleccionar una después
+    estado_usuario = obtener_estado_usuario(user_id)
+    estado_usuario['citas_para_modificar'] = citas_usuario
+    estado_usuario['paso'] = 'seleccionar_cita_modificar'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
     mensaje = f"📅 *TUS CITAS AGENDADAS*\n\nTienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
     
     # Cargar todas las propiedades para poder buscar por ID
@@ -514,14 +520,443 @@ def procesar_opcion_mis_citas(user_id):
     # Opción A: enviar texto rico + botones como 2 mensajes
     nav_buttons = WhatsAppResponse.buttons(
         header="📅 TUS CITAS",
-        body="Para consultar o modificar una cita, contactá al administrador.",
+        body="¿Qué deseás hacer? Escribí el número de la cita para modificarla (ej: '1', '2', etc.)",
         buttons=[
-            {"id": "opcion_4", "title": "Ver mis citas"},
+            {"id": "opcion_modificar_cita", "title": "Modificar cita"},
             {"id": "m", "title": "Volver al menú"},
             {"id": "s", "title": "Salir"}
         ]
     )
     return [mensaje, nav_buttons]
+
+
+def manejar_seleccion_cita_modificar(text_lower, user_id):
+    """Maneja la selección de una cita para modificarla desde el menú de citas"""
+    # Manejar botones de navegación primero
+    if text_lower in ["m", "volver"]:
+        # Volver al menú principal
+        estado_usuario = obtener_estado_usuario(user_id)
+        estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['cita_seleccionada_modificar'] = None
+        estado_usuario['citas_para_modificar'] = []
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "WELCOME_FLOW_TRIGGER"
+    
+    if text_lower in ["s", "salir"]:
+        # Salir del chat
+        return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
+    
+    # Verificar si es un número válido
+    try:
+        numero_cita = int(text_lower)
+    except ValueError:
+        return "❌ *Entrada inválida*. Por favor, escribí el número de la cita que deseás modificar (ej: 1, 2, 3, etc.).\n\nⓂ️ *VOLVER AL MENÚ* (Envía 'M')"
+    
+    # Obtener las citas del usuario
+    estado_usuario = obtener_estado_usuario(user_id)
+    citas_usuario = estado_usuario.get('citas_para_modificar', [])
+    
+    if not citas_usuario:
+        # Fallback: obtener las citas nuevamente
+        citas_usuario = obtener_todas_citas_usuario(user_id)
+        if not citas_usuario:
+            citas_json = cargar_citas()
+            if citas_json:
+                citas_usuario = [
+                    c for c in citas_json 
+                    if (son_numeros_identicos(c.get('telefono'), user_id) or son_numeros_identicos(c.get('user_id'), user_id))
+                    and c.get('estado', '').lower() != 'cancelada'
+                    and c.get('estado', '').lower() != 'finalizada'
+                ]
+    
+    # Validar que el número esté dentro del rango
+    if numero_cita < 1 or numero_cita > len(citas_usuario):
+        return f"❌ *Número inválido*. Debes seleccionar un número entre 1 y {len(citas_usuario)}.\n\nⓂ️ *VOLVER AL MENÚ* (Envía 'M')"
+    
+    # Obtener la cita seleccionada (índice es 0-based)
+    cita_seleccionada = citas_usuario[numero_cita - 1]
+    
+    # Guardar la cita seleccionada en el estado del usuario para procesamiento posterior
+    estado_usuario['cita_seleccionada_modificar'] = cita_seleccionada
+    estado_usuario['paso'] = 'opciones_modificar_cita'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    # Formatear la información de la cita
+    try:
+        fecha_obj = datetime.strptime(cita_seleccionada.get('fecha', ''), "%Y-%m-%d")
+        fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
+    except (ValueError, TypeError):
+        fecha_formateada = cita_seleccionada.get('fecha', 'Sin fecha')
+    
+    # Obtener información de la propiedad
+    todas_propiedades = cargar_propiedades_cached()
+    props_dict = {p.get('id_temporal', ''): p for p in todas_propiedades}
+    propiedad_id_cita = cita_seleccionada.get('propiedad_id', '')
+    propiedad = props_dict.get(propiedad_id_cita, {})
+    titulo = propiedad.get('titulo', propiedad_id_cita if propiedad_id_cita else 'Propiedad N/A')
+    
+    # Guardar el título de la propiedad en la cita para uso posterior
+    cita_seleccionada['propiedad_titulo'] = titulo
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    # Mostrar la cita seleccionada y opciones de modificación
+    mensaje = f"""✅ *CITA SELECCIONADA*
+
+━━━━━━━━━━━━━━━━━━━━
+🏠 *Propiedad:* {titulo}
+📅 *Fecha:* {fecha_formateada}
+⏰ *Hora:* {cita_seleccionada.get('hora', 'Sin hora')} hs
+📍 *Estado:* {cita_seleccionada.get('estado', 'Pendiente').upper()}
+━━━━━━━━━━━━━━━━━━━━
+
+¿Qué deseás hacer con esta cita?
+
+1️⃣ *Modificar fecha/hora* 📅
+2️⃣ *Cancelar cita* ❌
+3️⃣ *Ver detalles* 📋
+Ⓜ️ *Volver* (Envía 'M')
+"""
+    
+    nav_buttons = WhatsAppResponse.buttons(
+        header="🔧 MODIFICAR CITA",
+        body="Seleccioná qué acción deseás realizar con esta cita.",
+        buttons=[
+            {"id": "opcion_cambiar_fecha", "title": "Cambiar fecha/hora"},
+            {"id": "opcion_cancelar_cita", "title": "Cancelar cita"},
+            {"id": "m", "title": "Volver"}
+        ]
+    )
+    
+    return [mensaje, nav_buttons]
+
+
+def manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id):
+    """Maneja las opciones de modificación de una cita seleccionada"""
+    cita_seleccionada = estado_usuario.get('cita_seleccionada_modificar', {})
+    
+    if text_lower in ["1", "cambiar fecha", "cambiar fecha/hora", "modificar fecha"]:
+        # Opción: Cambiar fecha/hora
+        log(f"🔄 Usuario {user_id} solicita cambiar fecha de cita")
+        
+        # Preparar el estado para solicitar nueva fecha
+        estado_usuario['paso'] = 'solicitar_fecha_actualizacion_cita'
+        estado_usuario['cita_id_a_modificar'] = cita_seleccionada.get('id')
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        return "🔄 *Perfecto! Vamos a cambiar la fecha de tu visita.*\n\n📅 Enviá la nueva fecha que prefieras (ej: 'mañana 10am', 'jueves 14:30'):"
+    
+    elif text_lower in ["2", "cancelar cita", "cancelar", "anular"]:
+        # Opción: Cancelar cita
+        log(f"❌ Usuario {user_id} solicita cancelar cita")
+        
+        cita_id = cita_seleccionada.get('id')
+        try:
+            # Actualizar el estado en la base de datos
+            actualizar_cita_db(cita_id, nuevo_estado='cancelada')
+            log(f"✅ Cita {cita_id} cancelada exitosamente")
+            
+            # Registrar la cancelación
+            guardar_en_postgresql(
+                telefono=user_id,
+                nombre=estado_usuario.get('nombre_cliente', 'Cliente'),
+                accion="cita_cancelada",
+                detalles=f"Cita {cita_id} cancelada por el usuario desde 'Modificar cita'"
+            )
+            
+            # Notificar al agente
+            try:
+                titulo_propiedad = cita_seleccionada.get('propiedad_titulo', 'Propiedad N/A')
+                fecha_cita = cita_seleccionada.get('fecha', 'Sin fecha')
+                hora_cita = cita_seleccionada.get('hora', 'Sin hora')
+                notificar_agente(f"❌ *CITA CANCELADA*\n👤 {estado_usuario.get('nombre_cliente', 'Cliente')}\n📞 +{user_id}\n🏠 {titulo_propiedad}\n📅 {fecha_cita} {hora_cita}")
+            except:
+                pass
+            
+            # Resetear estado
+            estado_usuario['paso'] = 'menu_principal'
+            estado_usuario['cita_seleccionada_modificar'] = None
+            estado_usuario['citas_para_modificar'] = []
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            return WhatsAppResponse.buttons(
+                header="✅ CITA CANCELADA",
+                body="Tu cita ha sido cancelada exitosamente. Si en otro momento deséas agendar una visita, podés volver a empezar desde el catálogo.",
+                buttons=[
+                    {"id": "opcion_7", "title": "Ver propiedades"},
+                    {"id": "m", "title": "Volver al menú"},
+                    {"id": "s", "title": "Salir"}
+                ]
+            )
+        except Exception as e:
+            log(f"❌ Error cancelando cita: {e}")
+            return "❌ *Error al cancelar la cita*\n\nPor favor, intentá nuevamente o contactá a un asesor.\n\nⓜ️ *VOLVER AL MENÚ* (Envía 'M')"
+    
+    elif text_lower in ["3", "ver detalles", "detalles", "información"]:
+        # Opción: Ver más detalles de la cita
+        log(f"📋 Usuario {user_id} solicita ver detalles de cita")
+        
+        try:
+            fecha_obj = datetime.strptime(cita_seleccionada.get('fecha', ''), "%Y-%m-%d")
+            fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
+        except (ValueError, TypeError):
+            fecha_formateada = cita_seleccionada.get('fecha', 'Sin fecha')
+        
+        mensaje_detalles = f"""📋 *DETALLES COMPLETOS DE LA CITA*
+
+━━━━━━━━━━━━━━━━━━━━
+📅 *Fecha:* {fecha_formateada}
+⏰ *Hora:* {cita_seleccionada.get('hora', 'Sin hora')} hs
+📍 *Estado:* {cita_seleccionada.get('estado', 'Pendiente').upper()}
+👤 *Nombre:* {cita_seleccionada.get('nombre', 'N/A')}
+📧 *Email:* {cita_seleccionada.get('email', 'No proporcionado')}
+📞 *Teléfono:* +{cita_seleccionada.get('telefono', cita_seleccionada.get('user_id', 'N/A'))}
+📝 *Notas:* {cita_seleccionada.get('notas', 'Sin notas adicionales')}
+━━━━━━━━━━━━━━━━━━━━
+
+¿Qué deseás hacer?
+
+1️⃣ *Modificar fecha/hora* 📅
+2️⃣ *Cancelar cita* ❌
+Ⓜ️ *Volver* (Envía 'M')
+"""
+        return mensaje_detalles
+    
+    elif text_lower in ["m", "volver"]:
+        # Volver a la lista de citas
+        log(f"↩️ Usuario {user_id} volviendo a lista de citas")
+        estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['cita_seleccionada_modificar'] = None
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        # Mostrar nuevamente la lista de citas
+        return procesar_opcion_mis_citas(user_id)
+    
+    else:
+        # Opción no reconocida
+        return """❌ *Operación no reconocida.*
+
+Por favor elegí una de las siguientes opciones:
+
+1️⃣ *Cambiar fecha/hora* 📅
+2️⃣ *Cancelar cita* ❌
+3️⃣ *Ver detalles* 📋
+Ⓜ️ *Volver* (Envía 'M')
+"""
+
+
+def manejar_solicitar_fecha_actualizacion_cita(text_lower, estado_usuario, user_id):
+    """Maneja la solicitud de nueva fecha para actualizar una cita existente"""
+    
+    if text_lower in ["ver fechas", "disponibles", "fechas"]:
+        return mostrar_fechas_disponibles(estado_usuario)
+    
+    # 1. Analizar Fecha
+    fecha_ingresada = analizar_fecha(text_lower)
+    
+    if not fecha_ingresada:
+        return """❌ *No entendí la fecha*
+Por favor, probá con:
+✅ "Mañana a las 10"
+✅ "El jueves por la tarde"
+✅ "25-10-2026"
+
+1️⃣ *Ver fechas* (Ver disponibilidad)
+Ⓜ️ *Volver* (Ir al menú - Envía 'M')"""
+
+    # Validaciones de fecha
+    hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    if fecha_ingresada < hoy and fecha_ingresada.date() != hoy.date():
+        return "❌ *Fecha pasada*\nPor favor elige una fecha futura."
+    
+    # 2. Analizar Hora (si el usuario la incluyó)
+    hora_ingresada = analizar_hora(text_lower)
+    
+    fecha_str = fecha_ingresada.strftime("%Y-%m-%d")
+    fecha_display = fecha_ingresada.strftime("%d-%m-%Y")
+    
+    # Obtener ID de la propiedad de la cita a modificar
+    cita_seleccionada = estado_usuario.get('cita_seleccionada_modificar', {})
+    propiedad_id = cita_seleccionada.get('propiedad_id')
+        
+    horarios_disponibles = obtener_horarios_disponibles(fecha_str, propiedad_id)
+    
+    if not horarios_disponibles:
+        return f"""❌ *Sin disponibilidad*
+No hay horarios para el {fecha_display}.
+
+1️⃣ *Ver fechas* (Elegir otro día)
+Ⓜ️ *Volver* (Ir al menú - Envía 'M')"""
+
+    estado_usuario['fecha_cita_actualizacion'] = fecha_str
+    
+    # CASO A: Usuario indicó fecha Y hora ("mañana a las 10")
+    if hora_ingresada:
+        if hora_ingresada in horarios_disponibles:
+            # Hora válida -> Confirmar la actualización
+            estado_usuario['hora_cita_actualizacion'] = hora_ingresada
+            estado_usuario['paso'] = 'confirmar_actualizacion_cita'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            return f"""✅ *NUEVA FECHA SELECCIONADA*
+
+📅 *Fecha:* {fecha_display}
+⏰ *Hora:* {hora_ingresada} hs
+
+¿Confirmás este cambio?
+
+1️⃣ *SÍ, CAMBIAR* ✅
+2️⃣ *NO, ELEGIR OTRA FECHA* 🔄
+Ⓜ️ *CANCELAR* (Envía 'M')
+"""
+        else:
+            # Hora inválida o ocupada
+            return f"""❌ *Horario no disponible*
+El horario {hora_ingresada} no está disponible para el {fecha_display}.
+
+⏰ *Horarios libres:*
+{", ".join(horarios_disponibles)}
+
+Por favor, escribí uno de los horarios disponibles."""
+
+    # CASO B: Solicitó solo fecha -> Pedir hora
+    estado_usuario['paso'] = 'seleccionar_hora_actualizacion_cita'
+    estado_usuario['horarios_disponibles'] = horarios_disponibles
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    return mostrar_seleccion_horarios(fecha_display, horarios_disponibles)
+
+
+def manejar_seleccionar_hora_actualizacion_cita(text, estado_usuario, user_id):
+    """Maneja la selección de hora para actualizar una cita"""
+    
+    text_lower = text.lower().strip()
+    
+    # Opción para volver
+    if text_lower in ["m", "volver", "atrás"]:
+        estado_usuario['paso'] = 'opciones_modificar_cita'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return """↩️ *Volviendo a opciones de cita...*"""
+    
+    # Intentar analizar la hora del texto
+    hora_ingresada = analizar_hora(text_lower)
+    
+    if not hora_ingresada:
+        # Si no encuentra una hora, intenta buscar en las opciones numeradas
+        try:
+            opcion = int(text_lower)
+            horarios_disponibles = estado_usuario.get('horarios_disponibles', [])
+            if 1 <= opcion <= len(horarios_disponibles):
+                hora_ingresada = horarios_disponibles[opcion - 1]
+            else:
+                return f"❌ *Opción inválida*. Por favor, seleccioná entre 1 y {len(horarios_disponibles)}."
+        except ValueError:
+            horarios = estado_usuario.get('horarios_disponibles', [])
+            return f"""❌ *No entendí esa hora*
+
+Por favor, escribí la hora en formato HH:MM (ej: 14:30) o seleccioná una opción:
+
+{", ".join(horarios)}"""
+    
+    fecha_str = estado_usuario.get('fecha_cita_actualizacion', '')
+    fecha_display = datetime.strptime(fecha_str, "%Y-%m-%d").strftime("%d-%m-%Y")
+    
+    # Guardar la hora y pasar a confirmación
+    estado_usuario['hora_cita_actualizacion'] = hora_ingresada
+    estado_usuario['paso'] = 'confirmar_actualizacion_cita'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    return f"""✅ *NUEVA FECHA SELECCIONADA*
+
+📅 *Fecha:* {fecha_display}
+⏰ *Hora:* {hora_ingresada} hs
+
+¿Confirmás este cambio?
+
+1️⃣ *SÍ, CAMBIAR* ✅
+2️⃣ *NO, ELEGIR OTRA FECHA* 🔄
+Ⓜ️ *CANCELAR* (Envía 'M')
+"""
+
+
+def manejar_confirmar_actualizacion_cita(text_lower, estado_usuario, user_id):
+    """Confirma la actualización de una cita existente"""
+    
+    if text_lower in ["1", "si", "sí", "cambiar", "confirmar"]:
+        # Confirmar cambio
+        cita_id = estado_usuario.get('cita_id_a_modificar')
+        nueva_fecha = estado_usuario.get('fecha_cita_actualizacion')
+        nueva_hora = estado_usuario.get('hora_cita_actualizacion')
+        
+        try:
+            # Usar la función única para actualizar la cita
+            actualizar_cita_db(cita_id, nueva_fecha=nueva_fecha, nueva_hora=nueva_hora)
+            
+            log(f"✅ Cita {cita_id} actualizada: {nueva_fecha} {nueva_hora}")
+            
+            # Notificar al agente
+            try:
+                cita_seleccionada = estado_usuario.get('cita_seleccionada_modificar', {})
+                titulo_propiedad = cita_seleccionada.get('propiedad_titulo', 'Propiedad N/A')
+                fecha_formateada = datetime.strptime(nueva_fecha, "%Y-%m-%d").strftime("%d/%m/%Y")
+                notificar_agente(f"🔄 *CITA ACTUALIZADA*\n👤 {estado_usuario.get('nombre_cliente', 'Cliente')}\n📞 +{user_id}\n🏠 {titulo_propiedad}\n📅 Nueva fecha: {fecha_formateada} a las {nueva_hora} hs")
+            except:
+                pass
+            
+            # Resetear estado
+            estado_usuario['paso'] = 'menu_principal'
+            estado_usuario['cita_seleccionada_modificar'] = None
+            estado_usuario['citas_para_modificar'] = []
+            estado_usuario['fecha_cita_actualizacion'] = None
+            estado_usuario['hora_cita_actualizacion'] = None
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            fecha_formateada = datetime.strptime(nueva_fecha, "%Y-%m-%d").strftime("%d/%m/%Y")
+            
+            return WhatsAppResponse.buttons(
+                header="✅ CITA ACTUALIZADA",
+                body=f"Tu cita ha sido actualizada exitosamente para el {fecha_formateada} a las {nueva_hora} hs.",
+                buttons=[
+                    {"id": "opcion_4", "title": "Ver mis citas"},
+                    {"id": "m", "title": "Volver al menú"},
+                    {"id": "s", "title": "Salir"}
+                ]
+            )
+        except Exception as e:
+            log(f"❌ Error actualizando cita: {e}")
+            return "❌ *Error al actualizar la cita*\n\nPor favor, intentá nuevamente o contactá a un asesor.\n\nⓜ️ *VOLVER AL MENÚ* (Envía 'M')"
+    
+    elif text_lower in ["2", "no", "elegir", "otra"]:
+        # Volver a elegir fecha
+        estado_usuario['paso'] = 'solicitar_fecha_actualizacion_cita'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "🔄 *Perfecto! Enviá una nueva fecha para tu cita*\n\n📅 (ej: 'mañana 10am', 'jueves 14:30'):"
+    
+    elif text_lower in ["m", "cancelar", "volver"]:
+        # Cancelar la actualización
+        estado_usuario['paso'] = 'opciones_modificar_cita'
+        estado_usuario['fecha_cita_actualizacion'] = None
+        estado_usuario['hora_cita_actualizacion'] = None
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        return """❌ *Actualización cancelada*
+
+¿Qué deseás hacer?
+
+1️⃣ *Modificar fecha/hora* 📅
+2️⃣ *Cancelar cita* ❌
+3️⃣ *Ver detalles* 📋
+Ⓜ️ *Volver* (Envía 'M')
+"""
+    
+    else:
+        return """❌ *Opción no válida*
+
+Por favor elegí una de las siguientes opciones:
+
+1️⃣ *SÍ, CAMBIAR* ✅
+2️⃣ *NO, ELEGIR OTRA FECHA* 🔄
+Ⓜ️ *CANCELAR* (Envía 'M')
+"""
 
 
 def devolver_detalle_propiedad_menu(propiedad):

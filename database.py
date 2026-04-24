@@ -691,22 +691,43 @@ def guardar_citas(citas):
     return save_json_atomic(CITAS_FILE, citas)
 
 
-def actualizar_cita_db(cita_id, nuevo_estado=None, nuevas_notas=None):
-    """Actualiza estado y/o notas de una cita en PostgreSQL y JSON"""
+def actualizar_cita_db(cita_id, nuevo_estado=None, nuevas_notas=None, nueva_fecha=None, nueva_hora=None):
+    """
+    Actualiza una cita en PostgreSQL y JSON.
+    Parámetros opcionales: estado, notas, fecha_cita, hora_cita
+    """
     conn = None
     try:
         # 1. Actualizar PostgreSQL
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor()
-            if nuevo_estado and nuevas_notas:
-                cursor.execute("UPDATE citas SET estado = %s, notas = %s WHERE id = %s", (nuevo_estado, nuevas_notas, cita_id))
-            elif nuevo_estado:
-                cursor.execute("UPDATE citas SET estado = %s WHERE id = %s", (nuevo_estado, cita_id))
-            elif nuevas_notas:
-                cursor.execute("UPDATE citas SET notas = %s WHERE id = %s", (nuevas_notas, cita_id))
-            conn.commit()
-            log(f"✅ Cita {cita_id} actualizada en PostgreSQL")
+            
+            # Construir dinámicamente el UPDATE con los campos que cambian
+            campos = []
+            valores = []
+            
+            if nuevo_estado:
+                campos.append("estado = %s")
+                valores.append(nuevo_estado)
+            if nuevas_notas:
+                campos.append("notas = %s")
+                valores.append(nuevas_notas)
+            if nueva_fecha:
+                campos.append("fecha_cita = %s")
+                valores.append(nueva_fecha)
+            if nueva_hora:
+                campos.append("hora_cita = %s")
+                valores.append(nueva_hora)
+            
+            if campos:  # Solo ejecutar si hay algo que actualizar
+                campos.append("modificacion = NOW()")
+                query = f"UPDATE citas SET {', '.join(campos)} WHERE id = %s"
+                valores.append(cita_id)
+                
+                cursor.execute(query, tuple(valores))
+                conn.commit()
+                log(f"✅ Cita {cita_id} actualizada en PostgreSQL: {', '.join([c.split('=')[0].strip() for c in campos if c != 'modificacion = NOW()'])}")
         
         # 2. Actualizar JSON (para mantener sincronía)
         citas = cargar_citas()
@@ -714,10 +735,15 @@ def actualizar_cita_db(cita_id, nuevo_estado=None, nuevas_notas=None):
             for c in citas:
                 # Los IDs en JSON son strings como cita_0001, en DB son seriales
                 # Hacemos una comparación flexible o buscamos por otros campos
-                # Por ahora, si el ID coincide (convertido a string)
                 if str(c.get('id')) == str(cita_id) or c.get('id') == cita_id:
-                    if nuevo_estado: c['estado'] = nuevo_estado
-                    if nuevas_notas: c['notas'] = nuevas_notas
+                    if nuevo_estado: 
+                        c['estado'] = nuevo_estado
+                    if nuevas_notas: 
+                        c['notas'] = nuevas_notas
+                    if nueva_fecha:
+                        c['fecha'] = nueva_fecha
+                    if nueva_hora:
+                        c['hora'] = nueva_hora
                     c['ultima_actualizacion'] = datetime.now().isoformat()
                     break
             guardar_citas(citas)
