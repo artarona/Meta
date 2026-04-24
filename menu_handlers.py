@@ -807,7 +807,7 @@ def manejar_seleccionar_hora_actualizacion_cita(text, estado_usuario, user_id):
     if text_lower in ["m", "volver", "atrás"]:
         estado_usuario['paso'] = 'opciones_modificar_cita'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return """↩️ *Volviendo a opciones de cita...""""
+        return "↩️ *Volviendo a opciones de cita..."
     
     # Intentar analizar la hora del texto
     hora_ingresada = analizar_hora(text_lower)
