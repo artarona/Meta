@@ -483,8 +483,64 @@ def procesar_opcion_mis_citas(user_id):
             ]
         )
     
-    # Guardar las citas en el estado del usuario para poder seleccionar una después
     estado_usuario = obtener_estado_usuario(user_id)
+    
+    # 🔥 SI HAY SOLO 1 CITA, ENTRAR DIRECTAMENTE A MODIFICAR
+    if len(citas_usuario) == 1:
+        # Guardar la cita seleccionada y pasar a opciones
+        cita_seleccionada = citas_usuario[0]
+        
+        # Obtener información de la propiedad
+        todas_propiedades = cargar_propiedades_cached()
+        props_dict = {p.get('id_temporal', ''): p for p in todas_propiedades}
+        propiedad_id_cita = cita_seleccionada.get('propiedad_id', '')
+        propiedad = props_dict.get(propiedad_id_cita, {})
+        titulo = propiedad.get('titulo', propiedad_id_cita if propiedad_id_cita else 'Propiedad N/A')
+        
+        # Guardar en estado
+        cita_seleccionada['propiedad_titulo'] = titulo
+        estado_usuario['cita_seleccionada_modificar'] = cita_seleccionada
+        estado_usuario['paso'] = 'opciones_modificar_cita'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        # Formatear la información de la cita
+        try:
+            fecha_obj = datetime.strptime(cita_seleccionada.get('fecha', ''), "%Y-%m-%d")
+            fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
+        except (ValueError, TypeError):
+            fecha_formateada = cita_seleccionada.get('fecha', 'Sin fecha')
+        
+        # Mostrar la cita seleccionada y opciones de modificación
+        mensaje = f"""✅ *CITA SELECCIONADA*
+
+━━━━━━━━━━━━━━━━━━━━
+🏠 *Propiedad:* {titulo}
+📅 *Fecha:* {fecha_formateada}
+⏰ *Hora:* {cita_seleccionada.get('hora', 'Sin hora')} hs
+📍 *Estado:* {cita_seleccionada.get('estado', 'Pendiente').upper()}
+━━━━━━━━━━━━━━━━━━━━
+
+¿Qué deseás hacer con esta cita?
+
+1️⃣ *Modificar fecha/hora* 📅
+2️⃣ *Cancelar cita* ❌
+3️⃣ *Ver detalles* 📋
+Ⓜ️ *Volver* (Envía 'M')
+"""
+        
+        nav_buttons = WhatsAppResponse.buttons(
+            header="🔧 MODIFICAR CITA",
+            body="Seleccioná qué acción deseás realizar con esta cita.",
+            buttons=[
+                {"id": "opcion_cambiar_fecha", "title": "Cambiar fecha/hora"},
+                {"id": "opcion_cancelar_cita", "title": "Cancelar cita"},
+                {"id": "m", "title": "Volver"}
+            ]
+        )
+        
+        return [mensaje, nav_buttons]
+    
+    # Si hay 2 o más citas, mostrar lista para elegir
     estado_usuario['citas_para_modificar'] = citas_usuario
     estado_usuario['paso'] = 'seleccionar_cita_modificar'
     actualizar_estado_usuario(user_id, estado_usuario)
