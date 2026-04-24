@@ -634,7 +634,15 @@ def manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id):
     """Maneja las opciones de modificación de una cita seleccionada"""
     cita_seleccionada = estado_usuario.get('cita_seleccionada_modificar', {})
     
-    if text_lower in ["1", "cambiar fecha", "cambiar fecha/hora", "modificar fecha"]:
+    text_lower = text_lower.lower().strip()
+    
+    # Aceptar tanto números como texto de los botones de Meta
+    es_cambiar_fecha = text_lower in ["1", "cambiar fecha", "cambiar fecha/hora", "modificar fecha", "cambiar"]
+    es_cancelar = text_lower in ["2", "cancelar cita", "cancelar", "anular", "cancel"]
+    es_ver_detalles = text_lower in ["3", "ver detalles", "detalles", "información", "info", "ver"]
+    es_volver = text_lower in ["m", "volver", "menu", "atrás", "back", "volver al menú"]
+    
+    if es_cambiar_fecha:
         # Opción: Cambiar fecha/hora
         log(f"🔄 Usuario {user_id} solicita cambiar fecha de cita")
         
@@ -645,7 +653,7 @@ def manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id):
         
         return "🔄 *Perfecto! Vamos a cambiar la fecha de tu visita.*\n\n📅 Enviá la nueva fecha que prefieras (ej: 'mañana 10am', 'jueves 14:30'):"
     
-    elif text_lower in ["2", "cancelar cita", "cancelar", "anular"]:
+    elif es_cancelar:
         # Opción: Cancelar cita
         log(f"❌ Usuario {user_id} solicita cancelar cita")
         
@@ -680,7 +688,7 @@ def manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id):
             
             return WhatsAppResponse.buttons(
                 header="✅ CITA CANCELADA",
-                body="Tu cita ha sido cancelada exitosamente. Si en otro momento deséas agendar una visita, podés volver a empezar desde el catálogo.",
+                body="Tu cita ha sido cancelada exitosamente. Si en otro momento deseas agendar una visita, podés volver a empezar desde el catálogo.",
                 buttons=[
                     {"id": "opcion_7", "title": "Ver propiedades"},
                     {"id": "m", "title": "Volver al menú"},
@@ -691,7 +699,7 @@ def manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id):
             log(f"❌ Error cancelando cita: {e}")
             return "❌ *Error al cancelar la cita*\n\nPor favor, intentá nuevamente o contactá a un asesor.\n\nⓜ️ *VOLVER AL MENÚ* (Envía 'M')"
     
-    elif text_lower in ["3", "ver detalles", "detalles", "información"]:
+    elif es_ver_detalles:
         # Opción: Ver más detalles de la cita
         log(f"📋 Usuario {user_id} solicita ver detalles de cita")
         
@@ -715,13 +723,13 @@ def manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id):
 
 ¿Qué deseás hacer?
 
-1️⃣ *Modificar fecha/hora* 📅
+1️⃣ *Cambiar fecha/hora* 📅
 2️⃣ *Cancelar cita* ❌
 Ⓜ️ *Volver* (Envía 'M')
 """
         return mensaje_detalles
     
-    elif text_lower in ["m", "volver"]:
+    elif es_volver:
         # Volver a la lista de citas
         log(f"↩️ Usuario {user_id} volviendo a lista de citas")
         estado_usuario['paso'] = 'menu_principal'
@@ -732,7 +740,7 @@ def manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id):
         return procesar_opcion_mis_citas(user_id)
     
     else:
-        # Opción no reconocida
+        # Opción no reconocida - mostrar menú de ayuda
         return """❌ *Operación no reconocida.*
 
 Por favor elegí una de las siguientes opciones:

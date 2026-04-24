@@ -812,3 +812,25 @@ def obtener_texto_dias_habiles(propiedad_id=None):
         return "Lunes a Viernes"
 
 
+def son_numeros_identicos(num1, num2):
+    """Compara dos números de teléfono normalizándolos"""
+    if not num1 or not num2:
+        return False
+    
+    n1 = str(num1).strip().lstrip('+').replace(' ', '')
+    n2 = str(num2).strip().lstrip('+').replace(' ', '')
+    
+    # Normalizar formato argentino
+    for prefix in ['549', '54']:
+        if n1.startswith(prefix):
+            n1 = n1[len(prefix):]
+        if n2.startswith(prefix):
+            n2 = n2[len(prefix):]
+    
+    # Eliminar 9 inicial
+    if len(n1) > 1 and n1[0] == '9':
+        n1 = n1[1:]
+    if len(n2) > 1 and n2[0] == '9':
+        n2 = n2[1:]
+    
+    return n1 == n2
