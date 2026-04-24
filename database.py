@@ -227,6 +227,11 @@ def init_db(conn):
         ALTER TABLE user_states ADD COLUMN IF NOT EXISTS tipo_seleccionado VARCHAR(50);
         ALTER TABLE user_states ADD COLUMN IF NOT EXISTS ambientes_seleccionados INTEGER;
         ALTER TABLE user_states ADD COLUMN IF NOT EXISTS ultima_accion VARCHAR(50);
+        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS cita_seleccionada_modificar TEXT;
+        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS citas_para_modificar TEXT;
+        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS fecha_cita_actualizacion VARCHAR(20);
+        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS hora_cita_actualizacion VARCHAR(10);
+        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS cita_id_a_modificar VARCHAR(50);
     """)
         
         # 3. Asegurar secuencias para tablas existentes
@@ -307,7 +312,7 @@ def obtener_estado_usuario(user_id):
         if conn:
             try:
                 cursor = conn.cursor()
-                cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data, tipo_seleccionado, ambientes_seleccionados, timestamp, ultima_accion FROM user_states WHERE user_id = %s", (user_id,))
+                cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data, tipo_seleccionado, ambientes_seleccionados, timestamp, ultima_accion, cita_seleccionada_modificar, citas_para_modificar, fecha_cita_actualizacion, hora_cita_actualizacion, cita_id_a_modificar FROM user_states WHERE user_id = %s", (user_id,))
                 res = cursor.fetchone()
                 if res:
                     # Función auxiliar para parseo seguro y profundo
@@ -356,7 +361,12 @@ def obtener_estado_usuario(user_id):
                         'tipo_seleccionado': res[10],
                         'ambientes_seleccionados': res[11],
                         'timestamp': row_timestamp if row_timestamp else datetime.now().isoformat(),
-                        'ultima_accion': res[13] if len(res) > 13 else None
+                        'ultima_accion': res[13] if len(res) > 13 else None,
+                        'cita_seleccionada_modificar': safe_json_loads(res[14], {}) if len(res) > 14 else {},
+                        'citas_para_modificar': safe_json_loads(res[15], []) if len(res) > 15 else [],
+                        'fecha_cita_actualizacion': res[16] if len(res) > 16 else None,
+                        'hora_cita_actualizacion': res[17] if len(res) > 17 else None,
+                        'cita_id_a_modificar': res[18] if len(res) > 18 else None
                     }
                     
                     # REPARACIÓN GLOBAL: Si la lista está vacía pero la operación es 'todas', recargarla
@@ -367,7 +377,7 @@ def obtener_estado_usuario(user_id):
 
                     if cached_state and cached_state.get('timestamp') and row_timestamp:
                         try:
-                            if cached_state['timestamp'] > row_timestamp:
+                            if cached_state['timestamp'] >= row_timestamp:
                                 log(f"🔄 Usando estado cacheado más reciente (DB: {row_timestamp}, Cache: {cached_state['timestamp']})", user_id=user_id)
                                 return cached_state
                         except Exception:
@@ -416,8 +426,10 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                         user_id, paso, operacion_seleccionada, propiedades_filtradas, 
                         ultimo_indice_preguntado, nombre_cliente, email_cliente, 
                         fecha_cita, hora_cita, horarios_disponibles, data, 
-                        tipo_seleccionado, ambientes_seleccionados, timestamp, ultima_accion
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        tipo_seleccionado, ambientes_seleccionados, timestamp, ultima_accion,
+                        cita_seleccionada_modificar, citas_para_modificar, fecha_cita_actualizacion,
+                        hora_cita_actualizacion, cita_id_a_modificar
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (user_id) DO UPDATE SET
                         paso = EXCLUDED.paso,
                         operacion_seleccionada = EXCLUDED.operacion_seleccionada,
@@ -432,7 +444,12 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                         tipo_seleccionado = EXCLUDED.tipo_seleccionado,
                         ambientes_seleccionados = EXCLUDED.ambientes_seleccionados,
                         timestamp = EXCLUDED.timestamp,
-                        ultima_accion = EXCLUDED.ultima_accion
+                        ultima_accion = EXCLUDED.ultima_accion,
+                        cita_seleccionada_modificar = EXCLUDED.cita_seleccionada_modificar,
+                        citas_para_modificar = EXCLUDED.citas_para_modificar,
+                        fecha_cita_actualizacion = EXCLUDED.fecha_cita_actualizacion,
+                        hora_cita_actualizacion = EXCLUDED.hora_cita_actualizacion,
+                        cita_id_a_modificar = EXCLUDED.cita_id_a_modificar
                 """, (
                     user_id, 
                     nuevo_estado.get('paso'),
@@ -448,7 +465,12 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                     nuevo_estado.get('tipo_seleccionado'),
                     nuevo_estado.get('ambientes_seleccionados'),
                     nuevo_estado.get('timestamp'),
-                    nuevo_estado.get('ultima_accion')
+                    nuevo_estado.get('ultima_accion'),
+                    json.dumps(nuevo_estado.get('cita_seleccionada_modificar', {})),
+                    json.dumps(nuevo_estado.get('citas_para_modificar', [])),
+                    nuevo_estado.get('fecha_cita_actualizacion'),
+                    nuevo_estado.get('hora_cita_actualizacion'),
+                    nuevo_estado.get('cita_id_a_modificar')
                 ))
                 conn.commit()
                 log(f"✅ Estado persistido en DB (paso: {nuevo_estado.get('paso')})", user_id=user_id)
