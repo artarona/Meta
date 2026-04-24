@@ -105,57 +105,57 @@ def analizar_hora(texto):
 
 
 def analizar_fecha(texto):
-    """Parsea fecha en formatos naturales (hoy, mañana, lunes) o DD-MM-AAAA"""
+    """Analiza texto para extraer una fecha"""
+    from datetime import datetime, timedelta
+    import re
+    
     texto = texto.lower().strip()
-    ahora = datetime.now()
     
-    # 1. Fechas relativas
-    if "pasado mañana" in texto or "pasado manana" in texto:
-        return ahora + timedelta(days=2)
-    if "mañana" in texto or "manana" in texto:
-        # Asegurarse que no sea "pasado mañana" (ya cubierto arriba pero por si acaso el orden importa)
-        if "pasado" not in texto:
-            return ahora + timedelta(days=1)
+    # Palabras clave relativas
+    hoy = datetime.now()
+    
     if "hoy" in texto:
-        return ahora
+        return hoy
+    if "mañana" in texto or "manana" in texto:
+        return hoy + timedelta(days=1)
+    if "pasado mañana" in texto or "pasado manana" in texto:
+        return hoy + timedelta(days=2)
     
-    # 1.1 "La semana que viene"
-    desplazamiento_semana = 0
-    if "semana que viene" in texto or "proxima semana" in texto or "próxima semana" in texto:
-        desplazamiento_semana = 7
-    
-    # 2. Días de la semana
-    dias = {
-        "lunes": 0, "martes": 1, "miércoles": 2, "miercoles": 2,
-        "jueves": 3, "viernes": 4, "sábado": 5, "sabado": 5, "domingo": 6
-    }
-    
-    # Buscar nombres de días en el texto
-    for nombre_dia, num_dia in dias.items():
-        if nombre_dia in texto:
-            target_weekday = num_dia
-            days_ahead = target_weekday - ahora.weekday()
-            if days_ahead <= 0: 
-                days_ahead += 7
-            return ahora + timedelta(days=days_ahead + desplazamiento_semana)
-    
-    # 3. Formatos numéricos
-    # Extraer tokens que parezcan fechas
-    tokens = texto.split()
-    formatos = [
-        "%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d",
-        "%d-%m-%y", "%d/%m/%y"
+    # Buscar fechas en formato DD/MM/YY, DD/MM/YYYY, DD-MM-YY, etc.
+    # Patrón: 29/4/26, 29/04/2026, 29-4-26, etc.
+    patrones = [
+        r'(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})',  # DD/MM/YY o DD/MM/YYYY
+        r'(\d{1,2})\s*de\s*(\w+)\s*(\d{2,4})?'    # 29 de abril 2026
     ]
     
-    for token in tokens:
-        # Limpiar puntuación
-        token_limpio = token.strip('.,')
-        for fmt in formatos:
+    for patron in patrones:
+        match = re.search(patron, texto)
+        if match:
             try:
-                return datetime.strptime(token_limpio, fmt)
-            except ValueError:
-                continue
-            
+                dia = int(match.group(1))
+                mes = int(match.group(2)) if match.group(2).isdigit() else None
+                año = int(match.group(3)) if len(match.groups()) > 2 and match.group(3) and match.group(3).isdigit() else None
+                
+                # Si el mes es nombre (ej: "abril")
+                if not mes:
+                    meses = {
+                        'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
+                        'mayo': 5, 'junio': 6, 'julio': 7, 'agosto': 8,
+                        'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12
+                    }
+                    mes_nombre = match.group(2).lower()
+                    mes = meses.get(mes_nombre)
+                
+                if año and año < 100:
+                    año += 2000
+                elif not año:
+                    año = hoy.year
+                
+                if dia and mes and año:
+                    return datetime(año, mes, dia)
+            except:
+                pass
+    
     return None
 
 
