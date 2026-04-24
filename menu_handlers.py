@@ -829,21 +829,15 @@ Por favor, escribí la hora en formato HH:MM (ej: 14:30) o seleccioná una opci�
 
 {", ".join(horarios)}"""
     
-    # 👇 CORREGIDO: Intentar obtener la fecha de múltiples lugares
-    fecha_str = estado_usuario.get('fecha_cita_actualizacion', '')
+    # 👇 CORREGIDO: Obtener la fecha DIRECTAMENTE de la cita seleccionada
+    cita_seleccionada = estado_usuario.get('cita_seleccionada_modificar', {})
+    fecha_str = cita_seleccionada.get('fecha', '')
     
-    # Si no está, intentar obtenerla de la cita seleccionada
-    if not fecha_str:
-        cita_seleccionada = estado_usuario.get('cita_seleccionada_modificar', {})
-        fecha_str = cita_seleccionada.get('fecha', '')
-        if fecha_str:
-            # Guardarla para futuros pasos
-            estado_usuario['fecha_cita_actualizacion'] = fecha_str
-            log(f"🔍 DEBUG: fecha recuperada de cita_seleccionada: {fecha_str}")
+    log(f"🔍 DEBUG: fecha_str obtenida de cita_seleccionada_modificar: '{fecha_str}'")
     
-    # Si sigue vacía, error
+    # Si no tiene fecha, es un error grave
     if not fecha_str:
-        log(f"❌ ERROR: No se pudo recuperar la fecha de la cita")
+        log(f"❌ ERROR: La cita seleccionada no tiene fecha")
         estado_usuario['paso'] = 'opciones_modificar_cita'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "❌ *Error interno*: No se encontró la fecha de la cita. Por favor, intentá nuevamente desde el menú de modificación."
@@ -854,7 +848,7 @@ Por favor, escribí la hora en formato HH:MM (ej: 14:30) o seleccioná una opci�
         log(f"❌ Error parseando fecha '{fecha_str}': {e}")
         fecha_display = fecha_str
     
-    # Guardar la hora y pasar a confirmación
+    # Guardar la hora (pero NO la fecha, ya la tenemos en la cita)
     estado_usuario['hora_cita_actualizacion'] = hora_ingresada
     estado_usuario['paso'] = 'confirmar_actualizacion_cita'
     actualizar_estado_usuario(user_id, estado_usuario)
