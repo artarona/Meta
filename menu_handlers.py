@@ -754,7 +754,12 @@ No hay horarios para el {fecha_display}.
 1️⃣ *Ver fechas* (Elegir otro día)
 Ⓜ️ *Volver* (Ir al menú - Envía 'M')"""
 
+    # 👇 IMPORTANTE: Guardar la fecha en MÚLTIPLES lugares
     estado_usuario['fecha_cita_actualizacion'] = fecha_str
+    
+    # También guardar en la cita seleccionada para respaldo
+    if 'cita_seleccionada_modificar' in estado_usuario:
+        estado_usuario['cita_seleccionada_modificar']['nueva_fecha'] = fecha_str
     
     # CASO A: Usuario indicó fecha Y hora ("mañana a las 10")
     if hora_ingresada:
