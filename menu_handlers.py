@@ -802,7 +802,7 @@ def manejar_seleccionar_hora_actualizacion_cita(text, estado_usuario, user_id):
     if text_lower in ["m", "volver", "atrás"]:
         estado_usuario['paso'] = 'opciones_modificar_cita'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return """↩️ *Volviendo a opciones de cita...*"""
+        return """↩️ *Volviendo a opciones de cita...""""
     
     # Intentar analizar la hora del texto
     hora_ingresada = analizar_hora(text_lower)
@@ -824,8 +824,30 @@ Por favor, escribí la hora en formato HH:MM (ej: 14:30) o seleccioná una opci�
 
 {", ".join(horarios)}"""
     
+    # 👇 CORREGIDO: Intentar obtener la fecha de múltiples lugares
     fecha_str = estado_usuario.get('fecha_cita_actualizacion', '')
-    fecha_display = datetime.strptime(fecha_str, "%Y-%m-%d").strftime("%d-%m-%Y")
+    
+    # Si no está, intentar obtenerla de la cita seleccionada
+    if not fecha_str:
+        cita_seleccionada = estado_usuario.get('cita_seleccionada_modificar', {})
+        fecha_str = cita_seleccionada.get('fecha', '')
+        if fecha_str:
+            # Guardarla para futuros pasos
+            estado_usuario['fecha_cita_actualizacion'] = fecha_str
+            log(f"🔍 DEBUG: fecha recuperada de cita_seleccionada: {fecha_str}")
+    
+    # Si sigue vacía, error
+    if not fecha_str:
+        log(f"❌ ERROR: No se pudo recuperar la fecha de la cita")
+        estado_usuario['paso'] = 'opciones_modificar_cita'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "❌ *Error interno*: No se encontró la fecha de la cita. Por favor, intentá nuevamente desde el menú de modificación."
+    
+    try:
+        fecha_display = datetime.strptime(fecha_str, "%Y-%m-%d").strftime("%d-%m-%Y")
+    except Exception as e:
+        log(f"❌ Error parseando fecha '{fecha_str}': {e}")
+        fecha_display = fecha_str
     
     # Guardar la hora y pasar a confirmación
     estado_usuario['hora_cita_actualizacion'] = hora_ingresada
@@ -843,7 +865,6 @@ Por favor, escribí la hora en formato HH:MM (ej: 14:30) o seleccioná una opci�
 2️⃣ *NO, ELEGIR OTRA FECHA* 🔄
 Ⓜ️ *CANCELAR* (Envía 'M')
 """
-
 
 def manejar_confirmar_actualizacion_cita(text_lower, estado_usuario, user_id):
     """Confirma la actualización de una cita existente"""
