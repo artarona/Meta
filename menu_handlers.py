@@ -648,13 +648,13 @@ def manejar_seleccion_cita_modificar(text_lower, user_id):
 📍 *Estado:* {cita_seleccionada.get('estado', 'Pendiente').upper()}
 ━━━━━━━━━━━━━━━━━━━━
 
-¿Qué deseás hacer con esta cita?
+# ¿Qué deseás hacer con esta cita?
 
-1️⃣ ** 📅
-2️⃣ *Cancelar cita* ❌
-3️⃣ *Ver detalles* 📋
-Ⓜ️ *Volver* (Envía 'M')
-"""
+# 1️⃣ ** 📅
+# 2️⃣ *Cancelar cita* ❌
+# 3️⃣ *Ver detalles* 📋
+# Ⓜ️ *Volver* (Envía 'M')
+# """
     
     nav_buttons = WhatsAppResponse.buttons(
         header="🔧 MODIFICAR CITA",
