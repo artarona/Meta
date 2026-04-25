@@ -497,8 +497,21 @@ def procesar_opcion_mis_citas(user_id):
         propiedad = props_dict.get(propiedad_id_cita, {})
         titulo = propiedad.get('titulo', propiedad_id_cita if propiedad_id_cita else 'Propiedad N/A')
         
-        # Guardar en estado
+
+        # Guardar en estado - ASEGURAR QUE LA FECHA ESTÉ PRESENTE
         cita_seleccionada['propiedad_titulo'] = titulo
+
+        # 👇 FORZAR que la fecha exista
+        if 'fecha' not in cita_seleccionada or not cita_seleccionada['fecha']:
+            log(f"⚠️ ADVERTENCIA: La cita no tiene fecha. Cita: {cita_seleccionada}")
+            # Intentar obtener la fecha del formato que tenga
+            if 'fecha_cita' in cita_seleccionada:
+                cita_seleccionada['fecha'] = cita_seleccionada['fecha_cita']
+            elif 'fecha_str' in cita_seleccionada:
+                cita_seleccionada['fecha'] = cita_seleccionada['fecha_str']
+
+        
+        
         estado_usuario['cita_seleccionada_modificar'] = cita_seleccionada
         estado_usuario['paso'] = 'opciones_modificar_cita'
         actualizar_estado_usuario(user_id, estado_usuario)
@@ -645,7 +658,7 @@ def manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id):
         estado_usuario['cita_id_a_modificar'] = cita_seleccionada.get('id')
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        return "🔄 *Perfecto! Vamos a cambiar la fecha de tu visita.*\n\n📅 Enviá la nueva fecha que prefieras (ej: 'mañana 10am', 'jueves 14:30'):"
+        return "🔄 *Perfecto! Vamos a cambiar la fecha de tu visita.*\n\n📅 Enviá la nueva fecha que prefieras (ej: '29-04-26', 'mañana 10am', 'jueves 14:30'):"
     
     # 👇 RECONOCER EL ID EXACTO DEL BOTÓN
     elif text_lower in ["opcion_cancelar_cita", "2", "cancelar cita", "cancelar", "anular"]:
@@ -807,62 +820,74 @@ def manejar_seleccionar_hora_actualizacion_cita(text, estado_usuario, user_id):
     if text_lower in ["m", "volver", "atrás"]:
         estado_usuario['paso'] = 'opciones_modificar_cita'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "↩️ *Volviendo a opciones de cita..."
+        return "↩️ Volviendo a opciones de cita..."
     
     # Intentar analizar la hora del texto
     hora_ingresada = analizar_hora(text_lower)
     
     if not hora_ingresada:
-        # Si no encuentra una hora, intenta buscar en las opciones numeradas
         try:
             opcion = int(text_lower)
             horarios_disponibles = estado_usuario.get('horarios_disponibles', [])
             if 1 <= opcion <= len(horarios_disponibles):
                 hora_ingresada = horarios_disponibles[opcion - 1]
             else:
-                return f"❌ *Opción inválida*. Por favor, seleccioná entre 1 y {len(horarios_disponibles)}."
+                return f"❌ Opción inválida. Seleccioná entre 1 y {len(horarios_disponibles)}."
         except ValueError:
             horarios = estado_usuario.get('horarios_disponibles', [])
-            return f"""❌ *No entendí esa hora*
+            return f"""❌ No entendí esa hora
 
-Por favor, escribí la hora en formato HH:MM (ej: 14:30) o seleccioná una opción:
-
-{", ".join(horarios)}"""
+Horarios disponibles: {', '.join(horarios)}"""
     
-    # 👇 CORREGIDO: Obtener la fecha DIRECTAMENTE de la cita seleccionada
-    cita_seleccionada = estado_usuario.get('cita_seleccionada_modificar', {})
-    fecha_str = cita_seleccionada.get('fecha', '')
+    # 👇 BUSCAR LA FECHA EN MÚLTIPLES LUGARES
+    fecha_str = None
     
-    log(f"🔍 DEBUG: fecha_str obtenida de cita_seleccionada_modificar: '{fecha_str}'")
+    # 1. Buscar en fecha_cita_actualizacion (la nueva fecha)
+    fecha_str = estado_usuario.get('fecha_cita_actualizacion', '')
     
-    # Si no tiene fecha, es un error grave
+    # 2. Si no, buscar en la cita seleccionada
     if not fecha_str:
-        log(f"❌ ERROR: La cita seleccionada no tiene fecha")
+        cita = estado_usuario.get('cita_seleccionada_modificar', {})
+        fecha_str = cita.get('fecha', '')
+        if not fecha_str:
+            fecha_str = cita.get('fecha_cita', '')
+    
+    # 3. Si no, buscar en horarios_disponibles (contexto)
+    if not fecha_str:
+        # Intentar reconstruir desde el mensaje anterior
+        log(f"⚠️ No se encontró fecha en el estado. Estado: {estado_usuario.keys()}")
+    
+    if not fecha_str:
+        # 4. ÚLTIMO RECURSO: Buscar en la cita actual del estado de usuario
+        if 'fecha_cita' in estado_usuario:
+            fecha_str = estado_usuario['fecha_cita']
+            
+    if not fecha_str:
+        log(f"❌ Error crítico: Se perdió la fecha en el paso {estado_usuario.get('paso')}. Estado: {estado_usuario.keys()}")
         estado_usuario['paso'] = 'opciones_modificar_cita'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "❌ *Error interno*: No se encontró la fecha de la cita. Por favor, intentá nuevamente desde el menú de modificación."
+        return "❌ Error interno: No se encontró la fecha de la cita. Por favor, intentá nuevamente desde el menú de modificación."
     
     try:
         fecha_display = datetime.strptime(fecha_str, "%Y-%m-%d").strftime("%d-%m-%Y")
     except Exception as e:
-        log(f"❌ Error parseando fecha '{fecha_str}': {e}")
+        log(f"Error parseando fecha '{fecha_str}': {e}")
         fecha_display = fecha_str
     
-    # Guardar la hora (pero NO la fecha, ya la tenemos en la cita)
     estado_usuario['hora_cita_actualizacion'] = hora_ingresada
     estado_usuario['paso'] = 'confirmar_actualizacion_cita'
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    return f"""✅ *NUEVA FECHA SELECCIONADA*
+    return f"""✅ NUEVA HORA SELECCIONADA
 
-📅 *Fecha:* {fecha_display}
-⏰ *Hora:* {hora_ingresada} hs
+📅 Fecha: {fecha_display}
+⏰ Nueva hora: {hora_ingresada} hs
 
 ¿Confirmás este cambio?
 
-1️⃣ *SÍ, CAMBIAR* ✅
-2️⃣ *NO, ELEGIR OTRA FECHA* 🔄
-Ⓜ️ *CANCELAR* (Envía 'M')
+1️⃣ SÍ, CAMBIAR ✅
+2️⃣ NO, ELEGIR OTRA FECHA 🔄
+Ⓜ️ CANCELAR (Envía 'M')
 """
 
 def manejar_confirmar_actualizacion_cita(text_lower, estado_usuario, user_id):
