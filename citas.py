@@ -345,9 +345,9 @@ def manejar_confirmar_cita(text_lower, estado_usuario, user_id):
 
 👋 *¡Muchas gracias por confiar en Dante Propiedades!*
 
-Ⓜ️ *VOLVER AL MENÚ (Envía 'M')* 🏠
-❌ *SALIR (Envía 'S')*
-"""
+# Ⓜ️ *VOLVER AL MENÚ (Envía 'M')* 🏠
+# ❌ *SALIR (Envía 'S')*
+# """
         # Opción A: mensaje rico de confirmación + botones separados
         nav_buttons = WhatsAppResponse.buttons(
             header="✅ ¡VISITA CONFIRMADA!",
