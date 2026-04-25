@@ -767,24 +767,22 @@ def actualizar_cita_db(cita_id, nuevo_estado=None, nuevas_notas=None, nueva_fech
                 else:
                     log(f"ℹ️ Cita {cita_id} tiene formato no numérico. Se actualizará solo en JSON.")
         
-        # 2. Actualizar JSON (para mantener sincronía)
+        # 2. Actualizar JSON (para mantener sincronía) y buscar datos para fallback en DB
         citas = cargar_citas()
+        datos_cita_json = {}
         if citas is not None:
             for c in citas:
-                # 🔍 COMPARACIÓN FLEXIBLE: intentamos match por id, o por una combinación de datos
-                match_encontrado = False
+                # 🔍 COMPARACIÓN FLEXIBLE
+                match_id = (str(c.get('id')) == str(cita_id) or c.get('id') == cita_id)
                 
-                # A) Match por ID (directo o string)
-                if str(c.get('id')) == str(cita_id) or c.get('id') == cita_id:
-                    match_encontrado = True
-                
-                # B) Match por contenido (si el ID de DB no está en JSON)
-                # Esto es útil cuando el ID en DB es un número (serial) pero en JSON es "cita_0001"
-                elif str(cita_id).isdigit() and str(c.get('telefono')) in [str(valores[-1]), ""]:
-                     # Este es un caso complejo, preferimos no arriesgar si no hay match claro
-                     pass
-                
-                if match_encontrado:
+                if match_id:
+                    # Guardamos los datos actuales para el fallback de DB si es necesario
+                    datos_cita_json = {
+                        'telefono': c.get('telefono'),
+                        'fecha': c.get('fecha'),
+                        'hora': c.get('hora')
+                    }
+                    
                     if nuevo_estado: 
                         c['estado'] = nuevo_estado
                     if nuevas_notas: 
@@ -797,7 +795,47 @@ def actualizar_cita_db(cita_id, nuevo_estado=None, nuevas_notas=None, nueva_fech
                     break
             guardar_citas(citas)
         else:
-            log(f"⚠️ No se actualizó JSON de citas porque falló la carga (ID {cita_id})")
+            log(f"⚠️ No se pudo cargar JSON de citas para ID {cita_id}")
+
+        # 3. FALLBACK DE DB: Si el ID no era numérico pero encontramos la cita en JSON,
+        # intentamos actualizar la DB usando los datos de búsqueda (Teléfono + Fecha + Hora)
+        if not str(cita_id).isdigit() and datos_cita_json and conn:
+            try:
+                cursor = conn.cursor()
+                log(f"🔍 Sincronizando cambio a DB por búsqueda (Tel: {datos_cita_json['telefono']}, Fecha: {datos_cita_json['fecha']})")
+                
+                # Construir consulta de actualización por coincidencia de datos
+                campos_fall = []
+                valores_fall = []
+                if nuevo_estado:
+                    campos_fall.append("estado = %s")
+                    valores_fall.append(nuevo_estado)
+                if nuevas_notas:
+                    campos_fall.append("notas = %s")
+                    valores_fall.append(nuevas_notas)
+                if nueva_fecha:
+                    campos_fall.append("fecha_cita = %s")
+                    valores_fall.append(nueva_fecha)
+                if nueva_hora:
+                    campos_fall.append("hora_cita = %s")
+                    valores_fall.append(nueva_hora)
+                
+                if campos_fall:
+                    campos_fall.append("modificacion = NOW()")
+                    query_fall = f"UPDATE citas SET {', '.join(campos_fall)} WHERE telefono LIKE %s AND fecha_cita = %s AND hora_cita = %s"
+                    # Usar LIKE con % para ser flexibles con el formato del teléfono
+                    tel_search = f"%{datos_cita_json['telefono'][-8:]}"
+                    valores_fall.extend([tel_search, datos_cita_json['fecha'], datos_cita_json['hora']])
+                    
+                    cursor.execute(query_fall, tuple(valores_fall))
+                    conn.commit()
+                    if cursor.rowcount > 0:
+                        log(f"✅ Sincronización exitosa en DB por búsqueda ({cursor.rowcount} filas)")
+                    else:
+                        log(f"⚠️ No se encontró registro coincidente en DB para sincronizar ID {cita_id}")
+            except Exception as e_fall:
+                log(f"⚠️ Error en fallback de sincronización DB: {e_fall}")
+
         return True
     except Exception as e:
         log(f"❌ Error actualizando cita: {e}", "ERROR")
