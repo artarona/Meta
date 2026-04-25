@@ -164,7 +164,8 @@ def init_db(conn):
                 
                 -- Nuevas columnas para feedback
                 feedback_enviado BOOLEAN DEFAULT FALSE,
-                feedback_enviado_en TIMESTAMP
+                feedback_enviado_en TIMESTAMP,
+                modificacion TIMESTAMP DEFAULT NOW()
             );
 
             CREATE TABLE IF NOT EXISTS user_states (
@@ -222,6 +223,7 @@ def init_db(conn):
         -- Nuevas columnas para feedback
         ALTER TABLE citas ADD COLUMN IF NOT EXISTS feedback_enviado BOOLEAN DEFAULT FALSE;
         ALTER TABLE citas ADD COLUMN IF NOT EXISTS feedback_enviado_en TIMESTAMP;
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS modificacion TIMESTAMP DEFAULT NOW();
         
         -- Columnas para user_states si la tabla ya existía
         ALTER TABLE user_states ADD COLUMN IF NOT EXISTS tipo_seleccionado VARCHAR(50);
@@ -744,20 +746,37 @@ def actualizar_cita_db(cita_id, nuevo_estado=None, nuevas_notas=None, nueva_fech
             
             if campos:  # Solo ejecutar si hay algo que actualizar
                 campos.append("modificacion = NOW()")
-                query = f"UPDATE citas SET {', '.join(campos)} WHERE id = %s"
-                valores.append(cita_id)
                 
-                cursor.execute(query, tuple(valores))
-                conn.commit()
-                log(f"✅ Cita {cita_id} actualizada en PostgreSQL: {', '.join([c.split('=')[0].strip() for c in campos if c != 'modificacion = NOW()'])}")
+                # 🛑 IMPORTANTE: Solo intentar UPDATE en DB si el ID es numérico (SERIAL)
+                # Si el ID empieza con 'cita_' o 'pg_', es un ID de JSON o Legacy y no está en la tabla SERIAL
+                if str(cita_id).isdigit():
+                    query = f"UPDATE citas SET {', '.join(campos)} WHERE id = %s"
+                    valores.append(int(cita_id))
+                    
+                    cursor.execute(query, tuple(valores))
+                    conn.commit()
+                    log(f"✅ Cita {cita_id} actualizada en PostgreSQL")
+                else:
+                    log(f"ℹ️ Cita {cita_id} tiene formato no numérico. Se actualizará solo en JSON.")
         
         # 2. Actualizar JSON (para mantener sincronía)
         citas = cargar_citas()
         if citas is not None:
             for c in citas:
-                # Los IDs en JSON son strings como cita_0001, en DB son seriales
-                # Hacemos una comparación flexible o buscamos por otros campos
+                # 🔍 COMPARACIÓN FLEXIBLE: intentamos match por id, o por una combinación de datos
+                match_encontrado = False
+                
+                # A) Match por ID (directo o string)
                 if str(c.get('id')) == str(cita_id) or c.get('id') == cita_id:
+                    match_encontrado = True
+                
+                # B) Match por contenido (si el ID de DB no está en JSON)
+                # Esto es útil cuando el ID en DB es un número (serial) pero en JSON es "cita_0001"
+                elif str(cita_id).isdigit() and str(c.get('telefono')) in [str(valores[-1]), ""]:
+                     # Este es un caso complejo, preferimos no arriesgar si no hay match claro
+                     pass
+                
+                if match_encontrado:
                     if nuevo_estado: 
                         c['estado'] = nuevo_estado
                     if nuevas_notas: 

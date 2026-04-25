@@ -901,8 +901,12 @@ def manejar_confirmar_actualizacion_cita(text_lower, estado_usuario, user_id):
         
         try:
             # Usar la función única para actualizar la cita
-            actualizar_cita_db(cita_id, nueva_fecha=nueva_fecha, nueva_hora=nueva_hora)
+            exito = actualizar_cita_db(cita_id, nueva_fecha=nueva_fecha, nueva_hora=nueva_hora)
             
+            if not exito:
+                log(f"❌ Error al actualizar la cita {cita_id} en los registros", "ERROR")
+                return "❌ *Error al guardar los cambios*\n\nHubo un problema técnico al actualizar tu cita. Por favor, intentá nuevamente en unos minutos o contactá a un asesor.\n\nⓂ️ *VOLVER AL MENÚ* (Envía 'M')"
+
             log(f"✅ Cita {cita_id} actualizada: {nueva_fecha} {nueva_hora}")
             
             # Notificar al agente
