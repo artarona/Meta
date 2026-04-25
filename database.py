@@ -748,14 +748,22 @@ def actualizar_cita_db(cita_id, nuevo_estado=None, nuevas_notas=None, nueva_fech
                 campos.append("modificacion = NOW()")
                 
                 # 🛑 IMPORTANTE: Solo intentar UPDATE en DB si el ID es numérico (SERIAL)
-                # Si el ID empieza con 'cita_' o 'pg_', es un ID de JSON o Legacy y no está en la tabla SERIAL
                 if str(cita_id).isdigit():
-                    query = f"UPDATE citas SET {', '.join(campos)} WHERE id = %s"
-                    valores.append(int(cita_id))
-                    
-                    cursor.execute(query, tuple(valores))
-                    conn.commit()
-                    log(f"✅ Cita {cita_id} actualizada en PostgreSQL")
+                    try:
+                        # Asegurar que las columnas existan antes de actualizar
+                        init_db(conn)
+                        
+                        query = f"UPDATE citas SET {', '.join(campos)} WHERE id = %s"
+                        valores.append(int(cita_id))
+                        
+                        log(f"🛠️ Ejecutando SQL: {query} con valores {valores}")
+                        cursor.execute(query, tuple(valores))
+                        conn.commit()
+                        log(f"✅ Cita {cita_id} actualizada en PostgreSQL")
+                    except Exception as sql_err:
+                        log(f"🔥 ERROR SQL en actualizar_cita_db: {sql_err}", "ERROR")
+                        conn.rollback()
+                        return False # Retornar False para que el bot avise al usuario
                 else:
                     log(f"ℹ️ Cita {cita_id} tiene formato no numérico. Se actualizará solo en JSON.")
         
