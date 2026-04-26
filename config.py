@@ -24,7 +24,15 @@ ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "EAAJYsGl5pHgBQz2NpRHUAItiHE0Gzn
 AGENT_NUMBER = os.getenv("AGENT_NUMBER", "5491178877334")  # 
 ADMIN_NUMBER = "5491176596523"
 
-PHONE_NUMBER_ID = "1061691623689167"
+PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID", "1061691623689167")
+FB_PAGE_ID = os.getenv("FB_PAGE_ID", "10276359504441539")
+IG_BUSINESS_ID = os.getenv("IG_BUSINESS_ID", "17841403923335775")
+APP_ID = os.getenv("APP_ID", "660464660489336")
+FB_CONFIG_ID = os.getenv("FB_CONFIG_ID", "1619594132663970")
+
+# Tokens específicos por plataforma (fallback al ACCESS_TOKEN general)
+FB_PAGE_ACCESS_TOKEN = os.getenv("FB_PAGE_TOKEN", ACCESS_TOKEN)
+IG_ACCESS_TOKEN = os.getenv("IG_IG_TOKEN", ACCESS_TOKEN)
 
 BASE_URL = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")
 BASE_URL_AI = os.environ.get("BASE_URL_AI", "http://localhost:8001")
