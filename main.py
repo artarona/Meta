@@ -963,6 +963,7 @@ def webhook():
                 
                 def dispatch_single(resp):
                     if not resp: return
+                    from whatsapp_api import send_message
                     return send_message(from_id, resp, platform=platform)
 
                 if isinstance(response_text, list):
