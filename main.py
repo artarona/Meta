@@ -910,276 +910,121 @@ def webhook():
             print(f"✅ JSON parseado exitosamente")
             log(f"📊 Estructura JSON: {json.dumps(data, indent=2)[:1000]}")
             
-            if data.get("object") != "whatsapp_business_account":
-                log("❌ No es un webhook de WhatsApp Business")
-                print("❌ ERROR: No es un webhook de WhatsApp Business")
-                return jsonify({"status": "not_whatsapp"}), 200
+            obj_type = data.get("object")
+            platform = "whatsapp"
             
+            if obj_type == "page":
+                platform = "messenger"
+            elif obj_type == "instagram":
+                platform = "instagram"
+            elif obj_type == "whatsapp_business_account":
+                platform = "whatsapp"
+            else:
+                log(f"❌ Objeto no reconocido: {obj_type}")
+                return jsonify({"status": "unsupported_object"}), 200
+            
+            log(f"📱 Plataforma detectada: {platform}")
+            
+            def procesar_mensaje_unificado(from_id, message_text, platform, message_id=None):
+                """Lógica centralizada para procesar un mensaje de cualquier plataforma"""
+                if not from_id or not message_text:
+                    return False
+                
+                # Normalizar texto para comandos de usuario y botones
+                processed_text = message_text.strip().lower()
+                emoji_digit_map = {
+                    "0️⃣": "0", "1️⃣": "1", "2️⃣": "2", "3️⃣": "3", "4️⃣": "4",
+                    "5️⃣": "5", "6️⃣": "6", "7️⃣": "7", "8️⃣": "8", "9️⃣": "9", "🔟": "10"
+                }
+                processed_text = emoji_digit_map.get(processed_text, processed_text)
+                
+                # Diccionario de alias (mismo que estaba antes)
+                boton_a_numero = {
+                    "opcion_1": "1", "opcion_2": "2", "opcion_3": "3", "opcion_4": "4",
+                    "opcion_5": "5", "opcion_6": "6", "opcion_7": "7", "opcion_tasacion": "10",
+                    "opcion_salir": "s", "volver_menu": "9", "salir_chat": "0",
+                    "venta": "1", "alquiler": "2", "comprar": "1", "asesor": "5"
+                }
+                
+                if processed_text in boton_a_numero:
+                    message_text = boton_a_numero[processed_text]
+                else:
+                    # Normalización de títulos con emojis
+                    texto_normalizado = processed_text.replace('🏠', '').replace('🔑', '').replace('🏢', '').replace('📋', '').replace('❓', '').replace('👤', '').replace('🌐', '').replace('📈', '').strip()
+                    message_text = boton_a_numero.get(texto_normalizado, message_text.strip())
+
+                log(f"👤 [{platform}] Usuario: {from_id}, Input: '{message_text}'")
+                
+                # Obtener respuesta del bot
+                response_text = get_bot_response(message_text, from_id)
+                
+                # Despacho de respuesta
+                base_url = request.host_url.rstrip('/')
+                
+                def dispatch_single(resp):
+                    if not resp: return
+                    return send_message(from_id, resp, platform=platform)
+
+                if isinstance(response_text, list):
+                    for r in response_text:
+                        dispatch_single(r)
+                else:
+                    dispatch_single(response_text)
+                return True
+
             # Contador de mensajes procesados
             mensajes_procesados = 0
             
             for entry in data.get("entry", []):
+                # Flujo para Messenger e Instagram (messaging)
+                if "messaging" in entry:
+                    for messaging_event in entry.get("messaging", []):
+                        if "message" in messaging_event:
+                            message = messaging_event["message"]
+                            sender_id = messaging_event["sender"]["id"]
+                            text = message.get("text", "")
+                            mid = message.get("mid")
+                            
+                            if mid in processed_message_ids: continue
+                            processed_message_ids.append(mid)
+                            
+                            if procesar_mensaje_unificado(sender_id, text, platform, mid):
+                                mensajes_procesados += 1
+                    continue
+
+                # Flujo para WhatsApp (changes -> value -> messages)
                 for change in entry.get("changes", []):
                     value = change.get("value", {})
-                    
                     if "messages" in value:
-                        messages = value["messages"]
-                        print(f"📨 Se encontraron {len(messages)} mensajes en el webhook")
-                        log(f"📨 Se encontraron {len(messages)} mensajes")
-                        
-                        for message in messages:
-                            mensajes_procesados += 1
-                            message_id = message.get("id")
+                        for message in value["messages"]:
+                            m_id = message.get("id")
+                            if m_id in processed_message_ids: continue
+                            processed_message_ids.append(m_id)
                             
-                            # Log detallado del mensaje
-                            print(f"\n--- Mensaje #{mensajes_procesados} ---")
-                            print(f"🆔 ID: {message_id}")
-                            print(f"👤 From: {message.get('from')}")
-                            print(f"📝 Type: {message.get('type')}")
-                            print(f"📦 Mensaje completo: {json.dumps(message, indent=2)}")
+                            from_num = message.get("from")
+                            m_text = ""
                             
-                            if message_id in processed_message_ids:
-                                log(f"🛑 Mensaje duplicado ignorado: {message_id}")
-                                print(f"🛑 Mensaje duplicado ignorado: {message_id}")
-                                continue
-                                
-                            processed_message_ids.append(message_id)
-                            
-                            from_number = message.get("from")
-                            message_text = ""
-                            
-                            # Procesar mensajes de texto plano
                             if message.get("type") == "text":
-                                message_text = message.get("text", {}).get("body", "")
-                                print(f"💬 Texto recibido: '{message_text}'")
-                                log(f"💬 Texto recibido de {from_number}: '{message_text}'")
-                            
-                            # Procesar mensajes interactivos (Botones nativos o Listas)
+                                m_text = message.get("text", {}).get("body", "")
                             elif message.get("type") == "interactive":
                                 interactive = message.get("interactive", {})
                                 int_type = interactive.get("type")
-                                print(f"🔘 Mensaje interactivo tipo: {int_type}")
-                                print(f"🔘 Payload interactivo: {json.dumps(interactive, ensure_ascii=False)}")
-                                log(f"🔘 Payload interactivo: {json.dumps(interactive, ensure_ascii=False)}")
-                                
                                 if int_type == "button_reply":
-                                    button_reply = interactive.get("button_reply", {})
-                                    message_text = button_reply.get("id", "") or button_reply.get("title", "")
-                                    log(f"🔘 Botón presionado: {message_text} - Objeto: {json.dumps(button_reply, ensure_ascii=False)}")
-                                    print(f"🔘 Botón presionado ID/Título: {message_text}")
-                                    print(f"🔘 Button reply completo: {json.dumps(button_reply, ensure_ascii=False)}")
-                                    
+                                    m_text = interactive.get("button_reply", {}).get("id", "")
                                 elif int_type == "list_reply":
-                                    list_reply = interactive.get("list_reply", {})
-                                    message_text = list_reply.get("id", "") or list_reply.get("title", "")
-                                    log(f"📋 Opción de lista seleccionada: {message_text} - Objeto: {json.dumps(list_reply, ensure_ascii=False)}")
-                                    print(f"📋 Lista seleccionada ID/Título: {message_text}")
-                                    print(f"📋 List reply completo: {json.dumps(list_reply, ensure_ascii=False)}")
+                                    m_text = interactive.get("list_reply", {}).get("id", "")
                             
-                            else:
-                                print(f"⚠️ Tipo de mensaje no manejado: {message.get('type')}")
-                                log(f"⚠️ Tipo de mensaje no manejado: {message.get('type')}")
-                            
-                            if from_number and message_text:
-                                # Normalizar texto para comandos de usuario y botones
-                                processed_text = message_text.strip().lower()
-                                emoji_digit_map = {
-                                    "0️⃣": "0",
-                                    "1️⃣": "1",
-                                    "2️⃣": "2",
-                                    "3️⃣": "3",
-                                    "4️⃣": "4",
-                                    "5️⃣": "5",
-                                    "6️⃣": "6",
-                                    "7️⃣": "7",
-                                    "8️⃣": "8",
-                                    "9️⃣": "9",
-                                    "🔟": "10"
-                                }
-                                processed_text = emoji_digit_map.get(processed_text, processed_text)
-                                
-                                # Convertir IDs de botones y sinónimos a comandos numéricos
-                                boton_a_numero = {
-                                    "opcion_1": "1",  # Ventas
-                                    "opcion_2": "2",  # Alquiler
-                                    "opcion_3": "3",  # Sitio Web
-                                    "opcion_4": "4",  # Mis Citas
-                                    "opcion_5": "5",  # Hablar Asesor
-                                    "opcion_6": "6",  # FAQs
-                                    "opcion_7": "7",  # Todos los Inmuebles
-                                    "opcion_tasacion": "10", # Tasación
-                                    "opcion_salir": "s",  # Salir
-                                    "volver_menu": "9",
-                                    "salir_chat": "0",
-                                    "mis citas": "4",
-                                    "ver mis citas": "4",
-                                    "mis citas programadas": "4",
-                                    "mis visitas": "4",
-                                    "mis visitas programadas": "4",
-                                    "venta": "1",
-                                    "en venta": "1",
-                                    "comprar": "1",
-                                    "alquiler": "2",
-                                    "en alquiler": "2",
-                                    "todos los inmuebles": "7",
-                                    "mis citas": "4",
-                                    "hablar con asesor": "5",
-                                    "asesor": "5",
-                                    "requisitos": "6",
-                                    "faqs": "6",
-                                    "requisitos / faqs": "6",
-                                    "sitio web": "3",
-                                    "web": "3",
-                                    "tasación virtual": "10",
-                                    "tasacion virtual": "10",
-                                    "tasación": "10",
-                                    "tasacion": "10",
-                                    "enviar mensaje": "1",
-                                    "solicitar llamada": "2",
-                                    "departamento": "1",
-                                    "casa": "2",
-                                    "ph": "3",
-                                    "oficina / local": "4",
-                                    "oficina": "4",
-                                    "local": "4",
-                                    "terreno / lote": "5",
-                                    "terreno": "5",
-                                    "lote": "5",
-                                    "0️⃣": "0",
-                                    "1️⃣": "1",
-                                    "2️⃣": "2",
-                                    "3️⃣": "3",
-                                    "4️⃣": "4",
-                                    "5️⃣": "5",
-                                    "6️⃣": "6",
-                                    "7️⃣": "7",
-                                    "8️⃣": "8",
-                                    "9️⃣": "9",
-                                    "🔟": "10"
-                                }
-                                
-                                if processed_text in boton_a_numero:
-                                    original_text = message_text
-                                    message_text = boton_a_numero[processed_text]
-                                    print(f"🔄 Traduciendo botón/comando: '{original_text}' → '{message_text}'")
-                                else:
-                                    # Si el texto viene de un título de botón/lista, intentar normalizar opciones conocidas
-                                    texto_normalizado = processed_text.replace('🏠', '').replace('🔑', '').replace('🏢', '').replace('📋', '').replace('❓', '').replace('👤', '').replace('🌐', '').replace('📈', '').strip()
-                                    message_text = boton_a_numero.get(texto_normalizado, message_text.strip())
-                                    if message_text != texto_normalizado and texto_normalizado in boton_a_numero:
-                                        print(f"🔄 Traduciendo título de botón/comando: '{texto_normalizado}' → '{message_text}'")
-                                print(f"👤 Usuario: {from_number}, Input Procesado: '{message_text}'")
-                                log(f"👤 Usuario: {from_number}, Input Procesado: {message_text}")
-
-                                # Llamar a get_bot_response
-                                print(f"🤖 Llamando a get_bot_response con input: '{message_text}'")
-                                response_text = get_bot_response(message_text, from_number)
-                                print(f"🤖 Respuesta del bot: {str(response_text)[:100]}..." if response_text else "🤖 Respuesta vacía")
-
-                                # ── Despacho de respuesta ──────────────────────────────
-                                # Soporta: str, dict (interactive), list[str|dict] (Opción A: 2 mensajes)
-                                def dispatch_single_response(resp, base_url_for_photos=None):
-                                    """Envía una única respuesta al usuario (texto, botones, lista o trigger)."""
-                                    if isinstance(resp, dict):
-                                        if resp.get("type") == "interactive_buttons":
-                                            return send_whatsapp_interactive_buttons(
-                                                from_number,
-                                                resp["body"],
-                                                resp["buttons"],
-                                                header_text=resp.get("header"),
-                                                footer_text=resp.get("footer")
-                                            )
-                                        elif resp.get("type") == "interactive_list":
-                                            return send_whatsapp_list_menu(
-                                                from_number, resp["body"], resp["button_text"],
-                                                resp["sections"], footer_text=resp.get("footer", "")
-                                            )
-                                        else:
-                                            return send_whatsapp_message(from_number, str(resp))
-                                    
-                                    elif resp == "WELCOME_FLOW_TRIGGER":
-                                        log("🎯 Enviando flujo de bienvenida interactivo")
-                                        return send_welcome_flow(from_number)
-                                    
-                                    elif resp and resp.startswith("OFFER_MEETING_TRIGGER|"):
-                                        prop_titulo = resp.split("|")[1]
-                                        text_body = f"✅ *¡Perfecto!*\n\nHemos registrado tu interés en:\n🏠 *{prop_titulo}*\n\n📅 *¿Te gustaría agendar una cita para visitar la propiedad?*"
-                                        botones = [
-                                            {"id": "agendar", "title": "📅 SÍ, AGENDAR CITA"},
-                                            {"id": "solo info", "title": "📋 Solo información"},
-                                            {"id": "ofertar", "title": "💰 Quiero ofertar"}
-                                        ]
-                                        return send_whatsapp_interactive_buttons(from_number, text_body, botones)
-                                    
-                                    elif resp and resp.startswith("CONFIRM_MEETING_TRIGGER|"):
-                                        partes = resp.split("|")
-                                        fecha_display = partes[1]
-                                        hora = partes[2]
-                                        email = partes[3]
-                                        text_body = f"📅 *RESUMEN DE TU VISITA*\n\n📅 Fecha: *{fecha_display}*\n⏰ Hora: *{hora} hs*\n📧 Email: *{email}*\n\n¿Confirmas la cita?"
-                                        botones = [
-                                            {"id": "confirmar", "title": "✅ Confirmar cita"},
-                                            {"id": "cambiar", "title": "🔄 Cambiar hora"},
-                                            {"id": "cancelar", "title": "❌ Cancelar"}
-                                        ]
-                                        return send_whatsapp_interactive_buttons(from_number, text_body, botones)
-                                    
-                                    elif resp and resp.startswith("PHOTOS_TRIGGER|"):
-                                        prop_id = resp.split("|")[1]
-                                        b_url = base_url_for_photos or request.host_url.rstrip('/')
-                                        if "onrender.com" in b_url and not b_url.startswith("https"):
-                                            b_url = b_url.replace("http://", "https://")
-                                        log(f"🚀 Iniciando hilo de fotos para propiedad {prop_id}")
-                                        thread = threading.Thread(target=send_photos_async, args=(from_number, prop_id, b_url))
-                                        thread.start()
-                                        return send_whatsapp_message(from_number, "📸 *Enviando fotos...* Esto puede tardar unos segundos.")
-                                    
-                                    elif resp:
-                                        return send_whatsapp_message(from_number, resp)
-                                    
-                                    return {"status": "skipped", "reason": "empty_response"}
-
-                                # ── Ejecutar dispatch ────────────────────────────────
-                                base_url = request.host_url.rstrip('/')
-                                if isinstance(response_text, list):
-                                    # Opción A: múltiples mensajes (ej: texto largo + botones)
-                                    result = {"status": "skipped"}
-                                    for single in response_text:
-                                        result = dispatch_single_response(single, base_url)
-                                        print(f"📊 Enviado sub-mensaje: {result.get('status')}")
-                                else:
-                                    result = dispatch_single_response(response_text, base_url)
-
-                                
-                                print(f"📊 Resultado envío: {result.get('status')}")
-                                log(f"📊 Resultado: {result.get('status')}")
-                                return jsonify({
-                                    "status": "processed",
-                                    "user": from_number,
-                                    "result": result
-                                }), 200
-                            else:
-                                print(f"⚠️ Mensaje sin contenido procesable: from_number={from_number}, message_text='{message_text}'")
-                                log(f"⚠️ Mensaje sin contenido procesable: from={from_number}, text={message_text}")
+                            if procesar_mensaje_unificado(from_num, m_text, "whatsapp", m_id):
+                                mensajes_procesados += 1
                     
                     elif "statuses" in value:
                         for status in value["statuses"]:
-                            log(f"📊 Estado de mensaje: {status.get('status')} para ID: {status.get('id')}")
-                            print(f"📊 Estado update: {status.get('status')} - ID: {status.get('id')}")
-                        return jsonify({"status": "status_update"}), 200
+                            log(f"📊 Estado: {status.get('status')} - ID: {status.get('id')}")
             
-            if mensajes_procesados == 0:
-                print("ℹ️ Webhook sin mensajes para procesar")
-                log("ℹ️ Webhook sin mensajes de texto para procesar")
-                return jsonify({"status": "no_text_messages"}), 200
-            else:
-                print(f"✅ Procesados {mensajes_procesados} mensajes")
-                return jsonify({"status": "processed", "count": mensajes_procesados}), 200
+            return jsonify({"status": "processed", "count": mensajes_procesados}), 200
                 
         except Exception as e:
-            print(f"❌ ERROR EXCEPCIÓN: {str(e)}")
             import traceback
-            print(f"❌ TRACEBACK: {traceback.format_exc()}")
             log(f"❌ Error procesando webhook: {str(e)}")
             log(f"❌ Traceback: {traceback.format_exc()}")
             return jsonify({"status": "error", "error": str(e)}), 500
