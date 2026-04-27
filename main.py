@@ -973,8 +973,11 @@ def webhook():
                     # Para Instagram y Messenger, usamos envío directo
                     try:
                         token = IG_ACCESS_TOKEN if platform == "instagram" else FB_PAGE_ACCESS_TOKEN
-                        log(f"📤 Enviando {platform} a: {from_id}")
-                        url = f"https://graph.facebook.com/v19.0/me/messages"
+                        # Usamos el ID que recibimos en el webhook para saber desde dónde responder
+                        # Si no lo tenemos, intentamos con 'me' como fallback
+                        page_id = data.get("entry", [{}])[0].get("id", "me")
+                        log(f"📤 Enviando {platform} desde {page_id} a: {from_id}")
+                        url = f"https://graph.facebook.com/v19.0/{page_id}/messages"
                         payload = {
                             "recipient": {"id": from_id},
                             "message": {"text": str(resp)}
