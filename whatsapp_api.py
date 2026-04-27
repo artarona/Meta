@@ -1,3 +1,8 @@
+Aquí tienes la versión más reciente y actualizada de `whatsapp_api.py` (con la función `send_message` unificada y las correcciones de Instagram/Facebook). 
+
+Copia todo este código y reemplázalo en tu repositorio de GitHub / Render:
+
+```python
 import requests
 import json
 import time
@@ -51,6 +56,110 @@ def send_whatsapp_message(to_number, message_text):
     except Exception as e:
         log(f"🔥 Error inesperado enviando WhatsApp: {str(e)}", "ERROR")
         return {"status": "error", "error": str(e)}
+
+
+def send_messenger_message(recipient_id, message_text):
+    """Envía un mensaje a Facebook Messenger"""
+    try:
+        log(f"📤 Enviando Messenger a: {recipient_id}")
+        url = f"https://graph.facebook.com/v19.0/me/messages"
+        headers = {"Content-Type": "application/json"}
+        params = {"access_token": FB_PAGE_ACCESS_TOKEN}
+        
+        payload = {
+            "recipient": {"id": recipient_id},
+            "message": {"text": message_text}
+        }
+        
+        response = requests.post(url, json=payload, params=params, timeout=30)
+        
+        if response.status_code == 200:
+            result = response.json()
+            log(f"✅ Mensaje Messenger enviado - ID: {result.get('message_id')}")
+            return {"status": "success", "message_id": result.get('message_id')}
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Error desconocido')
+            log(f"❌ Error API Messenger: {error_msg}", "ERROR")
+            return {"status": "error", "error_message": error_msg}
+    except Exception as e:
+        log(f"🔥 Error enviando Messenger: {e}", "ERROR")
+        return {"status": "error", "error": str(e)}
+
+
+def send_instagram_message(recipient_id, message_text):
+    """Envía un mensaje a Instagram Direct"""
+    try:
+        log(f"📤 Enviando Instagram a: {recipient_id}")
+        # Instagram Direct usa el mismo endpoint de Messenger para cuentas vinculadas
+        url = f"https://graph.facebook.com/v19.0/me/messages"
+        headers = {"Content-Type": "application/json"}
+        params = {"access_token": IG_ACCESS_TOKEN}
+        
+        payload = {
+            "recipient": {"id": recipient_id},
+            "message": {"text": message_text}
+        }
+        
+        response = requests.post(url, json=payload, params=params, timeout=30)
+        
+        if response.status_code == 200:
+            result = response.json()
+            log(f"✅ Mensaje Instagram enviado - ID: {result.get('message_id')}")
+            return {"status": "success", "message_id": result.get('message_id')}
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Error desconocido')
+            log(f"❌ Error API Instagram: {error_msg}", "ERROR")
+            return {"status": "error", "error_message": error_msg}
+    except Exception as e:
+        log(f"🔥 Error enviando Instagram: {e}", "ERROR")
+        return {"status": "error", "error": str(e)}
+
+
+def send_message(recipient_id, message_content, platform="whatsapp"):
+    """
+    Despachador unificado de mensajes.
+    Soporta fallback de elementos interactivos para Messenger/Instagram.
+    """
+    # Si el contenido es interactivo (botones o lista), lo convertimos a texto para plataformas no-whatsapp
+    if platform != "whatsapp" and isinstance(message_content, dict):
+        text_fallback = ""
+        if message_content.get("type") == "interactive_buttons":
+            text_fallback = f"{message_content.get('header', '')}\n\n{message_content.get('body', '')}\n\n"
+            for btn in message_content.get("buttons", []):
+                text_fallback += f"• {btn.get('title')}\n"
+            text_fallback += f"\n{message_content.get('footer', '')}"
+            message_content = text_fallback.strip()
+            
+        elif message_content.get("type") == "interactive_list":
+            text_fallback = f"{message_content.get('body', '')}\n\n"
+            for section in message_content.get("sections", []):
+                text_fallback += f"*{section.get('title', '')}*\n"
+                for row in section.get("rows", []):
+                    text_fallback += f"- {row.get('title')}: {row.get('description', '')}\n"
+            text_fallback += f"\n{message_content.get('footer', '')}"
+            message_content = text_fallback.strip()
+
+    if platform == "whatsapp":
+        if isinstance(message_content, dict):
+            if message_content.get("type") == "interactive_buttons":
+                return send_whatsapp_interactive_buttons(
+                    recipient_id, message_content["body"], message_content["buttons"],
+                    header_text=message_content.get("header"), footer_text=message_content.get("footer")
+                )
+            elif message_content.get("type") == "interactive_list":
+                return send_whatsapp_list_menu(
+                    recipient_id, message_content["body"], message_content["button_text"],
+                    message_content["sections"], footer_text=message_content.get("footer")
+                )
+        return send_whatsapp_message(recipient_id, str(message_content))
+    
+    elif platform == "messenger":
+        return send_messenger_message(recipient_id, str(message_content))
+    
+    elif platform == "instagram":
+        return send_instagram_message(recipient_id, str(message_content))
+    
+    return {"status": "error", "error": f"Plataforma {platform} no soportada"}
 
 
 def send_photos_async(user_id, propiedad_id, base_url):
