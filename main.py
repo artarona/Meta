@@ -21,6 +21,7 @@ from logic.gemini_client import call_gemini_with_rotation
 # IMPORTAR LOGGING (CRUCIAL)
 # ============================================
 import logging
+import requests
 logger = logging.getLogger(__name__)
 
 # ============================================
@@ -963,8 +964,30 @@ def webhook():
                 
                 def dispatch_single(resp):
                     if not resp: return
-                    from whatsapp_api import send_message
-                    return send_message(from_id, resp, platform=platform)
+                    
+                    # Lógica de envío integrada para evitar problemas de importación
+                    if platform == "whatsapp":
+                        from whatsapp_api import send_message
+                        return send_message(from_id, resp, platform="whatsapp")
+                    
+                    # Para Instagram y Messenger, usamos envío directo
+                    try:
+                        token = IG_ACCESS_TOKEN if platform == "instagram" else FB_PAGE_ACCESS_TOKEN
+                        log(f"📤 Enviando {platform} a: {from_id}")
+                        url = f"https://graph.facebook.com/v19.0/me/messages"
+                        payload = {
+                            "recipient": {"id": from_id},
+                            "message": {"text": str(resp)}
+                        }
+                        r = requests.post(url, json=payload, params={"access_token": token}, timeout=30)
+                        if r.status_code == 200:
+                            log(f"✅ Mensaje {platform} enviado con éxito")
+                            return True
+                        else:
+                            log(f"❌ Error enviando {platform}: {r.text}", "ERROR")
+                    except Exception as e:
+                        log(f"🔥 Error crítico en envío {platform}: {e}", "ERROR")
+                    return False
 
                 if isinstance(response_text, list):
                     for r in response_text:
@@ -986,6 +1009,9 @@ def webhook():
                             text = message.get("text", "")
                             mid = message.get("mid")
                             
+                            if message.get("is_echo"):
+                                continue
+                                
                             if mid in processed_message_ids: continue
                             processed_message_ids.append(mid)
                             
