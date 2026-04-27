@@ -965,6 +965,13 @@ def webhook():
                 def dispatch_single(resp):
                     if not resp: return
                     
+                    if resp == "WELCOME_FLOW_TRIGGER":
+                        if platform == "whatsapp":
+                            from whatsapp_api import send_welcome_flow
+                            return send_welcome_flow(from_id)
+                        else:
+                            resp = "🏠🗝️ *DANTE PROPIEDADES*\n\n¡Hola! Soy el asistente inmobiliario de Dante Propiedades.\n*¿Cómo podemos ayudarte hoy?*\n\n👉 Envía '1' para ver Inmuebles\n👉 Envía '2' para Tasación Virtual\n👉 Envía '3' para Mis Citas\n👉 Envía '4' para Hablar con un asesor\n👉 Envía '5' para Visitar nuestra web"
+
                     # Lógica de envío integrada para evitar problemas de importación
                     if platform == "whatsapp":
                         from whatsapp_api import send_message
