@@ -973,11 +973,8 @@ def webhook():
                     # Para Instagram y Messenger, usamos envío directo
                     try:
                         token = IG_ACCESS_TOKEN if platform == "instagram" else FB_PAGE_ACCESS_TOKEN
-                        # Usamos el ID que recibimos en el webhook para saber desde dónde responder
-                        # Si no lo tenemos, intentamos con 'me' como fallback
-                        page_id = data.get("entry", [{}])[0].get("id", "me")
-                        log(f"📤 Enviando {platform} desde {page_id} a: {from_id}")
-                        url = f"https://graph.facebook.com/v19.0/{page_id}/messages"
+                        log(f"📤 Enviando {platform} a: {from_id} usando token terminando en ...{token[-5:]}")
+                        url = f"https://graph.facebook.com/v19.0/me/messages"
                         payload = {
                             "recipient": {"id": from_id},
                             "message": {"text": str(resp)}
@@ -988,6 +985,17 @@ def webhook():
                             return True
                         else:
                             log(f"❌ Error enviando {platform}: {r.text}", "ERROR")
+                            # Si falla con 'me', intentamos con el ID de la página directamente
+                            page_id = data.get("entry", [{}])[0].get("id")
+                            if page_id and page_id != "me":
+                                log(f"🔄 Reintentando envío usando ID específico: {page_id}")
+                                url_retry = f"https://graph.facebook.com/v19.0/{page_id}/messages"
+                                r2 = requests.post(url_retry, json=payload, params={"access_token": token}, timeout=30)
+                                if r2.status_code == 200:
+                                    log(f"✅ Mensaje enviado en reintento")
+                                    return True
+                                else:
+                                    log(f"❌ Fallo también en reintento: {r2.text}", "ERROR")
                     except Exception as e:
                         log(f"🔥 Error crítico en envío {platform}: {e}", "ERROR")
                     return False
