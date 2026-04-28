@@ -972,10 +972,35 @@ def webhook():
                         else:
                             resp = "🏠🗝️ *DANTE PROPIEDADES*\n\n¡Hola! Soy el asistente inmobiliario de Dante Propiedades.\n*¿Cómo podemos ayudarte hoy?*\n\n👉 Envía '1' para ver Inmuebles\n👉 Envía '2' para Tasación Virtual\n👉 Envía '3' para Mis Citas\n👉 Envía '4' para Hablar con un asesor\n👉 Envía '5' para Visitar nuestra web"
 
+                    elif isinstance(resp, str) and resp.startswith("OFFER_MEETING_TRIGGER|"):
+                        prop_titulo = resp.split("|")[1]
+                        text_body = f"✅ *¡Perfecto!*\n\nHemos registrado tu interés en:\n🏠 *{prop_titulo}*\n\n📅 *¿Te gustaría agendar una cita para visitar la propiedad?*"
+                        botones = [
+                            {"id": "agendar", "title": "📅 SÍ, AGENDAR CITA"},
+                            {"id": "solo info", "title": "📋 Solo información"},
+                            {"id": "ofertar", "title": "💰 Quiero ofertar"}
+                        ]
+                        from whatsapp_api import send_whatsapp_interactive_buttons
+                        return send_whatsapp_interactive_buttons(from_id, text_body, botones)
+
+                    elif isinstance(resp, str) and resp.startswith("PHOTOS_TRIGGER|"):
+                        prop_id = resp.split("|")[1]
+                        # Asegurar HTTPS si estamos en Render
+                        clean_base_url = base_url
+                        if "onrender.com" in clean_base_url and not clean_base_url.startswith("https"):
+                            clean_base_url = clean_base_url.replace("http://", "https://")
+                        
+                        log(f"🚀 Iniciando hilo de fotos para propiedad {prop_id}")
+                        from whatsapp_api import send_photos_async, send_whatsapp_message
+                        thread = threading.Thread(target=send_photos_async, args=(from_id, prop_id, clean_base_url))
+                        thread.start()
+                        
+                        confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'Hola' para volver al menú."
+                        return send_whatsapp_message(from_id, confirmacion)
+
                     # Delegamos TODO el envío a whatsapp_api.py que ya maneja todas las plataformas
                     from whatsapp_api import send_message
                     return send_message(from_id, resp, platform=platform)
-                    return False
 
                 if isinstance(response_text, list):
                     for r in response_text:
