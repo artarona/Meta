@@ -2403,7 +2403,26 @@ def api_citas():
     try:
         conn = get_db_connection()
         if not conn:
-            return jsonify({"error": "No se pudo conectar a la base de datos", "citas": []}), 500
+            log("⚠️ Fallback a JSON para citas (DB no disponible)", "WARNING")
+            try:
+                citas_fallback = cargar_citas()
+                citas_formateadas = []
+                for c in citas_fallback:
+                    citas_formateadas.append({
+                        "id": c.get("id", ""),
+                        "nombre": c.get("nombre", "Sin nombre"),
+                        "telefono": c.get("telefono", c.get("user_id", "")),
+                        "fecha_cita": c.get("fecha", ""),
+                        "hora_cita": c.get("hora", ""),
+                        "propiedad_id": c.get("propiedad_id", ""),
+                        "estado": c.get("estado", "pendiente"),
+                        "notas": c.get("notas", ""),
+                        "fecha_creacion": c.get("creacion", ""),
+                        "email": c.get("email", "")
+                    })
+                return jsonify({"error": "No DB, usando fallback local", "citas": citas_formateadas}), 200
+            except Exception as e:
+                return jsonify({"error": "No se pudo conectar a la base de datos y falló el JSON fallback", "citas": []}), 200
         
         cursor = conn.cursor()
         
