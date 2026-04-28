@@ -972,39 +972,9 @@ def webhook():
                         else:
                             resp = "🏠🗝️ *DANTE PROPIEDADES*\n\n¡Hola! Soy el asistente inmobiliario de Dante Propiedades.\n*¿Cómo podemos ayudarte hoy?*\n\n👉 Envía '1' para ver Inmuebles\n👉 Envía '2' para Tasación Virtual\n👉 Envía '3' para Mis Citas\n👉 Envía '4' para Hablar con un asesor\n👉 Envía '5' para Visitar nuestra web"
 
-                    # Lógica de envío integrada para evitar problemas de importación
-                    if platform == "whatsapp":
-                        from whatsapp_api import send_message
-                        return send_message(from_id, resp, platform="whatsapp")
-                    
-                    # Para Instagram y Messenger, usamos envío directo
-                    try:
-                        token = IG_ACCESS_TOKEN if platform == "instagram" else FB_PAGE_ACCESS_TOKEN
-                        log(f"📤 Enviando {platform} a: {from_id} usando token terminando en ...{token[-5:]}")
-                        url = f"https://graph.facebook.com/v19.0/me/messages"
-                        payload = {
-                            "recipient": {"id": from_id},
-                            "message": {"text": str(resp)}
-                        }
-                        r = requests.post(url, json=payload, params={"access_token": token}, timeout=30)
-                        if r.status_code == 200:
-                            log(f"✅ Mensaje {platform} enviado con éxito")
-                            return True
-                        else:
-                            log(f"❌ Error enviando {platform}: {r.text}", "ERROR")
-                            # Si falla con 'me', intentamos con el ID de la página directamente
-                            page_id = data.get("entry", [{}])[0].get("id")
-                            if page_id and page_id != "me":
-                                log(f"🔄 Reintentando envío usando ID específico: {page_id}")
-                                url_retry = f"https://graph.facebook.com/v19.0/{page_id}/messages"
-                                r2 = requests.post(url_retry, json=payload, params={"access_token": token}, timeout=30)
-                                if r2.status_code == 200:
-                                    log(f"✅ Mensaje enviado en reintento")
-                                    return True
-                                else:
-                                    log(f"❌ Fallo también en reintento: {r2.text}", "ERROR")
-                    except Exception as e:
-                        log(f"🔥 Error crítico en envío {platform}: {e}", "ERROR")
+                    # Delegamos TODO el envío a whatsapp_api.py que ya maneja todas las plataformas
+                    from whatsapp_api import send_message
+                    return send_message(from_id, resp, platform=platform)
                     return False
 
                 if isinstance(response_text, list):
