@@ -1,6 +1,14 @@
 import os
 import threading
 
+# Carga manual de .env para asegurar que las variables estén disponibles
+if os.path.exists(".env"):
+    with open(".env", "r") as f:
+        for line in f:
+            if "=" in line and not line.startswith("#"):
+                key, value = line.strip().split("=", 1)
+                os.environ[key] = value
+
 # ========== CONFIGURACIÓN GOOGLE CALENDAR ==========
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 SERVICE_ACCOUNT_FILE = 'google_calendar_key.json'
@@ -52,6 +60,11 @@ CITAS_DISPONIBLES = [
     "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
     "17:00", "17:30", "18:00", "18:30"
 ]
+
+# ========== CONFIGURACIÓN DE MENÚ ==========
+# 0 = Modo Estándar (Catálogo, Tasación, Citas)
+# 1 = Modo Campaña (Captación de Leads: Comprar, Alquilar, Tasar, Asesor)
+TIPO_MENU = int(os.environ.get("TIPO_MENU", "0"))
 
 # ========== CONFIGURACIÓN DE IA (GEMINI) ==========
 GEMINI_KEYS = [

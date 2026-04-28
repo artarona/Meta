@@ -956,8 +956,12 @@ def webhook():
 
                 log(f"👤 [{platform}] Usuario: {from_id}, Input: '{message_text}'")
                 
-                # Obtener respuesta del bot
-                response_text = get_bot_response(message_text, from_id)
+                # Obtener respuesta del bot según el TIPO_MENU
+                if TIPO_MENU == 1:
+                    from campana_handlers import get_bot_response_campana
+                    response_text = get_bot_response_campana(message_text, from_id)
+                else:
+                    response_text = get_bot_response(message_text, from_id)
                 
                 # Despacho de respuesta
                 base_url = request.host_url.rstrip('/')
