@@ -1895,15 +1895,7 @@ def obtener_market_status():
     status = {
         "exists": exists,
         "last_update": None,
-        "size_kb": 0,
-        "metadata": {
-            "zone": "Desconocida",
-            "property_type": "Desconocido",
-            "operation": "Desconocido",
-            "sample_size": 0
-        },
-        "zone": "Desconocida",
-        "sample_size": 0
+        "size_kb": 0
     }
     
     if exists:

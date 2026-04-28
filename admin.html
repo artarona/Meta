@@ -2195,6 +2195,10 @@
 
         async function sincronizarCitas() {
             const statusDiv = document.getElementById('sync-status');
+            if (!statusDiv) {
+                mostrarToast('⚠️ Elemento de sincronización no encontrado', 'warning');
+                return;
+            }
             statusDiv.innerHTML = '🔄 Sincronizando...';
 
             try {
@@ -3671,31 +3675,8 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
 
-        
-        async function actualizarBannerStatusMercado() {
-            const banner = document.getElementById('market-status-banner');
-            if (!banner) return;
 
-            try {
-                const status = await fetchConClave('/api/market/status');
-                if (status.exists) {
-                    banner.style.display = 'block';
-                    const fecha = new Date(status.last_update).toLocaleString();
-                    banner.innerHTML = `
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <strong>📊 Último Análisis:</strong> ${status.metadata.zone} (${status.metadata.property_type} en ${status.metadata.operation}) 
-                                | <strong>Fecha:</strong> ${fecha} 
-                                | <strong>Propiedades:</strong> ${status.metadata.sample_size}
-                            </div>
-                            <button class="btn btn-outline" style="padding: 2px 10px; font-size: 0.8rem;" onclick="cargarEstadisticasMercado()">Cargar Ahora</button>
-                        </div>
-                    `;
-                }
-            } catch (error) {
-                console.error('Error status mercado:', error);
-            }
-        }
+
 
         function descargarExcelMercado() {
             const table = document.getElementById('market-properties-table');
