@@ -1666,7 +1666,31 @@ def api_leads():
     try:
         conn = get_db_connection()
         if not conn:
-            return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
+            log("⚠️ Fallback a JSON para leads (DB no disponible)", "WARNING")
+            try:
+                import os, json
+                from config import LEADS_FILE
+                leads_fallback = []
+                if os.path.exists(LEADS_FILE):
+                    with open(LEADS_FILE, 'r', encoding='utf-8') as f:
+                        leads_fallback = json.load(f)
+                
+                leads_formateados = []
+                # Invertir para mostrar los más recientes primero
+                for idx, lead in enumerate(reversed(leads_fallback)):
+                    leads_formateados.append({
+                        "id": f"json_{idx}",
+                        "timestamp": lead.get("timestamp"),
+                        "user_id": lead.get("user_id"),
+                        "nombre": "Sin nombre",
+                        "propiedad_id": lead.get("propiedad_id"),
+                        "propiedad_titulo": lead.get("propiedad_nombre"),
+                        "accion": lead.get("accion"),
+                        "detalle": lead.get("detalle")
+                    })
+                return jsonify({"error": "No DB, usando fallback local", "leads": leads_formateados}), 200
+            except Exception as e:
+                return jsonify({"error": "No se pudo conectar a la base de datos y falló el JSON fallback", "leads": []}), 200
         
         cursor = conn.cursor()
         
