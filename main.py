@@ -1865,10 +1865,19 @@ def obtener_barrios():
                 barrios[barrio] = {}
             barrios[barrio]['financial'] = data
         
+        barrios_list = []
+        for barrio, data in barrios.items():
+            barrios_list.append({
+                "nombre": barrio,
+                "fecha_actualizacion": datetime.now().isoformat(),
+                "actualizado_por": "sistema",
+                "datos": data
+            })
+            
         return jsonify({
             "success": True,
-            "barrios": barrios,
-            "total": len(barrios),
+            "barrios": barrios_list,
+            "total": len(barrios_list),
             "timestamp": datetime.now().isoformat()
         })
     except Exception as e:
@@ -1894,6 +1903,14 @@ def obtener_market_status():
             mtime = os.path.getmtime(file_path)
             status["last_update"] = datetime.fromtimestamp(mtime).isoformat()
             status["size_kb"] = round(os.path.getsize(file_path) / 1024, 2)
+            
+            # Leer metadata si existe para el frontend
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                if 'metadata' in data:
+                    status['metadata'] = data['metadata']
+                    status['zone'] = data['metadata'].get('zone', 'Desconocida')
+                    status['sample_size'] = data['metadata'].get('sample_size', 0)
         except Exception as e:
             logger.error(f"Error obteniendo estado de market: {e}")
     
