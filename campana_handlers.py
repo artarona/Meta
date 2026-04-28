@@ -236,7 +236,7 @@ def manejar_confirmacion_campana(text, estado_usuario, user_id):
     )
 
 def guardar_lead_campana(user_id, data):
-    """Guarda el lead en la BD y notifica al agente"""
+    """Guarda el lead en la BD (PostgreSQL + JSON fallback) y notifica al agente"""
     intencion = data.get('intencion', 'Desconocida')
     nombre = data.get('nombre', f"Lead {str(user_id)[-4:]}")
     
@@ -250,13 +250,47 @@ def guardar_lead_campana(user_id, data):
     detalles_str = " | ".join(detalles_lista)
     
     # 1. Guardar en PostgreSQL
+    lead_id_pg = None
     try:
-        guardar_en_postgresql(user_id, nombre, accion, detalles_str)
-        log(f"✅ Lead de campaña guardado en DB: {user_id} - {intencion}")
+        lead_id_pg = guardar_en_postgresql(user_id, nombre, accion, detalles_str)
+        if lead_id_pg:
+            log(f"✅ Lead de campaña guardado en PostgreSQL (ID: {lead_id_pg}): {user_id} - {intencion}")
+        else:
+            log(f"⚠️ PostgreSQL no disponible para lead de campaña: {user_id} - {intencion}", "WARNING")
     except Exception as e:
-        log(f"⚠️ Error guardando lead de campaña en DB: {e}", "WARNING")
+        log(f"⚠️ Error guardando lead de campaña en PostgreSQL: {e}", "WARNING")
+    
+    # 2. Guardar SIEMPRE en JSON como respaldo (para que el admin panel lo vea)
+    try:
+        import os, json
+        from config import LEADS_FILE
+        from utils import save_json_atomic
         
-    # 2. Notificar al Agente
+        leads = []
+        if os.path.exists(LEADS_FILE):
+            try:
+                with open(LEADS_FILE, 'r', encoding='utf-8') as f:
+                    leads = json.load(f)
+            except Exception:
+                leads = []
+        
+        from datetime import datetime
+        nuevo_lead = {
+            'timestamp': datetime.now().isoformat(),
+            'user_id': user_id,
+            'propiedad_id': '',
+            'accion': accion,
+            'detalle': detalles_str,
+            'propiedad_nombre': f"Campaña: {intencion}",
+            'nombre': nombre
+        }
+        leads.append(nuevo_lead)
+        save_json_atomic(LEADS_FILE, leads)
+        log(f"✅ Lead de campaña guardado en JSON: {user_id} - {intencion}")
+    except Exception as e:
+        log(f"🔥 Error guardando lead de campaña en JSON: {e}", "ERROR")
+        
+    # 3. Notificar al Agente
     mensaje_agente = f"🚨 *NUEVO LEAD DE CAMPAÑA* 🚨\n\n"
     mensaje_agente += f"👤 *Usuario:* +{user_id}\n"
     mensaje_agente += f"🎯 *Intención:* {intencion}\n\n"
@@ -265,3 +299,4 @@ def guardar_lead_campana(user_id, data):
     mensaje_agente += "👉 *Requiere contacto inmediato.*"
     
     notificar_agente(mensaje_agente)
+
