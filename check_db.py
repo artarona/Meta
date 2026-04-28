@@ -7,7 +7,7 @@ sys.path.append(os.getcwd())
 from database import get_db_connection
 
 # Cargar env manualmente
-os.environ["DATABASE_URL"] = "postgresql://whatsapp_meta_p0n8_user:e5mxf1VgYEAS1rNx4mVy3Z2q7Wuv6XOo@dpg-d6o6osrh46gs73905on0-a/whatsapp_meta_p0n8"
+os.environ["DATABASE_URL"] = "postgresql://neondb_owner:npg_SqP4jzZE8QtV@ep-steep-moon-akitjmtw.c-3.us-west-2.aws.neon.tech/neondb?sslmode=require"
 
 def check_appointments(phone):
     print(f"Buscando citas para: {phone}")
