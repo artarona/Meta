@@ -12,6 +12,29 @@ DESPEDIDA = f"¡Gracias por confiar en Dante Propiedades! {LOGO}"
 PIE_MENU = "Dante Propiedades · Tu lugar ideal"
 HINT_SALIR = "\n\n💡 _Envía 'S' para salir o 'M' para volver al menú._"
 
+# ========== HELPERS PARA DATA DE CAMPAÑA ==========
+# Usamos estado_usuario['data']['campana'] porque 'data' es el único
+# campo JSON que se persiste en la tabla user_states de PostgreSQL.
+# Usar una clave separada como 'data_campana' causa que se pierda
+# entre requests cuando la DB es la fuente de verdad.
+
+def _get_campana_data(estado_usuario):
+    """Obtiene los datos de campaña desde el campo persistido 'data'"""
+    if not isinstance(estado_usuario.get('data'), dict):
+        estado_usuario['data'] = {}
+    return estado_usuario['data'].get('campana', {})
+
+def _set_campana_data(estado_usuario, campana_data):
+    """Guarda los datos de campaña dentro del campo persistido 'data'"""
+    if not isinstance(estado_usuario.get('data'), dict):
+        estado_usuario['data'] = {}
+    estado_usuario['data']['campana'] = campana_data
+
+def _clear_campana_data(estado_usuario):
+    """Limpia los datos de campaña"""
+    if isinstance(estado_usuario.get('data'), dict):
+        estado_usuario['data']['campana'] = {}
+
 
 def get_bot_response_campana(text, user_id):
     """
@@ -25,13 +48,13 @@ def get_bot_response_campana(text, user_id):
     # ========== COMANDOS GLOBALES (siempre disponibles) ==========
     if text_lower in ["salir", "s", "exit", "0"]:
         estado_usuario['paso'] = 'campana_inicio'
-        estado_usuario['data_campana'] = {}
+        _clear_campana_data(estado_usuario)
         actualizar_estado_usuario(user_id, estado_usuario)
         return DESPEDIDA
     
     if text_lower in ["menu", "m", "volver", "inicio", "hola", "hi", "hello", "atras"]:
         estado_usuario['paso'] = 'campana_intent'
-        estado_usuario['data_campana'] = {}
+        _clear_campana_data(estado_usuario)
         actualizar_estado_usuario(user_id, estado_usuario)
         return iniciar_campana()
 
@@ -90,35 +113,40 @@ def iniciar_campana():
 # ========== MANEJO DE INTENCIÓN ==========
 
 def manejar_intencion_campana(text, estado_usuario, user_id):
-    estado_usuario['data_campana'] = {}
+    _clear_campana_data(estado_usuario)
+    data = {}
     
     if text in ["c_comprar", "comprar", "1"]:
-        estado_usuario['data_campana']['intencion'] = "Comprar"
+        data['intencion'] = "Comprar"
         estado_usuario['paso'] = 'campana_recopilar_zona'
+        _set_campana_data(estado_usuario, data)
         actualizar_estado_usuario(user_id, estado_usuario)
         return f"{LOGO} *¡Excelente!* Vamos a buscar tu nuevo hogar.\n\n📍 ¿En qué *barrio o zona* te gustaría comprar?\n_(Ej: Caballito, Palermo, Belgrano)_{HINT_SALIR}"
         
     elif text in ["c_alquilar", "alquilar", "2"]:
-        estado_usuario['data_campana']['intencion'] = "Alquilar"
+        data['intencion'] = "Alquilar"
         estado_usuario['paso'] = 'campana_recopilar_zona'
+        _set_campana_data(estado_usuario, data)
         actualizar_estado_usuario(user_id, estado_usuario)
         return f"{LOGO} *¡Perfecto!* Te ayudaremos a encontrar un alquiler.\n\n📍 ¿En qué *barrio o zona* estás buscando?\n_(Ej: Almagro, Villa Crespo, Belgrano)_{HINT_SALIR}"
         
     elif text in ["c_tasar", "tasar", "3"]:
-        estado_usuario['data_campana']['intencion'] = "Tasar"
+        data['intencion'] = "Tasar"
         estado_usuario['paso'] = 'campana_recopilar_direccion'
+        _set_campana_data(estado_usuario, data)
         actualizar_estado_usuario(user_id, estado_usuario)
         return f"{LOGO} *¡Genial!* Nuestros expertos tasarán tu propiedad al valor real de mercado.\n\n📍 Por favor, decime la *dirección aproximada* o barrio de la propiedad:{HINT_SALIR}"
         
     elif text in ["c_asesor", "asesor", "hablar con asesor", "4"]:
-        estado_usuario['data_campana']['intencion'] = "Asesoramiento"
+        data['intencion'] = "Asesoramiento"
         estado_usuario['paso'] = 'campana_pedir_nombre'
+        _set_campana_data(estado_usuario, data)
         actualizar_estado_usuario(user_id, estado_usuario)
         return f"👤 Con gusto te contactaremos con uno de nuestros expertos.\n\nPor favor, decime tu *Nombre y Apellido*:{HINT_SALIR}"
     
     elif text in ["c_salir", "salir", "s", "exit", "0"]:
         estado_usuario['paso'] = 'campana_inicio'
-        estado_usuario['data_campana'] = {}
+        _clear_campana_data(estado_usuario)
         actualizar_estado_usuario(user_id, estado_usuario)
         return DESPEDIDA
         
@@ -130,14 +158,22 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
 
 def manejar_recopilacion_datos(text, estado_usuario, user_id):
     paso = estado_usuario['paso']
-    data = estado_usuario.get('data_campana', {})
+    data = _get_campana_data(estado_usuario)
     intencion = data.get('intencion')
+    
+    # Si no hay intención guardada, algo se perdió → reiniciar
+    if not intencion:
+        log(f"⚠️ data_campana sin intención en paso {paso}, reiniciando", "WARNING", user_id=user_id)
+        estado_usuario['paso'] = 'campana_intent'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return iniciar_campana()
     
     # FLUJO: COMPRAR / ALQUILAR
     if intencion in ["Comprar", "Alquilar"]:
         if paso == 'campana_recopilar_zona':
             data['zona'] = text
             estado_usuario['paso'] = 'campana_recopilar_tipo'
+            _set_campana_data(estado_usuario, data)
             actualizar_estado_usuario(user_id, estado_usuario)
             return WhatsAppResponse.buttons(
                 body=f"📍 Zona: *{text}* ✅\n\n¿Qué *tipo de propiedad* estás buscando?",
@@ -152,6 +188,7 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
         elif paso == 'campana_recopilar_tipo':
             data['tipo'] = text
             estado_usuario['paso'] = 'campana_recopilar_presupuesto'
+            _set_campana_data(estado_usuario, data)
             actualizar_estado_usuario(user_id, estado_usuario)
             moneda = "USD" if intencion == "Comprar" else "ARS/USD"
             return f"🏠 Tipo: *{text}* ✅\n\nPor último, ¿cuál es tu *presupuesto máximo* estimado en {moneda}?\n_(Ej: 100.000, 500k, etc.)_{HINT_SALIR}"
@@ -159,6 +196,7 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
         elif paso == 'campana_recopilar_presupuesto':
             data['presupuesto'] = text
             estado_usuario['paso'] = 'campana_confirmacion'
+            _set_campana_data(estado_usuario, data)
             actualizar_estado_usuario(user_id, estado_usuario)
             return mostrar_resumen_campana(data)
 
@@ -167,6 +205,7 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
         if paso == 'campana_recopilar_direccion':
             data['direccion'] = text
             estado_usuario['paso'] = 'campana_recopilar_tipo_tasacion'
+            _set_campana_data(estado_usuario, data)
             actualizar_estado_usuario(user_id, estado_usuario)
             return WhatsAppResponse.buttons(
                 body=f"📍 Dirección: *{text}* ✅\n\n¿Qué *tipo de propiedad* deseas tasar?",
@@ -181,6 +220,7 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
         elif paso == 'campana_recopilar_tipo_tasacion':
             data['tipo'] = text
             estado_usuario['paso'] = 'campana_recopilar_estado'
+            _set_campana_data(estado_usuario, data)
             actualizar_estado_usuario(user_id, estado_usuario)
             return WhatsAppResponse.buttons(
                 body=f"🏠 Tipo: *{text}* ✅\n\n¿En qué *estado general* se encuentra la propiedad?",
@@ -195,22 +235,27 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
         elif paso == 'campana_recopilar_estado':
             data['estado_propiedad'] = text
             estado_usuario['paso'] = 'campana_confirmacion'
+            _set_campana_data(estado_usuario, data)
             actualizar_estado_usuario(user_id, estado_usuario)
             return mostrar_resumen_campana(data)
             
+    # Fallback si el paso no matchea
+    estado_usuario['paso'] = 'campana_intent'
+    actualizar_estado_usuario(user_id, estado_usuario)
     return iniciar_campana()
 
 
 # ========== NOMBRE PARA ASESOR ==========
 
 def manejar_pedir_nombre_asesor(text, estado_usuario, user_id):
-    data = estado_usuario.get('data_campana', {})
+    data = _get_campana_data(estado_usuario)
     data['nombre'] = text
     
     # Derivar inmediatamente
     guardar_lead_campana(user_id, data)
     
     estado_usuario['paso'] = 'campana_inicio'
+    _clear_campana_data(estado_usuario)
     actualizar_estado_usuario(user_id, estado_usuario)
     
     return WhatsAppResponse.buttons(
@@ -254,7 +299,7 @@ def mostrar_resumen_campana(data):
 
 def manejar_confirmacion_campana(text, estado_usuario, user_id):
     if text in ["confirmar_datos", "1", "si", "sí", "confirmar", "ok"]:
-        data = estado_usuario.get('data_campana', {})
+        data = _get_campana_data(estado_usuario)
         intencion = data.get('intencion')
         
         # Guardar en CRM (PostgreSQL + JSON)
@@ -262,6 +307,7 @@ def manejar_confirmacion_campana(text, estado_usuario, user_id):
         
         # Resetear estado
         estado_usuario['paso'] = 'campana_inicio'
+        _clear_campana_data(estado_usuario)
         actualizar_estado_usuario(user_id, estado_usuario)
         
         if intencion == "Tasar":
@@ -280,13 +326,13 @@ def manejar_confirmacion_campana(text, estado_usuario, user_id):
             
     elif text in ["corregir_datos", "2", "no", "corregir"]:
         estado_usuario['paso'] = 'campana_intent'
-        estado_usuario['data_campana'] = {}
+        _clear_campana_data(estado_usuario)
         actualizar_estado_usuario(user_id, estado_usuario)
         return iniciar_campana()
     
     elif text in ["c_salir", "salir", "cancelar", "3"]:
         estado_usuario['paso'] = 'campana_inicio'
-        estado_usuario['data_campana'] = {}
+        _clear_campana_data(estado_usuario)
         actualizar_estado_usuario(user_id, estado_usuario)
         return DESPEDIDA
         
