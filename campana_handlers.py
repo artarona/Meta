@@ -83,20 +83,28 @@ def get_bot_response_campana(text, user_id):
             manejar_tasacion_ambientes, manejar_tasacion_estado, 
             manejar_tasacion_contacto
         )
+        resp = None
         if paso_actual == 'tasacion_operacion':
-            return manejar_tasacion_operacion(text.lower(), estado_usuario, user_id)
+            resp = manejar_tasacion_operacion(text.lower(), estado_usuario, user_id)
         elif paso_actual == 'tasacion_barrio':
-            return manejar_tasacion_barrio(text, estado_usuario, user_id)
+            resp = manejar_tasacion_barrio(text, estado_usuario, user_id)
         elif paso_actual == 'tasacion_tipo':
-            return manejar_tasacion_tipo(text.lower(), estado_usuario, user_id)
+            resp = manejar_tasacion_tipo(text.lower(), estado_usuario, user_id)
         elif paso_actual == 'tasacion_m2':
-            return manejar_tasacion_m2(text, estado_usuario, user_id)
+            resp = manejar_tasacion_m2(text, estado_usuario, user_id)
         elif paso_actual == 'tasacion_ambientes':
-            return manejar_tasacion_ambientes(text, estado_usuario, user_id)
+            resp = manejar_tasacion_ambientes(text, estado_usuario, user_id)
         elif paso_actual == 'tasacion_estado':
-            return manejar_tasacion_estado(text.lower(), estado_usuario, user_id)
+            resp = manejar_tasacion_estado(text.lower(), estado_usuario, user_id)
         elif paso_actual == 'tasacion_esperando_contacto':
-            return manejar_tasacion_contacto(text.lower(), estado_usuario, user_id)
+            resp = manejar_tasacion_contacto(text.lower(), estado_usuario, user_id)
+            
+        # Manejar triggers especiales de tasaciones
+        if resp == "WELCOME_FLOW_TRIGGER":
+            estado_usuario['paso'] = 'campana_intent'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return iniciar_campana()
+        return resp
 
     # Fallback → menú principal
     estado_usuario['paso'] = 'campana_intent'
@@ -153,11 +161,9 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
         return f"{LOGO} *¡Perfecto!* Te ayudaremos a encontrar un alquiler.\n\n📍 ¿En qué *barrio o zona* estás buscando?\n_(Ej: Almagro, Villa Crespo, Belgrano)_{HINT_SALIR}"
         
     elif text in ["c_tasar", "tasar", "3"]:
-        data['intencion'] = "Tasar"
-        estado_usuario['paso'] = 'campana_recopilar_direccion'
-        _set_campana_data(estado_usuario, data)
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return f"{LOGO} *¡Perfecto!* Vamos a tasar tu propiedad.\n\n📍 ¿Cuál es la *dirección o zona* de la propiedad?\n_(Ej: Caballito, Palermo, ........)_{HINT_SALIR}"
+        # Unificar flujo de tasación con Tipo_Menu=0
+        from tasaciones import manejar_menu_tasacion
+        return manejar_menu_tasacion(text, estado_usuario, user_id)
         
     elif text in ["c_asesor", "asesor", "hablar con asesor", "4"]:
         data['intencion'] = "Asesoramiento"
