@@ -944,7 +944,9 @@ def webhook():
                     "opcion_1": "1", "opcion_2": "2", "opcion_3": "3", "opcion_4": "4",
                     "opcion_5": "5", "opcion_6": "6", "opcion_7": "7", "opcion_tasacion": "10",
                     "opcion_salir": "s", "volver_menu": "9", "salir_chat": "0",
-                    "venta": "1", "alquiler": "2", "comprar": "1", "asesor": "5"
+                    "venta": "1", "alquiler": "2", "comprar": "1", "asesor": "5",
+                    # Campaña: botones de navegación
+                    "c_menu": "m", "c_salir": "s"
                 }
                 
                 if processed_text in boton_a_numero:

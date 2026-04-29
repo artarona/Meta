@@ -5,6 +5,14 @@ from database import obtener_estado_usuario, actualizar_estado_usuario, guardar_
 from logic.response_builder import WhatsAppResponse
 from whatsapp_api import notificar_agente
 
+# ========== CONSTANTES DE BRANDING ==========
+LOGO = "🏠🗝️"
+MARCA = f"{LOGO} *DANTE PROPIEDADES*"
+DESPEDIDA = f"¡Gracias por confiar en Dante Propiedades! {LOGO}"
+PIE_MENU = "Dante Propiedades · Tu lugar ideal"
+HINT_SALIR = "\n\n💡 _Envía 'S' para salir o 'M' para volver al menú._"
+
+
 def get_bot_response_campana(text, user_id):
     """
     Despachador principal para el MODO CAMPAÑA (TIPO_MENU = 1).
@@ -14,16 +22,21 @@ def get_bot_response_campana(text, user_id):
     estado_usuario = obtener_estado_usuario(user_id)
     paso_actual = estado_usuario.get('paso', 'campana_inicio')
     
-    # Comandos globales
-    if text_lower in ["salir", "s", "0"]:
-        return reiniciar_campana(user_id, estado_usuario, "❌ Gracias por contactar a Dante Propiedades. ¡Hasta pronto!")
+    # ========== COMANDOS GLOBALES (siempre disponibles) ==========
+    if text_lower in ["salir", "s", "exit", "0"]:
+        estado_usuario['paso'] = 'campana_inicio'
+        estado_usuario['data_campana'] = {}
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return DESPEDIDA
     
-    if text_lower in ["menu", "m", "volver", "inicio"]:
-        return reiniciar_campana(user_id, estado_usuario, iniciar_campana())
+    if text_lower in ["menu", "m", "volver", "inicio", "hola", "hi", "hello", "atras"]:
+        estado_usuario['paso'] = 'campana_intent'
+        estado_usuario['data_campana'] = {}
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return iniciar_campana()
 
-    # Routing basado en el paso actual
-    if paso_actual == 'campana_inicio' or paso_actual == 'menu_principal':
-        # Si vienen del menú principal estándar o están recién empezando
+    # ========== ROUTING POR PASO ==========
+    if paso_actual in ('campana_inicio', 'menu_principal'):
         estado_usuario['paso'] = 'campana_intent'
         actualizar_estado_usuario(user_id, estado_usuario)
         return iniciar_campana()
@@ -40,35 +53,41 @@ def get_bot_response_campana(text, user_id):
     elif paso_actual == 'campana_pedir_nombre':
         return manejar_pedir_nombre_asesor(text, estado_usuario, user_id)
 
-    # Fallback
+    # Fallback → menú principal
     estado_usuario['paso'] = 'campana_intent'
     actualizar_estado_usuario(user_id, estado_usuario)
     return iniciar_campana()
 
+
+# ========== MENÚ PRINCIPAL DE CAMPAÑA ==========
+
 def iniciar_campana():
     return WhatsAppResponse.list_menu(
-        header="🏠🗝️ DANTE PROPIEDADES",
-        body="¡Hola! Soy el asistente inmobiliario de Dante Propiedades.\nQueremos ayudarte a encontrar o vender tu lugar ideal de la forma más fácil y rápida.\n\n*¿Qué estás buscando hacer hoy?*",
-        button_text="Seleccionar opción",
+        header=MARCA,
+        body=f"¡Hola! 👋 Soy el asistente de *Dante Propiedades*.\n\nEstamos acá para ayudarte a encontrar, vender o tasar tu propiedad de forma rápida y personalizada.\n\n*¿Qué te gustaría hacer hoy?*",
+        button_text="Ver opciones",
         sections=[
             {
-                "title": "Opciones Disponibles",
+                "title": "Servicios Disponibles",
                 "rows": [
-                    {"id": "c_comprar", "title": "🏡 Comprar", "description": "Busco comprar una propiedad"},
-                    {"id": "c_alquilar", "title": "🔑 Alquilar", "description": "Busco alquilar una propiedad"},
-                    {"id": "c_tasar", "title": "📈 Tasar mi propiedad", "description": "Quiero saber cuánto vale mi propiedad"},
-                    {"id": "c_asesor", "title": "👤 Hablar con asesor", "description": "Necesito atención personalizada"}
+                    {"id": "c_comprar", "title": "🏡 Quiero Comprar", "description": "Busco comprar una propiedad"},
+                    {"id": "c_alquilar", "title": "🔑 Quiero Alquilar", "description": "Busco alquilar una propiedad"},
+                    {"id": "c_tasar", "title": "📈 Tasar mi Propiedad", "description": "Quiero saber el valor de mercado"},
+                    {"id": "c_asesor", "title": "👤 Hablar con Asesor", "description": "Atención personalizada inmediata"}
+                ]
+            },
+            {
+                "title": "Otras Opciones",
+                "rows": [
+                    {"id": "c_salir", "title": "❌ Salir", "description": "Finalizar la conversación"}
                 ]
             }
         ],
-        footer="Selecciona una opción 👇"
+        footer=PIE_MENU
     )
 
-def reiniciar_campana(user_id, estado_usuario, mensaje):
-    estado_usuario['paso'] = 'campana_inicio'
-    estado_usuario['data_campana'] = {}
-    actualizar_estado_usuario(user_id, estado_usuario)
-    return mensaje
+
+# ========== MANEJO DE INTENCIÓN ==========
 
 def manejar_intencion_campana(text, estado_usuario, user_id):
     estado_usuario['data_campana'] = {}
@@ -77,28 +96,37 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
         estado_usuario['data_campana']['intencion'] = "Comprar"
         estado_usuario['paso'] = 'campana_recopilar_zona'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "¡Excelente! 🏡 Vamos a buscar tu nuevo hogar.\n\n¿En qué *barrio o zona* te gustaría comprar? (Ej: Caballito, Palermo, Belgrano)"
+        return f"{LOGO} *¡Excelente!* Vamos a buscar tu nuevo hogar.\n\n📍 ¿En qué *barrio o zona* te gustaría comprar?\n_(Ej: Caballito, Palermo, Belgrano)_{HINT_SALIR}"
         
     elif text in ["c_alquilar", "alquilar", "2"]:
         estado_usuario['data_campana']['intencion'] = "Alquilar"
         estado_usuario['paso'] = 'campana_recopilar_zona'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "¡Perfecto! 🔑 Te ayudaremos a encontrar un alquiler.\n\n¿En qué *barrio o zona* estás buscando? (Ej: Almagro, Villa Crespo)"
+        return f"{LOGO} *¡Perfecto!* Te ayudaremos a encontrar un alquiler.\n\n📍 ¿En qué *barrio o zona* estás buscando?\n_(Ej: Almagro, Villa Crespo, Belgrano)_{HINT_SALIR}"
         
     elif text in ["c_tasar", "tasar", "3"]:
         estado_usuario['data_campana']['intencion'] = "Tasar"
         estado_usuario['paso'] = 'campana_recopilar_direccion'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "¡Genial! 📈 Nuestros expertos tasarán tu propiedad al valor real de mercado.\n\nPor favor, decime la *dirección aproximada* o barrio de la propiedad:"
+        return f"{LOGO} *¡Genial!* Nuestros expertos tasarán tu propiedad al valor real de mercado.\n\n📍 Por favor, decime la *dirección aproximada* o barrio de la propiedad:{HINT_SALIR}"
         
     elif text in ["c_asesor", "asesor", "hablar con asesor", "4"]:
         estado_usuario['data_campana']['intencion'] = "Asesoramiento"
         estado_usuario['paso'] = 'campana_pedir_nombre'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "Con gusto te contactaremos con uno de nuestros expertos. 👤\n\nPor favor, decime tu *Nombre y Apellido*:"
+        return f"👤 Con gusto te contactaremos con uno de nuestros expertos.\n\nPor favor, decime tu *Nombre y Apellido*:{HINT_SALIR}"
+    
+    elif text in ["c_salir", "salir", "s", "exit", "0"]:
+        estado_usuario['paso'] = 'campana_inicio'
+        estado_usuario['data_campana'] = {}
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return DESPEDIDA
         
     else:
         return iniciar_campana()
+
+
+# ========== RECOPILACIÓN DE DATOS ==========
 
 def manejar_recopilacion_datos(text, estado_usuario, user_id):
     paso = estado_usuario['paso']
@@ -112,12 +140,13 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
             estado_usuario['paso'] = 'campana_recopilar_tipo'
             actualizar_estado_usuario(user_id, estado_usuario)
             return WhatsAppResponse.buttons(
-                body="¿Qué *tipo de propiedad* estás buscando?",
+                body=f"📍 Zona: *{text}* ✅\n\n¿Qué *tipo de propiedad* estás buscando?",
                 buttons=[
                     {"id": "Depto", "title": "🏢 Departamento"},
                     {"id": "Casa", "title": "🏠 Casa"},
                     {"id": "Otro", "title": "🏭 Otro (Local/Lote)"}
-                ]
+                ],
+                footer=PIE_MENU
             )
             
         elif paso == 'campana_recopilar_tipo':
@@ -125,7 +154,7 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
             estado_usuario['paso'] = 'campana_recopilar_presupuesto'
             actualizar_estado_usuario(user_id, estado_usuario)
             moneda = "USD" if intencion == "Comprar" else "ARS/USD"
-            return f"Entendido. Por último, ¿cuál es tu *presupuesto máximo* estimado en {moneda}? (Ej: 100.000, 500k, etc.)"
+            return f"🏠 Tipo: *{text}* ✅\n\nPor último, ¿cuál es tu *presupuesto máximo* estimado en {moneda}?\n_(Ej: 100.000, 500k, etc.)_{HINT_SALIR}"
             
         elif paso == 'campana_recopilar_presupuesto':
             data['presupuesto'] = text
@@ -140,12 +169,13 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
             estado_usuario['paso'] = 'campana_recopilar_tipo_tasacion'
             actualizar_estado_usuario(user_id, estado_usuario)
             return WhatsAppResponse.buttons(
-                body="¿Qué *tipo de propiedad* deseas tasar?",
+                body=f"📍 Dirección: *{text}* ✅\n\n¿Qué *tipo de propiedad* deseas tasar?",
                 buttons=[
                     {"id": "Depto", "title": "🏢 Departamento"},
                     {"id": "Casa", "title": "🏠 Casa"},
                     {"id": "Otro", "title": "🏭 Otro (Local/Lote)"}
-                ]
+                ],
+                footer=PIE_MENU
             )
             
         elif paso == 'campana_recopilar_tipo_tasacion':
@@ -153,12 +183,13 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
             estado_usuario['paso'] = 'campana_recopilar_estado'
             actualizar_estado_usuario(user_id, estado_usuario)
             return WhatsAppResponse.buttons(
-                body="¿En qué *estado general* se encuentra la propiedad?",
+                body=f"🏠 Tipo: *{text}* ✅\n\n¿En qué *estado general* se encuentra la propiedad?",
                 buttons=[
                     {"id": "Excelente", "title": "✨ Excelente"},
-                    {"id": "Bueno", "title": "👍 Bueno/A refaccionar"},
+                    {"id": "Bueno", "title": "👍 Bueno/Refaccionar"},
                     {"id": "En_obra", "title": "🏗️ En obra/Terreno"}
-                ]
+                ],
+                footer=PIE_MENU
             )
             
         elif paso == 'campana_recopilar_estado':
@@ -168,6 +199,9 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
             return mostrar_resumen_campana(data)
             
     return iniciar_campana()
+
+
+# ========== NOMBRE PARA ASESOR ==========
 
 def manejar_pedir_nombre_asesor(text, estado_usuario, user_id):
     data = estado_usuario.get('data_campana', {})
@@ -179,12 +213,22 @@ def manejar_pedir_nombre_asesor(text, estado_usuario, user_id):
     estado_usuario['paso'] = 'campana_inicio'
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    return "✅ ¡Gracias! Hemos derivado tu contacto a un asesor de guardia, quien se comunicará contigo a la brevedad a este número de WhatsApp.\n\n(Envía 'M' para volver al menú)"
+    return WhatsAppResponse.buttons(
+        body=f"✅ *¡Gracias, {text}!*\n\nHemos derivado tu contacto a un asesor de guardia, quien se comunicará contigo a la brevedad por este WhatsApp.\n\n{LOGO} Dante Propiedades",
+        buttons=[
+            {"id": "c_menu", "title": "📋 Volver al menú"},
+            {"id": "c_salir", "title": "❌ Salir"}
+        ],
+        footer=PIE_MENU
+    )
+
+
+# ========== RESUMEN Y CONFIRMACIÓN ==========
 
 def mostrar_resumen_campana(data):
     intencion = data.get('intencion')
     
-    resumen = f"📋 *RESUMEN DE TU BÚSQUEDA*\n\n"
+    resumen = f"{MARCA}\n━━━━━━━━━━━━━━━━━\n📋 *RESUMEN DE TU BÚSQUEDA*\n\n"
     resumen += f"🔸 *Intención:* {intencion}\n"
     
     if intencion in ["Comprar", "Alquilar"]:
@@ -195,15 +239,17 @@ def mostrar_resumen_campana(data):
         resumen += f"📍 *Dirección/Zona:* {data.get('direccion')}\n"
         resumen += f"🏠 *Tipo:* {data.get('tipo')}\n"
         resumen += f"🛠️ *Estado:* {data.get('estado_propiedad')}\n"
-        
-    resumen += "\n¿Estos datos son correctos?"
+    
+    resumen += "\n━━━━━━━━━━━━━━━━━\n¿Estos datos son correctos?"
     
     return WhatsAppResponse.buttons(
         body=resumen,
         buttons=[
             {"id": "confirmar_datos", "title": "✅ Sí, confirmar"},
-            {"id": "corregir_datos", "title": "🔄 Corregir"}
-        ]
+            {"id": "corregir_datos", "title": "🔄 Corregir"},
+            {"id": "c_salir", "title": "❌ Cancelar"}
+        ],
+        footer=PIE_MENU
     )
 
 def manejar_confirmacion_campana(text, estado_usuario, user_id):
@@ -211,7 +257,7 @@ def manejar_confirmacion_campana(text, estado_usuario, user_id):
         data = estado_usuario.get('data_campana', {})
         intencion = data.get('intencion')
         
-        # Guardar en CRM (PostgreSQL)
+        # Guardar en CRM (PostgreSQL + JSON)
         guardar_lead_campana(user_id, data)
         
         # Resetear estado
@@ -219,21 +265,43 @@ def manejar_confirmacion_campana(text, estado_usuario, user_id):
         actualizar_estado_usuario(user_id, estado_usuario)
         
         if intencion == "Tasar":
-            return "✅ *¡Perfecto!* Hemos registrado tu solicitud de tasación. Un tasador experto de nuestro equipo se pondrá en contacto contigo muy pronto para brindarte el valor real de tu propiedad.\n\n¡Gracias por confiar en Dante Propiedades!"
+            msg = f"✅ *¡Solicitud registrada!*\n\nUn tasador experto de nuestro equipo se pondrá en contacto contigo muy pronto para brindarte el valor real de tu propiedad.\n\n{DESPEDIDA}"
         else:
-            return "✅ *¡Búsqueda registrada!* Un asesor especializado está analizando nuestra base de datos (incluso propiedades off-market) y se contactará contigo a la brevedad con las mejores opciones a medida.\n\n¡Gracias por confiar en Dante Propiedades!"
+            msg = f"✅ *¡Búsqueda registrada!*\n\nUn asesor especializado está analizando nuestra base de datos (incluso propiedades off-market) y se contactará contigo a la brevedad con las mejores opciones a medida.\n\n{DESPEDIDA}"
+        
+        return WhatsAppResponse.buttons(
+            body=msg,
+            buttons=[
+                {"id": "c_menu", "title": "📋 Nueva búsqueda"},
+                {"id": "c_salir", "title": "❌ Salir"}
+            ],
+            footer=PIE_MENU
+        )
             
     elif text in ["corregir_datos", "2", "no", "corregir"]:
-        # Mandar la pregunta de intencion en vez de reiniciar de cero
-        return reiniciar_campana(user_id, estado_usuario, "🔄 No hay problema, empecemos de nuevo.\n\n" + iniciar_campana()['body']) 
+        estado_usuario['paso'] = 'campana_intent'
+        estado_usuario['data_campana'] = {}
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return iniciar_campana()
+    
+    elif text in ["c_salir", "salir", "cancelar", "3"]:
+        estado_usuario['paso'] = 'campana_inicio'
+        estado_usuario['data_campana'] = {}
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return DESPEDIDA
         
     return WhatsAppResponse.buttons(
-        body="Por favor, confirma si los datos son correctos:",
+        body="Por favor, confirmá si los datos son correctos:",
         buttons=[
             {"id": "confirmar_datos", "title": "✅ Sí, confirmar"},
-            {"id": "corregir_datos", "title": "🔄 Corregir"}
-        ]
+            {"id": "corregir_datos", "title": "🔄 Corregir"},
+            {"id": "c_salir", "title": "❌ Cancelar"}
+        ],
+        footer=PIE_MENU
     )
+
+
+# ========== PERSISTENCIA DE LEADS ==========
 
 def guardar_lead_campana(user_id, data):
     """Guarda el lead en la BD (PostgreSQL + JSON fallback) y notifica al agente"""
@@ -292,11 +360,11 @@ def guardar_lead_campana(user_id, data):
         
     # 3. Notificar al Agente
     mensaje_agente = f"🚨 *NUEVO LEAD DE CAMPAÑA* 🚨\n\n"
-    mensaje_agente += f"👤 *Usuario:* +{user_id}\n"
+    mensaje_agente += f"👤 *Nombre:* {nombre}\n"
+    mensaje_agente += f"📱 *WhatsApp:* +{user_id}\n"
     mensaje_agente += f"🎯 *Intención:* {intencion}\n\n"
     if detalles_str:
         mensaje_agente += f"📝 *Detalles:*\n{detalles_str}\n\n"
     mensaje_agente += "👉 *Requiere contacto inmediato.*"
     
     notificar_agente(mensaje_agente)
-
