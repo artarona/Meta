@@ -375,7 +375,7 @@ def guardar_lead_campana(user_id, data):
     intencion = data.get('intencion', 'Desconocida')
     nombre = data.get('nombre', f"Lead {str(user_id)[-4:]}")
     
-    accion = f"lead_campana_{intencion.lower()}"
+    accion = f"lead_campaña_{intencion.lower()}"
     
     detalles_lista = []
     for k, v in data.items():
