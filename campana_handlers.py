@@ -75,6 +75,28 @@ def get_bot_response_campana(text, user_id):
         
     elif paso_actual == 'campana_pedir_nombre':
         return manejar_pedir_nombre_asesor(text, estado_usuario, user_id)
+        
+    elif paso_actual.startswith('tasacion_'):
+        from tasaciones import (
+            manejar_tasacion_operacion, manejar_tasacion_barrio, 
+            manejar_tasacion_tipo, manejar_tasacion_m2, 
+            manejar_tasacion_ambientes, manejar_tasacion_estado, 
+            manejar_tasacion_contacto
+        )
+        if paso_actual == 'tasacion_operacion':
+            return manejar_tasacion_operacion(text.lower(), estado_usuario, user_id)
+        elif paso_actual == 'tasacion_barrio':
+            return manejar_tasacion_barrio(text, estado_usuario, user_id)
+        elif paso_actual == 'tasacion_tipo':
+            return manejar_tasacion_tipo(text.lower(), estado_usuario, user_id)
+        elif paso_actual == 'tasacion_m2':
+            return manejar_tasacion_m2(text, estado_usuario, user_id)
+        elif paso_actual == 'tasacion_ambientes':
+            return manejar_tasacion_ambientes(text, estado_usuario, user_id)
+        elif paso_actual == 'tasacion_estado':
+            return manejar_tasacion_estado(text.lower(), estado_usuario, user_id)
+        elif paso_actual == 'tasacion_esperando_contacto':
+            return manejar_tasacion_contacto(text.lower(), estado_usuario, user_id)
 
     # Fallback → menú principal
     estado_usuario['paso'] = 'campana_intent'
@@ -131,9 +153,11 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
         return f"{LOGO} *¡Perfecto!* Te ayudaremos a encontrar un alquiler.\n\n📍 ¿En qué *barrio o zona* estás buscando?\n_(Ej: Almagro, Villa Crespo, Belgrano)_{HINT_SALIR}"
         
     elif text in ["c_tasar", "tasar", "3"]:
-        # Unificar flujo de tasación con Tipo_Menu=0
-        from tasaciones import manejar_menu_tasacion
-        return manejar_menu_tasacion(text, estado_usuario, user_id)
+        data['intencion'] = "Tasar"
+        estado_usuario['paso'] = 'campana_recopilar_direccion'
+        _set_campana_data(estado_usuario, data)
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return f"{LOGO} *¡Perfecto!* Vamos a tasar tu propiedad.\n\n📍 ¿Cuál es la *dirección o zona* de la propiedad?\n_(Ej: Av. Rivadavia 5000, Caballito)_{HINT_SALIR}"
         
     elif text in ["c_asesor", "asesor", "hablar con asesor", "4"]:
         data['intencion'] = "Asesoramiento"
