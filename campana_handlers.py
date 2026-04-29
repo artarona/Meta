@@ -131,11 +131,9 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
         return f"{LOGO} *¡Perfecto!* Te ayudaremos a encontrar un alquiler.\n\n📍 ¿En qué *barrio o zona* estás buscando?\n_(Ej: Almagro, Villa Crespo, Belgrano)_{HINT_SALIR}"
         
     elif text in ["c_tasar", "tasar", "3"]:
-        data['intencion'] = "Tasar"
-        estado_usuario['paso'] = 'campana_recopilar_direccion'
-        _set_campana_data(estado_usuario, data)
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return f"{LOGO} *¡Genial!* Nuestros expertos tasarán tu propiedad al valor real de mercado.\n\n📍 Por favor, decime la *dirección aproximada* o barrio de la propiedad:{HINT_SALIR}"
+        # Unificar flujo de tasación con Tipo_Menu=0
+        from tasaciones import manejar_menu_tasacion
+        return manejar_menu_tasacion(text, estado_usuario, user_id)
         
     elif text in ["c_asesor", "asesor", "hablar con asesor", "4"]:
         data['intencion'] = "Asesoramiento"
