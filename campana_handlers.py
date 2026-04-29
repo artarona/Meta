@@ -323,10 +323,33 @@ def manejar_confirmacion_campana(text, estado_usuario, user_id):
         )
             
     elif text in ["corregir_datos", "2", "no", "corregir"]:
-        estado_usuario['paso'] = 'campana_intent'
-        _clear_campana_data(estado_usuario)
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return iniciar_campana()
+        data = _get_campana_data(estado_usuario)
+        intencion = data.get('intencion')
+        
+        if intencion in ["Comprar", "Alquilar"]:
+            # Reiniciar a la primera pregunta de búsqueda
+            estado_usuario['paso'] = 'campana_recopilar_zona'
+            # Mantener solo la intención
+            _set_campana_data(estado_usuario, {'intencion': intencion})
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            if intencion == "Comprar":
+                return f"{LOGO} *Vamos a corregir los datos.*\n\n📍 ¿En qué *barrio o zona* te gustaría comprar?\n_(Ej: Caballito, Palermo, Belgrano)_{HINT_SALIR}"
+            else:
+                return f"{LOGO} *Vamos a corregir los datos.*\n\n📍 ¿En qué *barrio o zona* estás buscando?\n_(Ej: Almagro, Villa Crespo, Belgrano)_{HINT_SALIR}"
+                
+        elif intencion == "Tasar":
+            estado_usuario['paso'] = 'campana_recopilar_direccion'
+            _set_campana_data(estado_usuario, {'intencion': intencion})
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return f"{LOGO} *Vamos a corregir los datos.*\n\n📍 ¿Cuál es la *dirección o zona* de la propiedad a tasar?\n_(Ej: Av. Rivadavia 5000, Caballito)_{HINT_SALIR}"
+            
+        else:
+            # Fallback a inicio si no hay intención clara
+            estado_usuario['paso'] = 'campana_intent'
+            _clear_campana_data(estado_usuario)
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return iniciar_campana()
     
     elif text in ["c_salir", "salir", "cancelar", "3"]:
         estado_usuario['paso'] = 'campana_inicio'
