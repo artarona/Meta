@@ -157,7 +157,7 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
         estado_usuario['paso'] = 'campana_recopilar_direccion'
         _set_campana_data(estado_usuario, data)
         actualizar_estado_usuario(user_id, estado_usuario)
-        return f"{LOGO} *¡Perfecto!* Vamos a tasar tu propiedad.\n\n📍 ¿Cuál es la *dirección o zona* de la propiedad?\n_(Ej: Av. Rivadavia 5000, Caballito)_{HINT_SALIR}"
+        return f"{LOGO} *¡Perfecto!* Vamos a tasar tu propiedad.\n\n📍 ¿Cuál es la *dirección o zona* de la propiedad?\n_(Ej: Caballito, Palermo, ........)_{HINT_SALIR}"
         
     elif text in ["c_asesor", "asesor", "hablar con asesor", "4"]:
         data['intencion'] = "Asesoramiento"
