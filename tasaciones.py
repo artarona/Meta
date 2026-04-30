@@ -104,30 +104,9 @@ def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado, operacion='venta'):
                 "fuente": "Mapa de Valoración Local"
             }
 
-        # 5. Si todo falló (IA en fallback/error y Local no encontrado), usamos el fallback final referencial
+        # 5. Si todo falló (IA en fallback/error y Local no encontrado), devolver None (no hay tasación disponible)
         if not local_data:
-            local_data = {
-                "precio_m2": 2150.0 if operacion == 'venta' else 8500.0,
-                "moneda": "USD" if operacion == 'venta' else "ARS",
-                "is_fallback": True,
-                "fuentes": [f"Promedio General CABA ({operacion.upper()})"],
-                "muestra": 0
-            }
-            
-        # Aplicar factor sobre el fallback final o el fallback de DB local
-        ajustes = {"Excelente": 1.10, "Muy bueno": 1.05, "Bueno": 1.00, "Regular": 0.85, "A refaccionar": 0.70}
-        factor = ajustes.get(estado, 1.0)
-        valor = local_data['precio_m2'] * float(m2) * factor
-        
-        return {
-            "valor_estimado": round(valor, -2),
-            "precio_m2": local_data['precio_m2'],
-            "moneda": local_data.get('moneda', 'USD'),
-            "is_fallback": local_data.get("is_fallback", True),
-            "fuentes": local_data.get("fuentes", []),
-            "muestra": local_data.get("muestra", 0),
-            "fuente": local_data.get("fuente", "Statistical Fallback")
-        }
+            return None
     except Exception as e:
         log(f"⚠️ Error crítico en obtención de tasación: {e}")
         return None
@@ -353,10 +332,9 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
         # Validar que tasacion no sea None
         if not tasacion:
             log(f"⚠️ tasacion_ia retornó None para los datos: {datos}")
-            # Retornar un mensaje de error más descriptivo
             return WhatsAppResponse.buttons(
-                header="⚠️ ERROR EN LA TASACIÓN",
-                body="Ocurrió un error al procesar tu solicitud. Por favor, intenta de nuevo o contacta a un asesor.",
+                header="Tasación no disponible",
+                body="No es posible realizar la tasación para la selección elegida porque no poseemos datos suficientes en nuestro sistema.\n\n¿Deseas intentar con otros datos, volver al menú o hablar con un asesor?",
                 buttons=[
                     {"id": "10", "title": "📈 Reintentar Tasación"},
                     {"id": "5", "title": "👤 Hablar con Asesor"},
