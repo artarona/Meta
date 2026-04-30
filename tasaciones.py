@@ -10,121 +10,38 @@ import os
 def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
     """Busca valoración en el mapa estadístico o BD local (Venta/Alquiler)"""
     try:
-        # 1. Intentar con el mapa de valoración consolidado (Estadísticas 2026)
         map_path = os.path.join(os.path.dirname(__file__), "market_valuation_map.json")
-        
-        # Si no está en METAPATH, intentar buscarlo en la carpeta del backend si es local
         if not os.path.exists(map_path):
-            backend_map = os.path.join(os.path.dirname(os.path.dirname(__file__)), "PAGINA WEB-IA", "BACKEND", "market_valuation_map.json")
-            if os.path.exists(backend_map):
-                map_path = backend_map
-
-        if os.path.exists(map_path):
-            log(f"📂 Archivo de mapa encontrado en: {map_path}")
-            with open(map_path, 'r', encoding='utf-8') as f:
-                vmap = json.load(f)
-                
-            barrio_key = barrio.lower().strip()
-            op_key = operacion.lower().strip()
-            tipo_key = tipo.lower().strip()
-            log(f"🔎 Buscando en mapa: '{barrio_key}' - '{op_key}' - '{tipo_key}'")
-            
-            if barrio_key in vmap:
-                # Acceder a la operación (venta/alquiler)
-                op_data = vmap[barrio_key].get(op_key)
-                if not op_data and op_key == 'venta': # Compatibilidad con mapas viejos sin 'venta' key
-                    op_data = vmap[barrio_key] 
-                
-                if op_data:
-                    stats = op_data.get(tipo_key)
-                    if not stats and op_data:
-                        # Fallback al primer tipo disponible en ese barrio/operacion
-                        primer_tipo = next(iter(op_data))
-                        stats = op_data[primer_tipo]
-                        log(f"⚠️ Tipo '{tipo_key}' no hallado, usamos '{primer_tipo}'")
-                    
-                    if stats:
-                        avg_m2 = stats['avg_m2']
-                        moneda = stats.get('currency', 'USD' if op_key == 'venta' else 'ARS')
-                        log(f"✅ Éxito: Promedio hallado {avg_m2} {moneda}/m2")
-                        return {
-                            "precio_m2": avg_m2,
-                            "moneda": moneda,
-                            "is_fallback": False,
-                            "fuentes": ["Estadísticas de Mercado (Consolidado)"],
-                            "muestra": stats.get('muestra', 0)
-                        }
-            else:
-                log(f"❌ Barrio '{barrio_key}' no está en el mapa consolidado.")
-        else:
             log(f"🚫 No se halló el archivo market_valuation_map.json en ninguna ruta local.")
-        
-        # 1.5 Intentar cargar desde URL (GitHub Pages o similar)
-        remote_url = os.environ.get("VALUATION_MAP_URL")
-        if remote_url:
-            try:
-                log(f"🌐 Intentando buscar mapa estadístico en URL remota: {remote_url}")
-                resp = requests.get(remote_url, timeout=5)
-                if resp.status_code == 200:
-                    vmap = resp.json()
-                    barrio_key = barrio.lower().strip()
-                    op_key = operacion.lower().strip()
-                    tipo_key = tipo.lower().strip()
-                    
-                    if barrio_key in vmap:
-                        op_data = vmap[barrio_key].get(op_key) or (vmap[barrio_key] if op_key == 'venta' else None)
-                        if op_data:
-                            stats = op_data.get(tipo_key) or (next(iter(op_data.values())) if op_data else None)
-                            if stats:
-                                return {
-                                    "precio_m2": stats['avg_m2'],
-                                    "moneda": stats.get('currency', 'USD' if op_key == 'venta' else 'ARS'),
-                                    "is_fallback": False,
-                                    "fuentes": ["Estadísticas Remotas (GitHub Pages)"],
-                                    "muestra": stats.get('muestra', 0)
-                                }
-            except Exception as e:
-                log(f"⚠️ Error cargando mapa remoto: {str(e)}")
-
-        # 2. Fallback Secundario: buscar en propiedades.json (raw data)
-        path = os.path.join(os.path.dirname(__file__), "propiedades.json")
-        if not os.path.exists(path):
             return None
-            
-        with open(path, 'r', encoding='utf-8') as f:
-            propiedades = json.load(f)
-            
-        precios_m2 = []
-        precios_barrio_solo = []
-        
-        op_key = operacion.lower().strip() # Ensure op_key is defined for this section
-        
-        for p in propiedades:
-            barrio_match = p.get('barrio', '').lower().strip() == barrio.lower().strip()
-            operacion_match = p.get('operacion', '').lower() == op_key
-            tipo_match = p.get('tipo', '').lower().strip() == tipo.lower().strip()
-            
-            if barrio_match and operacion_match:
-                m2 = float(p.get('metros_cuadrados', 0))
-                precio = float(p.get('precio', 0))
-                if m2 > 5 and precio > 0:
-                    # Normalización simple para pesos (Usamos DOLAR_VALOR de config)
-                    val_m2 = (precio / DOLAR_VALOR) / m2 if p.get('moneda_precio') == 'ARS' and op_key == 'venta' else precio / m2
-                    precios_barrio_solo.append(val_m2)
-                    if tipo_match:
-                        precios_m2.append(val_m2)
-        
-        final_list = precios_m2 if precios_m2 else precios_barrio_solo
-        if not final_list: return None
-            
-        avg_m2 = sum(final_list) / len(final_list)
-        return {
-            "precio_m2": avg_m2,
-            "moneda": "USD" if op_key == 'venta' else "ARS",
-            "is_fallback": True,
-            "fuentes": ["Base de datos local"],
-            "muestra": len(final_list)
-        }
+        with open(map_path, 'r', encoding='utf-8') as f:
+            vmap = json.load(f)
+        barrio_key = barrio.lower().strip()
+        op_key = operacion.lower().strip()
+        tipo_key = tipo.lower().strip()
+        log(f"🔎 Buscando en mapa: '{barrio_key}' - '{op_key}' - '{tipo_key}'")
+        if barrio_key in vmap:
+            op_data = vmap[barrio_key].get(op_key)
+            if not op_data and op_key == 'venta':
+                op_data = vmap[barrio_key]
+            if op_data and tipo_key in op_data:
+                stats = op_data[tipo_key]
+                avg_m2 = stats['avg_m2']
+                moneda = stats.get('currency', 'USD' if op_key == 'venta' else 'ARS')
+                log(f"✅ Éxito: Promedio hallado {avg_m2} {moneda}/m2")
+                return {
+                    "precio_m2": avg_m2,
+                    "moneda": moneda,
+                    "is_fallback": False,
+                    "fuentes": ["Estadísticas de Mercado (Consolidado)"],
+                    "muestra": stats.get('muestra', 0)
+                }
+            else:
+                log(f"❌ Combinación no encontrada: {barrio_key} - {op_key} - {tipo_key}")
+                return None
+        else:
+            log(f"❌ Barrio '{barrio_key}' no está en el mapa consolidado.")
+            return None
     except Exception as e:
         log(f"⚠️ Error en tasación local: {e}")
         return None
