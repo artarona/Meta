@@ -56,13 +56,15 @@ def get_bot_response_campana(text, user_id):
         estado_usuario['paso'] = 'campana_intent'
         _clear_campana_data(estado_usuario)
         actualizar_estado_usuario(user_id, estado_usuario)
-        return iniciar_campana()
+        platform = estado_usuario.get('platform', None)
+        return iniciar_campana(platform)
 
     # ========== ROUTING POR PASO ==========
     if paso_actual in ('campana_inicio', 'menu_principal'):
         estado_usuario['paso'] = 'campana_intent'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return iniciar_campana()
+        platform = estado_usuario.get('platform', None)
+        return iniciar_campana(platform)
         
     elif paso_actual == 'campana_intent':
         return manejar_intencion_campana(text_lower, estado_usuario, user_id)
@@ -114,7 +116,37 @@ def get_bot_response_campana(text, user_id):
 
 # ========== MENÚ PRINCIPAL DE CAMPAÑA ==========
 
-def iniciar_campana():
+def iniciar_campana(platform=None):
+    # Mostrar numeración solo si la plataforma es Facebook o Instagram y TIPO_MENU=1
+    mostrar_numeros = False
+    try:
+        from config import TIPO_MENU
+        if TIPO_MENU == 1 and platform in ("messenger", "facebook", "instagram"):
+            mostrar_numeros = True
+    except Exception:
+        pass
+
+    if mostrar_numeros:
+        rows = [
+            {"id": "c_comprar", "title": "1️⃣ 🏡 Quiero Comprar", "description": "Busco comprar una propiedad"},
+            {"id": "c_alquilar", "title": "2️⃣ 🔑 Quiero Alquilar", "description": "Busco alquilar una propiedad"},
+            {"id": "c_tasar", "title": "3️⃣ 📈 Tasar mi Propiedad", "description": "Quiero saber el valor de mercado (¡gratis!)"},
+            {"id": "c_asesor", "title": "4️⃣ 👤 Hablar con Asesor", "description": "Atención personalizada inmediata"}
+        ]
+        otras = [
+            {"id": "c_salir", "title": "5️⃣ ❌ Salir", "description": "Finalizar la conversación"}
+        ]
+    else:
+        rows = [
+            {"id": "c_comprar", "title": "🏡 Quiero Comprar", "description": "Busco comprar una propiedad"},
+            {"id": "c_alquilar", "title": "🔑 Quiero Alquilar", "description": "Busco alquilar una propiedad"},
+            {"id": "c_tasar", "title": "📈 Tasar mi Propiedad", "description": "Quiero saber el valor de mercado (¡gratis!)"},
+            {"id": "c_asesor", "title": "👤 Hablar con Asesor", "description": "Atención personalizada inmediata"}
+        ]
+        otras = [
+            {"id": "c_salir", "title": "❌ Salir", "description": "Finalizar la conversación"}
+        ]
+
     return WhatsAppResponse.list_menu(
         header=f"Dante Propiedades 🏠🗝️",
         body=(
@@ -127,18 +159,11 @@ def iniciar_campana():
         sections=[
             {
                 "title": "Servicios Disponibles",
-                "rows": [
-                    {"id": "c_comprar", "title": "1️⃣ 🏡 Quiero Comprar", "description": "Busco comprar una propiedad"},
-                    {"id": "c_alquilar", "title": "2️⃣ 🔑 Quiero Alquilar", "description": "Busco alquilar una propiedad"},
-                    {"id": "c_tasar", "title": "3️⃣ 📈 Tasar mi Propiedad", "description": "Quiero saber el valor de mercado (¡gratis!)"},
-                    {"id": "c_asesor", "title": "4️⃣ 👤 Hablar con Asesor", "description": "Atención personalizada inmediata"}
-                ]
+                "rows": rows
             },
             {
                 "title": "Otras Opciones",
-                "rows": [
-                    {"id": "c_salir", "title": "5️⃣ ❌ Salir", "description": "Finalizar la conversación"}
-                ]
+                "rows": otras
             }
         ],
         footer=PIE_MENU
