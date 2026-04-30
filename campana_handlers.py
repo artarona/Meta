@@ -222,11 +222,11 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
             _set_campana_data(estado_usuario, data)
             actualizar_estado_usuario(user_id, estado_usuario)
             return WhatsAppResponse.buttons(
-                body=f"📍 Zona: *{text}* ✅\n\n¿Qué *tipo de propiedad* estás buscando?",
+                body=f"📍 Zona: *{text}* ✅\n\n¿Qué *tipo de propiedad* estás buscando?\n\n1️⃣ Departamento\n2️⃣ Casa\n3️⃣ Otro (Local/Lote)",
                 buttons=[
-                    {"id": "Depto", "title": "🏢 Departamento"},
-                    {"id": "Casa", "title": "🏠 Casa"},
-                    {"id": "Otro", "title": "🏭 Otro (Local/Lote)"}
+                    {"id": "Depto", "title": "1️⃣ 🏢 Departamento"},
+                    {"id": "Casa", "title": "2️⃣ 🏠 Casa"},
+                    {"id": "Otro", "title": "3️⃣ 🏭 Otro (Local/Lote)"}
                 ],
                 footer=PIE_MENU
             )
@@ -254,11 +254,11 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
             _set_campana_data(estado_usuario, data)
             actualizar_estado_usuario(user_id, estado_usuario)
             return WhatsAppResponse.buttons(
-                body=f"📍 Dirección: *{text}* ✅\n\n¿Qué *tipo de propiedad* deseas tasar?",
+                body=f"📍 Dirección: *{text}* ✅\n\n¿Qué *tipo de propiedad* deseas tasar?\n\n1️⃣ Departamento\n2️⃣ Casa\n3️⃣ Otro (Local/Lote)",
                 buttons=[
-                    {"id": "Depto", "title": "🏢 Departamento"},
-                    {"id": "Casa", "title": "🏠 Casa"},
-                    {"id": "Otro", "title": "🏭 Otro (Local/Lote)"}
+                    {"id": "Depto", "title": "1️⃣ 🏢 Departamento"},
+                    {"id": "Casa", "title": "2️⃣ 🏠 Casa"},
+                    {"id": "Otro", "title": "3️⃣ 🏭 Otro (Local/Lote)"}
                 ],
                 footer=PIE_MENU
             )
@@ -269,11 +269,11 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
             _set_campana_data(estado_usuario, data)
             actualizar_estado_usuario(user_id, estado_usuario)
             return WhatsAppResponse.buttons(
-                body=f"🏠 Tipo: *{text}* ✅\n\n¿En qué *estado general* se encuentra la propiedad?",
+                body=f"🏠 Tipo: *{text}* ✅\n\n¿En qué *estado general* se encuentra la propiedad?\n\n1️⃣ Excelente\n2️⃣ Bueno/Refaccionar\n3️⃣ En obra/Terreno",
                 buttons=[
-                    {"id": "Excelente", "title": "✨ Excelente"},
-                    {"id": "Bueno", "title": "👍 Bueno/Refaccionar"},
-                    {"id": "En_obra", "title": "🏗️ En obra/Terreno"}
+                    {"id": "Excelente", "title": "1️⃣ ✨ Excelente"},
+                    {"id": "Bueno", "title": "2️⃣ 👍 Bueno/Refaccionar"},
+                    {"id": "En_obra", "title": "3️⃣ 🏗️ En obra/Terreno"}
                 ],
                 footer=PIE_MENU
             )
