@@ -116,8 +116,13 @@ def get_bot_response_campana(text, user_id):
 
 def iniciar_campana():
     return WhatsAppResponse.list_menu(
-        header=MARCA,
-        body=f"¡Hola! 👋 Soy el asistente de *Dante Propiedades*.\n\nEstamos acá para ayudarte a encontrar, vender o tasar tu propiedad de forma rápida y personalizada.\n\n*¿Qué te gustaría hacer hoy?*",
+        header=f"Dante Propiedades 🏠🗝️",
+        body=(
+            "¡Hola! 👋 Soy el asistente de *Dante Propiedades* 🏠🗝️.\n\n"
+            "Estamos para acompañarte en todo el proceso de *compra, venta o tasación* de tu propiedad.\n\n"
+            "¿Te gustaría recibir una *valoración gratuita* o conocer las mejores oportunidades del mercado?\n\n"
+            "*Contame qué necesitás y te ayudo personalmente a avanzar.*"
+        ),
         button_text="Ver opciones",
         sections=[
             {
@@ -125,7 +130,7 @@ def iniciar_campana():
                 "rows": [
                     {"id": "c_comprar", "title": "🏡 Quiero Comprar", "description": "Busco comprar una propiedad"},
                     {"id": "c_alquilar", "title": "🔑 Quiero Alquilar", "description": "Busco alquilar una propiedad"},
-                    {"id": "c_tasar", "title": "📈 Tasar mi Propiedad", "description": "Quiero saber el valor de mercado"},
+                    {"id": "c_tasar", "title": "📈 Tasar mi Propiedad", "description": "Quiero saber el valor de mercado (¡gratis!)"},
                     {"id": "c_asesor", "title": "👤 Hablar con Asesor", "description": "Atención personalizada inmediata"}
                 ]
             },
@@ -151,14 +156,24 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
         estado_usuario['paso'] = 'campana_recopilar_zona'
         _set_campana_data(estado_usuario, data)
         actualizar_estado_usuario(user_id, estado_usuario)
-        return f"{LOGO} *¡Excelente!* Vamos a buscar tu nuevo hogar.\n\n📍 ¿En qué *barrio o zona* te gustaría comprar?\n_(Ej: Caballito, Palermo, Belgrano)_{HINT_SALIR}"
+        return (
+            f"🏠🗝️ *¡Excelente elección!* Te ayudaremos a encontrar el hogar ideal.\n\n"
+            f"📍 ¿En qué *barrio o zona* te gustaría comprar?\n"
+            f"_(Ej: Caballito, Palermo, Belgrano)_ {HINT_SALIR}\n\n"
+            "Contame tus preferencias y te acompaño en todo el proceso."
+        )
         
     elif text in ["c_alquilar", "alquilar", "2"]:
         data['intencion'] = "Alquilar"
         estado_usuario['paso'] = 'campana_recopilar_zona'
         _set_campana_data(estado_usuario, data)
         actualizar_estado_usuario(user_id, estado_usuario)
-        return f"{LOGO} *¡Perfecto!* Te ayudaremos a encontrar un alquiler.\n\n📍 ¿En qué *barrio o zona* estás buscando?\n_(Ej: Almagro, Villa Crespo, Belgrano)_{HINT_SALIR}"
+        return (
+            f"🏠🗝️ *¡Perfecto!* Vamos a buscar juntos el alquiler ideal para vos.\n\n"
+            f"📍 ¿En qué *barrio o zona* estás buscando?\n"
+            f"_(Ej: Almagro, Villa Crespo, Belgrano)_ {HINT_SALIR}\n\n"
+            "Contame tus preferencias y te acompaño en todo el proceso."
+        )
         
     elif text in ["c_tasar", "tasar", "3"]:
         # Unificar flujo de tasación con Tipo_Menu=0
@@ -170,7 +185,10 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
         estado_usuario['paso'] = 'campana_pedir_nombre'
         _set_campana_data(estado_usuario, data)
         actualizar_estado_usuario(user_id, estado_usuario)
-        return f"👤 Con gusto te contactaremos con uno de nuestros expertos.\n\nPor favor, decime tu *Nombre y Apellido*:{HINT_SALIR}"
+        return (
+            "👤 *¡Genial!* Un asesor experto de Dante Propiedades 🏠🗝️ te contactará a la brevedad para acompañarte personalmente.\n\n"
+            f"Por favor, decime tu *Nombre y Apellido* para que podamos ayudarte mejor: {HINT_SALIR}"
+        )
     
     elif text in ["c_salir", "salir", "s", "exit", "0"]:
         estado_usuario['paso'] = 'campana_inicio'
