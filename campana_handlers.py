@@ -128,16 +128,16 @@ def iniciar_campana():
             {
                 "title": "Servicios Disponibles",
                 "rows": [
-                    {"id": "c_comprar", "title": "🏡 Quiero Comprar", "description": "Busco comprar una propiedad"},
-                    {"id": "c_alquilar", "title": "🔑 Quiero Alquilar", "description": "Busco alquilar una propiedad"},
-                    {"id": "c_tasar", "title": "📈 Tasar mi Propiedad", "description": "Quiero saber el valor de mercado (¡gratis!)"},
-                    {"id": "c_asesor", "title": "👤 Hablar con Asesor", "description": "Atención personalizada inmediata"}
+                    {"id": "c_comprar", "title": "1️⃣ 🏡 Quiero Comprar", "description": "Busco comprar una propiedad"},
+                    {"id": "c_alquilar", "title": "2️⃣ 🔑 Quiero Alquilar", "description": "Busco alquilar una propiedad"},
+                    {"id": "c_tasar", "title": "3️⃣ 📈 Tasar mi Propiedad", "description": "Quiero saber el valor de mercado (¡gratis!)"},
+                    {"id": "c_asesor", "title": "4️⃣ 👤 Hablar con Asesor", "description": "Atención personalizada inmediata"}
                 ]
             },
             {
                 "title": "Otras Opciones",
                 "rows": [
-                    {"id": "c_salir", "title": "❌ Salir", "description": "Finalizar la conversación"}
+                    {"id": "c_salir", "title": "5️⃣ ❌ Salir", "description": "Finalizar la conversación"}
                 ]
             }
         ],
@@ -305,10 +305,10 @@ def manejar_pedir_nombre_asesor(text, estado_usuario, user_id):
     actualizar_estado_usuario(user_id, estado_usuario)
     
     return WhatsAppResponse.buttons(
-        body=f"✅ *¡Gracias, {text}!*\n\nHemos derivado tu contacto a un asesor de guardia, quien se comunicará contigo a la brevedad por este WhatsApp.\n\n{LOGO} Dante Propiedades",
+        body=f"✅ *¡Gracias, {text}!*\n\nHemos derivado tu contacto a un asesor de guardia, quien se comunicará contigo a la brevedad por este WhatsApp.\n\n{LOGO} Dante Propiedades\n\n1️⃣ Volver al menú\n2️⃣ Salir",
         buttons=[
-            {"id": "c_menu", "title": "📋 Volver al menú"},
-            {"id": "c_salir", "title": "❌ Salir"}
+            {"id": "c_menu", "title": "1️⃣ 📋 Volver al menú"},
+            {"id": "c_salir", "title": "2️⃣ ❌ Salir"}
         ],
         footer=PIE_MENU
     )
@@ -331,14 +331,14 @@ def mostrar_resumen_campana(data):
         resumen += f"🏠 *Tipo:* {data.get('tipo')}\n"
         resumen += f"🛠️ *Estado:* {data.get('estado_propiedad')}\n"
     
-    resumen += "\n━━━━━━━━━━━━━━━━━\n¿Estos datos son correctos?"
-    
+    resumen += "\n━━━━━━━━━━━━━━━━━\n¿Estos datos son correctos?\n\n1️⃣ Confirmar\n2️⃣ Corregir\n3️⃣ Cancelar"
+
     return WhatsAppResponse.buttons(
         body=resumen,
         buttons=[
-            {"id": "confirmar_datos", "title": "✅ Sí, confirmar"},
-            {"id": "corregir_datos", "title": "🔄 Corregir"},
-            {"id": "c_salir", "title": "❌ Cancelar"}
+            {"id": "confirmar_datos", "title": "1️⃣ ✅ Sí, confirmar"},
+            {"id": "corregir_datos", "title": "2️⃣ 🔄 Corregir"},
+            {"id": "c_salir", "title": "3️⃣ ❌ Cancelar"}
         ],
         footer=PIE_MENU
     )
@@ -362,10 +362,10 @@ def manejar_confirmacion_campana(text, estado_usuario, user_id):
             msg = f"✅ *¡Búsqueda registrada!*\n\nUn asesor especializado está analizando nuestra base de datos (incluso propiedades off-market) y se contactará contigo a la brevedad con las mejores opciones a medida.\n\n{DESPEDIDA}"
         
         return WhatsAppResponse.buttons(
-            body=msg,
+            body=msg + "\n\n1️⃣ Nueva búsqueda\n2️⃣ Salir",
             buttons=[
-                {"id": "c_menu", "title": "📋 Nueva búsqueda"},
-                {"id": "c_salir", "title": "❌ Salir"}
+                {"id": "c_menu", "title": "1️⃣ 📋 Nueva búsqueda"},
+                {"id": "c_salir", "title": "2️⃣ ❌ Salir"}
             ],
             footer=PIE_MENU
         )
