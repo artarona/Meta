@@ -152,19 +152,14 @@ def get_bot_response_campana(text, user_id):
 def iniciar_campana(platform=None):
     """
     Muestra el menú principal adaptado a la plataforma.
-    - WhatsApp: lista interactiva (sin números visibles)
-    - Facebook/Instagram: texto plano CON numeración visible (1️⃣, 2️⃣, etc.)
     """
-    # Detectar si es Facebook/Instagram
     es_fb_ig = False
     if platform:
         platform_lower = str(platform).lower()
         es_fb_ig = platform_lower in ("messenger", "facebook", "instagram")
     
-    # LOG IMPORTANTE PARA DEPURACIÓN
     log(f"🔍 iniciar_campana - platform: '{platform}', es_fb_ig: {es_fb_ig}")
     
-    # Texto base del mensaje
     cuerpo_base = (
         "¡Hola! 👋 Soy el asistente de *Dante Propiedades* 🏠🗝️.\n\n"
         "Estamos para acompañarte en todo el proceso de *compra, venta o tasación* de tu propiedad.\n\n"
@@ -173,20 +168,19 @@ def iniciar_campana(platform=None):
     )
     
     if es_fb_ig:
-        # SOLO para Facebook/Instagram: texto plano CON numeración
+        # Facebook/Instagram: texto con numeración simple 1., 2., 3., 4., 5.
         cuerpo_menu = (
             f"{cuerpo_base}\n\n"
             "*Servicios Disponibles*\n"
-            "1️⃣ 🏡 Quiero Comprar - Busco comprar una propiedad\n"
-            "2️⃣ 🔑 Quiero Alquilar - Busco alquilar una propiedad\n"
-            "3️⃣ 📈 Tasar mi Propiedad - Quiero saber el valor de mercado (¡gratis!)\n"
-            "4️⃣ 👤 Hablar con Asesor - Atención personalizada inmediata\n\n"
+            "1. 🏡 Quiero Comprar - Busco comprar una propiedad\n"
+            "2. 🔑 Quiero Alquilar - Busco alquilar una propiedad\n"
+            "3. 📈 Tasar mi Propiedad - Quiero saber el valor de mercado (¡gratis!)\n"
+            "4. 👤 Hablar con Asesor - Atención personalizada inmediata\n\n"
             "*Otras Opciones*\n"
-            "5️⃣ ❌ Salir - Finalizar la conversación\n\n"
-            f"{PIE_MENU}"
+            "5. ❌ Salir - Finalizar la conversación\n\n"
+            f"{PIE_MENU}\n\n"
+            "💡 *Envía el número de la opción deseada*"
         )
-        
-        log(f"📱 [FB/IG] Enviando menú con numeración")
         
         return {
             "type": "text",
@@ -194,9 +188,7 @@ def iniciar_campana(platform=None):
             "preview": False
         }
     else:
-        # SOLO para WhatsApp: lista interactiva (SIN números visibles)
-        log(f"📱 [WHATSAPP] Enviando menú interactivo SIN numeración")
-        
+        # WhatsApp: lista interactiva
         rows = [
             {"id": "c_comprar", "title": "🏡 Quiero Comprar", "description": "Busco comprar una propiedad"},
             {"id": "c_alquilar", "title": "🔑 Quiero Alquilar", "description": "Busco alquilar una propiedad"},
@@ -217,8 +209,6 @@ def iniciar_campana(platform=None):
             ],
             footer=PIE_MENU
         )
-        
-        
         
 # ========== MANEJO DE INTENCIÓN ==========
 
@@ -432,7 +422,7 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
                 # Facebook/Instagram: texto con numeración
                 return {
                     "type": "text",
-                    "body": f"🏠 Tipo: *{text}* ✅\n\n¿En qué *estado general* se encuentra la propiedad?\n\n1️⃣ Excelente\n2️⃣ Bueno/Refaccionar\n3️⃣ En obra/Terreno\n\n💡 *Envía 'M' para volver al menú o 'S' para salir.*",
+                    "body": f"📍 Zona: *{text}* ✅\n\n¿Qué *tipo de propiedad* estás buscando?\n\n1. Departamento\n2. Casa\n3. Otro (Local/Lote)\n\n💡 *Envía el número de la opción deseada*",
                     "preview": False
                 }
             else:

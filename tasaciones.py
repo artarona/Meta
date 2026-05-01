@@ -452,19 +452,26 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
 def _respuesta_rechazo_tasacion(estado_usuario, user_id):
     """
     Respuesta unificada para rechazo de tasación.
-    Los botones deben manejar correctamente el reintento.
     """
-    # Limpiar datos de tasación para que el reintento empiece limpio
+    # Limpiar datos de tasación
     if 'data' in estado_usuario and 'datos_tasacion' in estado_usuario['data']:
         estado_usuario['data']['datos_tasacion'] = {}
     
-    # Establecer paso a tasacion_operacion para que reintento funcione
     estado_usuario['paso'] = 'tasacion_operacion'
     actualizar_estado_usuario(user_id, estado_usuario)
     
     platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram")
     
-    if platform in ['whatsapp', 'whatsapp_business']:
+    if es_fb_ig:
+        # Facebook/Instagram: texto plano con numeración simple 1., 2., 3.
+        return {
+            "type": "text",
+            "body": "❌ *Tasación no disponible*\n\nNo contamos con datos suficientes para esta combinación.\n\n*Acciones:*\n\n1. 📈 Reintentar Tasación\n2. 👤 Hablar con Asesor\n3. 🔙 Volver al Menú\n\n💡 *Envía el número de la opción deseada*",
+            "preview": False
+        }
+    else:
+        # WhatsApp: botones interactivos
         return WhatsAppResponse.buttons(
             header="Tasación no disponible",
             body="Tasación no disponible: no contamos con datos suficientes para esta combinación.\n\n¿Deseas intentar con otros datos, volver al menú o hablar con un asesor?",
@@ -474,25 +481,6 @@ def _respuesta_rechazo_tasacion(estado_usuario, user_id):
                 {"id": "m", "title": "🔙 Volver al Menú"}
             ]
         )
-    else:
-        # Para Facebook/Instagram con lista interactiva
-        return WhatsAppResponse.list_menu(
-            header="Tasación no disponible",
-            body="No contamos con datos suficientes para esta combinación.\n\n¿Qué deseas hacer?",
-            button_text="Opciones",
-            sections=[
-                {
-                    "title": "Acciones",
-                    "rows": [
-                        {"id": "10", "title": "📈 Reintentar Tasación", "description": "Probar con otros datos"},
-                        {"id": "5", "title": "👤 Hablar con Asesor", "description": "Atención personalizada"},
-                        {"id": "m", "title": "🔙 Volver al Menú", "description": "Ir al inicio"}
-                    ]
-                }
-            ],
-            footer="Selecciona una opción 👇"
-        )
-
 
 def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
     """Calcula la tasación (ya validada) y responde adaptado a la plataforma"""
