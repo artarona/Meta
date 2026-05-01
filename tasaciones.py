@@ -105,21 +105,29 @@ def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
 def manejar_menu_tasacion(text_lower, estado_usuario, user_id):
     """
     Inicia el flujo de tasación.
-    Adapta el menú según la plataforma (WhatsApp vs Facebook/Instagram)
+    Adapta el menú según la plataforma.
     """
     # Obtener plataforma del usuario
     platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram")
     
     if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
         estado_usuario['data'] = {}
     
-    # Reiniciar datos de tasación (para reintentos)
+    # Reiniciar datos de tasación
     estado_usuario['data']['datos_tasacion'] = {}
     estado_usuario['paso'] = 'tasacion_operacion'
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    # Para WhatsApp Business (TIPO_MENU=0 o sin numeración)
-    if platform in ['whatsapp', 'whatsapp_business']:
+    if es_fb_ig:
+        # Para Facebook/Instagram: texto plano con numeración
+        return {
+            "type": "text",
+            "body": "📊 *TASACIÓN VIRTUAL*\n\n¿Qué tipo de operación te interesa tasar?\n\n1️⃣ Venta 🏠\n2️⃣ Alquiler 🗝️\n\n🔙 M. Volver\n❌ S. Salir",
+            "preview": False
+        }
+    else:
+        # Para WhatsApp Business: botones interactivos
         return {
             "type": "interactive_buttons",
             "body": "📊 *TASACIÓN VIRTUAL*\n\n¿Qué tipo de operación te interesa tasar?",
@@ -130,25 +138,6 @@ def manejar_menu_tasacion(text_lower, estado_usuario, user_id):
             ],
             "footer": "Selecciona una opción 👇"
         }
-    else:
-        # Para Facebook / Instagram (con numeración visible)
-        return WhatsAppResponse.list_menu(
-            header="📊 *TASACIÓN VIRTUAL*",
-            body="¿Qué tipo de operación te interesa tasar?",
-            button_text="Seleccionar",
-            sections=[
-                {
-                    "title": "Operación",
-                    "rows": [
-                        {"id": "1", "title": "1️⃣ Venta", "description": "Tasar para venta"},
-                        {"id": "2", "title": "2️⃣ Alquiler", "description": "Tasar para alquiler"},
-                        {"id": "m", "title": "🔙 Volver", "description": "Ir al menú principal"}
-                    ]
-                }
-            ],
-            footer="Selecciona una opción 👇"
-        )
-
 
 def manejar_tasacion_operacion(text_lower, estado_usuario, user_id):
     """Guarda la operación y continúa"""
@@ -215,14 +204,13 @@ def manejar_reintentar_tasacion(estado_usuario, user_id):
 
 def manejar_tasacion_barrio(text, estado_usuario, user_id):
     """
-    Guarda el barrio y verifica INMEDIATAMENTE si el barrio existe en el mapa.
-    Si no existe → rechazar tasación inmediatamente.
+    Guarda el barrio y verifica si existe en el mapa.
     """
     barrio = text.strip()
     datos_tasacion = estado_usuario['data'].get('datos_tasacion', {})
     operacion = datos_tasacion.get('operacion', 'venta')
     
-    # Verificar si el barrio existe en el mapa
+    # Verificar si el barrio existe
     try:
         map_path = os.path.join(os.path.dirname(__file__), "market_valuation_map.json")
         if not os.path.exists(map_path):
@@ -233,12 +221,11 @@ def manejar_tasacion_barrio(text, estado_usuario, user_id):
         
         barrio_key = barrio.lower().strip()
         
-        # Si el barrio NO existe en el mapa → rechazar inmediatamente
         if barrio_key not in vmap:
-            log(f"❌ Tasación rechazada: Barrio '{barrio_key}' no existe en el mapa")
+            log(f"❌ Tasación rechazada: Barrio '{barrio_key}' no existe")
             return _respuesta_rechazo_tasacion(estado_usuario, user_id)
         
-        # Guardar barrio y continuar
+        # Guardar barrio
         if 'datos_tasacion' not in estado_usuario['data']:
             estado_usuario['data']['datos_tasacion'] = {}
         
@@ -246,10 +233,19 @@ def manejar_tasacion_barrio(text, estado_usuario, user_id):
         estado_usuario['paso'] = 'tasacion_tipo'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        # Mostrar lista de tipos según plataforma
+        # Detectar plataforma
         platform = estado_usuario.get('platform', 'whatsapp')
+        es_fb_ig = platform in ("messenger", "facebook", "instagram")
         
-        if platform in ['whatsapp', 'whatsapp_business']:
+        if es_fb_ig:
+            # Para Facebook/Instagram: texto plano con numeración
+            return {
+                "type": "text",
+                "body": "🏠 *¿Qué tipo de propiedad es?*\n\n1️⃣ Departamento\n2️⃣ Casa\n3️⃣ PH\n4️⃣ Oficina / Local\n5️⃣ Terreno\n\n🔙 M. Volver\n❌ S. Salir",
+                "preview": False
+            }
+        else:
+            # Para WhatsApp: lista interactiva
             return {
                 "type": "interactive_list",
                 "body": "🏠 *¿Qué tipo de propiedad es?*",
@@ -268,32 +264,12 @@ def manejar_tasacion_barrio(text, estado_usuario, user_id):
                 ],
                 "footer": "Ⓜ️ Envía 'M' para Volver | ❌ Envía 'S' para Salir"
             }
-        else:
-            # Para Facebook/Instagram con numeración visible
-            return WhatsAppResponse.list_menu(
-                header="🏠 *Tipo de Propiedad*",
-                body="¿Qué tipo de propiedad deseas tasar?",
-                button_text="Seleccionar",
-                sections=[
-                    {
-                        "title": "Tipos Disponibles",
-                        "rows": [
-                            {"id": "1", "title": "1️⃣ Departamento", "description": "Unidad en edificio"},
-                            {"id": "2", "title": "2️⃣ Casa", "description": "Vivienda individual"},
-                            {"id": "3", "title": "3️⃣ PH", "description": "Propiedad Horizontal"},
-                            {"id": "4", "title": "4️⃣ Oficina / Local", "description": "Uso comercial"},
-                            {"id": "5", "title": "5️⃣ Terreno", "description": "Lote / Terreno"}
-                        ]
-                    }
-                ],
-                footer="Selecciona una opción 👇"
-            )
         
     except Exception as e:
         log(f"⚠️ Error verificando barrio: {e}")
         return _respuesta_rechazo_tasacion(estado_usuario, user_id)
-
-
+    
+    
 def manejar_tasacion_tipo(text_lower, estado_usuario, user_id):
     """
     Guarda el tipo y Verifica INMEDIATAMENTE la combinación completa.
@@ -397,9 +373,19 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
         estado_usuario['paso'] = 'tasacion_estado'
         actualizar_estado_usuario(user_id, estado_usuario)
         
+        # Detectar plataforma
         platform = estado_usuario.get('platform', 'whatsapp')
+        es_fb_ig = platform in ("messenger", "facebook", "instagram")
         
-        if platform in ['whatsapp', 'whatsapp_business']:
+        if es_fb_ig:
+            # Para Facebook/Instagram: texto plano con numeración
+            return {
+                "type": "text",
+                "body": "🏗️ *¿En qué estado se encuentra la propiedad?*\n\n1️⃣ Excelente / A estrenar\n2️⃣ Muy bueno\n3️⃣ Bueno\n4️⃣ Regular\n5️⃣ A refaccionar\n\n🔙 M. Volver\n❌ S. Salir",
+                "preview": False
+            }
+        else:
+            # Para WhatsApp: lista interactiva
             return {
                 "type": "interactive_list",
                 "body": "🏗️ *¿En qué estado se encuentra la propiedad?*",
@@ -418,29 +404,11 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
                 ],
                 "footer": "Ⓜ️ Envía 'M' para Volver | ❌ Envía 'S' para Salir"
             }
-        else:
-            return WhatsAppResponse.list_menu(
-                header="🏗️ *Estado de la Propiedad*",
-                body="¿En qué estado se encuentra?",
-                button_text="Seleccionar",
-                sections=[
-                    {
-                        "title": "Condición",
-                        "rows": [
-                            {"id": "1", "title": "1️⃣ Excelente / A estrenar", "description": "Como nuevo, sin uso"},
-                            {"id": "2", "title": "2️⃣ Muy bueno", "description": "Bien mantenido, pocos años"},
-                            {"id": "3", "title": "3️⃣ Bueno", "description": "Habitable, con uso normal"},
-                            {"id": "4", "title": "4️⃣ Regular", "description": "Requiere mejoras"},
-                            {"id": "5", "title": "5️⃣ A refaccionar", "description": "Necesita reformas"}
-                        ]
-                    }
-                ],
-                footer="Selecciona una opción 👇"
-            )
     except Exception as e:
         log(f"⚠️ Error en manejar_tasacion_ambientes: {e}")
         return "⚠️ Por favor, ingresá un número para los ambientes. (Ejemplo: 2, 3, 4)"
-
+    
+    
 
 def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
     """Finaliza la recolección de datos y muestra la tasación"""
@@ -527,7 +495,7 @@ def _respuesta_rechazo_tasacion(estado_usuario, user_id):
 
 
 def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
-    """Calcula la tasación (ya validada) y responde"""
+    """Calcula la tasación (ya validada) y responde adaptado a la plataforma"""
     try:
         # Obtener datos de tasación (ya sabemos que es válido por la validación previa)
         tasacion = obtener_tasacion_local(
@@ -549,7 +517,7 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
         valor_redondeado = round(valor_estimado, -2)
         
         # Registrar Lead exitoso
-        detalles = f"Tasación exitosa: {datos['tipo']} en {datos['barrio']}, {datos['m2']}m2, {datos['ambientes']} amb, estado {datos['estado']}. Resultado: {valor_redondeado:,.0f} {tasacion['moneda']}"
+        detalles = f"Tasación exitosa: {datos['tipo']} en {datos['barrio']}, {datos['m2']}m2, {datos['ambientes']} amb, estado {datos['estado']}, operación {datos.get('operacion', 'venta')}. Resultado: {valor_redondeado:,.0f} {tasacion['moneda']}"
         registrar_lead(user_id, "TASACION_VIRTUAL", "tasacion", detalles)
         notificar_agente(f"📈 *NUEVO LEAD DE TASACIÓN*\n📞 Tel: +{user_id}\n📝 {detalles}")
         
@@ -557,9 +525,15 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
         muestra = tasacion.get("muestra", 0)
         fuentes_str = ", ".join(tasacion.get("fuentes", ["Mercado Local"]))
         
-        mensaje_body = f"""📊 *RESULTADO DE TU TASACIÓN VIRTUAL*
+        # Detectar plataforma
+        platform = estado_usuario.get('platform', 'whatsapp')
+        es_fb_ig = platform in ("messenger", "facebook", "instagram")
+        
+        # Texto base del resultado
+        operacion_texto = "venta" if datos.get('operacion', 'venta') == 'venta' else "alquiler"
+        mensaje_base = f"""📊 *RESULTADO DE TU TASACIÓN VIRTUAL*
 
-Basado en el análisis estadístico de mercado para *{datos['barrio']}*:
+Basado en el análisis estadístico de mercado para *{datos['barrio']}* ({operacion_texto}):
 
 🏠 *Propiedad:* {datos['tipo']}
 📏 *Superficie:* {datos['m2']} m²
@@ -568,18 +542,34 @@ Basado en el análisis estadístico de mercado para *{datos['barrio']}*:
 
 🔍 *Análisis:* basado en {muestra} propiedades de {fuentes_str}.
 
-⚠️ *Nota:* Esta es una estimación orientativa basada en datos de mercado. Para una tasación profesional, un asesor debe visitar la propiedad.
+⚠️ *Nota:* Esta es una estimación orientativa basada en datos de mercado. Para una tasación profesional, un asesor debe visitar la propiedad."""
 
-¿Qué deseas hacer?"""
-        
-        estado_usuario['paso'] = 'tasacion_esperando_contacto'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        
-        platform = estado_usuario.get('platform', 'whatsapp')
-        
-        if platform in ['whatsapp', 'whatsapp_business']:
+        if es_fb_ig:
+            # Para Facebook/Instagram: texto plano con numeración
+            mensaje_completo = (
+                f"{mensaje_base}\n\n"
+                "*¿Qué deseas hacer?*\n\n"
+                "1️⃣ ✅ Deseas una Tasación Profesional - Con visita de asesor\n"
+                "2️⃣ ⏭️ No por ahora - Continuar explorando\n"
+                "3️⃣ 🔙 Menú Principal - Ir al inicio\n"
+                "4️⃣ ❌ Salir - Terminar sesión"
+            )
+            
+            estado_usuario['paso'] = 'tasacion_esperando_contacto'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            return {
+                "type": "text",
+                "body": mensaje_completo,
+                "preview": False
+            }
+        else:
+            # Para WhatsApp: lista interactiva
+            estado_usuario['paso'] = 'tasacion_esperando_contacto'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
             return WhatsAppResponse.list_menu(
-                body=mensaje_body,
+                body=mensaje_base,
                 button_text="Opciones",
                 sections=[
                     {
@@ -594,31 +584,14 @@ Basado en el análisis estadístico de mercado para *{datos['barrio']}*:
                 ],
                 footer="Selecciona una opción 👇"
             )
-        else:
-            # Para Facebook/Instagram con numeración visible
-            return WhatsAppResponse.list_menu(
-                body=mensaje_body,
-                button_text="Opciones",
-                sections=[
-                    {
-                        "title": "Acciones",
-                        "rows": [
-                            {"id": "1", "title": "1️⃣ ✅ Deseas Tasación Profesional", "description": "Con visita de asesor"},
-                            {"id": "2", "title": "2️⃣ ⏭️ No por ahora", "description": "Continuar explorando"},
-                            {"id": "m", "title": "3️⃣ 🔙 Menú Principal", "description": "Ir al inicio"},
-                            {"id": "s", "title": "4️⃣ ❌ Salir", "description": "Terminar sesión"}
-                        ]
-                    }
-                ],
-                footer="Selecciona una opción 👇"
-            )
         
     except Exception as e:
         log(f"🔥 Error en _finalizar_tasacion_y_responder: {e}")
         import traceback
         log(traceback.format_exc())
         return "❌ Ocurrió un error al procesar la tasación. Por favor contacta a un asesor enviando '5'."
-
+    
+    
 
 def manejar_tasacion_contacto(text_lower, estado_usuario, user_id):
     """Maneja la respuesta final del flujo de tasación"""

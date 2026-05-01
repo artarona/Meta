@@ -117,26 +117,43 @@ def get_bot_response_campana(text, user_id):
 # ========== MENÚ PRINCIPAL DE CAMPAÑA ==========
 
 def iniciar_campana(platform=None):
-    # Mostrar numeración solo si la plataforma es Facebook o Instagram y TIPO_MENU=1
-    mostrar_numeros = False
-    try:
-        from config import TIPO_MENU
-        if TIPO_MENU == 1 and platform in ("messenger", "facebook", "instagram"):
-            mostrar_numeros = True
-    except Exception:
-        pass
-
-    if mostrar_numeros:
-        rows = [
-            {"id": "c_comprar", "title": "1️⃣ 🏡 Quiero Comprar", "description": "Busco comprar una propiedad"},
-            {"id": "c_alquilar", "title": "2️⃣ 🔑 Quiero Alquilar", "description": "Busco alquilar una propiedad"},
-            {"id": "c_tasar", "title": "3️⃣ 📈 Tasar mi Propiedad", "description": "Quiero saber el valor de mercado (¡gratis!)"},
-            {"id": "c_asesor", "title": "4️⃣ 👤 Hablar con Asesor", "description": "Atención personalizada inmediata"}
-        ]
-        otras = [
-            {"id": "c_salir", "title": "5️⃣ ❌ Salir", "description": "Finalizar la conversación"}
-        ]
+    """
+    Muestra el menú principal adaptado a la plataforma.
+    - WhatsApp: lista interactiva (sin números visibles)
+    - Facebook/Instagram: texto plano con numeración (1., 2., 3., etc.)
+    """
+    # Detectar si es Facebook/Instagram (independientemente de TIPO_MENU)
+    es_fb_ig = platform in ("messenger", "facebook", "instagram")
+    
+    # Texto base del mensaje
+    cuerpo_base = (
+        "¡Hola! 👋 Soy el asistente de *Dante Propiedades* 🏠🗝️.\n\n"
+        "Estamos para acompañarte en todo el proceso de *compra, venta o tasación* de tu propiedad.\n\n"
+        "¿Te gustaría recibir una *valoración gratuita* o conocer las mejores oportunidades del mercado?\n\n"
+        "*Contame qué necesitás y te ayudo personalmente a avanzar.*"
+    )
+    
+    if es_fb_ig:
+        # Para Facebook/Instagram: texto plano con numeración visible
+        cuerpo_menu = (
+            f"{cuerpo_base}\n\n"
+            "*Servicios Disponibles*\n"
+            "1️⃣ 🏡 Quiero Comprar - Busco comprar una propiedad\n"
+            "2️⃣ 🔑 Quiero Alquilar - Busco alquilar una propiedad\n"
+            "3️⃣ 📈 Tasar mi Propiedad - Quiero saber el valor de mercado (¡gratis!)\n"
+            "4️⃣ 👤 Hablar con Asesor - Atención personalizada inmediata\n\n"
+            "*Otras Opciones*\n"
+            "5️⃣ ❌ Salir - Finalizar la conversación\n\n"
+            f"{PIE_MENU}"
+        )
+        
+        return {
+            "type": "text",
+            "body": cuerpo_menu,
+            "preview": False
+        }
     else:
+        # Para WhatsApp: lista interactiva
         rows = [
             {"id": "c_comprar", "title": "🏡 Quiero Comprar", "description": "Busco comprar una propiedad"},
             {"id": "c_alquilar", "title": "🔑 Quiero Alquilar", "description": "Busco alquilar una propiedad"},
@@ -146,85 +163,133 @@ def iniciar_campana(platform=None):
         otras = [
             {"id": "c_salir", "title": "❌ Salir", "description": "Finalizar la conversación"}
         ]
-
-    return WhatsAppResponse.list_menu(
-        header=f"Dante Propiedades 🏠🗝️",
-        body=(
-            "¡Hola! 👋 Soy el asistente de *Dante Propiedades* 🏠🗝️.\n\n"
-            "Estamos para acompañarte en todo el proceso de *compra, venta o tasación* de tu propiedad.\n\n"
-            "¿Te gustaría recibir una *valoración gratuita* o conocer las mejores oportunidades del mercado?\n\n"
-            "*Contame qué necesitás y te ayudo personalmente a avanzar.*"
-        ),
-        button_text="Ver opciones",
-        sections=[
-            {
-                "title": "Servicios Disponibles",
-                "rows": rows
-            },
-            {
-                "title": "Otras Opciones",
-                "rows": otras
-            }
-        ],
-        footer=PIE_MENU
-    )
-
+        
+        return WhatsAppResponse.list_menu(
+            header=f"Dante Propiedades 🏠🗝️",
+            body=cuerpo_base,
+            button_text="Ver opciones",
+            sections=[
+                {"title": "Servicios Disponibles", "rows": rows},
+                {"title": "Otras Opciones", "rows": otras}
+            ],
+            footer=PIE_MENU
+        )
 
 # ========== MANEJO DE INTENCIÓN ==========
 
 def manejar_intencion_campana(text, estado_usuario, user_id):
+    """Maneja la selección de intención en el menú principal de campaña"""
     _clear_campana_data(estado_usuario)
     data = {}
     
-    if text in ["c_comprar", "comprar", "1"]:
+    # Detectar si es Facebook/Instagram para manejar respuestas numéricas
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram")
+    
+    # Normalizar el texto recibido (puede venir como número o como emoji numérico)
+    text_normalized = text.lower().strip()
+    
+    # Mapeo de opciones numéricas SOLO para Facebook/Instagram
+    if es_fb_ig:
+        opciones_numericas = {
+            "1": "c_comprar",
+            "2": "c_alquilar",
+            "3": "c_tasar",
+            "4": "c_asesor",
+            "5": "c_salir",
+            "1️⃣": "c_comprar",
+            "2️⃣": "c_alquilar",
+            "3️⃣": "c_tasar",
+            "4️⃣": "c_asesor",
+            "5️⃣": "c_salir",
+            "uno": "c_comprar",
+            "dos": "c_alquilar",
+            "tres": "c_tasar",
+            "cuatro": "c_asesor",
+            "cinco": "c_salir"
+        }
+        
+        # Si el usuario envió un número, convertirlo al ID correspondiente
+        if text_normalized in opciones_numericas:
+            text_normalized = opciones_numericas[text_normalized]
+    
+    # También mantener compatibilidad con comandos de texto directos
+    if text_normalized in ["c_comprar", "comprar", "quiero comprar", "compra"]:
         data['intencion'] = "Comprar"
         estado_usuario['paso'] = 'campana_recopilar_zona'
         _set_campana_data(estado_usuario, data)
         actualizar_estado_usuario(user_id, estado_usuario)
-        return (
-            f"🏠🗝️ *¡Excelente elección!* Te ayudaremos a encontrar el hogar ideal.\n\n"
-            f"📍 ¿En qué *barrio o zona* te gustaría comprar?\n"
-            f"_(Ej: Caballito, Palermo, Belgrano)_ {HINT_SALIR}\n\n"
-            "Contame tus preferencias y te acompaño en todo el proceso."
-        )
         
-    elif text in ["c_alquilar", "alquilar", "2"]:
+        if es_fb_ig:
+            return (
+                f"🏠🗝️ *¡Excelente elección!* Te ayudaremos a encontrar el hogar ideal.\n\n"
+                f"📍 ¿En qué *barrio o zona* te gustaría comprar?\n"
+                f"_(Ej: Caballito, Palermo, Belgrano)_\n\n"
+                f"💡 *Envía 'M' para volver al menú o 'S' para salir.*"
+            )
+        else:
+            return (
+                f"🏠🗝️ *¡Excelente elección!* Te ayudaremos a encontrar el hogar ideal.\n\n"
+                f"📍 ¿En qué *barrio o zona* te gustaría comprar?\n"
+                f"_(Ej: Caballito, Palermo, Belgrano)_ {HINT_SALIR}\n\n"
+                "Contame tus preferencias y te acompaño en todo el proceso."
+            )
+        
+    elif text_normalized in ["c_alquilar", "alquilar", "quiero alquilar", "alquiler"]:
         data['intencion'] = "Alquilar"
         estado_usuario['paso'] = 'campana_recopilar_zona'
         _set_campana_data(estado_usuario, data)
         actualizar_estado_usuario(user_id, estado_usuario)
-        return (
-            f"🏠🗝️ *¡Perfecto!* Vamos a buscar juntos el alquiler ideal para vos.\n\n"
-            f"📍 ¿En qué *barrio o zona* estás buscando?\n"
-            f"_(Ej: Almagro, Villa Crespo, Belgrano)_ {HINT_SALIR}\n\n"
-            "Contame tus preferencias y te acompaño en todo el proceso."
-        )
         
-    elif text in ["c_tasar", "tasar", "3"]:
-        # Unificar flujo de tasación con Tipo_Menu=0
+        if es_fb_ig:
+            return (
+                f"🏠🗝️ *¡Perfecto!* Vamos a buscar juntos el alquiler ideal para vos.\n\n"
+                f"📍 ¿En qué *barrio o zona* estás buscando?\n"
+                f"_(Ej: Almagro, Villa Crespo, Belgrano)_\n\n"
+                f"💡 *Envía 'M' para volver al menú o 'S' para salir.*"
+            )
+        else:
+            return (
+                f"🏠🗝️ *¡Perfecto!* Vamos a buscar juntos el alquiler ideal para vos.\n\n"
+                f"📍 ¿En qué *barrio o zona* estás buscando?\n"
+                f"_(Ej: Almagro, Villa Crespo, Belgrano)_ {HINT_SALIR}\n\n"
+                "Contame tus preferencias y te acompaño en todo el proceso."
+            )
+        
+    elif text_normalized in ["c_tasar", "tasar", "tasacion", "valorar", "3"]:
+        # Unificar flujo de tasación
         from tasaciones import manejar_menu_tasacion
         return manejar_menu_tasacion(text, estado_usuario, user_id)
         
-    elif text in ["c_asesor", "asesor", "hablar con asesor", "4"]:
+    elif text_normalized in ["c_asesor", "asesor", "hablar con asesor", "asesoramiento", "contacto", "4"]:
         data['intencion'] = "Asesoramiento"
         estado_usuario['paso'] = 'campana_pedir_nombre'
         _set_campana_data(estado_usuario, data)
         actualizar_estado_usuario(user_id, estado_usuario)
-        return (
-            "👤 *¡Genial!* Un asesor experto de Dante Propiedades 🏠🗝️ te contactará a la brevedad para acompañarte personalmente.\n\n"
-            f"Por favor, decime tu *Nombre y Apellido* para que podamos ayudarte mejor: {HINT_SALIR}"
-        )
+        
+        if es_fb_ig:
+            return (
+                "👤 *¡Genial!* Un asesor experto de Dante Propiedades 🏠🗝️ te contactará a la brevedad para acompañarte personalmente.\n\n"
+                f"Por favor, decime tu *Nombre y Apellido* para que podamos ayudarte mejor:\n\n"
+                f"💡 *Envía 'M' para volver al menú o 'S' para salir.*"
+            )
+        else:
+            return (
+                "👤 *¡Genial!* Un asesor experto de Dante Propiedades 🏠🗝️ te contactará a la brevedad para acompañarte personalmente.\n\n"
+                f"Por favor, decime tu *Nombre y Apellido* para que podamos ayudarte mejor: {HINT_SALIR}"
+            )
     
-    elif text in ["c_salir", "salir", "s", "exit", "0"]:
+    elif text_normalized in ["c_salir", "salir", "s", "exit", "0", "5"]:
         estado_usuario['paso'] = 'campana_inicio'
         _clear_campana_data(estado_usuario)
         actualizar_estado_usuario(user_id, estado_usuario)
         return DESPEDIDA
         
     else:
-        return iniciar_campana()
-
-
+        # Si no reconoce la opción, mostrar menú nuevamente
+        from tasaciones import log
+        log(f"⚠️ Opción no reconocida en campaña: '{text}' - Mostrando menú nuevamente")
+        return iniciar_campana(platform)
 # ========== RECOPILACIÓN DE DATOS ==========
 
 def manejar_recopilacion_datos(text, estado_usuario, user_id):
