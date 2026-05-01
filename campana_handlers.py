@@ -167,35 +167,37 @@ def iniciar_campana(platform=None):
     log(f"🔍 iniciar_campana - platform: '{platform}', es_fb_ig: {es_fb_ig}")
     
     cuerpo_base = (
-        "¡Hola! 👋 Soy el asistente de *Dante Propiedades* 🏠🗝️.\n\n"
-        "Estamos para acompañarte en todo el proceso de *compra, venta o tasación* de tu propiedad.\n\n"
-        "¿Te gustaría recibir una *valoración gratuita* o conocer las mejores oportunidades del mercado?\n\n"
-        "*Contame qué necesitás y te ayudo personalmente a avanzar.*"
+        "¡Hola! 👋 Soy el asistente de Dante Propiedades 🏠🗝️.\n\n"
+        "Estamos para acompañarte en todo el proceso de compra, venta o tasación de tu propiedad.\n\n"
+        "¿Te gustaría recibir una valoración gratuita o conocer las mejores oportunidades del mercado?\n\n"
+        "Contame qué necesitás y te ayudo personalmente a avanzar."  # ← Sin asteriscos
     )
     
     if es_fb_ig:
-        # Facebook/Instagram: mensaje con doble salto de línea
-        cuerpo_menu = (
-            f"{cuerpo_base}\n\n"
-            "Servicios Disponibles\n"
-            "1. 🏡 Quiero Comprar - Busco comprar una propiedad\n"
-            "2. 🔑 Quiero Alquilar - Busco alquilar una propiedad\n"
-            "3. 📈 Tasar mi Propiedad - Quiero saber el valor de mercado (¡gratis!)\n"
-            "4. 👤 Hablar con Asesor - Atención personalizada inmediata\n\n"
-            "Otras Opciones\n"
-            "5. ❌ Salir - Finalizar la conversación\n\n"
-            f"{PIE_MENU}\n\n"
+        # Dividir el mensaje en partes separadas
+        partes = [
+            "¡Hola! 👋 Soy el asistente de Dante Propiedades 🏠🗝️",
+            "Estamos para acompañarte en todo el proceso de compra, venta o tasación de tu propiedad.",
+            "¿Te gustaría recibir una valoración gratuita o conocer las mejores oportunidades del mercado?",
+            "Contame qué necesitás y te ayudo personalmente a avanzar.",
+            "",
+            "Servicios Disponibles",
+            "1. 🏡 Quiero Comprar - Busco comprar una propiedad",
+            "2. 🔑 Quiero Alquilar - Busco alquilar una propiedad", 
+            "3. 📈 Tasar mi Propiedad - Quiero saber el valor de mercado (¡gratis!)",
+            "4. 👤 Hablar con Asesor - Atención personalizada inmediata",
+            "",
+            "Otras Opciones",
+            "5. ❌ Salir - Finalizar la conversación",
+            "",
+            "Dante Propiedades · Tu lugar ideal",
+            "",
             "💡 Envía el número de la opción deseada"
-        )
+        ]
         
-        # Reemplazar \n por \r\n para mejor compatibilidad
-        cuerpo_menu = cuerpo_menu.replace('\n', '\r\n')
-        
-        return {
-            "type": "text",
-            "body": cuerpo_menu,
-            "preview": False
-        }
+        # Retornar una lista de mensajes para enviar uno por uno
+        return [{"type": "text", "body": parte, "preview": False} for parte in partes if parte]
+    
     else:
         # WhatsApp: lista interactiva
         rows = [
