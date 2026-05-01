@@ -103,31 +103,26 @@ def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
 
 
 def manejar_menu_tasacion(text_lower, estado_usuario, user_id):
-    """
-    Inicia el flujo de tasación.
-    Adapta el menú según la plataforma.
-    """
-    # Obtener plataforma del usuario
+    """Inicia el flujo de tasación adaptado a la plataforma"""
     platform = estado_usuario.get('platform', 'whatsapp')
     es_fb_ig = platform in ("messenger", "facebook", "instagram")
     
     if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
         estado_usuario['data'] = {}
     
-    # Reiniciar datos de tasación
     estado_usuario['data']['datos_tasacion'] = {}
     estado_usuario['paso'] = 'tasacion_operacion'
     actualizar_estado_usuario(user_id, estado_usuario)
     
     if es_fb_ig:
-        # Para Facebook/Instagram: texto plano con numeración
+        # Facebook/Instagram: texto con emojis numéricos
         return {
             "type": "text",
             "body": "📊 *TASACIÓN VIRTUAL*\n\n¿Qué tipo de operación te interesa tasar?\n\n1️⃣ Venta 🏠\n2️⃣ Alquiler 🗝️\n\n🔙 M. Volver\n❌ S. Salir",
             "preview": False
         }
     else:
-        # Para WhatsApp Business: botones interactivos
+        # WhatsApp: botones interactivos
         return {
             "type": "interactive_buttons",
             "body": "📊 *TASACIÓN VIRTUAL*\n\n¿Qué tipo de operación te interesa tasar?",
@@ -138,7 +133,9 @@ def manejar_menu_tasacion(text_lower, estado_usuario, user_id):
             ],
             "footer": "Selecciona una opción 👇"
         }
-
+        
+        
+        
 def manejar_tasacion_operacion(text_lower, estado_usuario, user_id):
     """Guarda la operación y continúa"""
     ops = {"1": "venta", "2": "alquiler"}
@@ -203,14 +200,11 @@ def manejar_reintentar_tasacion(estado_usuario, user_id):
 
 
 def manejar_tasacion_barrio(text, estado_usuario, user_id):
-    """
-    Guarda el barrio y verifica si existe en el mapa.
-    """
+    """Guarda el barrio y muestra menú de tipos con emojis numéricos"""
     barrio = text.strip()
     datos_tasacion = estado_usuario['data'].get('datos_tasacion', {})
     operacion = datos_tasacion.get('operacion', 'venta')
     
-    # Verificar si el barrio existe
     try:
         map_path = os.path.join(os.path.dirname(__file__), "market_valuation_map.json")
         if not os.path.exists(map_path):
@@ -225,7 +219,6 @@ def manejar_tasacion_barrio(text, estado_usuario, user_id):
             log(f"❌ Tasación rechazada: Barrio '{barrio_key}' no existe")
             return _respuesta_rechazo_tasacion(estado_usuario, user_id)
         
-        # Guardar barrio
         if 'datos_tasacion' not in estado_usuario['data']:
             estado_usuario['data']['datos_tasacion'] = {}
         
@@ -233,19 +226,18 @@ def manejar_tasacion_barrio(text, estado_usuario, user_id):
         estado_usuario['paso'] = 'tasacion_tipo'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        # Detectar plataforma
         platform = estado_usuario.get('platform', 'whatsapp')
         es_fb_ig = platform in ("messenger", "facebook", "instagram")
         
         if es_fb_ig:
-            # Para Facebook/Instagram: texto plano con numeración
+            # Facebook/Instagram: texto con emojis numéricos
             return {
                 "type": "text",
                 "body": "🏠 *¿Qué tipo de propiedad es?*\n\n1️⃣ Departamento\n2️⃣ Casa\n3️⃣ PH\n4️⃣ Oficina / Local\n5️⃣ Terreno\n\n🔙 M. Volver\n❌ S. Salir",
                 "preview": False
             }
         else:
-            # Para WhatsApp: lista interactiva
+            # WhatsApp: lista interactiva
             return {
                 "type": "interactive_list",
                 "body": "🏠 *¿Qué tipo de propiedad es?*",
@@ -268,6 +260,8 @@ def manejar_tasacion_barrio(text, estado_usuario, user_id):
     except Exception as e:
         log(f"⚠️ Error verificando barrio: {e}")
         return _respuesta_rechazo_tasacion(estado_usuario, user_id)
+    
+    
     
     
 def manejar_tasacion_tipo(text_lower, estado_usuario, user_id):
@@ -358,7 +352,7 @@ def manejar_tasacion_m2(text, estado_usuario, user_id):
 
 
 def manejar_tasacion_ambientes(text, estado_usuario, user_id):
-    """Guarda ambientes e inicia la carga de estado"""
+    """Guarda ambientes e inicia la carga de estado con emojis numéricos"""
     try:
         amb_str = "".join(filter(str.isdigit, text))
         ambientes = int(amb_str) if amb_str else 0
@@ -373,19 +367,18 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
         estado_usuario['paso'] = 'tasacion_estado'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        # Detectar plataforma
         platform = estado_usuario.get('platform', 'whatsapp')
         es_fb_ig = platform in ("messenger", "facebook", "instagram")
         
         if es_fb_ig:
-            # Para Facebook/Instagram: texto plano con numeración
+            # Facebook/Instagram: texto con emojis numéricos
             return {
                 "type": "text",
                 "body": "🏗️ *¿En qué estado se encuentra la propiedad?*\n\n1️⃣ Excelente / A estrenar\n2️⃣ Muy bueno\n3️⃣ Bueno\n4️⃣ Regular\n5️⃣ A refaccionar\n\n🔙 M. Volver\n❌ S. Salir",
                 "preview": False
             }
         else:
-            # Para WhatsApp: lista interactiva
+            # WhatsApp: lista interactiva
             return {
                 "type": "interactive_list",
                 "body": "🏗️ *¿En qué estado se encuentra la propiedad?*",
@@ -533,14 +526,15 @@ Basado en el análisis estadístico de mercado para *{datos['barrio']}* ({operac
 ⚠️ *Nota:* Esta es una estimación orientativa basada en datos de mercado. Para una tasación profesional, un asesor debe visitar la propiedad."""
 
         if es_fb_ig:
-            # Para Facebook/Instagram: texto plano con numeración
+            # Facebook/Instagram: texto con EMOJIS NUMÉRICOS
             mensaje_completo = (
                 f"{mensaje_base}\n\n"
                 "*¿Qué deseas hacer?*\n\n"
                 "1️⃣ ✅ Deseas una Tasación Profesional - Con visita de asesor\n"
                 "2️⃣ ⏭️ No por ahora - Continuar explorando\n"
                 "3️⃣ 🔙 Menú Principal - Ir al inicio\n"
-                "4️⃣ ❌ Salir - Terminar sesión"
+                "4️⃣ ❌ Salir - Terminar sesión\n\n"
+                "💡 *Envía el número de la opción deseada*"
             )
             
             estado_usuario['paso'] = 'tasacion_esperando_contacto'
@@ -552,7 +546,7 @@ Basado en el análisis estadístico de mercado para *{datos['barrio']}* ({operac
                 "preview": False
             }
         else:
-            # Para WhatsApp: lista interactiva
+            # WhatsApp: lista interactiva
             estado_usuario['paso'] = 'tasacion_esperando_contacto'
             actualizar_estado_usuario(user_id, estado_usuario)
             
@@ -578,7 +572,6 @@ Basado en el análisis estadístico de mercado para *{datos['barrio']}* ({operac
         import traceback
         log(traceback.format_exc())
         return "❌ Ocurrió un error al procesar la tasación. Por favor contacta a un asesor enviando '5'."
-    
     
 
 def manejar_tasacion_contacto(text_lower, estado_usuario, user_id):

@@ -367,7 +367,7 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
                 # Facebook/Instagram: texto con numeración simple
                 return {
                     "type": "text",
-                    "body": f"📍 Zona: {text} ✅\n\n¿Qué tipo de propiedad estás buscando?\n\n1. 🏢 Departamento\n2. 🏠 Casa\n3. 🏭 Otro (Local/Lote)\n\n💡 Envía el número de la opción deseada, M para volver al menú o S para salir.",
+                    "body": f"📍 Zona: *{text}* ✅\n\n¿Qué *tipo de propiedad* estás buscando?\n\n1️⃣ 🏢 Departamento\n2️⃣ 🏠 Casa\n3️⃣ 🏭 Otro (Local/Lote)\n\n💡 Envía el número de la opción deseada, 🔙 M para volver o ❌ S para salir.",
                     "preview": False
                 }
             else:
