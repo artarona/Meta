@@ -3002,7 +3002,53 @@ def debug_calendar_key_status():
     
     return jsonify(result)
 
-
+@app.route('/fix-db-direct', methods=['GET'])
+def fix_db_direct():
+    """Agrega la columna platform a la base de datos REAL que Render está usando"""
+    try:
+        import psycopg2
+        import os
+        
+        # Usar la misma conexión que usa la aplicación
+        database_url = os.environ.get("DATABASE_URL")
+        
+        if not database_url:
+            return {"error": "DATABASE_URL no encontrada"}, 500
+        
+        # Limpiar la URL
+        if database_url.upper().startswith("DATABASE_URL"):
+            database_url = database_url[len("DATABASE_URL"):].lstrip().lstrip("=").lstrip()
+        
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
+        
+        # Conectar y ejecutar
+        conn = psycopg2.connect(database_url)
+        conn.autocommit = True
+        cursor = conn.cursor()
+        
+        # Verificar si la columna existe
+        cursor.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'user_states' AND column_name = 'platform'
+        """)
+        
+        exists = cursor.fetchone()
+        
+        if exists:
+            result = "La columna platform YA EXISTE"
+        else:
+            cursor.execute("ALTER TABLE user_states ADD COLUMN platform VARCHAR(50)")
+            result = "Columna platform AGREGADA exitosamente"
+        
+        cursor.close()
+        conn.close()
+        
+        return {"message": result, "database_url_prefix": database_url[:50] + "..."}
+        
+    except Exception as e:
+        return {"error": str(e)}, 500
 
 if __name__ == "__main__":
 
