@@ -595,14 +595,36 @@ Basado en el análisis estadístico de mercado para *{datos['barrio']}* ({operac
 
 def manejar_tasacion_contacto(text_lower, estado_usuario, user_id):
     """Maneja la respuesta final del flujo de tasación"""
-    mapeo_botones = {
-        "1": "1",
-        "2": "2",
-        "m": "menu",
-        "s": "salir"
-    }
+    text_normalized = text_lower.lower().strip()
     
-    comando = mapeo_botones.get(text_lower, text_lower)
+    # Detectar plataforma
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram")
+    
+    # Mapeo de opciones para Facebook/Instagram (con números)
+    if es_fb_ig:
+        opciones = {
+            "1": "1",
+            "1️⃣": "1",
+            "2": "2",
+            "2️⃣": "2",
+            "3": "menu",
+            "3️⃣": "menu",
+            "m": "menu",
+            "4": "salir",
+            "4️⃣": "salir",
+            "s": "salir"
+        }
+        comando = opciones.get(text_normalized, text_normalized)
+    else:
+        # Mapeo para WhatsApp
+        mapeo_botones = {
+            "1": "1",
+            "2": "2",
+            "m": "menu",
+            "s": "salir"
+        }
+        comando = mapeo_botones.get(text_normalized, text_normalized)
     
     if comando == "1":
         notificar_agente(f"📞 *SOLICITUD DE TASACIÓN PROFESIONAL*\n📞 Tel: +{user_id}\nEl cliente solicitó contacto humano después de la tasación virtual.")
