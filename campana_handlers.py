@@ -128,14 +128,17 @@ def get_bot_response_campana(text, user_id):
 def iniciar_campana(platform=None):
     """
     Muestra el menú principal adaptado a la plataforma.
-    - WhatsApp: lista interactiva
-    - Facebook/Instagram: texto plano CON numeración visible
     """
-    # Detectar si es Facebook/Instagram
-    es_fb_ig = platform in ("messenger", "facebook", "instagram")
+    # Log detallado
+    log(f"🔍 iniciar_campana - platform recibido: '{platform}' (tipo: {type(platform)})")
     
-    # Log para depuración
-    log(f"🔍 iniciar_campana - platform: {platform}, es_fb_ig: {es_fb_ig}")
+    # Detectar si es Facebook/Instagram - soportar múltiples formatos
+    es_fb_ig = False
+    if platform:
+        platform_lower = str(platform).lower()
+        es_fb_ig = platform_lower in ("messenger", "facebook", "instagram")
+    
+    log(f"🔍 es_fb_ig: {es_fb_ig}")
     
     # Texto base del mensaje
     cuerpo_base = (
@@ -159,6 +162,8 @@ def iniciar_campana(platform=None):
             f"{PIE_MENU}"
         )
         
+        log(f"📱 Enviando menú con numeración (FB/IG)")
+        
         return {
             "type": "text",
             "body": cuerpo_menu,
@@ -166,6 +171,8 @@ def iniciar_campana(platform=None):
         }
     else:
         # Para WhatsApp: lista interactiva
+        log(f"📱 Enviando menú interactivo (WhatsApp)")
+        
         rows = [
             {"id": "c_comprar", "title": "🏡 Quiero Comprar", "description": "Busco comprar una propiedad"},
             {"id": "c_alquilar", "title": "🔑 Quiero Alquilar", "description": "Busco alquilar una propiedad"},
@@ -186,9 +193,9 @@ def iniciar_campana(platform=None):
             ],
             footer=PIE_MENU
         )
-            
         
         
+          
 # ========== MANEJO DE INTENCIÓN ==========
 
 def manejar_intencion_campana(text, estado_usuario, user_id):
@@ -199,6 +206,8 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
     # Detectar si es Facebook/Instagram para manejar respuestas numéricas
     platform = estado_usuario.get('platform', 'whatsapp')
     es_fb_ig = platform in ("messenger", "facebook", "instagram")
+    
+    log(f"🔍 manejar_intencion_campana - platform: {platform}, es_fb_ig: {es_fb_ig}")
     
     # Normalizar el texto recibido (puede venir como número o como emoji numérico)
     text_normalized = text.lower().strip()
@@ -226,6 +235,7 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
         # Si el usuario envió un número, convertirlo al ID correspondiente
         if text_normalized in opciones_numericas:
             text_normalized = opciones_numericas[text_normalized]
+            log(f"🔄 Conversión numérica: '{text}' -> '{text_normalized}'")
     
     # También mantener compatibilidad con comandos de texto directos
     if text_normalized in ["c_comprar", "comprar", "quiero comprar", "compra"]:
