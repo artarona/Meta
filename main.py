@@ -931,103 +931,103 @@ def webhook():
             # ============================================================
             def procesar_mensaje_unificado(from_id, message_text, platform, message_id=None):
                 """Lógica centralizada para procesar un mensaje de cualquier plataforma"""
-            if not from_id or not message_text:
-                return False
-            
-            # ✅ PASO 1: Guardar el platform en el estado del usuario
-            from database import obtener_estado_usuario, actualizar_estado_usuario
-            
-            # Obtener estado del usuario
-            estado_usuario = obtener_estado_usuario(from_id)
-            
-            # Guardar platform si es diferente
-            if estado_usuario.get('platform') != platform:
-                estado_usuario['platform'] = platform
-                actualizar_estado_usuario(from_id, estado_usuario)
-                log(f"📱 Platform guardado en DB para {from_id}: {platform}")
-            
-            # Normalizar texto para comandos de usuario y botones
-            processed_text = message_text.strip().lower()
-            emoji_digit_map = {
-                "0️⃣": "0", "1️⃣": "1", "2️⃣": "2", "3️⃣": "3", "4️⃣": "4",
-                "5️⃣": "5", "6️⃣": "6", "7️⃣": "7", "8️⃣": "8", "9️⃣": "9", "🔟": "10"
-            }
-            processed_text = emoji_digit_map.get(processed_text, processed_text)
-            
-            # Diccionario de alias
-            boton_a_numero = {
-                "opcion_1": "1", "opcion_2": "2", "opcion_3": "3", "opcion_4": "4",
-                "opcion_5": "5", "opcion_6": "6", "opcion_tasacion": "10",
-                "opcion_salir": "s", "volver_menu": "9", "salir_chat": "0",
-                "venta": "1", "alquiler": "2", "comprar": "1", "asesor": "5",
-                "c_menu": "m", "c_salir": "s"
-            }
-            
-            if processed_text in boton_a_numero:
-                message_text = boton_a_numero[processed_text]
-            else:
-                # Normalización de títulos con emojis
-                texto_normalizado = processed_text.replace('🏠', '').replace('🔑', '').replace('🏢', '').replace('📋', '').replace('❓', '').replace('👤', '').replace('🌐', '').replace('📈', '').strip()
-                message_text = boton_a_numero.get(texto_normalizado, message_text.strip())
-            
-            log(f"👤 [{platform}] Usuario: {from_id}, Input: '{message_text}'")
-            
-            # Obtener respuesta del bot según el TIPO_MENU
-            if TIPO_MENU == 1:
-                from campana_handlers import get_bot_response_campana
-                response_text = get_bot_response_campana(message_text, from_id)
-            else:
-                response_text = get_bot_response(message_text, from_id)
-            
-            # Despacho de respuesta
-            base_url = request.host_url.rstrip('/')
-            
-            def dispatch_single(resp):
-                if not resp:
-                    return
+                if not from_id or not message_text:
+                    return False
                 
-                if resp == "WELCOME_FLOW_TRIGGER":
-                    if platform == "whatsapp":
-                        from whatsapp_api import send_welcome_flow
-                        return send_welcome_flow(from_id)
-                    else:
-                        resp = "🏠🗝️ *DANTE PROPIEDADES*\n\n¡Hola! Soy el asistente inmobiliario de Dante Propiedades.\n*¿Cómo podemos ayudarte hoy?*\n\n👉 Envía '1' para ver Inmuebles\n👉 Envía '2' para Tasación Virtual\n👉 Envía '3' para Mis Citas\n👉 Envía '4' para Hablar con un asesor\n👉 Envía '5' para Visitar nuestra web"
+                # ✅ PASO 1: Guardar el platform en el estado del usuario
+                from database import obtener_estado_usuario, actualizar_estado_usuario
                 
-                elif isinstance(resp, str) and resp.startswith("OFFER_MEETING_TRIGGER|"):
-                    prop_titulo = resp.split("|")[1]
-                    text_body = f"✅ *¡Perfecto!*\n\nHemos registrado tu interés en:\n🏠 *{prop_titulo}*\n\n📅 *¿Te gustaría agendar una cita para visitar la propiedad?*"
-                    botones = [
-                        {"id": "agendar", "title": "📅 SÍ, AGENDAR CITA"},
-                        {"id": "solo info", "title": "📋 Solo información"},
-                        {"id": "ofertar", "title": "💰 Quiero ofertar"}
-                    ]
-                    from whatsapp_api import send_whatsapp_interactive_buttons
-                    return send_whatsapp_interactive_buttons(from_id, text_body, botones)
+                # Obtener estado del usuario
+                estado_usuario = obtener_estado_usuario(from_id)
                 
-                elif isinstance(resp, str) and resp.startswith("PHOTOS_TRIGGER|"):
-                    prop_id = resp.split("|")[1]
-                    clean_base_url = base_url
-                    if "onrender.com" in clean_base_url and not clean_base_url.startswith("https"):
-                        clean_base_url = clean_base_url.replace("http://", "https://")
+                # Guardar platform si es diferente
+                if estado_usuario.get('platform') != platform:
+                    estado_usuario['platform'] = platform
+                    actualizar_estado_usuario(from_id, estado_usuario)
+                    log(f"📱 Platform guardado en DB para {from_id}: {platform}")
+                
+                # Normalizar texto para comandos de usuario y botones
+                processed_text = message_text.strip().lower()
+                emoji_digit_map = {
+                    "0️⃣": "0", "1️⃣": "1", "2️⃣": "2", "3️⃣": "3", "4️⃣": "4",
+                    "5️⃣": "5", "6️⃣": "6", "7️⃣": "7", "8️⃣": "8", "9️⃣": "9", "🔟": "10"
+                }
+                processed_text = emoji_digit_map.get(processed_text, processed_text)
+                
+                # Diccionario de alias
+                boton_a_numero = {
+                    "opcion_1": "1", "opcion_2": "2", "opcion_3": "3", "opcion_4": "4",
+                    "opcion_5": "5", "opcion_6": "6", "opcion_tasacion": "10",
+                    "opcion_salir": "s", "volver_menu": "9", "salir_chat": "0",
+                    "venta": "1", "alquiler": "2", "comprar": "1", "asesor": "5",
+                    "c_menu": "m", "c_salir": "s"
+                }
+                
+                if processed_text in boton_a_numero:
+                    message_text = boton_a_numero[processed_text]
+                else:
+                    # Normalización de títulos con emojis
+                    texto_normalizado = processed_text.replace('🏠', '').replace('🔑', '').replace('🏢', '').replace('📋', '').replace('❓', '').replace('👤', '').replace('🌐', '').replace('📈', '').strip()
+                    message_text = boton_a_numero.get(texto_normalizado, message_text.strip())
+                
+                log(f"👤 [{platform}] Usuario: {from_id}, Input: '{message_text}'")
+                
+                # Obtener respuesta del bot según el TIPO_MENU
+                if TIPO_MENU == 1:
+                    from campana_handlers import get_bot_response_campana
+                    response_text = get_bot_response_campana(message_text, from_id)
+                else:
+                    response_text = get_bot_response(message_text, from_id)
+                
+                # Despacho de respuesta
+                base_url = request.host_url.rstrip('/')
+                
+                def dispatch_single(resp):
+                    if not resp:
+                        return
                     
-                    log(f"🚀 Iniciando hilo de fotos para propiedad {prop_id}")
-                    from whatsapp_api import send_photos_async, send_whatsapp_message
-                    thread = threading.Thread(target=send_photos_async, args=(from_id, prop_id, clean_base_url))
-                    thread.start()
+                    if resp == "WELCOME_FLOW_TRIGGER":
+                        if platform == "whatsapp":
+                            from whatsapp_api import send_welcome_flow
+                            return send_welcome_flow(from_id)
+                        else:
+                            resp = "🏠🗝️ *DANTE PROPIEDADES*\n\n¡Hola! Soy el asistente inmobiliario de Dante Propiedades.\n*¿Cómo podemos ayudarte hoy?*\n\n👉 Envía '1' para ver Inmuebles\n👉 Envía '2' para Tasación Virtual\n👉 Envía '3' para Mis Citas\n👉 Envía '4' para Hablar con un asesor\n👉 Envía '5' para Visitar nuestra web"
                     
-                    confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'Hola' para volver al menú."
-                    return send_whatsapp_message(from_id, confirmacion)
+                    elif isinstance(resp, str) and resp.startswith("OFFER_MEETING_TRIGGER|"):
+                        prop_titulo = resp.split("|")[1]
+                        text_body = f"✅ *¡Perfecto!*\n\nHemos registrado tu interés en:\n🏠 *{prop_titulo}*\n\n📅 *¿Te gustaría agendar una cita para visitar la propiedad?*"
+                        botones = [
+                            {"id": "agendar", "title": "📅 SÍ, AGENDAR CITA"},
+                            {"id": "solo info", "title": "📋 Solo información"},
+                            {"id": "ofertar", "title": "💰 Quiero ofertar"}
+                        ]
+                        from whatsapp_api import send_whatsapp_interactive_buttons
+                        return send_whatsapp_interactive_buttons(from_id, text_body, botones)
+                    
+                    elif isinstance(resp, str) and resp.startswith("PHOTOS_TRIGGER|"):
+                        prop_id = resp.split("|")[1]
+                        clean_base_url = base_url
+                        if "onrender.com" in clean_base_url and not clean_base_url.startswith("https"):
+                            clean_base_url = clean_base_url.replace("http://", "https://")
+                        
+                        log(f"🚀 Iniciando hilo de fotos para propiedad {prop_id}")
+                        from whatsapp_api import send_photos_async, send_whatsapp_message
+                        thread = threading.Thread(target=send_photos_async, args=(from_id, prop_id, clean_base_url))
+                        thread.start()
+                        
+                        confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'Hola' para volver al menú."
+                        return send_whatsapp_message(from_id, confirmacion)
+                    
+                    # Delegamos TODO el envío a whatsapp_api.py
+                    from whatsapp_api import send_message
+                    return send_message(from_id, resp, platform=platform)
                 
-                # Delegamos TODO el envío a whatsapp_api.py
-                from whatsapp_api import send_message
-                return send_message(from_id, resp, platform=platform)
-            
-            if isinstance(response_text, list):
-                for r in response_text:
-                    dispatch_single(r)
-            else:
-                dispatch_single(response_text)
-            return True
+                if isinstance(response_text, list):
+                    for r in response_text:
+                        dispatch_single(r)
+                else:
+                    dispatch_single(response_text)
+                return True
             
             # ============================================================
             # FIN DE LA FUNCIÓN procesar_mensaje_unificado
@@ -1035,6 +1035,7 @@ def webhook():
             
             # Contador de mensajes procesados
             mensajes_procesados = 0
+            processed_message_ids = []  # ← Necesitas definir esta lista
             
             for entry in data.get("entry", []):
                 # Flujo para Messenger e Instagram (messaging)
@@ -1094,9 +1095,6 @@ def webhook():
             log(f"❌ Error procesando webhook: {str(e)}")
             log(f"❌ Traceback: {traceback.format_exc()}")
             return jsonify({"status": "error", "error": str(e)}), 500
-        
-        
-        
         
 # ========== GESTIÓN DE CITAS ==========
 
