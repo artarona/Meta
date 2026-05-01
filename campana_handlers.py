@@ -39,15 +39,19 @@ def _clear_campana_data(estado_usuario):
 def get_bot_response_campana(text, user_id):
     """
     Despachador principal para el MODO CAMPAÑA (TIPO_MENU = 1).
+    Orientado exclusivamente a la captación de leads en frío.
     """
     text_lower = text.lower().strip()
     estado_usuario = obtener_estado_usuario(user_id)
     paso_actual = estado_usuario.get('paso', 'campana_inicio')
     
-    # Obtener platform del estado_usuario
-    platform = estado_usuario.get('platform', None)
+    # Obtener platform del estado (ya debería estar guardado por procesar_mensaje_unificado)
+    platform = estado_usuario.get('platform')
     
-    # ========== COMANDOS GLOBALES ==========
+    # Log para depuración
+    log(f"🔍 get_bot_response_campana - platform del estado: {platform}")
+    
+    # ========== COMANDOS GLOBALES (siempre disponibles) ==========
     if text_lower in ["salir", "s", "exit", "0"]:
         estado_usuario['paso'] = 'campana_inicio'
         _clear_campana_data(estado_usuario)
@@ -58,7 +62,7 @@ def get_bot_response_campana(text, user_id):
         estado_usuario['paso'] = 'campana_intent'
         _clear_campana_data(estado_usuario)
         actualizar_estado_usuario(user_id, estado_usuario)
-        # ✅ PASAR EL PLATFORM AQUÍ
+        # Pasar platform a iniciar_campana
         return iniciar_campana(platform)
     
     # MANEJO ESPECIAL PARA REINTENTAR TASACIÓN (ID 10)
@@ -70,7 +74,6 @@ def get_bot_response_campana(text, user_id):
     if paso_actual in ('campana_inicio', 'menu_principal'):
         estado_usuario['paso'] = 'campana_intent'
         actualizar_estado_usuario(user_id, estado_usuario)
-        # ✅ PASAR EL PLATFORM AQUÍ
         return iniciar_campana(platform)
         
     elif paso_actual == 'campana_intent':
@@ -94,45 +97,44 @@ def get_bot_response_campana(text, user_id):
         )
         resp = None
         if paso_actual == 'tasacion_operacion':
-            resp = manejar_tasacion_operacion(text.lower(), estado_usuario, user_id)
+            resp = manejar_tasacion_operacion(text_lower, estado_usuario, user_id)
         elif paso_actual == 'tasacion_barrio':
             resp = manejar_tasacion_barrio(text, estado_usuario, user_id)
         elif paso_actual == 'tasacion_tipo':
-            resp = manejar_tasacion_tipo(text.lower(), estado_usuario, user_id)
+            resp = manejar_tasacion_tipo(text_lower, estado_usuario, user_id)
         elif paso_actual == 'tasacion_m2':
             resp = manejar_tasacion_m2(text, estado_usuario, user_id)
         elif paso_actual == 'tasacion_ambientes':
             resp = manejar_tasacion_ambientes(text, estado_usuario, user_id)
         elif paso_actual == 'tasacion_estado':
-            resp = manejar_tasacion_estado(text.lower(), estado_usuario, user_id)
+            resp = manejar_tasacion_estado(text_lower, estado_usuario, user_id)
         elif paso_actual == 'tasacion_esperando_contacto':
-            resp = manejar_tasacion_contacto(text.lower(), estado_usuario, user_id)
+            resp = manejar_tasacion_contacto(text_lower, estado_usuario, user_id)
             
+        # Manejar triggers especiales de tasaciones
         if resp == "WELCOME_FLOW_TRIGGER":
             estado_usuario['paso'] = 'campana_intent'
             actualizar_estado_usuario(user_id, estado_usuario)
-            # ✅ PASAR EL PLATFORM AQUÍ
             return iniciar_campana(platform)
         return resp
 
-    # Fallback
+    # Fallback → menú principal
     estado_usuario['paso'] = 'campana_intent'
     actualizar_estado_usuario(user_id, estado_usuario)
-    # ✅ PASAR EL PLATFORM AQUÍ
     return iniciar_campana(platform)
-
-
 
 # ========== MENÚ PRINCIPAL DE CAMPAÑA ==========
 
 def iniciar_campana(platform=None):
     """
     Muestra el menú principal adaptado a la plataforma.
+    - WhatsApp: lista interactiva (sin números visibles)
+    - Facebook/Instagram: texto plano CON numeración visible (1️⃣, 2️⃣, etc.)
     """
-    # Log detallado
+    # Log para depuración
     log(f"🔍 iniciar_campana - platform recibido: '{platform}' (tipo: {type(platform)})")
     
-    # Detectar si es Facebook/Instagram - soportar múltiples formatos
+    # Detectar si es Facebook/Instagram
     es_fb_ig = False
     if platform:
         platform_lower = str(platform).lower()
@@ -193,8 +195,6 @@ def iniciar_campana(platform=None):
             ],
             footer=PIE_MENU
         )
-        
-        
           
 # ========== MANEJO DE INTENCIÓN ==========
 
@@ -203,13 +203,13 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
     _clear_campana_data(estado_usuario)
     data = {}
     
-    # Detectar si es Facebook/Instagram para manejar respuestas numéricas
-    platform = estado_usuario.get('platform', 'whatsapp')
-    es_fb_ig = platform in ("messenger", "facebook", "instagram")
+    # Obtener platform del estado
+    platform = estado_usuario.get('platform')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
     
     log(f"🔍 manejar_intencion_campana - platform: {platform}, es_fb_ig: {es_fb_ig}")
     
-    # Normalizar el texto recibido (puede venir como número o como emoji numérico)
+    # Normalizar el texto recibido
     text_normalized = text.lower().strip()
     
     # Mapeo de opciones numéricas SOLO para Facebook/Instagram
@@ -224,20 +224,13 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
             "2️⃣": "c_alquilar",
             "3️⃣": "c_tasar",
             "4️⃣": "c_asesor",
-            "5️⃣": "c_salir",
-            "uno": "c_comprar",
-            "dos": "c_alquilar",
-            "tres": "c_tasar",
-            "cuatro": "c_asesor",
-            "cinco": "c_salir"
+            "5️⃣": "c_salir"
         }
         
-        # Si el usuario envió un número, convertirlo al ID correspondiente
         if text_normalized in opciones_numericas:
             text_normalized = opciones_numericas[text_normalized]
             log(f"🔄 Conversión numérica: '{text}' -> '{text_normalized}'")
     
-    # También mantener compatibilidad con comandos de texto directos
     if text_normalized in ["c_comprar", "comprar", "quiero comprar", "compra"]:
         data['intencion'] = "Comprar"
         estado_usuario['paso'] = 'campana_recopilar_zona'
@@ -281,7 +274,6 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
             )
         
     elif text_normalized in ["c_tasar", "tasar", "tasacion", "valorar", "3"]:
-        # Unificar flujo de tasación
         from tasaciones import manejar_menu_tasacion
         return manejar_menu_tasacion(text, estado_usuario, user_id)
         
@@ -310,8 +302,6 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
         return DESPEDIDA
         
     else:
-        # Si no reconoce la opción, mostrar menú nuevamente
-        from tasaciones import log
         log(f"⚠️ Opción no reconocida en campaña: '{text}' - Mostrando menú nuevamente")
         return iniciar_campana(platform)
 # ========== RECOPILACIÓN DE DATOS ==========
