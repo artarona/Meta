@@ -47,13 +47,12 @@ def get_bot_response_campana(text, user_id):
     paso_actual = estado_usuario.get('paso', 'campana_inicio')
     
     # ✅ IMPORTANTE: Forzar obtener el platform NUEVAMENTE desde la DB
-    # a veces el objeto estado_usuario puede estar desactualizado
     from database import obtener_estado_usuario as get_fresh_state
     fresh_state = get_fresh_state(user_id)
     platform = fresh_state.get('platform') or estado_usuario.get('platform')
     
     # Log para depuración
-    log(f"🔍 get_bot_response_campana - platform obtenido: '{platform}' (del estado fresco)")
+    log(f"🔍 get_bot_response_campana - platform obtenido: '{platform}'")
     
     # Si aún no hay platform, intentar una última vez con una consulta directa
     if not platform:
@@ -75,6 +74,14 @@ def get_bot_response_campana(text, user_id):
                 log(f"🔍 get_bot_response_campana - platform por consulta directa: '{platform}'")
         except Exception as e:
             log(f"⚠️ Error en consulta directa de platform: {e}")
+    
+    # ========== ✅ NUEVO: MANEJO DE NÚMEROS PARA FACEBOOK/INSTAGRAM ==========
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    
+    # Si es FB/IG y el usuario está en el paso campana_intent, redirigir número a la intención
+    if es_fb_ig and paso_actual == 'campana_intent' and text_lower in ["1", "2", "3", "4", "5"]:
+        log(f"🔄 [FB/IG] Número recibido en menú principal: '{text_lower}' -> redirigiendo")
+        return manejar_intencion_campana(text_lower, estado_usuario, user_id)
     
     # ========== COMANDOS GLOBALES ==========
     if text_lower in ["salir", "s", "exit", "0"]:
@@ -145,7 +152,6 @@ def get_bot_response_campana(text, user_id):
     estado_usuario['paso'] = 'campana_intent'
     actualizar_estado_usuario(user_id, estado_usuario)
     return iniciar_campana(platform)
-
 
 # ========== MENÚ PRINCIPAL DE CAMPAÑA ==========
 
