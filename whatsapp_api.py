@@ -114,6 +114,7 @@ def send_message(recipient_id, message_content, platform="whatsapp"):
     """
     if platform != "whatsapp" and isinstance(message_content, dict):
         text_fallback = ""
+        
         if message_content.get("type") == "interactive_buttons":
             text_fallback = f"{message_content.get('header', '')}\n\n{message_content.get('body', '')}\n\n"
             for btn in message_content.get("buttons", []):
@@ -129,7 +130,11 @@ def send_message(recipient_id, message_content, platform="whatsapp"):
                     text_fallback += f"- {row.get('title')}: {row.get('description', '')}\n"
             text_fallback += f"\n{message_content.get('footer', '')}"
             message_content = text_fallback.strip()
-
+            
+        elif message_content.get("type") == "text":
+            # ✅ PARA MENSAJES DE TIPO TEXTO: extraer solo el body
+            message_content = message_content.get("body", "")
+    
     if platform == "whatsapp":
         if isinstance(message_content, dict):
             if message_content.get("type") == "interactive_buttons":
@@ -145,13 +150,21 @@ def send_message(recipient_id, message_content, platform="whatsapp"):
         return send_whatsapp_message(recipient_id, str(message_content))
     
     elif platform == "messenger":
-        return send_messenger_message(recipient_id, str(message_content))
+        # ✅ Asegurar que message_content sea solo texto, no un dict
+        if isinstance(message_content, dict):
+            text_to_send = message_content.get("body", str(message_content))
+        else:
+            text_to_send = str(message_content)
+        return send_messenger_message(recipient_id, text_to_send)
     
     elif platform == "instagram":
-        return send_instagram_message(recipient_id, str(message_content))
+        if isinstance(message_content, dict):
+            text_to_send = message_content.get("body", str(message_content))
+        else:
+            text_to_send = str(message_content)
+        return send_instagram_message(recipient_id, text_to_send)
     
     return {"status": "error", "error": f"Plataforma {platform} no soportada"}
-
 
 def send_photos_async(user_id, propiedad_id, base_url):
     """Tarea ejecutada en hilo secundario para enviar fotos"""
