@@ -10,7 +10,6 @@ def verificar_combinacion_valida(barrio, tipo, operacion='venta'):
     """
     Verifica si existe una combinación EXACTA en el mapa.
     Retorna True si hay match exacto Y muestra > 0 Y avg_m2 válido.
-    Retorna False en cualquier otro caso.
     """
     try:
         map_path = os.path.join(os.path.dirname(__file__), "market_valuation_map.json")
@@ -27,7 +26,6 @@ def verificar_combinacion_valida(barrio, tipo, operacion='venta'):
         
         log(f"🔎 Verificando match EXACTO: '{barrio_key}' - '{op_key}' - '{tipo_key}'")
         
-        # Verificar existencia EXACTA de la combinación
         if barrio_key not in vmap:
             log(f"❌ Barrio '{barrio_key}' no existe en el mapa")
             return False
@@ -62,9 +60,7 @@ def verificar_combinacion_valida(barrio, tipo, operacion='venta'):
 
 
 def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
-    """
-    Obtiene los datos de valoración SOLO si existe match exacto.
-    """
+    """Obtiene los datos de valoración SOLO si existe match exacto."""
     try:
         map_path = os.path.join(os.path.dirname(__file__), "market_valuation_map.json")
         if not os.path.exists(map_path):
@@ -107,54 +103,130 @@ def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
 
 
 def manejar_menu_tasacion(text_lower, estado_usuario, user_id):
-    """Inicia el flujo de tasación"""
+    """
+    Inicia el flujo de tasación.
+    Adapta el menú según la plataforma (WhatsApp vs Facebook/Instagram)
+    """
+    # Obtener plataforma del usuario
+    platform = estado_usuario.get('platform', 'whatsapp')
+    
     if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
         estado_usuario['data'] = {}
-        
+    
+    # Reiniciar datos de tasación (para reintentos)
     estado_usuario['data']['datos_tasacion'] = {}
     estado_usuario['paso'] = 'tasacion_operacion'
     actualizar_estado_usuario(user_id, estado_usuario)
-    return {
-        "type": "interactive_buttons",
-        "body": "📊 *TASACIÓN VIRTUAL*\n\n¿Qué tipo de operación te interesa tasar?",
-        "buttons": [
-            {"id": "1", "title": "Venta 🏠"},
-            {"id": "2", "title": "Alquiler 🗝️"},
-            {"id": "m", "title": "Volver 🔙"}
-        ],
-        "footer": "Selecciona una opción 👇"
-    }
+    
+    # Para WhatsApp Business (TIPO_MENU=0 o sin numeración)
+    if platform in ['whatsapp', 'whatsapp_business']:
+        return {
+            "type": "interactive_buttons",
+            "body": "📊 *TASACIÓN VIRTUAL*\n\n¿Qué tipo de operación te interesa tasar?",
+            "buttons": [
+                {"id": "1", "title": "Venta 🏠"},
+                {"id": "2", "title": "Alquiler 🗝️"},
+                {"id": "m", "title": "Volver 🔙"}
+            ],
+            "footer": "Selecciona una opción 👇"
+        }
+    else:
+        # Para Facebook / Instagram (con numeración visible)
+        return WhatsAppResponse.list_menu(
+            header="📊 *TASACIÓN VIRTUAL*",
+            body="¿Qué tipo de operación te interesa tasar?",
+            button_text="Seleccionar",
+            sections=[
+                {
+                    "title": "Operación",
+                    "rows": [
+                        {"id": "1", "title": "1️⃣ Venta", "description": "Tasar para venta"},
+                        {"id": "2", "title": "2️⃣ Alquiler", "description": "Tasar para alquiler"},
+                        {"id": "m", "title": "🔙 Volver", "description": "Ir al menú principal"}
+                    ]
+                }
+            ],
+            footer="Selecciona una opción 👇"
+        )
 
 
 def manejar_tasacion_operacion(text_lower, estado_usuario, user_id):
     """Guarda la operación y continúa"""
     ops = {"1": "venta", "2": "alquiler"}
+    
+    # Manejar caso de reintentar (ID 10)
+    if text_lower == "10":
+        return manejar_reintentar_tasacion(estado_usuario, user_id)
+    
     if text_lower in ops:
         if 'datos_tasacion' not in estado_usuario['data']:
             estado_usuario['data']['datos_tasacion'] = {}
-            
+        
         estado_usuario['data']['datos_tasacion']['operacion'] = ops[text_lower]
         estado_usuario['paso'] = 'tasacion_barrio'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "📍 *¿En qué barrio se encuentra la propiedad?* (ej: Palermo, Belgrano, Tigre...)"
+        
+        # Después de seleccionar operación, preguntar barrio
+        platform = estado_usuario.get('platform', 'whatsapp')
+        if platform in ['whatsapp', 'whatsapp_business']:
+            return "📍 *¿En qué barrio se encuentra la propiedad?* (ej: Palermo, Belgrano, Tigre...)"
+        else:
+            return "📍 *¿En qué barrio se encuentra la propiedad?*\n\nEjemplo: Palermo, Belgrano, Tigre, etc."
     else:
         return "⚠️ Por favor, elegí 1 para Venta o 2 para Alquiler."
 
 
+def manejar_reintentar_tasacion(estado_usuario, user_id):
+    """
+    Maneja el reintento de tasación.
+    Reinicia el flujo desde la pregunta del barrio.
+    """
+    user_id_str = str(user_id)
+    log(f"🔄 Reintentando tasación para usuario {user_id_str}")
+    
+    # Obtener o crear estado del usuario
+    from database import obtener_estado_usuario, actualizar_estado_usuario
+    
+    # Asegurar que estado_usuario tenga la estructura correcta
+    if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
+        estado_usuario['data'] = {}
+    
+    # Verificar si ya tenemos operación guardada
+    datos_tasacion = estado_usuario['data'].get('datos_tasacion', {})
+    
+    if datos_tasacion.get('operacion'):
+        # Si ya tenía operación, preguntar directamente por el barrio
+        estado_usuario['paso'] = 'tasacion_barrio'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        platform = estado_usuario.get('platform', 'whatsapp')
+        if platform in ['whatsapp', 'whatsapp_business']:
+            return "📍 *Perfecto, reiniciemos la tasación.*\n\n¿En qué barrio se encuentra la propiedad? (ej: Palermo, Belgrano, Tigre...)"
+        else:
+            return "📍 *Perfecto, reiniciemos la tasación.*\n\n¿En qué barrio se encuentra la propiedad?\n\nEjemplo: Palermo, Belgrano, Tigre, etc."
+    else:
+        # Si no hay operación, volver a preguntar operación primero
+        estado_usuario['paso'] = 'tasacion_operacion'
+        estado_usuario['data']['datos_tasacion'] = {}
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        return manejar_menu_tasacion(None, estado_usuario, user_id)
+
+
 def manejar_tasacion_barrio(text, estado_usuario, user_id):
     """
-    Guarda el barrio y Verifica INMEDIATAMENTE si el barrio existe en el mapa.
+    Guarda el barrio y verifica INMEDIATAMENTE si el barrio existe en el mapa.
     Si no existe → rechazar tasación inmediatamente.
     """
     barrio = text.strip()
     datos_tasacion = estado_usuario['data'].get('datos_tasacion', {})
     operacion = datos_tasacion.get('operacion', 'venta')
     
-    # Verificar si el barrio existe en el mapa (independientemente del tipo)
+    # Verificar si el barrio existe en el mapa
     try:
         map_path = os.path.join(os.path.dirname(__file__), "market_valuation_map.json")
         if not os.path.exists(map_path):
-            return _respuesta_rechazo_tasacion()
+            return _respuesta_rechazo_tasacion(estado_usuario, user_id)
         
         with open(map_path, 'r', encoding='utf-8') as f:
             vmap = json.load(f)
@@ -164,7 +236,7 @@ def manejar_tasacion_barrio(text, estado_usuario, user_id):
         # Si el barrio NO existe en el mapa → rechazar inmediatamente
         if barrio_key not in vmap:
             log(f"❌ Tasación rechazada: Barrio '{barrio_key}' no existe en el mapa")
-            return _respuesta_rechazo_tasacion()
+            return _respuesta_rechazo_tasacion(estado_usuario, user_id)
         
         # Guardar barrio y continuar
         if 'datos_tasacion' not in estado_usuario['data']:
@@ -174,34 +246,57 @@ def manejar_tasacion_barrio(text, estado_usuario, user_id):
         estado_usuario['paso'] = 'tasacion_tipo'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        return {
-            "type": "interactive_list",
-            "body": "🏠 *¿Qué tipo de propiedad es?*",
-            "button_text": "Tipos",
-            "sections": [
-                {
-                    "title": "Tipo de Propiedad",
-                    "rows": [
-                        {"id": "1", "title": "Departamento"},
-                        {"id": "2", "title": "Casa"},
-                        {"id": "3", "title": "PH"},
-                        {"id": "4", "title": "Oficina / Local"},
-                        {"id": "5", "title": "Terreno"}
-                    ]
-                }
-            ],
-            "footer": "Ⓜ️ Envía 'M' para Volver | ❌ Envía 'S' para Salir"
-        }
+        # Mostrar lista de tipos según plataforma
+        platform = estado_usuario.get('platform', 'whatsapp')
+        
+        if platform in ['whatsapp', 'whatsapp_business']:
+            return {
+                "type": "interactive_list",
+                "body": "🏠 *¿Qué tipo de propiedad es?*",
+                "button_text": "Tipos",
+                "sections": [
+                    {
+                        "title": "Tipo de Propiedad",
+                        "rows": [
+                            {"id": "1", "title": "Departamento"},
+                            {"id": "2", "title": "Casa"},
+                            {"id": "3", "title": "PH"},
+                            {"id": "4", "title": "Oficina / Local"},
+                            {"id": "5", "title": "Terreno"}
+                        ]
+                    }
+                ],
+                "footer": "Ⓜ️ Envía 'M' para Volver | ❌ Envía 'S' para Salir"
+            }
+        else:
+            # Para Facebook/Instagram con numeración visible
+            return WhatsAppResponse.list_menu(
+                header="🏠 *Tipo de Propiedad*",
+                body="¿Qué tipo de propiedad deseas tasar?",
+                button_text="Seleccionar",
+                sections=[
+                    {
+                        "title": "Tipos Disponibles",
+                        "rows": [
+                            {"id": "1", "title": "1️⃣ Departamento", "description": "Unidad en edificio"},
+                            {"id": "2", "title": "2️⃣ Casa", "description": "Vivienda individual"},
+                            {"id": "3", "title": "3️⃣ PH", "description": "Propiedad Horizontal"},
+                            {"id": "4", "title": "4️⃣ Oficina / Local", "description": "Uso comercial"},
+                            {"id": "5", "title": "5️⃣ Terreno", "description": "Lote / Terreno"}
+                        ]
+                    }
+                ],
+                footer="Selecciona una opción 👇"
+            )
         
     except Exception as e:
         log(f"⚠️ Error verificando barrio: {e}")
-        return _respuesta_rechazo_tasacion()
+        return _respuesta_rechazo_tasacion(estado_usuario, user_id)
 
 
 def manejar_tasacion_tipo(text_lower, estado_usuario, user_id):
     """
-    Guarda el tipo y Verifica INMEDIATAMENTE la combinación completa:
-    barrio + operacion + tipo
+    Guarda el tipo y Verifica INMEDIATAMENTE la combinación completa.
     Si no existe → rechazar tasación inmediatamente.
     """
     tipos = {
@@ -222,14 +317,14 @@ def manejar_tasacion_tipo(text_lower, estado_usuario, user_id):
     
     if not barrio:
         log(f"❌ Error: No hay barrio guardado al seleccionar tipo")
-        return _respuesta_rechazo_tasacion()
+        return _respuesta_rechazo_tasacion(estado_usuario, user_id)
     
     # VERIFICACIÓN INMEDIATA de la combinación completa
     es_valido = verificar_combinacion_valida(barrio, tipo, operacion)
     
     if not es_valido:
         log(f"❌ Tasación rechazada: Combinación inválida - Barrio:'{barrio}' Tipo:'{tipo}' Operación:'{operacion}'")
-        return _respuesta_rechazo_tasacion()
+        return _respuesta_rechazo_tasacion(estado_usuario, user_id)
     
     # Si es válido, guardar y continuar
     if 'datos_tasacion' not in estado_usuario['data']:
@@ -238,7 +333,12 @@ def manejar_tasacion_tipo(text_lower, estado_usuario, user_id):
     estado_usuario['data']['datos_tasacion']['tipo'] = tipo
     estado_usuario['paso'] = 'tasacion_m2'
     actualizar_estado_usuario(user_id, estado_usuario)
-    return "📏 *¿Cuántos m² cubiertos tiene la propiedad?* (Ingresá solo el número, ej: 65)"
+    
+    platform = estado_usuario.get('platform', 'whatsapp')
+    if platform in ['whatsapp', 'whatsapp_business']:
+        return "📏 *¿Cuántos m² cubiertos tiene la propiedad?* (Ingresá solo el número, ej: 65)"
+    else:
+        return "📏 *¿Cuántos m² cubiertos tiene la propiedad?*\n\nIngresá solo el número (ej: 65, 120, 200)"
 
 
 def manejar_tasacion_m2(text, estado_usuario, user_id):
@@ -266,7 +366,13 @@ def manejar_tasacion_m2(text, estado_usuario, user_id):
             
         estado_usuario['paso'] = 'tasacion_ambientes'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "🔢 *¿Cuántos ambientes tiene?* (ej: 3)"
+        
+        platform = estado_usuario.get('platform', 'whatsapp')
+        if platform in ['whatsapp', 'whatsapp_business']:
+            return "🔢 *¿Cuántos ambientes tiene?* (ej: 3)"
+        else:
+            return "🔢 *¿Cuántos ambientes tiene?*\n\nEjemplo: 1, 2, 3, 4"
+        
     except ValueError:
         log(f"⚠️ Error: No se pudo convertir '{text}' a número")
         return "⚠️ Por favor, ingresá un número válido para los metros cuadrados (usa . para decimales si es necesario).\n\nEjemplo: 65, 120.5, 200"
@@ -291,24 +397,46 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
         estado_usuario['paso'] = 'tasacion_estado'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        return {
-            "type": "interactive_list",
-            "body": "🏗️ *¿En qué estado se encuentra la propiedad?*",
-            "button_text": "Estado",
-            "sections": [
-                {
-                    "title": "Condición",
-                    "rows": [
-                        {"id": "1", "title": "Excelente / A estrenar"},
-                        {"id": "2", "title": "Muy bueno"},
-                        {"id": "3", "title": "Bueno"},
-                        {"id": "4", "title": "Regular"},
-                        {"id": "5", "title": "A refaccionar"}
-                    ]
-                }
-            ],
-            "footer": "Ⓜ️ Envía 'M' para Volver | ❌ Envía 'S' para Salir"
-        }
+        platform = estado_usuario.get('platform', 'whatsapp')
+        
+        if platform in ['whatsapp', 'whatsapp_business']:
+            return {
+                "type": "interactive_list",
+                "body": "🏗️ *¿En qué estado se encuentra la propiedad?*",
+                "button_text": "Estado",
+                "sections": [
+                    {
+                        "title": "Condición",
+                        "rows": [
+                            {"id": "1", "title": "Excelente / A estrenar"},
+                            {"id": "2", "title": "Muy bueno"},
+                            {"id": "3", "title": "Bueno"},
+                            {"id": "4", "title": "Regular"},
+                            {"id": "5", "title": "A refaccionar"}
+                        ]
+                    }
+                ],
+                "footer": "Ⓜ️ Envía 'M' para Volver | ❌ Envía 'S' para Salir"
+            }
+        else:
+            return WhatsAppResponse.list_menu(
+                header="🏗️ *Estado de la Propiedad*",
+                body="¿En qué estado se encuentra?",
+                button_text="Seleccionar",
+                sections=[
+                    {
+                        "title": "Condición",
+                        "rows": [
+                            {"id": "1", "title": "1️⃣ Excelente / A estrenar", "description": "Como nuevo, sin uso"},
+                            {"id": "2", "title": "2️⃣ Muy bueno", "description": "Bien mantenido, pocos años"},
+                            {"id": "3", "title": "3️⃣ Bueno", "description": "Habitable, con uso normal"},
+                            {"id": "4", "title": "4️⃣ Regular", "description": "Requiere mejoras"},
+                            {"id": "5", "title": "5️⃣ A refaccionar", "description": "Necesita reformas"}
+                        ]
+                    }
+                ],
+                footer="Selecciona una opción 👇"
+            )
     except Exception as e:
         log(f"⚠️ Error en manejar_tasacion_ambientes: {e}")
         return "⚠️ Por favor, ingresá un número para los ambientes. (Ejemplo: 2, 3, 4)"
@@ -327,7 +455,7 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
     if text_lower in estados:
         if 'datos_tasacion' not in estado_usuario['data']:
             log(f"❌ Error: datos_tasacion no encontrado")
-            return _respuesta_rechazo_tasacion()
+            return _respuesta_rechazo_tasacion(estado_usuario, user_id)
             
         datos = estado_usuario['data']['datos_tasacion']
         campos_requeridos = ['barrio', 'tipo', 'm2', 'ambientes']
@@ -335,14 +463,14 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
         for campo in campos_requeridos:
             if campo not in datos or datos[campo] is None:
                 log(f"❌ Error: Campo '{campo}' faltante")
-                return _respuesta_rechazo_tasacion()
+                return _respuesta_rechazo_tasacion(estado_usuario, user_id)
         
         try:
             datos['m2'] = float(datos['m2'])
             datos['ambientes'] = int(datos['ambientes'])
         except (ValueError, TypeError) as e:
             log(f"❌ Error al convertir: {e}")
-            return _respuesta_rechazo_tasacion()
+            return _respuesta_rechazo_tasacion(estado_usuario, user_id)
         
         datos['estado'] = estados[text_lower]
         actualizar_estado_usuario(user_id, estado_usuario)
@@ -353,17 +481,49 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
         return "⚠️ Por favor, elegí una opción válida (1 al 5)."
 
 
-def _respuesta_rechazo_tasacion():
-    """Respuesta unificada para rechazo de tasación"""
-    return WhatsAppResponse.buttons(
-        header="Tasación no disponible",
-        body="Tasación no disponible: no contamos con datos suficientes para esta combinación.\n\n¿Deseas intentar con otros datos, volver al menú o hablar con un asesor?",
-        buttons=[
-            {"id": "10", "title": "📈 Reintentar Tasación"},
-            {"id": "5", "title": "👤 Hablar con Asesor"},
-            {"id": "m", "title": "🔙 Volver al Menú"}
-        ]
-    )
+def _respuesta_rechazo_tasacion(estado_usuario, user_id):
+    """
+    Respuesta unificada para rechazo de tasación.
+    Los botones deben manejar correctamente el reintento.
+    """
+    # Limpiar datos de tasación para que el reintento empiece limpio
+    if 'data' in estado_usuario and 'datos_tasacion' in estado_usuario['data']:
+        estado_usuario['data']['datos_tasacion'] = {}
+    
+    # Establecer paso a tasacion_operacion para que reintento funcione
+    estado_usuario['paso'] = 'tasacion_operacion'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    platform = estado_usuario.get('platform', 'whatsapp')
+    
+    if platform in ['whatsapp', 'whatsapp_business']:
+        return WhatsAppResponse.buttons(
+            header="Tasación no disponible",
+            body="Tasación no disponible: no contamos con datos suficientes para esta combinación.\n\n¿Deseas intentar con otros datos, volver al menú o hablar con un asesor?",
+            buttons=[
+                {"id": "10", "title": "📈 Reintentar Tasación"},
+                {"id": "5", "title": "👤 Hablar con Asesor"},
+                {"id": "m", "title": "🔙 Volver al Menú"}
+            ]
+        )
+    else:
+        # Para Facebook/Instagram con lista interactiva
+        return WhatsAppResponse.list_menu(
+            header="Tasación no disponible",
+            body="No contamos con datos suficientes para esta combinación.\n\n¿Qué deseas hacer?",
+            button_text="Opciones",
+            sections=[
+                {
+                    "title": "Acciones",
+                    "rows": [
+                        {"id": "10", "title": "📈 Reintentar Tasación", "description": "Probar con otros datos"},
+                        {"id": "5", "title": "👤 Hablar con Asesor", "description": "Atención personalizada"},
+                        {"id": "m", "title": "🔙 Volver al Menú", "description": "Ir al inicio"}
+                    ]
+                }
+            ],
+            footer="Selecciona una opción 👇"
+        )
 
 
 def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
@@ -380,7 +540,7 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
         # Esto no debería fallar porque ya validamos antes, pero por seguridad:
         if not tasacion:
             log(f"⚠️ Tasación no disponible a pesar de validación previa")
-            return _respuesta_rechazo_tasacion()
+            return _respuesta_rechazo_tasacion(estado_usuario, user_id)
         
         # Aplicar ajuste de estado
         ajustes = {"Excelente": 1.10, "Muy bueno": 1.05, "Bueno": 1.00, "Regular": 0.85, "A refaccionar": 0.70}
@@ -415,22 +575,43 @@ Basado en el análisis estadístico de mercado para *{datos['barrio']}*:
         estado_usuario['paso'] = 'tasacion_esperando_contacto'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        return WhatsAppResponse.list_menu(
-            body=mensaje_body,
-            button_text="Opciones",
-            sections=[
-                {
-                    "title": "Acciones",
-                    "rows": [
-                        {"id": "1", "title": "✅ Deseas una Tasación", "description": "Profesional con visita"},
-                        {"id": "2", "title": "⏭️ No por ahora", "description": "Continuar explorando"},
-                        {"id": "m", "title": "🔙 Menú Principal", "description": "Ir al inicio"},
-                        {"id": "s", "title": "❌ Salir", "description": "Terminar sesión"}
-                    ]
-                }
-            ],
-            footer="Selecciona una opción 👇"
-        )
+        platform = estado_usuario.get('platform', 'whatsapp')
+        
+        if platform in ['whatsapp', 'whatsapp_business']:
+            return WhatsAppResponse.list_menu(
+                body=mensaje_body,
+                button_text="Opciones",
+                sections=[
+                    {
+                        "title": "Acciones",
+                        "rows": [
+                            {"id": "1", "title": "✅ Deseas una Tasación", "description": "Profesional con visita"},
+                            {"id": "2", "title": "⏭️ No por ahora", "description": "Continuar explorando"},
+                            {"id": "m", "title": "🔙 Menú Principal", "description": "Ir al inicio"},
+                            {"id": "s", "title": "❌ Salir", "description": "Terminar sesión"}
+                        ]
+                    }
+                ],
+                footer="Selecciona una opción 👇"
+            )
+        else:
+            # Para Facebook/Instagram con numeración visible
+            return WhatsAppResponse.list_menu(
+                body=mensaje_body,
+                button_text="Opciones",
+                sections=[
+                    {
+                        "title": "Acciones",
+                        "rows": [
+                            {"id": "1", "title": "1️⃣ ✅ Deseas Tasación Profesional", "description": "Con visita de asesor"},
+                            {"id": "2", "title": "2️⃣ ⏭️ No por ahora", "description": "Continuar explorando"},
+                            {"id": "m", "title": "3️⃣ 🔙 Menú Principal", "description": "Ir al inicio"},
+                            {"id": "s", "title": "4️⃣ ❌ Salir", "description": "Terminar sesión"}
+                        ]
+                    }
+                ],
+                footer="Selecciona una opción 👇"
+            )
         
     except Exception as e:
         log(f"🔥 Error en _finalizar_tasacion_y_responder: {e}")
