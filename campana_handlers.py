@@ -174,7 +174,7 @@ def iniciar_campana(platform=None):
     )
     
     if es_fb_ig:
-        # Facebook/Instagram: texto plano SIN asteriscos (no soporta markdown)
+        # Facebook/Instagram: mensaje con doble salto de línea
         cuerpo_menu = (
             f"{cuerpo_base}\n\n"
             "Servicios Disponibles\n"
@@ -187,6 +187,9 @@ def iniciar_campana(platform=None):
             f"{PIE_MENU}\n\n"
             "💡 Envía el número de la opción deseada"
         )
+        
+        # Reemplazar \n por \r\n para mejor compatibilidad
+        cuerpo_menu = cuerpo_menu.replace('\n', '\r\n')
         
         return {
             "type": "text",
