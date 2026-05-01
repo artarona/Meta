@@ -155,16 +155,14 @@ def iniciar_campana(platform=None):
     - WhatsApp: lista interactiva (sin números visibles)
     - Facebook/Instagram: texto plano CON numeración visible (1️⃣, 2️⃣, etc.)
     """
-    # Log para depuración
-    log(f"🔍 iniciar_campana - platform recibido: '{platform}' (tipo: {type(platform)})")
-    
     # Detectar si es Facebook/Instagram
     es_fb_ig = False
     if platform:
         platform_lower = str(platform).lower()
         es_fb_ig = platform_lower in ("messenger", "facebook", "instagram")
     
-    log(f"🔍 es_fb_ig: {es_fb_ig}")
+    # LOG IMPORTANTE PARA DEPURACIÓN
+    log(f"🔍 iniciar_campana - platform: '{platform}', es_fb_ig: {es_fb_ig}")
     
     # Texto base del mensaje
     cuerpo_base = (
@@ -175,7 +173,7 @@ def iniciar_campana(platform=None):
     )
     
     if es_fb_ig:
-        # Para Facebook/Instagram: texto plano CON numeración visible
+        # SOLO para Facebook/Instagram: texto plano CON numeración
         cuerpo_menu = (
             f"{cuerpo_base}\n\n"
             "*Servicios Disponibles*\n"
@@ -188,7 +186,7 @@ def iniciar_campana(platform=None):
             f"{PIE_MENU}"
         )
         
-        log(f"📱 Enviando menú con numeración (FB/IG)")
+        log(f"📱 [FB/IG] Enviando menú con numeración")
         
         return {
             "type": "text",
@@ -196,8 +194,8 @@ def iniciar_campana(platform=None):
             "preview": False
         }
     else:
-        # Para WhatsApp: lista interactiva
-        log(f"📱 Enviando menú interactivo (WhatsApp)")
+        # SOLO para WhatsApp: lista interactiva (SIN números visibles)
+        log(f"📱 [WHATSAPP] Enviando menú interactivo SIN numeración")
         
         rows = [
             {"id": "c_comprar", "title": "🏡 Quiero Comprar", "description": "Busco comprar una propiedad"},
@@ -219,7 +217,9 @@ def iniciar_campana(platform=None):
             ],
             footer=PIE_MENU
         )
-          
+        
+        
+        
 # ========== MANEJO DE INTENCIÓN ==========
 
 def manejar_intencion_campana(text, estado_usuario, user_id):
@@ -335,6 +335,13 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
     data = _get_campana_data(estado_usuario)
     intencion = data.get('intencion')
     
+    # Obtener platform para saber qué formato usar
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram")
+    
+    # Log para depuración
+    log(f"🔍 manejar_recopilacion_datos - platform: {platform}, es_fb_ig: {es_fb_ig}")
+    
     # Si no hay intención guardada, algo se perdió → reiniciar
     if not intencion:
         log(f"⚠️ data_campana sin intención en paso {paso}, reiniciando", "WARNING", user_id=user_id)
@@ -349,15 +356,25 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
             estado_usuario['paso'] = 'campana_recopilar_tipo'
             _set_campana_data(estado_usuario, data)
             actualizar_estado_usuario(user_id, estado_usuario)
-            return WhatsAppResponse.buttons(
-                body=f"📍 Zona: *{text}* ✅\n\n¿Qué *tipo de propiedad* estás buscando?\n\n1️⃣ Departamento\n2️⃣ Casa\n3️⃣ Otro (Local/Lote)",
-                buttons=[
-                    {"id": "Depto", "title": "1️⃣ 🏢 Departamento"},
-                    {"id": "Casa", "title": "2️⃣ 🏠 Casa"},
-                    {"id": "Otro", "title": "3️⃣ 🏭 Otro (Local/Lote)"}
-                ],
-                footer=PIE_MENU
-            )
+            
+            if es_fb_ig:
+                # Facebook/Instagram: texto con numeración
+                return {
+                    "type": "text",
+                    "body": f"📍 Zona: *{text}* ✅\n\n¿Qué *tipo de propiedad* estás buscando?\n\n1️⃣ Departamento\n2️⃣ Casa\n3️⃣ Otro (Local/Lote)\n\n💡 *Envía 'M' para volver al menú o 'S' para salir.*",
+                    "preview": False
+                }
+            else:
+                # WhatsApp: botones SIN números
+                return WhatsAppResponse.buttons(
+                    body=f"📍 Zona: *{text}* ✅\n\n¿Qué *tipo de propiedad* estás buscando?",
+                    buttons=[
+                        {"id": "Depto", "title": "🏢 Departamento"},
+                        {"id": "Casa", "title": "🏠 Casa"},
+                        {"id": "Otro", "title": "🏭 Otro (Local/Lote)"}
+                    ],
+                    footer=PIE_MENU
+                )
             
         elif paso == 'campana_recopilar_tipo':
             data['tipo'] = text
@@ -365,7 +382,11 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
             _set_campana_data(estado_usuario, data)
             actualizar_estado_usuario(user_id, estado_usuario)
             moneda = "USD" if intencion == "Comprar" else "ARS/USD"
-            return f"🏠 Tipo: *{text}* ✅\n\nPor último, ¿cuál es tu *presupuesto máximo* estimado en {moneda}?\n_(Ej: 100.000, 500k, etc.)_{HINT_SALIR}"
+            
+            if es_fb_ig:
+                return f"🏠 Tipo: *{text}* ✅\n\nPor último, ¿cuál es tu *presupuesto máximo* estimado en {moneda}?\n_(Ej: 100.000, 500k, etc.)_\n\n💡 *Envía 'M' para volver al menú o 'S' para salir.*"
+            else:
+                return f"🏠 Tipo: *{text}* ✅\n\nPor último, ¿cuál es tu *presupuesto máximo* estimado en {moneda}?\n_(Ej: 100.000, 500k, etc.)_{HINT_SALIR}"
             
         elif paso == 'campana_recopilar_presupuesto':
             data['presupuesto'] = text
@@ -381,30 +402,50 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
             estado_usuario['paso'] = 'campana_recopilar_tipo_tasacion'
             _set_campana_data(estado_usuario, data)
             actualizar_estado_usuario(user_id, estado_usuario)
-            return WhatsAppResponse.buttons(
-                body=f"📍 Dirección: *{text}* ✅\n\n¿Qué *tipo de propiedad* deseas tasar?\n\n1️⃣ Departamento\n2️⃣ Casa\n3️⃣ Otro (Local/Lote)",
-                buttons=[
-                    {"id": "Depto", "title": "1️⃣ 🏢 Departamento"},
-                    {"id": "Casa", "title": "2️⃣ 🏠 Casa"},
-                    {"id": "Otro", "title": "3️⃣ 🏭 Otro (Local/Lote)"}
-                ],
-                footer=PIE_MENU
-            )
+            
+            if es_fb_ig:
+                # Facebook/Instagram: texto con numeración
+                return {
+                    "type": "text",
+                    "body": f"📍 Dirección: *{text}* ✅\n\n¿Qué *tipo de propiedad* deseas tasar?\n\n1️⃣ Departamento\n2️⃣ Casa\n3️⃣ Otro (Local/Lote)\n\n💡 *Envía 'M' para volver al menú o 'S' para salir.*",
+                    "preview": False
+                }
+            else:
+                # WhatsApp: botones SIN números
+                return WhatsAppResponse.buttons(
+                    body=f"📍 Dirección: *{text}* ✅\n\n¿Qué *tipo de propiedad* deseas tasar?",
+                    buttons=[
+                        {"id": "Depto", "title": "🏢 Departamento"},
+                        {"id": "Casa", "title": "🏠 Casa"},
+                        {"id": "Otro", "title": "🏭 Otro (Local/Lote)"}
+                    ],
+                    footer=PIE_MENU
+                )
             
         elif paso == 'campana_recopilar_tipo_tasacion':
             data['tipo'] = text
             estado_usuario['paso'] = 'campana_recopilar_estado'
             _set_campana_data(estado_usuario, data)
             actualizar_estado_usuario(user_id, estado_usuario)
-            return WhatsAppResponse.buttons(
-                body=f"🏠 Tipo: *{text}* ✅\n\n¿En qué *estado general* se encuentra la propiedad?\n\n1️⃣ Excelente\n2️⃣ Bueno/Refaccionar\n3️⃣ En obra/Terreno",
-                buttons=[
-                    {"id": "Excelente", "title": "1️⃣ ✨ Excelente"},
-                    {"id": "Bueno", "title": "2️⃣ 👍 Bueno/Refaccionar"},
-                    {"id": "En_obra", "title": "3️⃣ 🏗️ En obra/Terreno"}
-                ],
-                footer=PIE_MENU
-            )
+            
+            if es_fb_ig:
+                # Facebook/Instagram: texto con numeración
+                return {
+                    "type": "text",
+                    "body": f"🏠 Tipo: *{text}* ✅\n\n¿En qué *estado general* se encuentra la propiedad?\n\n1️⃣ Excelente\n2️⃣ Bueno/Refaccionar\n3️⃣ En obra/Terreno\n\n💡 *Envía 'M' para volver al menú o 'S' para salir.*",
+                    "preview": False
+                }
+            else:
+                # WhatsApp: botones SIN números
+                return WhatsAppResponse.buttons(
+                    body=f"🏠 Tipo: *{text}* ✅\n\n¿En qué *estado general* se encuentra la propiedad?",
+                    buttons=[
+                        {"id": "Excelente", "title": "✨ Excelente"},
+                        {"id": "Bueno", "title": "👍 Bueno/Refaccionar"},
+                        {"id": "En_obra", "title": "🏗️ En obra/Terreno"}
+                    ],
+                    footer=PIE_MENU
+                )
             
         elif paso == 'campana_recopilar_estado':
             data['estado_propiedad'] = text
@@ -417,7 +458,6 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
     estado_usuario['paso'] = 'campana_intent'
     actualizar_estado_usuario(user_id, estado_usuario)
     return iniciar_campana()
-
 
 # ========== NOMBRE PARA ASESOR ==========
 
