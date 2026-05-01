@@ -39,13 +39,15 @@ def _clear_campana_data(estado_usuario):
 def get_bot_response_campana(text, user_id):
     """
     Despachador principal para el MODO CAMPAÑA (TIPO_MENU = 1).
-    Orientado exclusivamente a la captación de leads en frío.
     """
     text_lower = text.lower().strip()
     estado_usuario = obtener_estado_usuario(user_id)
     paso_actual = estado_usuario.get('paso', 'campana_inicio')
     
-    # ========== COMANDOS GLOBALES (siempre disponibles) ==========
+    # Obtener platform del estado_usuario
+    platform = estado_usuario.get('platform', None)
+    
+    # ========== COMANDOS GLOBALES ==========
     if text_lower in ["salir", "s", "exit", "0"]:
         estado_usuario['paso'] = 'campana_inicio'
         _clear_campana_data(estado_usuario)
@@ -56,14 +58,19 @@ def get_bot_response_campana(text, user_id):
         estado_usuario['paso'] = 'campana_intent'
         _clear_campana_data(estado_usuario)
         actualizar_estado_usuario(user_id, estado_usuario)
-        platform = estado_usuario.get('platform', None)
+        # ✅ PASAR EL PLATFORM AQUÍ
         return iniciar_campana(platform)
-
+    
+    # MANEJO ESPECIAL PARA REINTENTAR TASACIÓN (ID 10)
+    if text_lower == "10":
+        from tasaciones import manejar_reintentar_tasacion
+        return manejar_reintentar_tasacion(estado_usuario, user_id)
+    
     # ========== ROUTING POR PASO ==========
     if paso_actual in ('campana_inicio', 'menu_principal'):
         estado_usuario['paso'] = 'campana_intent'
         actualizar_estado_usuario(user_id, estado_usuario)
-        platform = estado_usuario.get('platform', None)
+        # ✅ PASAR EL PLATFORM AQUÍ
         return iniciar_campana(platform)
         
     elif paso_actual == 'campana_intent':
@@ -101,36 +108,34 @@ def get_bot_response_campana(text, user_id):
         elif paso_actual == 'tasacion_esperando_contacto':
             resp = manejar_tasacion_contacto(text.lower(), estado_usuario, user_id)
             
-        # Manejar triggers especiales de tasaciones
         if resp == "WELCOME_FLOW_TRIGGER":
             estado_usuario['paso'] = 'campana_intent'
             actualizar_estado_usuario(user_id, estado_usuario)
-            return iniciar_campana()
+            # ✅ PASAR EL PLATFORM AQUÍ
+            return iniciar_campana(platform)
         return resp
 
-    # Fallback → menú principal
+    # Fallback
     estado_usuario['paso'] = 'campana_intent'
     actualizar_estado_usuario(user_id, estado_usuario)
-    return iniciar_campana()
+    # ✅ PASAR EL PLATFORM AQUÍ
+    return iniciar_campana(platform)
 
 
-# ========== MENÚ PRINCIPAL DE CAMPAÑA ==========
 
 # ========== MENÚ PRINCIPAL DE CAMPAÑA ==========
 
 def iniciar_campana(platform=None):
-    log(f"🔍 iniciar_campana - platform recibido: {platform}")
-    es_fb_ig = platform in ("messenger", "facebook", "instagram")
-    log(f"🔍 es_fb_ig: {es_fb_ig}")
-    
-    
     """
     Muestra el menú principal adaptado a la plataforma.
-    - WhatsApp: lista interactiva (sin números visibles)
-    - Facebook/Instagram: texto plano CON numeración explícita (1., 2., 3., etc.)
+    - WhatsApp: lista interactiva
+    - Facebook/Instagram: texto plano CON numeración visible
     """
-    # Detectar si es Facebook/Instagram (independientemente de TIPO_MENU)
+    # Detectar si es Facebook/Instagram
     es_fb_ig = platform in ("messenger", "facebook", "instagram")
+    
+    # Log para depuración
+    log(f"🔍 iniciar_campana - platform: {platform}, es_fb_ig: {es_fb_ig}")
     
     # Texto base del mensaje
     cuerpo_base = (
@@ -154,14 +159,13 @@ def iniciar_campana(platform=None):
             f"{PIE_MENU}"
         )
         
-        # Retornar como texto plano (no interactivo)
         return {
             "type": "text",
             "body": cuerpo_menu,
             "preview": False
         }
     else:
-        # Para WhatsApp: lista interactiva (sin números visibles, los botones son táctiles)
+        # Para WhatsApp: lista interactiva
         rows = [
             {"id": "c_comprar", "title": "🏡 Quiero Comprar", "description": "Busco comprar una propiedad"},
             {"id": "c_alquilar", "title": "🔑 Quiero Alquilar", "description": "Busco alquilar una propiedad"},
@@ -182,7 +186,7 @@ def iniciar_campana(platform=None):
             ],
             footer=PIE_MENU
         )
-        
+            
         
         
 # ========== MANEJO DE INTENCIÓN ==========
