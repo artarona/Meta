@@ -4,19 +4,70 @@ from database import *
 from whatsapp_api import *
 from logic.response_builder import WhatsAppResponse
 import json
-import requests
 import os
 
-def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
+def verificar_combinacion_valida(barrio, tipo, operacion='venta'):
     """
-    Busca valoración en el mapa estadístico.
-    SOLO retorna datos si existe combinación EXACTA.
-    Sin fallbacks, sin promedios generales.
+    Verifica si existe una combinación EXACTA en el mapa.
+    Retorna True si hay match exacto Y muestra > 0 Y avg_m2 válido.
+    Retorna False en cualquier otro caso.
     """
     try:
         map_path = os.path.join(os.path.dirname(__file__), "market_valuation_map.json")
         if not os.path.exists(map_path):
             log(f"🚫 No se halló el archivo market_valuation_map.json")
+            return False
+        
+        with open(map_path, 'r', encoding='utf-8') as f:
+            vmap = json.load(f)
+        
+        barrio_key = barrio.lower().strip()
+        op_key = operacion.lower().strip()
+        tipo_key = tipo.lower().strip()
+        
+        log(f"🔎 Verificando match EXACTO: '{barrio_key}' - '{op_key}' - '{tipo_key}'")
+        
+        # Verificar existencia EXACTA de la combinación
+        if barrio_key not in vmap:
+            log(f"❌ Barrio '{barrio_key}' no existe en el mapa")
+            return False
+        
+        op_data = vmap[barrio_key].get(op_key)
+        if not op_data:
+            log(f"❌ Operación '{op_key}' no existe para barrio '{barrio_key}'")
+            return False
+        
+        if tipo_key not in op_data:
+            log(f"❌ Tipo '{tipo_key}' no existe para barrio '{barrio_key}' - operación '{op_key}'")
+            return False
+        
+        stats = op_data[tipo_key]
+        muestra = stats.get('muestra', 0)
+        
+        if muestra <= 0:
+            log(f"❌ Combinación encontrada pero muestra = 0")
+            return False
+        
+        avg_m2 = stats.get('avg_m2')
+        if avg_m2 is None or avg_m2 <= 0:
+            log(f"❌ Combinación encontrada pero avg_m2 inválido")
+            return False
+        
+        log(f"✅ Match EXACTO válido encontrado")
+        return True
+        
+    except Exception as e:
+        log(f"⚠️ Error en verificación: {e}")
+        return False
+
+
+def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
+    """
+    Obtiene los datos de valoración SOLO si existe match exacto.
+    """
+    try:
+        map_path = os.path.join(os.path.dirname(__file__), "market_valuation_map.json")
+        if not os.path.exists(map_path):
             return None
         
         with open(map_path, 'r', encoding='utf-8') as f:
@@ -26,27 +77,20 @@ def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
         op_key = operacion.lower().strip()
         tipo_key = tipo.lower().strip()
         
-        log(f"🔎 Buscando match EXACTO en mapa: '{barrio_key}' - '{op_key}' - '{tipo_key}'")
-        
-        # Verificar existencia EXACTA de la combinación
         if barrio_key in vmap:
             op_data = vmap[barrio_key].get(op_key)
             if op_data and tipo_key in op_data:
                 stats = op_data[tipo_key]
-                
-                # Verificar que haya datos reales (muestra > 0)
                 muestra = stats.get('muestra', 0)
+                
                 if muestra <= 0:
-                    log(f"❌ Combinación encontrada pero muestra = 0: {barrio_key} - {op_key} - {tipo_key}")
                     return None
                 
                 avg_m2 = stats.get('avg_m2')
                 if avg_m2 is None or avg_m2 <= 0:
-                    log(f"❌ Combinación encontrada pero avg_m2 inválido: {avg_m2}")
                     return None
                 
                 moneda = stats.get('currency', 'USD' if op_key == 'venta' else 'ARS')
-                log(f"✅ Match EXACTO encontrado: {avg_m2} {moneda}/m2 (muestra: {muestra})")
                 
                 return {
                     "precio_m2": avg_m2,
@@ -55,54 +99,10 @@ def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
                     "fuentes": ["Estadísticas de Mercado (Consolidado)"],
                     "muestra": muestra
                 }
-            else:
-                log(f"❌ Match EXACTO fallido: operación '{op_key}' o tipo '{tipo_key}' no existe para barrio '{barrio_key}'")
-                return None
-        else:
-            log(f"❌ Barrio '{barrio_key}' no existe en el mapa de valoraciones")
-            return None
-            
+        return None
+        
     except Exception as e:
         log(f"⚠️ Error en tasación local: {e}")
-        return None
-
-
-def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado, operacion='venta'):
-    """
-    Obtiene valoración SOLO del mapa local.
-    SIN llamadas a IA externa.
-    SIN fallbacks.
-    SIN promedios generales.
-    """
-    try:
-        # Única fuente: mapa local de valoraciones
-        local_data = obtener_tasacion_local(barrio, tipo, estado, operacion)
-        
-        # Si NO hay match exacto → retornar None (sin tasación)
-        if not local_data:
-            log(f"❌ No hay match exacto para tasación: {barrio} - {tipo} - {operacion}")
-            return None
-        
-        # Aplicar ajustes de estado (único factor permitido)
-        ajustes = {"Excelente": 1.10, "Muy bueno": 1.05, "Bueno": 1.00, "Regular": 0.85, "A refaccionar": 0.70}
-        factor = ajustes.get(estado, 1.0)
-        
-        # Calcular valor estimado
-        valor_estimado = local_data['precio_m2'] * float(m2) * factor
-        valor_redondeado = round(valor_estimado, -2)  # Redondear a centenas
-        
-        return {
-            "valor_estimado": valor_redondeado,
-            "precio_m2": local_data['precio_m2'],
-            "moneda": local_data.get('moneda', 'USD'),
-            "is_fallback": False,
-            "fuentes": local_data.get("fuentes", ["Estadísticas de Mercado"]),
-            "muestra": local_data.get("muestra", 0),
-            "fuente": "Mapa de Valoración Local"
-        }
-        
-    except Exception as e:
-        log(f"⚠️ Error crítico en obtención de tasación: {e}")
         return None
 
 
@@ -127,7 +127,7 @@ def manejar_menu_tasacion(text_lower, estado_usuario, user_id):
 
 
 def manejar_tasacion_operacion(text_lower, estado_usuario, user_id):
-    """Guarda la operación e inicia la carga del barrio"""
+    """Guarda la operación y continúa"""
     ops = {"1": "venta", "2": "alquiler"}
     if text_lower in ops:
         if 'datos_tasacion' not in estado_usuario['data']:
@@ -142,36 +142,68 @@ def manejar_tasacion_operacion(text_lower, estado_usuario, user_id):
 
 
 def manejar_tasacion_barrio(text, estado_usuario, user_id):
-    """Guarda el barrio e inicia la selección de tipo"""
-    if 'datos_tasacion' not in estado_usuario['data']:
-        estado_usuario['data']['datos_tasacion'] = {}
-        
-    estado_usuario['data']['datos_tasacion']['barrio'] = text.strip()
-    estado_usuario['paso'] = 'tasacion_tipo'
-    actualizar_estado_usuario(user_id, estado_usuario)
+    """
+    Guarda el barrio y Verifica INMEDIATAMENTE si el barrio existe en el mapa.
+    Si no existe → rechazar tasación inmediatamente.
+    """
+    barrio = text.strip()
+    datos_tasacion = estado_usuario['data'].get('datos_tasacion', {})
+    operacion = datos_tasacion.get('operacion', 'venta')
     
-    return {
-        "type": "interactive_list",
-        "body": "🏠 *¿Qué tipo de propiedad es?*",
-        "button_text": "Tipos",
-        "sections": [
-            {
-                "title": "Tipo de Propiedad",
-                "rows": [
-                    {"id": "1", "title": "Departamento"},
-                    {"id": "2", "title": "Casa"},
-                    {"id": "3", "title": "PH"},
-                    {"id": "4", "title": "Oficina / Local"},
-                    {"id": "5", "title": "Terreno"}
-                ]
-            }
-        ],
-        "footer": "Ⓜ️ Envía 'M' para Volver | ❌ Envía 'S' para Salir"
-    }
+    # Verificar si el barrio existe en el mapa (independientemente del tipo)
+    try:
+        map_path = os.path.join(os.path.dirname(__file__), "market_valuation_map.json")
+        if not os.path.exists(map_path):
+            return _respuesta_rechazo_tasacion()
+        
+        with open(map_path, 'r', encoding='utf-8') as f:
+            vmap = json.load(f)
+        
+        barrio_key = barrio.lower().strip()
+        
+        # Si el barrio NO existe en el mapa → rechazar inmediatamente
+        if barrio_key not in vmap:
+            log(f"❌ Tasación rechazada: Barrio '{barrio_key}' no existe en el mapa")
+            return _respuesta_rechazo_tasacion()
+        
+        # Guardar barrio y continuar
+        if 'datos_tasacion' not in estado_usuario['data']:
+            estado_usuario['data']['datos_tasacion'] = {}
+        
+        estado_usuario['data']['datos_tasacion']['barrio'] = barrio
+        estado_usuario['paso'] = 'tasacion_tipo'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        return {
+            "type": "interactive_list",
+            "body": "🏠 *¿Qué tipo de propiedad es?*",
+            "button_text": "Tipos",
+            "sections": [
+                {
+                    "title": "Tipo de Propiedad",
+                    "rows": [
+                        {"id": "1", "title": "Departamento"},
+                        {"id": "2", "title": "Casa"},
+                        {"id": "3", "title": "PH"},
+                        {"id": "4", "title": "Oficina / Local"},
+                        {"id": "5", "title": "Terreno"}
+                    ]
+                }
+            ],
+            "footer": "Ⓜ️ Envía 'M' para Volver | ❌ Envía 'S' para Salir"
+        }
+        
+    except Exception as e:
+        log(f"⚠️ Error verificando barrio: {e}")
+        return _respuesta_rechazo_tasacion()
 
 
 def manejar_tasacion_tipo(text_lower, estado_usuario, user_id):
-    """Guarda el tipo e inicia la carga de m2"""
+    """
+    Guarda el tipo y Verifica INMEDIATAMENTE la combinación completa:
+    barrio + operacion + tipo
+    Si no existe → rechazar tasación inmediatamente.
+    """
     tipos = {
         "1": "Departamento",
         "2": "Casa",
@@ -180,16 +212,33 @@ def manejar_tasacion_tipo(text_lower, estado_usuario, user_id):
         "5": "Terreno"
     }
     
-    if text_lower in tipos:
-        if 'datos_tasacion' not in estado_usuario['data']:
-            estado_usuario['data']['datos_tasacion'] = {}
-            
-        estado_usuario['data']['datos_tasacion']['tipo'] = tipos[text_lower]
-        estado_usuario['paso'] = 'tasacion_m2'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "📏 *¿Cuántos m² cubiertos tiene la propiedad?* (Ingresá solo el número, ej: 65)"
-    else:
+    if text_lower not in tipos:
         return "⚠️ Por favor, elegí una opción válida (1 al 5)."
+    
+    tipo = tipos[text_lower]
+    datos_tasacion = estado_usuario['data'].get('datos_tasacion', {})
+    barrio = datos_tasacion.get('barrio')
+    operacion = datos_tasacion.get('operacion', 'venta')
+    
+    if not barrio:
+        log(f"❌ Error: No hay barrio guardado al seleccionar tipo")
+        return _respuesta_rechazo_tasacion()
+    
+    # VERIFICACIÓN INMEDIATA de la combinación completa
+    es_valido = verificar_combinacion_valida(barrio, tipo, operacion)
+    
+    if not es_valido:
+        log(f"❌ Tasación rechazada: Combinación inválida - Barrio:'{barrio}' Tipo:'{tipo}' Operación:'{operacion}'")
+        return _respuesta_rechazo_tasacion()
+    
+    # Si es válido, guardar y continuar
+    if 'datos_tasacion' not in estado_usuario['data']:
+        estado_usuario['data']['datos_tasacion'] = {}
+    
+    estado_usuario['data']['datos_tasacion']['tipo'] = tipo
+    estado_usuario['paso'] = 'tasacion_m2'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    return "📏 *¿Cuántos m² cubiertos tiene la propiedad?* (Ingresá solo el número, ej: 65)"
 
 
 def manejar_tasacion_m2(text, estado_usuario, user_id):
@@ -277,98 +326,87 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
     
     if text_lower in estados:
         if 'datos_tasacion' not in estado_usuario['data']:
-            log(f"❌ Error: datos_tasacion no encontrado en estado_usuario['data']")
-            return "⚠️ Ocurrió un error en el flujo. Por favor, enviá 'Hola' para comenzar de nuevo."
+            log(f"❌ Error: datos_tasacion no encontrado")
+            return _respuesta_rechazo_tasacion()
             
         datos = estado_usuario['data']['datos_tasacion']
         campos_requeridos = ['barrio', 'tipo', 'm2', 'ambientes']
         
         for campo in campos_requeridos:
-            if campo not in datos or datos[campo] is None or str(datos[campo]).strip() == '':
-                log(f"❌ Error: Campo '{campo}' faltante o vacío en datos_tasacion: {datos}")
-                return f"⚠️ Error: Falta información en el campo '{campo}'. Por favor, iniciá nuevamente con 'Hola'."
+            if campo not in datos or datos[campo] is None:
+                log(f"❌ Error: Campo '{campo}' faltante")
+                return _respuesta_rechazo_tasacion()
         
         try:
             datos['m2'] = float(datos['m2'])
             datos['ambientes'] = int(datos['ambientes'])
         except (ValueError, TypeError) as e:
-            log(f"❌ Error al convertir m2 o ambientes: {e}, datos: {datos}")
-            return f"⚠️ Error al procesar los datos. Por favor, iniciá nuevamente con 'Hola'."
+            log(f"❌ Error al convertir: {e}")
+            return _respuesta_rechazo_tasacion()
         
-        estado_usuario['data']['datos_tasacion']['estado'] = estados[text_lower]
+        datos['estado'] = estados[text_lower]
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        log(f"✅ Datos de tasación completos: {estado_usuario['data']['datos_tasacion']}")
-        return _finalizar_tasacion_y_responder(user_id, estado_usuario, estado_usuario['data']['datos_tasacion'])
+        log(f"✅ Datos completos, procediendo a tasación")
+        return _finalizar_tasacion_y_responder(user_id, estado_usuario, datos)
     else:
         return "⚠️ Por favor, elegí una opción válida (1 al 5)."
 
 
+def _respuesta_rechazo_tasacion():
+    """Respuesta unificada para rechazo de tasación"""
+    return WhatsAppResponse.buttons(
+        header="Tasación no disponible",
+        body="Tasación no disponible: no contamos con datos suficientes para esta combinación.\n\n¿Deseas intentar con otros datos, volver al menú o hablar con un asesor?",
+        buttons=[
+            {"id": "10", "title": "📈 Reintentar Tasación"},
+            {"id": "5", "title": "👤 Hablar con Asesor"},
+            {"id": "m", "title": "🔙 Volver al Menú"}
+        ]
+    )
+
+
 def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
-    """Calcula tasación SOLO si hay match exacto, registra lead y responde"""
+    """Calcula la tasación (ya validada) y responde"""
     try:
-        # 1. Intentar obtener tasación (SOLO match exacto)
-        tasacion = obtener_tasacion_ia(
+        # Obtener datos de tasación (ya sabemos que es válido por la validación previa)
+        tasacion = obtener_tasacion_local(
             datos['barrio'], 
             datos['tipo'], 
-            datos['m2'], 
-            datos['ambientes'], 
             datos['estado'],
             datos.get('operacion', 'venta')
         )
         
-        # 2. Si NO hay match exacto → respuesta de rechazo
+        # Esto no debería fallar porque ya validamos antes, pero por seguridad:
         if not tasacion:
-            log(f"❌ Tasación rechazada - Sin match exacto para: {datos}")
-            
-            # Registrar lead rechazado igualmente para tracking
-            detalles = f"Tasación RECHAZADA (sin datos): {datos['tipo']} en {datos['barrio']}, {datos['m2']}m2, {datos['ambientes']} amb, estado {datos['estado']}, operación {datos.get('operacion', 'venta')}"
-            registrar_lead(user_id, "TASACION_RECHAZADA", "tasacion_rechazada", detalles)
-            
-            # Respuesta de rechazo según requerimiento
-            return WhatsAppResponse.buttons(
-                header="Tasación no disponible",
-                body="Tasación no disponible: no contamos con datos suficientes para esta combinación.\n\n¿Deseas intentar con otros datos, volver al menú o hablar con un asesor?",
-                buttons=[
-                    {"id": "10", "title": "📈 Reintentar Tasación"},
-                    {"id": "5", "title": "👤 Hablar con Asesor"},
-                    {"id": "m", "title": "🔙 Volver al Menú"}
-                ]
-            )
+            log(f"⚠️ Tasación no disponible a pesar de validación previa")
+            return _respuesta_rechazo_tasacion()
         
-        # 3. Verificar que la muestra sea > 0 (doble validación)
-        muestra = tasacion.get("muestra", 0)
-        if muestra <= 0:
-            log(f"❌ Tasación rechazada - Muestra inválida: {muestra}")
-            return WhatsAppResponse.buttons(
-                header="Tasación no disponible",
-                body="Tasación no disponible: no contamos con datos suficientes para esta combinación.\n\n¿Deseas intentar con otros datos, volver al menú o hablar con un asesor?",
-                buttons=[
-                    {"id": "10", "title": "📈 Reintentar Tasación"},
-                    {"id": "5", "title": "👤 Hablar con Asesor"},
-                    {"id": "m", "title": "🔙 Volver al Menú"}
-                ]
-            )
+        # Aplicar ajuste de estado
+        ajustes = {"Excelente": 1.10, "Muy bueno": 1.05, "Bueno": 1.00, "Regular": 0.85, "A refaccionar": 0.70}
+        factor = ajustes.get(datos['estado'], 1.0)
+        valor_estimado = tasacion['precio_m2'] * float(datos['m2']) * factor
+        valor_redondeado = round(valor_estimado, -2)
         
-        # 4. Registrar Lead exitoso
-        detalles = f"Tasación exitosa: {datos['tipo']} en {datos['barrio']}, {datos['m2']}m2, {datos['ambientes']} amb, estado {datos['estado']}, operación {datos.get('operacion', 'venta')}. Resultado: {tasacion['valor_estimado']:,.0f} {tasacion['moneda']}"
+        # Registrar Lead exitoso
+        detalles = f"Tasación exitosa: {datos['tipo']} en {datos['barrio']}, {datos['m2']}m2, {datos['ambientes']} amb, estado {datos['estado']}. Resultado: {valor_redondeado:,.0f} {tasacion['moneda']}"
         registrar_lead(user_id, "TASACION_VIRTUAL", "tasacion", detalles)
         notificar_agente(f"📈 *NUEVO LEAD DE TASACIÓN*\n📞 Tel: +{user_id}\n📝 {detalles}")
         
-        # 5. Construir respuesta exitosa
-        intro_mercado = f"Basado en el análisis estadístico de mercado para *{datos['barrio']}*:"
+        # Construir respuesta
+        muestra = tasacion.get("muestra", 0)
         fuentes_str = ", ".join(tasacion.get("fuentes", ["Mercado Local"]))
-        info_fuentes = f"\n🔍 *Análisis:* basado en {muestra} propiedades de {fuentes_str}."
-
+        
         mensaje_body = f"""📊 *RESULTADO DE TU TASACIÓN VIRTUAL*
 
-{intro_mercado}
+Basado en el análisis estadístico de mercado para *{datos['barrio']}*:
 
 🏠 *Propiedad:* {datos['tipo']}
 📏 *Superficie:* {datos['m2']} m²
-💰 *Valor estimado:* {tasacion['moneda']} ${tasacion['valor_estimado']:,.0f}
+💰 *Valor estimado:* {tasacion['moneda']} ${valor_redondeado:,.0f}
 📈 *Precio promedio m²:* {tasacion['moneda']} ${tasacion['precio_m2']:,.0f}
-{info_fuentes}
+
+🔍 *Análisis:* basado en {muestra} propiedades de {fuentes_str}.
 
 ⚠️ *Nota:* Esta es una estimación orientativa basada en datos de mercado. Para una tasación profesional, un asesor debe visitar la propiedad.
 
