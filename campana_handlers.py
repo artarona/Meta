@@ -116,11 +116,18 @@ def get_bot_response_campana(text, user_id):
 
 # ========== MENÚ PRINCIPAL DE CAMPAÑA ==========
 
+# ========== MENÚ PRINCIPAL DE CAMPAÑA ==========
+
 def iniciar_campana(platform=None):
+    log(f"🔍 iniciar_campana - platform recibido: {platform}")
+    es_fb_ig = platform in ("messenger", "facebook", "instagram")
+    log(f"🔍 es_fb_ig: {es_fb_ig}")
+    
+    
     """
     Muestra el menú principal adaptado a la plataforma.
     - WhatsApp: lista interactiva (sin números visibles)
-    - Facebook/Instagram: texto plano con numeración (1., 2., 3., etc.)
+    - Facebook/Instagram: texto plano CON numeración explícita (1., 2., 3., etc.)
     """
     # Detectar si es Facebook/Instagram (independientemente de TIPO_MENU)
     es_fb_ig = platform in ("messenger", "facebook", "instagram")
@@ -134,7 +141,7 @@ def iniciar_campana(platform=None):
     )
     
     if es_fb_ig:
-        # Para Facebook/Instagram: texto plano con numeración visible
+        # Para Facebook/Instagram: texto plano CON numeración visible
         cuerpo_menu = (
             f"{cuerpo_base}\n\n"
             "*Servicios Disponibles*\n"
@@ -147,13 +154,14 @@ def iniciar_campana(platform=None):
             f"{PIE_MENU}"
         )
         
+        # Retornar como texto plano (no interactivo)
         return {
             "type": "text",
             "body": cuerpo_menu,
             "preview": False
         }
     else:
-        # Para WhatsApp: lista interactiva
+        # Para WhatsApp: lista interactiva (sin números visibles, los botones son táctiles)
         rows = [
             {"id": "c_comprar", "title": "🏡 Quiero Comprar", "description": "Busco comprar una propiedad"},
             {"id": "c_alquilar", "title": "🔑 Quiero Alquilar", "description": "Busco alquilar una propiedad"},
@@ -174,7 +182,9 @@ def iniciar_campana(platform=None):
             ],
             footer=PIE_MENU
         )
-
+        
+        
+        
 # ========== MANEJO DE INTENCIÓN ==========
 
 def manejar_intencion_campana(text, estado_usuario, user_id):
