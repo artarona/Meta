@@ -174,18 +174,18 @@ def iniciar_campana(platform=None):
     )
     
     if es_fb_ig:
-        # Facebook/Instagram: texto con numeración simple 1., 2., 3., 4., 5.
+        # Facebook/Instagram: texto plano SIN asteriscos (no soporta markdown)
         cuerpo_menu = (
             f"{cuerpo_base}\n\n"
-            "*Servicios Disponibles*\n"
+            "Servicios Disponibles\n"
             "1. 🏡 Quiero Comprar - Busco comprar una propiedad\n"
             "2. 🔑 Quiero Alquilar - Busco alquilar una propiedad\n"
             "3. 📈 Tasar mi Propiedad - Quiero saber el valor de mercado (¡gratis!)\n"
             "4. 👤 Hablar con Asesor - Atención personalizada inmediata\n\n"
-            "*Otras Opciones*\n"
+            "Otras Opciones\n"
             "5. ❌ Salir - Finalizar la conversación\n\n"
             f"{PIE_MENU}\n\n"
-            "💡 *Envía el número de la opción deseada*"
+            "💡 Envía el número de la opción deseada"
         )
         
         return {
@@ -359,10 +359,10 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             
             if es_fb_ig:
-                # Facebook/Instagram: texto con numeración
+                # Facebook/Instagram: texto con numeración simple
                 return {
                     "type": "text",
-                    "body": f"📍 Zona: *{text}* ✅\n\n¿Qué *tipo de propiedad* estás buscando?\n\n1️⃣ Departamento\n2️⃣ Casa\n3️⃣ Otro (Local/Lote)\n\n💡 *Envía 'M' para volver al menú o 'S' para salir.*",
+                    "body": f"📍 Zona: *{text}* ✅\n\n¿Qué *tipo de propiedad* estás buscando?\n\n1. 🏢 Departamento\n2. 🏠 Casa\n3. 🏭 Otro (Local/Lote)\n\n💡 Envía el número de la opción deseada, 'M' para volver al menú o 'S' para salir.",
                     "preview": False
                 }
             else:
@@ -378,16 +378,29 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
                 )
             
         elif paso == 'campana_recopilar_tipo':
-            data['tipo'] = text
+            # Mapear números a textos para FB/IG
+            texto_tipo = text
+            if es_fb_ig:
+                mapa_tipos = {
+                    "1": "Departamento",
+                    "2": "Casa",
+                    "3": "Otro",
+                    "1.": "Departamento",
+                    "2.": "Casa",
+                    "3.": "Otro"
+                }
+                texto_tipo = mapa_tipos.get(text.lower().strip(), text)
+            
+            data['tipo'] = texto_tipo
             estado_usuario['paso'] = 'campana_recopilar_presupuesto'
             _set_campana_data(estado_usuario, data)
             actualizar_estado_usuario(user_id, estado_usuario)
             moneda = "USD" if intencion == "Comprar" else "ARS/USD"
             
             if es_fb_ig:
-                return f"🏠 Tipo: *{text}* ✅\n\nPor último, ¿cuál es tu *presupuesto máximo* estimado en {moneda}?\n_(Ej: 100.000, 500k, etc.)_\n\n💡 *Envía 'M' para volver al menú o 'S' para salir.*"
+                return f"🏠 Tipo: *{texto_tipo}* ✅\n\nPor último, ¿cuál es tu *presupuesto máximo* estimado en {moneda}?\n_(Ej: 100.000, 500k, etc.)_\n\n💡 Envía 'M' para volver al menú o 'S' para salir."
             else:
-                return f"🏠 Tipo: *{text}* ✅\n\nPor último, ¿cuál es tu *presupuesto máximo* estimado en {moneda}?\n_(Ej: 100.000, 500k, etc.)_{HINT_SALIR}"
+                return f"🏠 Tipo: *{texto_tipo}* ✅\n\nPor último, ¿cuál es tu *presupuesto máximo* estimado en {moneda}?\n_(Ej: 100.000, 500k, etc.)_{HINT_SALIR}"
             
         elif paso == 'campana_recopilar_presupuesto':
             data['presupuesto'] = text
@@ -405,10 +418,10 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             
             if es_fb_ig:
-                # Facebook/Instagram: texto con numeración
+                # Facebook/Instagram: texto con numeración simple
                 return {
                     "type": "text",
-                    "body": f"📍 Dirección: *{text}* ✅\n\n¿Qué *tipo de propiedad* deseas tasar?\n\n1️⃣ Departamento\n2️⃣ Casa\n3️⃣ Otro (Local/Lote)\n\n💡 *Envía 'M' para volver al menú o 'S' para salir.*",
+                    "body": f"📍 Dirección: *{text}* ✅\n\n¿Qué *tipo de propiedad* deseas tasar?\n\n1. 🏢 Departamento\n2. 🏠 Casa\n3. 🏭 Otro (Local/Lote)\n\n💡 Envía el número de la opción deseada, 'M' para volver al menú o 'S' para salir.",
                     "preview": False
                 }
             else:
@@ -424,22 +437,35 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
                 )
             
         elif paso == 'campana_recopilar_tipo_tasacion':
-            data['tipo'] = text
+            # Mapear números a textos para FB/IG
+            texto_tipo = text
+            if es_fb_ig:
+                mapa_tipos = {
+                    "1": "Departamento",
+                    "2": "Casa",
+                    "3": "Otro",
+                    "1.": "Departamento",
+                    "2.": "Casa",
+                    "3.": "Otro"
+                }
+                texto_tipo = mapa_tipos.get(text.lower().strip(), text)
+            
+            data['tipo'] = texto_tipo
             estado_usuario['paso'] = 'campana_recopilar_estado'
             _set_campana_data(estado_usuario, data)
             actualizar_estado_usuario(user_id, estado_usuario)
             
             if es_fb_ig:
-                # Facebook/Instagram: texto con numeración
+                # Facebook/Instagram: texto con numeración simple
                 return {
                     "type": "text",
-                    "body": f"📍 Zona: *{text}* ✅\n\n¿Qué *tipo de propiedad* estás buscando?\n\n1. Departamento\n2. Casa\n3. Otro (Local/Lote)\n\n💡 *Envía el número de la opción deseada*",
+                    "body": f"🏠 Tipo: *{texto_tipo}* ✅\n\n¿En qué *estado general* se encuentra la propiedad?\n\n1. ✨ Excelente\n2. 👍 Bueno/Refaccionar\n3. 🏗️ En obra/Terreno\n\n💡 Envía el número de la opción deseada, 'M' para volver al menú o 'S' para salir.",
                     "preview": False
                 }
             else:
                 # WhatsApp: botones SIN números
                 return WhatsAppResponse.buttons(
-                    body=f"🏠 Tipo: *{text}* ✅\n\n¿En qué *estado general* se encuentra la propiedad?",
+                    body=f"🏠 Tipo: *{texto_tipo}* ✅\n\n¿En qué *estado general* se encuentra la propiedad?",
                     buttons=[
                         {"id": "Excelente", "title": "✨ Excelente"},
                         {"id": "Bueno", "title": "👍 Bueno/Refaccionar"},
@@ -449,7 +475,20 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
                 )
             
         elif paso == 'campana_recopilar_estado':
-            data['estado_propiedad'] = text
+            # Mapear números a textos para FB/IG
+            texto_estado = text
+            if es_fb_ig:
+                mapa_estados = {
+                    "1": "Excelente",
+                    "2": "Bueno",
+                    "3": "En_obra",
+                    "1.": "Excelente",
+                    "2.": "Bueno",
+                    "3.": "En_obra"
+                }
+                texto_estado = mapa_estados.get(text.lower().strip(), text)
+            
+            data['estado_propiedad'] = texto_estado
             estado_usuario['paso'] = 'campana_confirmacion'
             _set_campana_data(estado_usuario, data)
             actualizar_estado_usuario(user_id, estado_usuario)
@@ -459,6 +498,8 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
     estado_usuario['paso'] = 'campana_intent'
     actualizar_estado_usuario(user_id, estado_usuario)
     return iniciar_campana()
+
+
 
 # ========== NOMBRE PARA ASESOR ==========
 
