@@ -234,11 +234,16 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
             "3": "c_tasar",
             "4": "c_asesor",
             "5": "c_salir",
-            "1️⃣": "c_comprar",
-            "2️⃣": "c_alquilar",
-            "3️⃣": "c_tasar",
-            "4️⃣": "c_asesor",
-            "5️⃣": "c_salir"
+            "uno": "c_comprar",
+            "dos": "c_alquilar",
+            "tres": "c_tasar",
+            "cuatro": "c_asesor",
+            "cinco": "c_salir",
+            "comprar": "c_comprar",
+            "alquilar": "c_alquilar",
+            "tasar": "c_tasar",
+            "asesor": "c_asesor",
+            "salir": "c_salir"
         }
         
         if text_normalized in opciones_numericas:
