@@ -936,9 +936,16 @@ def webhook():
                 
                 # ✅ PASO CRÍTICO: Guardar el platform en el estado del usuario
                 from database import obtener_estado_usuario, actualizar_estado_usuario
+                estado_usuario = obtener_estado_usuario(from_id)
+                estado_usuario['platform'] = platform
+                actualizar_estado_usuario(from_id, estado_usuario)
+                log(f"📱 Platform guardado en DB para {from_id}: {platform}")
+                
+                
                 
                 # Obtener o crear estado del usuario
                 estado_usuario = obtener_estado_usuario(from_id)
+                log(f"📱 Verificación - platform después de guardar: {estado_usuario_fresco.get('platform')}")
                 
                 # Guardar platform si ha cambiado o no existe
                 if estado_usuario.get('platform') != platform:

@@ -39,19 +39,44 @@ def _clear_campana_data(estado_usuario):
 def get_bot_response_campana(text, user_id):
     """
     Despachador principal para el MODO CAMPAÑA (TIPO_MENU = 1).
-    Orientado exclusivamente a la captación de leads en frío.
     """
     text_lower = text.lower().strip()
+    
+    # Obtener estado del usuario SIEMPRE fresco
     estado_usuario = obtener_estado_usuario(user_id)
     paso_actual = estado_usuario.get('paso', 'campana_inicio')
     
-    # Obtener platform del estado (ya debería estar guardado por procesar_mensaje_unificado)
-    platform = estado_usuario.get('platform')
+    # ✅ IMPORTANTE: Forzar obtener el platform NUEVAMENTE desde la DB
+    # a veces el objeto estado_usuario puede estar desactualizado
+    from database import obtener_estado_usuario as get_fresh_state
+    fresh_state = get_fresh_state(user_id)
+    platform = fresh_state.get('platform') or estado_usuario.get('platform')
     
     # Log para depuración
-    log(f"🔍 get_bot_response_campana - platform del estado: {platform}")
+    log(f"🔍 get_bot_response_campana - platform obtenido: '{platform}' (del estado fresco)")
     
-    # ========== COMANDOS GLOBALES (siempre disponibles) ==========
+    # Si aún no hay platform, intentar una última vez con una consulta directa
+    if not platform:
+        try:
+            import psycopg2
+            from config import DATABASE_URL
+            
+            conn = psycopg2.connect(DATABASE_URL)
+            cur = conn.cursor()
+            cur.execute("SELECT state FROM user_states WHERE user_id = %s", (str(user_id),))
+            row = cur.fetchone()
+            cur.close()
+            conn.close()
+            
+            if row and row[0]:
+                import json
+                state_data = json.loads(row[0]) if isinstance(row[0], str) else row[0]
+                platform = state_data.get('platform')
+                log(f"🔍 get_bot_response_campana - platform por consulta directa: '{platform}'")
+        except Exception as e:
+            log(f"⚠️ Error en consulta directa de platform: {e}")
+    
+    # ========== COMANDOS GLOBALES ==========
     if text_lower in ["salir", "s", "exit", "0"]:
         estado_usuario['paso'] = 'campana_inicio'
         _clear_campana_data(estado_usuario)
@@ -62,7 +87,6 @@ def get_bot_response_campana(text, user_id):
         estado_usuario['paso'] = 'campana_intent'
         _clear_campana_data(estado_usuario)
         actualizar_estado_usuario(user_id, estado_usuario)
-        # Pasar platform a iniciar_campana
         return iniciar_campana(platform)
     
     # MANEJO ESPECIAL PARA REINTENTAR TASACIÓN (ID 10)
@@ -111,7 +135,6 @@ def get_bot_response_campana(text, user_id):
         elif paso_actual == 'tasacion_esperando_contacto':
             resp = manejar_tasacion_contacto(text_lower, estado_usuario, user_id)
             
-        # Manejar triggers especiales de tasaciones
         if resp == "WELCOME_FLOW_TRIGGER":
             estado_usuario['paso'] = 'campana_intent'
             actualizar_estado_usuario(user_id, estado_usuario)
@@ -122,6 +145,7 @@ def get_bot_response_campana(text, user_id):
     estado_usuario['paso'] = 'campana_intent'
     actualizar_estado_usuario(user_id, estado_usuario)
     return iniciar_campana(platform)
+
 
 # ========== MENÚ PRINCIPAL DE CAMPAÑA ==========
 
