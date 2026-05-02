@@ -182,13 +182,13 @@ def iniciar_campana(platform=None):
             "Contame qué necesitás y te ayudo personalmente a avanzar.",
             "",
             "*Servicios Disponibles*\n"
-            "*1*. 🏡 Quiero Comprar - Busco comprar una propiedad\n"
-            "*2*. 🔑 Quiero Alquilar - Busco alquilar una propiedad\n"
-            "*3*. 📈 Tasar mi Propiedad - Quiero saber el valor de mercado (¡gratis!)\n"
-            "*4*. 👤 Hablar con Asesor - Atención personalizada inmediata",
+            "1️⃣ 🏡 Quiero Comprar - Busco comprar una propiedad\n"
+            "2️⃣ 🔑 Quiero Alquilar - Busco alquilar una propiedad\n"
+            "3️⃣ 📈 Tasar mi Propiedad - Quiero saber el valor de mercado (¡gratis!)\n"
+            "4️⃣ 👤 Hablar con Asesor - Atención personalizada inmediata",
             "",
             "*Otras Opciones*\n"
-            "*5*. ❌ Salir - Finalizar la conversación",
+            "5️⃣ ❌ Salir - Finalizar la conversación",
             "",
             "💡 *Envía el número de la opción deseada* 👇"
         ]
@@ -402,7 +402,7 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
             moneda = "USD" if intencion == "Comprar" else "ARS/USD"
             
             if es_fb_ig:
-                return f"🏠 Tipo: *{texto_tipo}* ✅\n\nPor último, ¿cuál es tu *presupuesto máximo* estimado en {moneda}?\n_(Ej: 100.000, 500k, etc.)_\n\n💡 Envía 'M' para volver al menú o 'S' para salir."
+                return f"🏠 Tipo: *{texto_tipo}* ✅\n\nPor último, ¿cuál es tu *presupuesto máximo* estimado en {moneda}?\n_(Ej: 100.000, 500k, etc.)_\n\n💡 Envía '*M*' para volver al menú o '*S*' para salir."
             else:
                 return f"🏠 Tipo: *{texto_tipo}* ✅\n\nPor último, ¿cuál es tu *presupuesto máximo* estimado en {moneda}?\n_(Ej: 100.000, 500k, etc.)_{HINT_SALIR}"
             
@@ -610,50 +610,82 @@ def manejar_confirmacion_campana(text, estado_usuario, user_id):
         _clear_campana_data(estado_usuario)
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        if intencion == "Tasar":
-            msg = f"✅ *¡Solicitud registrada!*\n\nUn tasador experto de nuestro equipo se pondrá en contacto contigo muy pronto para brindarte el valor real de tu propiedad.\n\n{DESPEDIDA}"
-        else:
-            msg = f"✅ *¡Búsqueda registrada!*\n\nUn asesor especializado está analizando nuestra base de datos (incluso propiedades off-market) y se contactará contigo a la brevedad con las mejores opciones a medida.\n\n{DESPEDIDA}"
+        # Detectar plataforma
+        platform = estado_usuario.get('platform', 'whatsapp')
+        es_fb_ig = platform in ("messenger", "facebook", "instagram")
         
-        return WhatsAppResponse.buttons(
-            # body=msg + "\n\n1️⃣ Nueva búsqueda\n2️⃣ Salir",
-            body=msg,
-            buttons = [
-                {"id": "c_menu", "title": "📋 Nueva búsqueda"},
-                {"id": "c_salir", "title": "❌ Salir"}
-            ],
-
-            footer=PIE_MENU
-        )
+        if intencion == "Tasar":
+            msg_base = "✅ *¡Solicitud registrada!*\n\nUn tasador experto de nuestro equipo se pondrá en contacto contigo muy pronto para brindarte el valor real de tu propiedad."
+        else:
+            msg_base = "✅ *¡Búsqueda registrada!*\n\nUn asesor especializado está analizando nuestra base de datos (incluso propiedades off-market) y se contactará contigo a la brevedad con las mejores opciones a medida."
+        
+        msg = f"{msg_base}\n\n{DESPEDIDA}"
+        
+        if es_fb_ig:
+            # Facebook/Instagram: texto con EMOJIS NUMÉRICOS
+            mensaje_completo = (
+                f"{msg}\n\n"
+                "1️⃣ 📋 Nueva búsqueda\n"
+                "2️⃣ ❌ Salir\n\n"
+                f"{PIE_MENU}\n\n"
+                "💡 *Envía el número de la opción deseada*"
+            )
+            
+            return {
+                "type": "text",
+                "body": mensaje_completo,
+                "preview": False
+            }
+        else:
+            # WhatsApp: botones interactivos
+            return WhatsAppResponse.buttons(
+                body=msg,
+                buttons=[
+                    {"id": "c_menu", "title": "📋 Nueva búsqueda"},
+                    {"id": "c_salir", "title": "❌ Salir"}
+                ],
+                footer=PIE_MENU
+            )
             
     elif text in ["corregir_datos", "2", "no", "corregir"]:
         data = _get_campana_data(estado_usuario)
         intencion = data.get('intencion')
         
+        platform = estado_usuario.get('platform', 'whatsapp')
+        es_fb_ig = platform in ("messenger", "facebook", "instagram")
+        
         if intencion in ["Comprar", "Alquilar"]:
-            # Reiniciar a la primera pregunta de búsqueda
             estado_usuario['paso'] = 'campana_recopilar_zona'
-            # Mantener solo la intención
             _set_campana_data(estado_usuario, {'intencion': intencion})
             actualizar_estado_usuario(user_id, estado_usuario)
             
-            if intencion == "Comprar":
-                return f"{LOGO} *Vamos a corregir los datos.*\n\n📍 ¿En qué *barrio o zona* te gustaría comprar?\n_(Ej: Caballito, Palermo, Belgrano)_{HINT_SALIR}"
+            if es_fb_ig:
+                return {
+                    "type": "text",
+                    "body": f"{LOGO} *Vamos a corregir los datos.*\n\n📍 ¿En qué *barrio o zona* te gustaría comprar?\n_(Ej: Caballito, Palermo, Belgrano)_\n\n💡 *Envía 'M' para volver al menú o 'S' para salir.*",
+                    "preview": False
+                }
             else:
-                return f"{LOGO} *Vamos a corregir los datos.*\n\n📍 ¿En qué *barrio o zona* estás buscando?\n_(Ej: Almagro, Villa Crespo, Belgrano)_{HINT_SALIR}"
+                return f"{LOGO} *Vamos a corregir los datos.*\n\n📍 ¿En qué *barrio o zona* te gustaría comprar?\n_(Ej: Caballito, Palermo, Belgrano)_{HINT_SALIR}"
                 
         elif intencion == "Tasar":
             estado_usuario['paso'] = 'campana_recopilar_direccion'
             _set_campana_data(estado_usuario, {'intencion': intencion})
             actualizar_estado_usuario(user_id, estado_usuario)
-            return f"{LOGO} *Vamos a corregir los datos.*\n\n📍 ¿Cuál es la *dirección o zona* de la propiedad a tasar?\n_(Ej: Av. Rivadavia 5000, Caballito)_{HINT_SALIR}"
             
+            if es_fb_ig:
+                return {
+                    "type": "text",
+                    "body": f"{LOGO} *Vamos a corregir los datos.*\n\n📍 ¿Cuál es la *dirección o zona* de la propiedad a tasar?\n_(Ej: Av. Rivadavia 5000, Caballito)_\n\n💡 *Envía 'M' para volver al menú o 'S' para salir.*",
+                    "preview": False
+                }
+            else:
+                return f"{LOGO} *Vamos a corregir los datos.*\n\n📍 ¿Cuál es la *dirección o zona* de la propiedad a tasar?\n_(Ej: Av. Rivadavia 5000, Caballito)_{HINT_SALIR}"
         else:
-            # Fallback a inicio si no hay intención clara
             estado_usuario['paso'] = 'campana_intent'
             _clear_campana_data(estado_usuario)
             actualizar_estado_usuario(user_id, estado_usuario)
-            return iniciar_campana()
+            return iniciar_campana(platform)
     
     elif text in ["c_salir", "salir", "cancelar", "3"]:
         estado_usuario['paso'] = 'campana_inicio'
@@ -661,16 +693,26 @@ def manejar_confirmacion_campana(text, estado_usuario, user_id):
         actualizar_estado_usuario(user_id, estado_usuario)
         return DESPEDIDA
         
-    return WhatsAppResponse.buttons(
-        body="Por favor, confirmá si los datos son correctos:",
-        buttons=[
-            {"id": "confirmar_datos", "title": "✅ Sí, confirmar"},
-            {"id": "corregir_datos", "title": "🔄 Corregir"},
-            {"id": "c_salir", "title": "❌ Cancelar"}
-        ],
-        footer=PIE_MENU
-    )
-
+    # Si no reconoce, mostrar de nuevo
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram")
+    
+    if es_fb_ig:
+        return {
+            "type": "text",
+            "body": "¿Estos datos son correctos?\n\n1️⃣ ✅ Confirmar\n2️⃣ 🔄 Corregir\n3️⃣ ❌ Cancelar\n\n💡 *Envía el número de la opción deseada*",
+            "preview": False
+        }
+    else:
+        return WhatsAppResponse.buttons(
+            body="Por favor, confirmá si los datos son correctos:",
+            buttons=[
+                {"id": "confirmar_datos", "title": "✅ Confirmar"},
+                {"id": "corregir_datos", "title": "🔄 Corregir"},
+                {"id": "c_salir", "title": "❌ Cancelar"}
+            ],
+            footer=PIE_MENU
+        )
 
 # ========== PERSISTENCIA DE LEADS ==========
 

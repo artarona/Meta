@@ -251,7 +251,7 @@ def manejar_tasacion_barrio(text, estado_usuario, user_id):
                             {"id": "3", "title": "PH"},
                             {"id": "4", "title": "Oficina / Local"},
                             {"id": "5", "title": "Terreno"},
-                            {"id": "M", "title": "↩️ Volver al menú anterior"},
+                            {"id": "M", "title": "↩️ Al menú anterior"},
                             {"id": "S", "title": "❌ Salir"}
                         ]
                     }
