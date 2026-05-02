@@ -425,11 +425,22 @@ Por favor elegí una de las siguientes opciones:
 
 
 def mostrar_seleccion_horarios(fecha_display, horarios):
-    mensaje = f"📅 *Fecha:* **{fecha_display}**\n\n"
-    mensaje += "⏰ *HORARIOS DISPONIBLES:*\n"
-    mensaje += ", ".join(horarios)
-    mensaje += "\n\n⏳ *Escribí el horario* (ej: '10:00' o '10 am')"
-    return mensaje
+    """Muestra los horarios disponibles usando un List Menu de Meta"""
+    rows = []
+    # Meta limita a 10 filas por sección, mostramos los primeros 10 horarios para no saturar
+    for h in horarios[:10]:
+        rows.append({
+            "id": h,
+            "title": f"{h} hs"
+        })
+        
+    return WhatsAppResponse.list_menu(
+        header="⏰ ELEGÍ TU HORARIO",
+        body=f"📅 *Fecha:* {fecha_display}\n\nSeleccioná el horario que más te convenga para la visita:",
+        button_text="Ver horarios",
+        sections=[{"title": "Horarios Disponibles", "rows": rows}],
+        footer="Dante Propiedades 🏠"
+    )
 
 
 def mostrar_fechas_disponibles(estado_usuario):
@@ -571,31 +582,19 @@ def manejar_ofrecer_cita(text_lower, estado_usuario, user_id):
         
         hoy = datetime.now()
         mañana = hoy + timedelta(days=1)
-        ejemplo_fecha = mañana.strftime("%d-%m-%Y")
+        # Ofrecer botones rápidos para fechas
+        pasado = hoy + timedelta(days=2)
         
-        # Obtener propiedad actual para mostrar días específicos
-        indice = estado_usuario.get('ultimo_indice_preguntado')
-        propiedades_lista = estado_usuario.get('propiedades_filtradas', [])
-        propiedad_id = None
-        if indice and 1 <= indice <= len(propiedades_lista):
-            propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
-            
-        texto_dias = obtener_texto_dias_habiles(propiedad_id)
-        texto_horarios = obtener_texto_horarios(propiedad_id)
-        
-        return f"""📅 *EXCELENTE {estado_usuario.get('nombre_cliente', 'Cliente')}!*
-
-Vamos a agendar tu visita.
-
-📋 *Formato de fecha:* **DD-MM-AAAA**
-📅 *Ejemplo para mañana:* **{ejemplo_fecha}**
-
-📍 *Recomendaciones:*
-• **Días de visita:** {texto_dias}
-• Agendar con 24-48hs de anticipación
-• Horarios {texto_horarios}
-
-📅 *Envía la fecha que prefieras (ej: {ejemplo_fecha}, hoy, mañana, lunes) o 'Ver fechas' para ver disponibilidad:*"""
+        return WhatsAppResponse.buttons(
+            header="📅 AGENDAR VISITA",
+            body=f"Excelente {estado_usuario.get('nombre_cliente', 'Cliente')}!\n\n¿Para qué día te gustaría agendar? Podes elegir uno de estos o escribir una fecha:",
+            buttons=[
+                {"id": mañana.strftime("%d-%m-%Y"), "title": f"Mañana ({mañana.strftime('%d/%m')})"},
+                {"id": pasado.strftime("%d-%m-%Y"), "title": f"Pasado ({pasado.strftime('%d/%m')})"},
+                {"id": "ver_fechas", "title": "Ver más fechas"}
+            ],
+            footer="O escribí: ej. 'lunes 10hs'"
+        )
     
     elif text_lower in ["2", "no", "solo info", "informacion", "información"]:
         nombre_cliente = estado_usuario.get('nombre_cliente', 'Cliente')

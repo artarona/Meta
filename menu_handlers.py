@@ -382,6 +382,46 @@ def _nav_listado_buttons():
     )
 
 
+def responder_listado_propiedades(propiedades, titulo, user_id, estado_usuario):
+    """Genera una respuesta estandarizada para listados de propiedades usando List Menus de Meta"""
+    if not propiedades:
+        return WhatsAppResponse.buttons(
+            header=f"📭 SIN {titulo.upper()}",
+            body=f"Actualmente no tenemos propiedades en {titulo.lower()}. Probá con otra categoría.",
+            buttons=[
+                {"id": "m", "title": "Volver al menú"},
+                {"id": "s", "title": "Salir"}
+            ]
+        )
+    
+    # Si hay 10 o menos, usamos List Menu (Mejor UX en WhatsApp)
+    if 1 <= len(propiedades) <= 10:
+        rows = []
+        for i, p in enumerate(propiedades):
+            # Formatear precio
+            precio = p.get('precio_usd', p.get('precio', 'Consultar'))
+            if isinstance(precio, (int, float)):
+                precio = f"USD {precio:,}".replace(",", ".")
+            
+            rows.append({
+                "id": str(i + 1),
+                "title": f"{p.get('titulo', 'Propiedad')[:24]}",
+                "description": f"{p.get('barrio', 'Barrio')} - {precio}"
+            })
+            
+        return WhatsAppResponse.list_menu(
+            header=f"📋 {titulo.upper()}",
+            body=f"Encontramos {len(propiedades)} opciones para vos en {titulo.lower()}. Seleccioná una para ver fotos y detalles:",
+            button_text="Ver propiedades",
+            sections=[{"title": "Resultados", "rows": rows}],
+            footer="Dante Propiedades 🏠"
+        )
+    
+    # Si hay más de 10, usamos el listado de texto tradicional + botones
+    texto = f"📋 *{titulo.upper()}*\n\n" + generar_listado_propiedades(propiedades)
+    return [texto, _nav_listado_buttons()]
+
+
 def procesar_opcion_venta(estado_usuario, user_id):
     """Procesa la opción de venta listando todas directamente"""
     todas = cargar_propiedades_cached()
@@ -399,19 +439,7 @@ def procesar_opcion_venta(estado_usuario, user_id):
 
     
     actualizar_estado_usuario(user_id, estado_usuario)
-    
-    if not filtradas:
-        return WhatsAppResponse.buttons(
-            header="📭 SIN PROPIEDADES EN VENTA",
-            body="Actualmente no tenemos propiedades en venta. Probá con otra categoría.",
-            buttons=[
-                {"id": "opcion_2", "title": "Ver Alquileres"},
-                {"id": "m", "title": "Volver al menú"}
-            ]
-        )
-    
-    texto = "💰 *INMUEBLES EN VENTA*\n\n" + generar_listado_propiedades(filtradas)
-    return [texto, _nav_listado_buttons()]
+    return responder_listado_propiedades(filtradas, "Inmuebles en Venta", user_id, estado_usuario)
 
 
 def procesar_opcion_alquiler(estado_usuario, user_id):
@@ -429,19 +457,7 @@ def procesar_opcion_alquiler(estado_usuario, user_id):
         'ultima_accion': 'mostrar_listado'
     })
     actualizar_estado_usuario(user_id, estado_usuario)
-    
-    if not filtradas:
-        return WhatsAppResponse.buttons(
-            header="📭 SIN PROPIEDADES EN ALQUILER",
-            body="Actualmente no tenemos propiedades en alquiler. Probá con otra categoría.",
-            buttons=[
-                {"id": "opcion_1", "title": "Ver Ventas"},
-                {"id": "m", "title": "Volver al menú"}
-            ]
-        )
-    
-    texto = "🔑 *INMUEBLES EN ALQUILER*\n\n" + generar_listado_propiedades(filtradas)
-    return [texto, _nav_listado_buttons()]
+    return responder_listado_propiedades(filtradas, "Inmuebles en Alquiler", user_id, estado_usuario)
 
 
 def procesar_opcion_todas(estado_usuario, user_id):
@@ -453,8 +469,7 @@ def procesar_opcion_todas(estado_usuario, user_id):
         'ultima_accion': 'mostrar_listado'
     })
     actualizar_estado_usuario(user_id, estado_usuario)
-    texto = "📋 *TODAS LAS PROPIEDADES*\n\n" + generar_listado_propiedades(estado_usuario['propiedades_filtradas'])
-    return [texto, _nav_listado_buttons()]
+    return responder_listado_propiedades(estado_usuario['propiedades_filtradas'], "Todas las Propiedades", user_id, estado_usuario)
 
 
 def procesar_opcion_mis_citas(user_id):
@@ -1264,20 +1279,45 @@ def manejar_busqueda_keywords(termino, estado_usuario, user_id):
     estado_usuario.update({
         'paso': 'listado_propiedades',
         'propiedades_filtradas': resultados,
-        'operacion_seleccionada': 'busqueda'
+        'operacion_seleccionada': 'busqueda',
+        'ultima_accion': 'mostrar_listado'
     })
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    mensaje = f"🔎 *Resultados para: {termino}* ({len(resultados)})\n\n"
-    for i, p in enumerate(resultados[:5]):
-        mensaje += f"*{i+1}️⃣ {p.get('titulo')}*\n📍 {p.get('barrio', 'S/D')} - ${p.get('precio', 'S/D')}\n\n"
+    return responder_listado_propiedades(resultados, f"Resultados para: {termino}", user_id, estado_usuario)
+
+def manejar_fotos_propiedad(estado_usuario, user_id):
+    """Maneja la solicitud de fotos de una propiedad"""
+    indice = estado_usuario.get('ultimo_indice_preguntado')
+    propiedades = estado_usuario.get('propiedades_filtradas', [])
+    if indice and 1 <= indice <= len(propiedades):
+        propiedad = propiedades[indice - 1]
+        return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
+    else:
+        return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
+
+def manejar_pdf_propiedad(estado_usuario, user_id):
+    """Maneja la solicitud de PDF de una propiedad"""
+    indice = estado_usuario.get('ultimo_indice_preguntado')
+    propiedades = estado_usuario.get('propiedades_filtradas', [])
     
-    if len(resultados) > 5:
-        mensaje += "📝 _Mostrando los primeros 5 resultados..._\n"
+    if propiedades and indice and 1 <= indice <= len(propiedades):
+        propiedad = propiedades[indice - 1]
+        prop_id = propiedad.get('id_temporal')
+        base_url = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")
         
-    mensaje += "\n👉 *Respondé con el número* (1, 2, 3...) para ver más detalle.\n"
-    mensaje += "❌ *Envía 'S' para SALIR*"
-    return mensaje
+        texto = f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{base_url}/fichas/{prop_id}\n\n📍 Seleccioná la propiedad o seleccioná 👇"
+        
+        return WhatsAppResponse.buttons(
+            body=texto,
+            buttons=[
+                {"id": "m", "title": "Volver al Menú"},
+                {"id": "s", "title": "Salir"}
+            ]
+        )
+    else:
+        return "⚠️ Error al identificar la propiedad. Por favor selecciona una del listado."
+
 
 def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
     """Maneja las interacciones cuando el usuario está viendo el detalle de una propiedad"""
@@ -1344,25 +1384,11 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
     
     # Comando "f" o "ver_fotos" - Ver fotos
     if comando == "f":
-        indice = estado_usuario.get('ultimo_indice_preguntado')
-        propiedades = estado_usuario.get('propiedades_filtradas', [])
-        if indice and 1 <= indice <= len(propiedades):
-            propiedad = propiedades[indice - 1]
-            return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
-        else:
-            return "⚠️ Error: No se pudo identificar la propiedad para mostrar las fotos."
+        return manejar_fotos_propiedad(estado_usuario, user_id)
     
     # Comando "p" o "ver_pdf" - Descargar PDF
     if comando == "p":
-        indice = estado_usuario.get('ultimo_indice_preguntado')
-        propiedades = estado_usuario.get('propiedades_filtradas', [])
-        if indice and 1 <= indice <= len(propiedades):
-            propiedad = propiedades[indice - 1]
-            prop_id = propiedad.get('id_temporal')
-            BASE_URL = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")
-            return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
-        else:
-            return "⚠️ Error: No se pudo identificar la propiedad para generar el PDF."
+        return manejar_pdf_propiedad(estado_usuario, user_id)
     
     # Comando "req" o "requisitos" - Ver requisitos
     if comando == "req":

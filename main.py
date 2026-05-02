@@ -362,19 +362,8 @@ def get_bot_response(text, user_id):
         if text_lower == "f":
             return manejar_fotos_propiedad(estado_usuario, user_id)
             
-        
         if text_lower == "p":
-            pdf_response = manejar_pdf_propiedad(estado_usuario, user_id)
-            botones_response = WhatsAppResponse.buttons(
-                header="Ficha técnica",
-                body="Selecciona 👇",
-                buttons=[
-                    {"id": "m", "title": "Volver al menú"},
-                    {"id": "s", "title": "Salir"}
-                ]
-            )
-            return [pdf_response, botones_response]
-
+            return manejar_pdf_propiedad(estado_usuario, user_id)
                 
         if text_lower in ["l", "listado"]:
             return manejar_listado_completo(estado_usuario, user_id)
@@ -524,27 +513,6 @@ def manejar_interes_propiedad(estado_usuario, user_id):
         return "⚠️ Por favor, primero selecciona una propiedad del listado."
 
 
-def manejar_fotos_propiedad(estado_usuario, user_id):
-    """Maneja la solicitud de fotos de una propiedad"""
-    indice = estado_usuario.get('ultimo_indice_preguntado')
-    propiedades = estado_usuario.get('propiedades_filtradas', [])
-    if indice and 1 <= indice <= len(propiedades):
-        propiedad = propiedades[indice - 1]
-        return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
-    else:
-        return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
-
-
-def manejar_pdf_propiedad(estado_usuario, user_id):
-    """Maneja la solicitud de PDF de una propiedad"""
-    indice = estado_usuario.get('ultimo_indice_preguntado')
-    propiedades = estado_usuario.get('propiedades_filtradas', [])
-    if indice and 1 <= indice <= len(propiedades):
-        propiedad = propiedades[indice - 1]
-        prop_id = propiedad.get('id_temporal')
-        return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
-    else:
-        return "⚠️ Por favor, primero selecciona una propiedad del listado para obtener el PDF."
 
 
 def manejar_listado_completo(estado_usuario, user_id):
