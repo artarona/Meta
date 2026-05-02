@@ -10,7 +10,7 @@ LOGO = "🏠🗝️"
 MARCA = f"{LOGO} *DANTE PROPIEDADES*"
 DESPEDIDA = f"¡Gracias por confiar en Dante Propiedades! {LOGO}"
 PIE_MENU = "Dante Propiedades · Tu lugar ideal"
-HINT_SALIR = "\n\n💡 _Envía 'S' para salir o 'M' para volver al menú._"
+HINT_SALIR = "\n\n💡 _Envía '*S*' para salir o '*M*' para volver al menú._"
 
 # ========== HELPERS PARA DATA DE CAMPAÑA ==========
 # Usamos estado_usuario['data']['campana'] porque 'data' es el único
@@ -619,10 +619,11 @@ def manejar_confirmacion_campana(text, estado_usuario, user_id):
         return WhatsAppResponse.buttons(
             # body=msg + "\n\n1️⃣ Nueva búsqueda\n2️⃣ Salir",
             body=msg,
-            buttons=[
-                {"id": "c_menu", "title": "1️⃣ 📋 Nueva búsqueda"},
-                {"id": "c_salir", "title": "2️⃣ ❌ Salir"}
+            buttons = [
+                {"id": "c_menu", "title": "📋 Nueva búsqueda"},
+                {"id": "c_salir", "title": "❌ Salir"}
             ],
+
             footer=PIE_MENU
         )
             
