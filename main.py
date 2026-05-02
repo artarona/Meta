@@ -374,7 +374,7 @@ def get_bot_response(text, user_id):
             opcion = int(text_lower)
             # Opción 7: Todos los Inmuebles
             if opcion == 7:
-                return manejar_todos_los_inmuebles(estado_usuario, user_id)
+                return procesar_opcion_todas(estado_usuario, user_id)
         
         # ========== 4. ROUTING POR ESTADO ==========
         # Submenús
@@ -548,24 +548,6 @@ def manejar_listado_completo(estado_usuario, user_id):
         return "⚠️ No hay propiedades en el listado. Envía 'MENU' para volver al inicio."
 
 
-def manejar_todos_los_inmuebles(estado_usuario, user_id):
-    """Maneja la opción 7: Todos los Inmuebles"""
-    from propiedades import cargar_propiedades_cached
-    propiedades = cargar_propiedades_cached()
-    
-    if not propiedades:
-        return "❌ No hay propiedades disponibles en este momento."
-    
-    # Guardar propiedades en estado
-    estado_usuario['propiedades_filtradas'] = propiedades
-    estado_usuario['operacion_seleccionada'] = 'todas'
-    estado_usuario['ultimo_indice_preguntado'] = 0
-    estado_usuario['paso'] = 'listado_propiedades'
-    actualizar_estado_usuario(user_id, estado_usuario)
-    
-    # Mostrar primera propiedad
-    from menu_options import mostrar_propiedad_con_acciones
-    return mostrar_propiedad_con_acciones(0, propiedades, user_id)
 
 
 
