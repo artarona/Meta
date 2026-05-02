@@ -177,8 +177,8 @@ def iniciar_campana(platform=None):
         # Dividir el mensaje en partes separadas
         partes = [
             "¡Hola! 👋 Soy el asistente de Dante Propiedades 🏠🗝️",
-            "Estamos para acompañarte en todo el proceso de compra, venta o tasación de tu propiedad.",
-            "¿Te gustaría recibir una valoración gratuita o conocer las mejores oportunidades del mercado?",
+            "Estamos para acompañarte en todo el proceso de compra, venta o tasación de tu propiedad.\n"
+            "¿Te gustaría recibir una valoración gratuita o conocer las mejores oportunidades del mercado?\n"
             "Contame qué necesitás y te ayudo personalmente a avanzar.",
             "",
             "*Servicios Disponibles*\n"
@@ -189,8 +189,6 @@ def iniciar_campana(platform=None):
             "",
             "*Otras Opciones*\n"
             "*5*. ❌ Salir - Finalizar la conversación",
-            "",
-            "Dante Propiedades · Tu lugar ideal",
             "",
             "💡 *Envía el número de la opción deseada* 👇"
         ]
