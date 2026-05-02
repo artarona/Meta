@@ -300,14 +300,14 @@ PROPIEDADES_FILE = "propiedades.json"
 
 # ========== BOT OPTIMIZADO ==========
 def get_bot_response(text, user_id):
-    """Responde con un mensaje simple, manteniendo estado de usuario"""
+    """Responde con un mensaje simple, manteniendo estado de usuario - VERSIÓN OPTIMIZADA"""
     try:
         start_time = time.time()
         text_lower = text.lower().strip()
         
         estado_usuario = obtener_estado_usuario(user_id)
         
-        # Guardar mensaje en el historial para análisis de IA (Phase 7)
+        # Guardar mensaje en el historial para análisis de IA
         if not isinstance(estado_usuario.get('data'), dict):
             estado_usuario['data'] = {}
             
@@ -315,15 +315,15 @@ def get_bot_response(text, user_id):
         if not isinstance(historial, list):
             historial = []
             
-        # Evitar duplicar el mismo mensaje (reintentos de webhook)
         if not historial or historial[-1].get('text') != text:
             historial.append({'role': 'user', 'text': text, 'timestamp': datetime.now().isoformat()})
             estado_usuario['data']['mensajes_recientes'] = historial[-10:]
             actualizar_estado_usuario(user_id, estado_usuario)
             
         log(f"👤 Usuario {user_id}: {estado_usuario['paso']}")
+        paso = estado_usuario.get('paso', 'menu_principal')
         
-        # ========== COMANDOS UNIVERSALES (NUEVO ORDEN: EJECUTAR PRIMERO) ==========
+        # ========== 1. COMANDOS UNIVERSALES (SIEMPRE PRIORITARIOS) ==========
         if text_lower in ["m", "menu", "principal", "inicio"]:
             estado_usuario.update({
                 'paso': 'menu_principal',
@@ -344,7 +344,6 @@ def get_bot_response(text, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
 
-        # Comandos de compatibilidad
         if text_lower in ["hola", "hi", "hello", "volver", "atras"]:
             estado_usuario.update({
                 'paso': 'menu_principal',
@@ -356,159 +355,101 @@ def get_bot_response(text, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             return "WELCOME_FLOW_TRIGGER"
         
-        # --- LÓGICA POR ESTADO ---
-        paso = estado_usuario['paso']
+        # ========== 2. ACCIONES ESPECIALES (MÁS COMUNES) ==========
+        if text_lower in ["i", "interesa", "me interesa"]:
+            return manejar_interes_propiedad(estado_usuario, user_id)
+            
+        if text_lower == "f":
+            return manejar_fotos_propiedad(estado_usuario, user_id)
+            
+        if text_lower == "p":
+            return manejar_pdf_propiedad(estado_usuario, user_id)
+                
+        if text_lower in ["l", "listado"]:
+            return manejar_listado_completo(estado_usuario, user_id)
+            
+        # ========== 3. MANEJO DE OPCIONES NUMÉRICAS (MENÚ PRINCIPAL) ==========
+        # Esto resuelve el error de "opcion_7"
+        if paso == 'menu_principal' and text_lower.isdigit():
+            opcion = int(text_lower)
+            # Opción 7: Todos los Inmuebles
+            if opcion == 7:
+                return manejar_todos_los_inmuebles(estado_usuario, user_id)
         
-        # --- LÓGICA POR ESTADO (PRIMERO) ---
+        # ========== 4. ROUTING POR ESTADO ==========
+        # Submenús
         if paso == 'submenu_consultar':
             return manejar_submenu_consultar(text_lower, estado_usuario, user_id)
-            
         elif paso == 'submenu_visita':
             return manejar_submenu_visita(text_lower, estado_usuario, user_id)
-            
         elif paso == 'submenu_asesor':
             return manejar_submenu_asesor(text_lower, estado_usuario, user_id)
-            
         elif paso == 'submenu_faqs':
             return manejar_submenu_faqs(text_lower, estado_usuario, user_id)
-
+        
+        # Filtros
         elif paso == 'filtro_tipo':
             return manejar_filtro_tipo(text_lower, estado_usuario, user_id)
-            
         elif paso == 'filtro_ambientes':
             return manejar_filtro_ambientes(text_lower, estado_usuario, user_id)
-
+        
+        # Propiedades
         elif paso == 'listado_propiedades':
             return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
-        
         elif paso == 'detalle_propiedad':
             return manejar_detalle_propiedad(text_lower, estado_usuario, user_id)
         
+        # Leads y citas
         elif paso == 'esperando_nombre_lead':
             return manejar_nombre_lead(text, estado_usuario, user_id)
-        
         elif paso == 'ofrecer_cita':
             return manejar_ofrecer_cita(text_lower, estado_usuario, user_id)
-        
         elif paso == 'solicitar_fecha_cita':
             return manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id)
-        
         elif paso == 'seleccionar_hora_cita':
             return manejar_seleccionar_hora_cita(text, estado_usuario, user_id)
-            
         elif paso == 'confirmar_cita':
             return manejar_confirmar_cita(text_lower, estado_usuario, user_id)
-        
         elif paso == 'esperando_email_cita':
             return manejar_email_cita(text, estado_usuario, user_id)
-        
         elif paso == 'esperando_feedback':
             return manejar_respuesta_feedback(text, estado_usuario, user_id)
-        
         elif paso == 'esperando_confirmacion_recordatorio':
             return manejar_confirmacion_recordatorio(text, estado_usuario, user_id)
         
+        # Modificar citas
         elif paso == 'seleccionar_cita_modificar':
             return manejar_seleccion_cita_modificar(text_lower, user_id)
-        
         elif paso == 'opciones_modificar_cita':
             return manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id)
-        
         elif paso == 'solicitar_fecha_actualizacion_cita':
             return manejar_solicitar_fecha_actualizacion_cita(text_lower, estado_usuario, user_id)
-        
         elif paso == 'seleccionar_hora_actualizacion_cita':
             return manejar_seleccionar_hora_actualizacion_cita(text, estado_usuario, user_id)
-        
         elif paso == 'confirmar_actualizacion_cita':
             return manejar_confirmar_actualizacion_cita(text_lower, estado_usuario, user_id)
         
+        # Tasación
         elif paso == 'tasacion_operacion':
             return manejar_tasacion_operacion(text_lower, estado_usuario, user_id)
-        
         elif paso == 'tasacion_barrio':
             return manejar_tasacion_barrio(text, estado_usuario, user_id)
-            
         elif paso == 'tasacion_tipo':
             return manejar_tasacion_tipo(text_lower, estado_usuario, user_id)
-            
         elif paso == 'tasacion_m2':
             return manejar_tasacion_m2(text, estado_usuario, user_id)
-            
         elif paso == 'tasacion_ambientes':
             return manejar_tasacion_ambientes(text, estado_usuario, user_id)
-            
         elif paso == 'tasacion_estado':
             return manejar_tasacion_estado(text_lower, estado_usuario, user_id)
-            
         elif paso == 'tasacion_esperando_contacto':
             return manejar_tasacion_contacto(text_lower, estado_usuario, user_id)
         
+        # Vista de fotos
         elif paso == 'vista_fotos':
             return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
-
-        # ========== ACCIONES ESPECIALES ==========
-        if text_lower in ["i", "interesa", "me interesa"]:
-            indice = estado_usuario.get('ultimo_indice_preguntado')
-            propiedades = estado_usuario.get('propiedades_filtradas', [])
-            
-            if indice and 1 <= indice <= len(propiedades):
-                propiedad = propiedades[indice - 1]
-                log(f"🎯 ACCIÓN: Me interesa (Prop ID: {propiedad.get('id_temporal')})")
-                estado_usuario['paso'] = 'esperando_nombre_lead'
-                actualizar_estado_usuario(user_id, estado_usuario)
-                
-                try:
-                    registrar_lead(user_id, propiedad.get('id_temporal'), 'click_me_interesa', f"Interés expresado en Propiedad: {propiedad.get('titulo')}")
-                    notificar_agente(f"👀 *INTERÉS INICIAL*\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad.get('titulo')}\n_(Esperando que el usuario ingrese su nombre...)_")
-                except Exception as e:
-                    log(f"⚠️ Error registrando lead inicial: {e}")
-                    
-                return f"✅ ¡Genial! Me interesa la propiedad: *{propiedad.get('titulo')}*.\n\nPor favor, decime tu *Nombre y Apellido* para que un asesor te contacte."
-            else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado."
-
-        if text_lower == "f":
-            indice = estado_usuario.get('ultimo_indice_preguntado')
-            propiedades = estado_usuario.get('propiedades_filtradas', [])
-            if indice and 1 <= indice <= len(propiedades):
-                propiedad = propiedades[indice - 1]
-                return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
-            else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
         
-        if text_lower == "p":
-            indice = estado_usuario.get('ultimo_indice_preguntado')
-            propiedades = estado_usuario.get('propiedades_filtradas', [])
-            if indice and 1 <= indice <= len(propiedades):
-                propiedad = propiedades[indice - 1]
-                prop_id = propiedad.get('id_temporal')
-                return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
-            else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado para obtener el PDF."
-                
-        if text_lower in ["l", "listado"]:
-            propiedades = estado_usuario.get('propiedades_filtradas', [])
-            if propiedades:
-                estado_usuario['paso'] = 'listado_propiedades'
-                actualizar_estado_usuario(user_id, estado_usuario)
-                from utils import generar_listado_propiedades
-                return generar_listado_propiedades(propiedades)
-            else:
-                return "⚠️ No hay propiedades en el listado. Envía 'MENU' para volver al inicio."
-
-        # Fallback seguro si se perdió el paso pero el usuario ya venía de un listado de propiedades
-        if text_lower.isdigit() and estado_usuario.get('ultima_accion') == 'mostrar_listado':
-            propiedades = estado_usuario.get('propiedades_filtradas', [])
-            try:
-                opcion_num = int(text_lower)
-                if 1 <= opcion_num <= len(propiedades):
-                    log(f"🐞 DEBUG fallback a manejar_listado_propiedades: paso={paso}, text={text_lower}, ultima_accion={estado_usuario.get('ultima_accion')}")
-                    return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
-            except ValueError:
-                pass
-
-        # BUSCADOR POR TEXTO
+        # ========== 5. BUSCADOR POR TEXTO ==========
         if text_lower.startswith("buscar ") or (len(text_lower) > 3 and paso == 'menu_principal' and not text_lower.isdigit()):
             fecha_detectada = analizar_fecha(text_lower)
             if fecha_detectada and len(text_lower.split()) <= 3:
@@ -523,12 +464,19 @@ Por favor:
 
             termino = text_lower.replace("buscar ", "").strip()
             return manejar_busqueda_keywords(termino, estado_usuario, user_id)
-
-        # OPCIONES DEL MENÚ PRINCIPAL
+        
+        # ========== 6. MENÚ PRINCIPAL ==========
         if paso == 'menu_principal':
             return manejar_menu_principal(text_lower, estado_usuario, user_id)
         
-        # Respuesta por defecto
+        # Fallback para números cuando el paso se perdió
+        if text_lower.isdigit() and estado_usuario.get('ultima_accion') == 'mostrar_listado':
+            propiedades = estado_usuario.get('propiedades_filtradas', [])
+            if propiedades and 1 <= int(text_lower) <= len(propiedades):
+                log(f"🐞 DEBUG fallback a manejar_listado_propiedades: paso={paso}, text={text_lower}")
+                return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
+        
+        # ========== 7. RESPUESTA POR DEFECTO ==========
         return """No pude identificar esa opción. Por favor elegí una opción válida del menú.
 
 Ⓜ️ *Volver al menú principal (Envía 'M')*
@@ -539,6 +487,87 @@ Por favor:
         error_trace = traceback.format_exc()
         log(f"🔥 ERROR EN get_bot_response: {e}\n{error_trace}")
         return "❌ *Lo siento, ocurrió un error interno.*\n\nPor favor, intenta de nuevo enviando 'M' o contacta al administrador."
+
+
+# ========== FUNCIONES AUXILIARES PARA OPTIMIZACIÓN ==========
+
+def manejar_interes_propiedad(estado_usuario, user_id):
+    """Maneja el interés en una propiedad"""
+    indice = estado_usuario.get('ultimo_indice_preguntado')
+    propiedades = estado_usuario.get('propiedades_filtradas', [])
+    
+    if indice and 1 <= indice <= len(propiedades):
+        propiedad = propiedades[indice - 1]
+        log(f"🎯 ACCIÓN: Me interesa (Prop ID: {propiedad.get('id_temporal')})")
+        estado_usuario['paso'] = 'esperando_nombre_lead'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        try:
+            registrar_lead(user_id, propiedad.get('id_temporal'), 'click_me_interesa', f"Interés expresado en Propiedad: {propiedad.get('titulo')}")
+            notificar_agente(f"👀 *INTERÉS INICIAL*\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad.get('titulo')}\n_(Esperando que el usuario ingrese su nombre...)_")
+        except Exception as e:
+            log(f"⚠️ Error registrando lead inicial: {e}")
+            
+        return f"✅ ¡Genial! Me interesa la propiedad: *{propiedad.get('titulo')}*.\n\nPor favor, decime tu *Nombre y Apellido* para que un asesor te contacte."
+    else:
+        return "⚠️ Por favor, primero selecciona una propiedad del listado."
+
+
+def manejar_fotos_propiedad(estado_usuario, user_id):
+    """Maneja la solicitud de fotos de una propiedad"""
+    indice = estado_usuario.get('ultimo_indice_preguntado')
+    propiedades = estado_usuario.get('propiedades_filtradas', [])
+    if indice and 1 <= indice <= len(propiedades):
+        propiedad = propiedades[indice - 1]
+        return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
+    else:
+        return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
+
+
+def manejar_pdf_propiedad(estado_usuario, user_id):
+    """Maneja la solicitud de PDF de una propiedad"""
+    indice = estado_usuario.get('ultimo_indice_preguntado')
+    propiedades = estado_usuario.get('propiedades_filtradas', [])
+    if indice and 1 <= indice <= len(propiedades):
+        propiedad = propiedades[indice - 1]
+        prop_id = propiedad.get('id_temporal')
+        return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
+    else:
+        return "⚠️ Por favor, primero selecciona una propiedad del listado para obtener el PDF."
+
+
+def manejar_listado_completo(estado_usuario, user_id):
+    """Maneja la solicitud del listado completo"""
+    propiedades = estado_usuario.get('propiedades_filtradas', [])
+    if propiedades:
+        estado_usuario['paso'] = 'listado_propiedades'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        from utils import generar_listado_propiedades
+        return generar_listado_propiedades(propiedades)
+    else:
+        return "⚠️ No hay propiedades en el listado. Envía 'MENU' para volver al inicio."
+
+
+def manejar_todos_los_inmuebles(estado_usuario, user_id):
+    """Maneja la opción 7: Todos los Inmuebles"""
+    from propiedades import cargar_propiedades_cached
+    propiedades = cargar_propiedades_cached()
+    
+    if not propiedades:
+        return "❌ No hay propiedades disponibles en este momento."
+    
+    # Guardar propiedades en estado
+    estado_usuario['propiedades_filtradas'] = propiedades
+    estado_usuario['operacion_seleccionada'] = 'todas'
+    estado_usuario['ultimo_indice_preguntado'] = 0
+    estado_usuario['paso'] = 'listado_propiedades'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    # Mostrar primera propiedad
+    from menu_options import mostrar_propiedad_con_acciones
+    return mostrar_propiedad_con_acciones(0, propiedades, user_id)
+
+
 
 # ========== FUNCIONES DE WHATSAPP API MEJORADAS ==========
 # def check_token_validity():
@@ -955,12 +984,15 @@ def webhook():
                 processed_text = emoji_digit_map.get(processed_text, processed_text)
                 
                 # Diccionario de alias
+                # Diccionario de alias
                 boton_a_numero = {
                     "opcion_1": "1", "opcion_2": "2", "opcion_3": "3", "opcion_4": "4",
-                    "opcion_5": "5", "opcion_6": "6", "opcion_tasacion": "10",
+                    "opcion_5": "5", "opcion_6": "6", "opcion_7": "7", "opcion_tasacion": "10",
                     "opcion_salir": "s", "volver_menu": "9", "salir_chat": "0",
                     "venta": "1", "alquiler": "2", "comprar": "1", "asesor": "5",
-                    "c_menu": "m", "c_salir": "s"
+                    "c_menu": "m", "c_salir": "s",
+                    # Agregar específicamente para opción 7 (Todos los Inmuebles)
+                    "7": "7", "opcion_7": "7"
                 }
                 
                 if processed_text in boton_a_numero:
