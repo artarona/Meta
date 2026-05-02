@@ -617,7 +617,8 @@ def manejar_confirmacion_campana(text, estado_usuario, user_id):
             msg = f"✅ *¡Búsqueda registrada!*\n\nUn asesor especializado está analizando nuestra base de datos (incluso propiedades off-market) y se contactará contigo a la brevedad con las mejores opciones a medida.\n\n{DESPEDIDA}"
         
         return WhatsAppResponse.buttons(
-            body=msg + "\n\n1️⃣ Nueva búsqueda\n2️⃣ Salir",
+            # body=msg + "\n\n1️⃣ Nueva búsqueda\n2️⃣ Salir",
+            body=msg,
             buttons=[
                 {"id": "c_menu", "title": "1️⃣ 📋 Nueva búsqueda"},
                 {"id": "c_salir", "title": "2️⃣ ❌ Salir"}
