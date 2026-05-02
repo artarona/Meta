@@ -363,7 +363,18 @@ def get_bot_response(text, user_id):
             return manejar_fotos_propiedad(estado_usuario, user_id)
             
         if text_lower == "p":
-            return manejar_pdf_propiedad(estado_usuario, user_id)
+        return [
+            manejar_pdf_propiedad(estado_usuario, user_id),
+            WhatsAppResponse.buttons(
+                header="Ficha técnica",
+                body="Selecciona 👇",
+                buttons=[
+                    {"id": "m", "title": "Volver al menú"},
+                    {"id": "s", "title": "Salir"}
+                ]
+            )
+        ]
+
                 
         if text_lower in ["l", "listado"]:
             return manejar_listado_completo(estado_usuario, user_id)
