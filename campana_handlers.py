@@ -181,22 +181,22 @@ def iniciar_campana(platform=None):
             "¿Te gustaría recibir una valoración gratuita o conocer las mejores oportunidades del mercado?",
             "Contame qué necesitás y te ayudo personalmente a avanzar.",
             "",
-            "Servicios Disponibles",
-            "1. 🏡 Quiero Comprar - Busco comprar una propiedad",
-            "2. 🔑 Quiero Alquilar - Busco alquilar una propiedad", 
-            "3. 📈 Tasar mi Propiedad - Quiero saber el valor de mercado (¡gratis!)",
-            "4. 👤 Hablar con Asesor - Atención personalizada inmediata",
+            "*Servicios Disponibles*",
+            "*1*. 🏡 Quiero Comprar - Busco comprar una propiedad",
+            "*2*. 🔑 Quiero Alquilar - Busco alquilar una propiedad", 
+            "*3*. 📈 Tasar mi Propiedad - Quiero saber el valor de mercado (¡gratis!)",
+            "*4*. 👤 Hablar con Asesor - Atención personalizada inmediata",
             "",
-            "Otras Opciones",
-            "5. ❌ Salir - Finalizar la conversación",
+            "*Otras Opciones*",
+            "*5*. ❌ Salir - Finalizar la conversación",
             "",
             "Dante Propiedades · Tu lugar ideal",
             "",
-            "💡 Envía el número de la opción deseada"
+            "💡 *Envía el número de la opción deseada* 👇"
         ]
-        
-        # Retornar una lista de mensajes para enviar uno por uno
+
         return [{"type": "text", "body": parte, "preview": False} for parte in partes if parte]
+
     
     else:
         # WhatsApp: lista interactiva
