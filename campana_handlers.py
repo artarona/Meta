@@ -532,7 +532,27 @@ def manejar_pedir_nombre_asesor(text, estado_usuario, user_id):
 # ========== RESUMEN Y CONFIRMACIÓN ==========
 
 def mostrar_resumen_campana(data):
+    """Muestra el resumen de la búsqueda con opciones interactivas según plataforma"""
+    
     intencion = data.get('intencion')
+    platform = None
+    es_fb_ig = False
+    
+    # Intentar obtener platform del contexto
+    import inspect
+    frame = inspect.currentframe()
+    try:
+        # Buscar estado_usuario en frames anteriores
+        while frame:
+            if 'estado_usuario' in frame.f_locals:
+                estado = frame.f_locals['estado_usuario']
+                if isinstance(estado, dict) and 'platform' in estado:
+                    platform = estado.get('platform')
+                    es_fb_ig = platform in ("messenger", "facebook", "instagram")
+                    break
+            frame = frame.f_back
+    finally:
+        del frame
     
     resumen = f"{MARCA}\n━━━━━━━━━━━━━━━━━\n📋 *RESUMEN DE TU BÚSQUEDA*\n\n"
     resumen += f"🔸 *Intención:* {intencion}\n"
@@ -546,18 +566,38 @@ def mostrar_resumen_campana(data):
         resumen += f"🏠 *Tipo:* {data.get('tipo')}\n"
         resumen += f"🛠️ *Estado:* {data.get('estado_propiedad')}\n"
     
-    resumen += "\n━━━━━━━━━━━━━━━━━\n¿Estos datos son correctos?\n\n1️⃣ Confirmar\n2️⃣ Corregir\n3️⃣ Cancelar"
-
-    return WhatsAppResponse.buttons(
-        body=resumen,
-        buttons=[
-            {"id": "confirmar_datos", "title": "1️⃣ ✅ Sí, confirmar"},
-            {"id": "corregir_datos", "title": "2️⃣ 🔄 Corregir"},
-            {"id": "c_salir", "title": "3️⃣ ❌ Cancelar"}
-        ],
-        footer=PIE_MENU
-    )
-
+    resumen += "\n━━━━━━━━━━━━━━━━━"
+    
+    if es_fb_ig:
+        # Facebook/Instagram: SOLO texto plano con emojis numéricos (sin botones de Meta)
+        resumen_completo = (
+            f"{resumen}\n\n"
+            "¿Estos datos son correctos?\n\n"
+            "1️⃣ ✅ Confirmar\n"
+            "2️⃣ 🔄 Corregir\n"
+            "3️⃣ ❌ Cancelar\n\n"
+            f"{PIE_MENU}\n\n"
+            "💡 *Envía el número de la opción deseada*"
+        )
+        
+        return {
+            "type": "text",
+            "body": resumen_completo,
+            "preview": False
+        }
+    else:
+        # WhatsApp: SOLO botones interactivos (sin texto duplicado)
+        return WhatsAppResponse.buttons(
+            body=resumen,
+            buttons=[
+                {"id": "confirmar_datos", "title": "✅ Confirmar"},
+                {"id": "corregir_datos", "title": "🔄 Corregir"},
+                {"id": "c_salir", "title": "❌ Cancelar"}
+            ],
+            footer=PIE_MENU
+        )
+        
+        
 def manejar_confirmacion_campana(text, estado_usuario, user_id):
     if text in ["confirmar_datos", "1", "si", "sí", "confirmar", "ok"]:
         data = _get_campana_data(estado_usuario)
