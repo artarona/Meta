@@ -1085,7 +1085,52 @@
                 </div>
 
                 <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border);">
-                    <button class="btn btn-primary" onclick="guardarConfiguracion()">
+                    <h3>📅 Días y Horarios de Visita</h3>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
+                        Configura los días y las horas en que el bot ofrecerá visitas a los clientes.
+                    </p>
+
+                    <div class="form-group">
+                        <label class="form-label">Días Habilitados:</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 0.5rem;">
+                            <label style="display: flex; align-items: center; gap: 0.3rem;">
+                                <input type="checkbox" name="dia-visita" value="0"> Lun
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.3rem;">
+                                <input type="checkbox" name="dia-visita" value="1"> Mar
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.3rem;">
+                                <input type="checkbox" name="dia-visita" value="2"> Mié
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.3rem;">
+                                <input type="checkbox" name="dia-visita" value="3"> Jue
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.3rem;">
+                                <input type="checkbox" name="dia-visita" value="4"> Vie
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.3rem;">
+                                <input type="checkbox" name="dia-visita" value="5"> Sáb
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.3rem;">
+                                <input type="checkbox" name="dia-visita" value="6"> Dom
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 1.5rem;">
+                        <label class="form-label">Franjas Horarias:</label>
+                        <div id="horarios-lista" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+                            <!-- Los horarios se cargarán aquí -->
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <input type="time" id="nuevo-horario-input" class="form-control" style="width: 150px;">
+                            <button class="btn btn-outline" onclick="agregarHorarioAdmin()">➕ Añadir Hora</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border);">
+                    <button class="btn btn-primary" onclick="guardarConfiguracionCompleta()">
                         💾 Guardar Configuración
                     </button>
                     <button class="btn" style="background-color: var(--warning); color: white; margin-left: 1rem;"
@@ -2616,6 +2661,8 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                     setTimeout(() => cargarEstadisticasMercado(), 100);
                 } else if (tabName === 'barrios') {
                     cargarBarrios();
+                } else if (tabName === 'configuracion') {
+                    cargarHorariosAdmin();
                 }
             }
 
@@ -3952,7 +3999,97 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 };
             }
         });
+        // --- GESTIÓN DE HORARIOS ADMIN ---
+        let configHorariosActual = {
+            configuracion_global: {
+                dias_habiles: [0, 1, 2, 3, 4],
+                horarios: ["09:00", "10:00", "11:00", "15:00", "16:00", "17:00"]
+            }
+        };
+
+        async function cargarHorariosAdmin() {
+            try {
+                const config = await fetchConClave('/api/config/horarios');
+                if (config && config.configuracion_global) {
+                    configHorariosActual = config;
+                    renderizarHorariosAdmin();
+                }
+            } catch (error) {
+                console.error('Error cargando horarios admin:', error);
+                renderizarHorariosAdmin();
+            }
+        }
+
+        function renderizarHorariosAdmin() {
+            const config = configHorariosActual.configuracion_global;
+            
+            // Marcar días
+            document.querySelectorAll('input[name="dia-visita"]').forEach(cb => {
+                cb.checked = config.dias_habiles.includes(parseInt(cb.value));
+            });
+
+            // Renderizar slots de tiempo
+            const container = document.getElementById('horarios-lista');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            [...config.horarios].sort().forEach(hora => {
+                const tag = document.createElement('div');
+                tag.style.cssText = 'background: #eff6ff; color: #1e40af; padding: 0.4rem 0.8rem; border-radius: 9999px; border: 1px solid #bfdbfe; display: flex; align-items: center; gap: 0.5rem; font-weight: 600;';
+                tag.innerHTML = `
+                    <span>${hora}</span>
+                    <span onclick="eliminarHorarioAdmin('${hora}')" style="cursor: pointer; font-size: 1.2rem; line-height: 1;">×</span>
+                `;
+                container.appendChild(tag);
+            });
+        }
+
+        function agregarHorarioAdmin() {
+            const input = document.getElementById('nuevo-horario-input');
+            const nuevaHora = input.value;
+            
+            if (!nuevaHora) return;
+            
+            if (configHorariosActual.configuracion_global.horarios.includes(nuevaHora)) {
+                mostrarToast('La hora ya existe', 'warning');
+                return;
+            }
+
+            configHorariosActual.configuracion_global.horarios.push(nuevaHora);
+            renderizarHorariosAdmin();
+            input.value = '';
+        }
+
+        function eliminarHorarioAdmin(hora) {
+            configHorariosActual.configuracion_global.horarios = configHorariosActual.configuracion_global.horarios.filter(h => h !== hora);
+            renderizarHorariosAdmin();
+        }
+
+        async function guardarConfiguracionCompleta() {
+            // Primero guardamos la config UI normal
+            guardarConfiguracion();
+
+            // Luego guardamos los horarios al servidor
+            const diasHabilitados = Array.from(document.querySelectorAll('input[name="dia-visita"]:checked'))
+                .map(cb => parseInt(cb.value));
+
+            configHorariosActual.configuracion_global.dias_habiles = diasHabilitados;
+
+            try {
+                const res = await fetchConClave('/api/config/horarios', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(configHorariosActual)
+                });
+
+                if (res.status === 'success' || res.message) {
+                    mostrarToast('✅ Configuración y Horarios actualizados', 'success');
+                }
+            } catch (error) {
+                console.error('Error guardando horarios:', error);
+                mostrarToast('❌ Error guardando horarios', 'danger');
+            }
+        }
     </script>
 </body>
-
 </html>

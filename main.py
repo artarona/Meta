@@ -2696,33 +2696,43 @@ def api_send_manual_message_main():
     else:
         return jsonify(resultado), 500
 
-@app.route("/api/config/horarios", methods=["GET"])
+@app.route("/api/config/horarios", methods=["GET", "POST"])
 def api_config_horarios():
-    """Obtiene la configuración de horarios"""
+    """Obtiene o guarda la configuración de horarios de visita"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
     
+    if request.method == "POST":
+        try:
+            data = request.json
+            if not data:
+                return jsonify({"error": "Datos inválidos"}), 400
+                
+            with open("dias-horarios-visitas.json", 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+                
+            log("✅ Configuración de horarios actualizada desde Admin")
+            return jsonify({"status": "success", "message": "Horarios actualizados correctamente"})
+        except Exception as e:
+            log(f"❌ Error guardando horarios: {e}", "ERROR")
+            return jsonify({"error": str(e)}), 500
+
+    # Método GET (Existente)
     try:
         if os.path.exists("dias-horarios-visitas.json"):
             with open("dias-horarios-visitas.json", 'r', encoding='utf-8') as f:
                 config = json.load(f)
             return jsonify(config)
         else:
-            # Configuración por defecto
             default_config = {
                 "configuracion_global": {
                     "dias_habiles": [0, 1, 2, 3, 4],
-                    "horarios": [
-                        "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
-                        "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
-                        "17:00", "17:30", "18:00", "18:30"
-                    ]
+                    "horarios": ["09:00", "10:00", "11:00", "15:00", "16:00", "17:00"]
                 },
                 "propiedades": {}
             }
             return jsonify(default_config)
-            
     except Exception as e:
         log(f"❌ Error en api_config_horarios: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
