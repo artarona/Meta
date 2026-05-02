@@ -37,6 +37,7 @@ FB_PAGE_ID = os.getenv("FB_PAGE_ID", "10276359504441539")
 IG_BUSINESS_ID = os.getenv("IG_BUSINESS_ID", "17841403923335775")
 APP_ID = os.getenv("APP_ID", "660464660489336")
 FB_CONFIG_ID = os.getenv("FB_CONFIG_ID", "1619594132663970")
+FLOW_ID_CONTACTO = os.environ.get("FLOW_ID_CONTACTO", "1234567890") # ID del Flow en Meta
 
 # Tokens específicos por plataforma (fallback al ACCESS_TOKEN general)
 FB_PAGE_ACCESS_TOKEN = os.getenv("FB_PAGE_TOKEN", ACCESS_TOKEN)

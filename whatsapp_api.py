@@ -445,6 +445,63 @@ def check_token_validity():
         return False, {"error": str(e)}
 
 
+def send_whatsapp_contact_flow(to_number, body_text="¡Genial! Para brindarte una mejor atención, por favor completa tus datos en el siguiente formulario:"):
+    """Envía un Meta Flow (WhatsApp Flow) para captura de contacto"""
+    try:
+        from config import FLOW_ID_CONTACTO
+        token_valid, _ = check_token_validity()
+        if not token_valid:
+            return {"status": "error", "error_message": "Token inválido"}
+
+        transformed_number = normalizar_numero_argentina(to_number)
+        
+        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": transformed_number,
+            "type": "interactive",
+            "interactive": {
+                "type": "flow",
+                "header": {"type": "text", "text": "Dante Propiedades 🏠"},
+                "body": {"text": body_text},
+                "footer": {"text": "Toca el botón para empezar 👇"},
+                "action": {
+                    "name": "flow",
+                    "parameters": {
+                        "flow_message_version": "3",
+                        "flow_token": f"token_{int(time.time())}",
+                        "flow_id": FLOW_ID_CONTACTO,
+                        "flow_cta": "Completar Datos",
+                        "flow_action": "navigate",
+                        "flow_action_payload": {
+                            "screen": "CONTACT_FORM"
+                        }
+                    }
+                }
+            }
+        }
+        
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        
+        if response.status_code == 200:
+            log(f"✅ Flow enviado a {to_number}")
+            return response.json()
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Error desconocido')
+            log(f"❌ Error enviando Flow: {error_msg}", "ERROR")
+            return {"status": "error", "error_message": error_msg}
+            
+    except Exception as e:
+        log(f"🔥 Error inesperado enviando Flow: {e}", "ERROR")
+        return {"status": "error", "error": str(e)}
+
+
 def notificar_agente(mensaje):
     """Envía una notificación al número del agente (AGENT_NUMBER)"""
     from config import AGENT_NUMBER

@@ -1458,3 +1458,50 @@ Para poder comprar esta propiedad necesitas:
         ],
         footer="L = Listado | M = Menú | S = Salir"
     )
+
+def manejar_flow_response(estado_usuario, user_id):
+    """Procesa la respuesta recibida desde un Meta Flow"""
+    response = estado_usuario.get('last_flow_response', {})
+    if not response:
+        return "⚠️ Error: No se encontraron datos en el formulario."
+        
+    # Extraer datos del Flow (según el JSON definido)
+    nombre = response.get('full_name', 'Cliente')
+    email = response.get('email', 'No provisto')
+    motivo = response.get('reason', 'consulta')
+    
+    # Limpiar la respuesta para no procesarla dos veces
+    estado_usuario['last_flow_response'] = None
+    estado_usuario['nombre_cliente'] = nombre
+    estado_usuario['email_cliente'] = email
+    
+    # Obtener propiedad si existe
+    indice = estado_usuario.get('ultimo_indice_preguntado')
+    propiedades_lista = estado_usuario.get('propiedades_filtradas', [])
+    prop_id = "N/A"
+    prop_titulo = "General"
+    
+    if indice and 1 <= indice <= len(propiedades_lista) and isinstance(propiedades_lista, list):
+        prop = propiedades_lista[indice - 1]
+        prop_id = prop.get('id_temporal', 'N/A')
+        prop_titulo = prop.get('titulo', 'Propiedad')
+
+    # Registrar el lead completo
+    try:
+        registrar_lead(user_id, prop_id, 'flow_contact', f"Nombre: {nombre}, Email: {email}, Motivo: {motivo}")
+        notificar_agente(f"🎯 *NUEVO LEAD (META FLOW)*\n👤 Nombre: {nombre}\n📧 Email: {email}\n📞 Tel: +{user_id}\n🏠 Propiedad: {prop_titulo}\n📝 Motivo: {motivo}")
+    except Exception as e:
+        log(f"⚠️ Error registrando lead desde Flow: {e}")
+
+    # Responder al usuario y ofrecer cita si es relevante
+    mensaje_exito = f"✅ ¡Gracias {nombre}! Hemos recibido tus datos correctamente.\n\n📧 Email registrado: {email}\n\nUn asesor se contactará contigo a la brevedad por {motivo}."
+    
+    # Si el motivo es relevante para una cita, ofrecemos agendar
+    if motivo.lower() in ['alquiler', 'venta', 'tasacion']:
+        estado_usuario['paso'] = 'ofrecer_cita'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return [mensaje_exito, "📅 *¿Te gustaría agendar una visita o entrevista para avanzar?* (Si/No)"]
+    
+    estado_usuario['paso'] = 'menu_principal'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    return [mensaje_exito, "WELCOME_FLOW_TRIGGER"]

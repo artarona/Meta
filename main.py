@@ -356,6 +356,9 @@ def get_bot_response(text, user_id):
             return "WELCOME_FLOW_TRIGGER"
         
         # ========== 2. ACCIONES ESPECIALES (MÁS COMUNES) ==========
+        if text_lower == "flow_response_trigger":
+            return manejar_flow_response(estado_usuario, user_id)
+            
         if text_lower in ["i", "interesa", "me interesa"]:
             return manejar_interes_propiedad(estado_usuario, user_id)
             
@@ -499,6 +502,13 @@ def manejar_interes_propiedad(estado_usuario, user_id):
     if indice and 1 <= indice <= len(propiedades):
         propiedad = propiedades[indice - 1]
         log(f"🎯 ACCIÓN: Me interesa (Prop ID: {propiedad.get('id_temporal')})")
+        
+        # Si es WhatsApp, intentamos usar Meta Flow
+        if estado_usuario.get('platform') == 'whatsapp':
+             from whatsapp_api import send_whatsapp_contact_flow
+             send_whatsapp_contact_flow(user_id, body_text=f"✅ ¡Genial! Me interesa la propiedad: *{propiedad.get('titulo')}*.\n\nPara brindarte una mejor atención, por favor completa tus datos en el siguiente formulario:")
+             return None # El flow es asíncrono, no retornamos texto ahora
+             
         estado_usuario['paso'] = 'esperando_nombre_lead'
         actualizar_estado_usuario(user_id, estado_usuario)
         
@@ -1073,6 +1083,20 @@ def webhook():
                                     m_text = interactive.get("button_reply", {}).get("id", "")
                                 elif int_type == "list_reply":
                                     m_text = interactive.get("list_reply", {}).get("id", "")
+                                elif int_type == "nfm_reply":
+                                    # RESPUESTA DE META FLOW
+                                    m_text = "FLOW_RESPONSE_TRIGGER"
+                                    flow_response = interactive.get("nfm_reply", {}).get("response_json")
+                                    if flow_response:
+                                        try:
+                                            # Guardar la respuesta cruda para procesarla en el handler
+                                            from database import obtener_estado_usuario, actualizar_estado_usuario
+                                            est = obtener_estado_usuario(from_num)
+                                            est['last_flow_response'] = json.loads(flow_response)
+                                            actualizar_estado_usuario(from_num, est)
+                                            log(f"📥 Respuesta de Meta Flow recibida y guardada para {from_num}")
+                                        except Exception as fe:
+                                            log(f"⚠️ Error parseando Flow response: {fe}")
                             
                             if procesar_mensaje_unificado(from_num, m_text, "whatsapp", m_id):
                                 mensajes_procesados += 1
