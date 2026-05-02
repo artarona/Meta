@@ -237,10 +237,10 @@ def manejar_tasacion_barrio(text, estado_usuario, user_id):
                 "preview": False
             }
         else:
-            # WhatsApp: lista interactiva
+            
             return {
                 "type": "interactive_list",
-                "body": "🏠 *¿Qué tipo de propiedad es?*",
+                "body": "🏠 *¿Qué tipo de propiedad es?*\n\nSelecciona una opción 👇",
                 "button_text": "Tipos",
                 "sections": [
                     {
@@ -250,12 +250,33 @@ def manejar_tasacion_barrio(text, estado_usuario, user_id):
                             {"id": "2", "title": "Casa"},
                             {"id": "3", "title": "PH"},
                             {"id": "4", "title": "Oficina / Local"},
-                            {"id": "5", "title": "Terreno"}
+                            {"id": "5", "title": "Terreno"},
+                            {"id": "M", "title": "↩️ Volver al menú anterior"},
+                            {"id": "S", "title": "❌ Salir"}
                         ]
                     }
-                ],
-                "footer": "Ⓜ️ Envía 'M' para Volver | ❌ Envía 'S' para Salir"
+                ]
             }
+
+            # WhatsApp: lista interactiva
+            # return {
+            #     "type": "interactive_list",
+            #     "body": "🏠 *¿Qué tipo de propiedad es?*",
+            #     "button_text": "Tipos",
+            #     "sections": [
+            #         {
+            #             "title": "Tipo de Propiedad",
+            #             "rows": [
+            #                 {"id": "1", "title": "Departamento"},
+            #                 {"id": "2", "title": "Casa"},
+            #                 {"id": "3", "title": "PH"},
+            #                 {"id": "4", "title": "Oficina / Local"},
+            #                 {"id": "5", "title": "Terreno"}
+            #             ]
+            #         }
+            #     ],
+            #     "footer": "Ⓜ️ Envía 'M' para Volver | ❌ Envía 'S' para Salir"
+            # }
         
     except Exception as e:
         log(f"⚠️ Error verificando barrio: {e}")
