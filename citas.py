@@ -656,7 +656,7 @@ def manejar_ofrecer_cita(text_lower, estado_usuario, user_id):
                 {"title": "Seleccionar Día", "rows": rows_fechas},
                 {"title": "Otras Opciones", "rows": rows_extra}
             ],
-            footer="Dante Propiedades 🏠"
+            footer= "Selecciona una opción 👇"
         )
     
     elif text_lower in ["2", "no", "solo info", "informacion", "información"]:
