@@ -169,9 +169,30 @@ def notificar_cita_admin(cita):
 
 def manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id):
     """Maneja la solicitud de fecha para la cita"""
-    if text_lower in ["ver fechas", "disponibles", "fechas"]:
+    if text_lower in ["ver fechas", "disponibles", "fechas", "ver_fechas"]:
         return mostrar_fechas_disponibles(estado_usuario)
     
+    if text_lower in ["ver horarios", "horarios", "ver_horarios"]:
+        # Obtener propiedad actual para mostrar sus horarios específicos
+        indice = estado_usuario.get('ultimo_indice_preguntado')
+        propiedades_lista = estado_usuario.get('propiedades_filtradas', [])
+        propiedad_id = None
+        if indice and 1 <= indice <= len(propiedades_lista):
+            propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
+        
+        config_texto = obtener_texto_horarios(propiedad_id)
+        dias_texto = obtener_texto_dias_habiles(propiedad_id)
+        
+        return WhatsAppResponse.buttons(
+            header="🕒 HORARIOS DISPONIBLES",
+            body=f"Nuestros horarios para visitas son:\n\n📅 *Días:* {dias_texto}\n⏰ *Horas:* {config_texto}\n\nPor favor, selecciona un día para ver los turnos libres.",
+            buttons=[
+                {"id": "ver_fechas", "title": "📅 Ver Días"},
+                {"id": "m", "title": "🏠 Menú Principal"},
+                {"id": "s", "title": "SALIR ❌"}
+            ]
+        )
+
     # 1. Analizar Fecha
     fecha_ingresada = analizar_fecha(text_lower)
     
@@ -444,9 +465,30 @@ def mostrar_seleccion_horarios(fecha_display, horarios):
 
 
 def mostrar_fechas_disponibles(estado_usuario):
-    # Lógica auxiliar para mostrar fechas (simplificada del código anterior)
-    # ... (Se mantiene lógica de iterar y mostrar calendario)
-    return "📅 (Calendario simplificado) Escribí una fecha..."
+    """Muestra los próximos 10 días hábiles disponibles usando un List Menu"""
+    indice = estado_usuario.get('ultimo_indice_preguntado')
+    propiedades_lista = estado_usuario.get('propiedades_filtradas', [])
+    propiedad_id = None
+    if indice and 1 <= indice <= len(propiedades_lista):
+        propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
+
+    fechas = obtener_proximas_fechas_disponibles(propiedad_id, 10)
+    
+    rows = []
+    for f in fechas:
+        rows.append({
+            "id": f['fecha_iso'],
+            "title": f"{f['nombre_dia']} {f['fecha_short']}",
+            "description": f"Ver horarios para el {f['fecha_short']}"
+        })
+        
+    return WhatsAppResponse.list_menu(
+        header="📅 ELEGÍ UN DÍA",
+        body="Seleccioná una de las próximas fechas disponibles para tu visita:",
+        button_text="Ver fechas",
+        sections=[{"title": "Días Disponibles", "rows": rows}],
+        footer="Dante Propiedades 🏠"
+    )
 
 
 def manejar_seleccionar_hora_cita(text, estado_usuario, user_id):
@@ -590,14 +632,12 @@ def manejar_ofrecer_cita(text_lower, estado_usuario, user_id):
         # Obtener las próximas 2 fechas disponibles según configuración
         fechas_disponibles = obtener_proximas_fechas_disponibles(propiedad_id, 2)
         
-        buttons = []
-        for fecha in fechas_disponibles:
-            # Texto corto para el botón: "Jueves 04/05"
-            label = f"{fecha['nombre_dia']} {fecha['fecha_short']}"
-            buttons.append({"id": fecha['fecha_iso'], "title": label})
-            
-        # Siempre agregar opción Salir
-        buttons.append({"id": "s", "title": "SALIR ❌"})
+        # Botones solicitados: Días y Horarios habilitados
+        buttons = [
+            {"id": "ver_fechas", "title": "📅 Días habilitados"},
+            {"id": "ver_horarios", "title": "🕒 Horarios"},
+            {"id": "s", "title": "SALIR ❌"}
+        ]
 
         nombre_cliente = estado_usuario.get('nombre_cliente', 'Cliente')
         
@@ -606,7 +646,7 @@ def manejar_ofrecer_cita(text_lower, estado_usuario, user_id):
         
         return WhatsAppResponse.buttons(
             header="📅 AGENDAR VISITA",
-            body=f"Excelente *{nombre_cliente}*!\n\n¿Para qué día te gustaría agendar? Seleccioná un día sugerido o escribí uno (ej: 'lunes 10hs').\n\n🕒 *Horarios disponibles:* {config_texto}",
+            body=f"Excelente *{nombre_cliente}*!\n\n¿Para qué día te gustaría agendar? Seleccioná los días habilitados o escribí una fecha.\n\n🕒 *Horarios disponibles:* {config_texto}",
             buttons=buttons,
             footer="Dante Propiedades 🏠"
         )

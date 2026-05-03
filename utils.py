@@ -121,7 +121,14 @@ def analizar_fecha(texto):
     if "pasado mañana" in texto or "pasado manana" in texto:
         return hoy + timedelta(days=2)
     
-    # Buscar fechas en formato DD/MM/YY, DD/MM/YYYY, DD-MM-YY, etc.
+    # 1. Buscar fechas en formato ISO YYYY-MM-DD (usado en IDs internos)
+    match_iso = re.search(r'(\d{4})-(\d{1,2})-(\d{1,2})', texto)
+    if match_iso:
+        try:
+            return datetime(int(match_iso.group(1)), int(match_iso.group(2)), int(match_iso.group(3)))
+        except: pass
+
+    # 2. Buscar fechas en formato DD/MM/YY, DD/MM/YYYY, DD-MM-YY, etc.
     # Patrón: 29/4/26, 29/04/2026, 29-4-26, etc.
     patrones = [
         r'(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})',  # DD/MM/YY o DD/MM/YYYY
