@@ -580,20 +580,35 @@ def manejar_ofrecer_cita(text_lower, estado_usuario, user_id):
         estado_usuario['paso'] = 'solicitar_fecha_cita'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        hoy = datetime.now()
-        mañana = hoy + timedelta(days=1)
-        # Ofrecer botones rápidos para fechas
-        pasado = hoy + timedelta(days=2)
+        # Obtener propiedad actual para filtrar días hábiles específicos
+        indice = estado_usuario.get('ultimo_indice_preguntado')
+        propiedades_lista = estado_usuario.get('propiedades_filtradas', [])
+        propiedad_id = None
+        if indice and 1 <= indice <= len(propiedades_lista):
+            propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
+
+        # Obtener las próximas 2 fechas disponibles según configuración
+        fechas_disponibles = obtener_proximas_fechas_disponibles(propiedad_id, 2)
+        
+        buttons = []
+        for fecha in fechas_disponibles:
+            # Texto corto para el botón: "Jueves 04/05"
+            label = f"{fecha['nombre_dia']} {fecha['fecha_short']}"
+            buttons.append({"id": fecha['fecha_iso'], "title": label})
+            
+        # Siempre agregar opción Salir
+        buttons.append({"id": "s", "title": "SALIR ❌"})
+
+        nombre_cliente = estado_usuario.get('nombre_cliente', 'Cliente')
+        
+        # Obtener texto sugerencia (ej: Lunes 10hs)
+        config_texto = obtener_texto_horarios(propiedad_id)
         
         return WhatsAppResponse.buttons(
             header="📅 AGENDAR VISITA",
-            body=f"Excelente {estado_usuario.get('nombre_cliente', 'Cliente')}!\n\n¿Para qué día te gustaría agendar? Podes elegir uno de estos o escribir una fecha:",
-            buttons=[
-                {"id": mañana.strftime("%d-%m-%Y"), "title": f"Mañana ({mañana.strftime('%d/%m')})"},
-                {"id": pasado.strftime("%d-%m-%Y"), "title": f"Pasado ({pasado.strftime('%d/%m')})"},
-                {"id": "ver_fechas", "title": "Ver más fechas"}
-            ],
-            footer="O escribí: ej. 'lunes 10hs'"
+            body=f"Excelente *{nombre_cliente}*!\n\n¿Para qué día te gustaría agendar? Seleccioná un día sugerido o escribí uno (ej: 'lunes 10hs').\n\n🕒 *Horarios disponibles:* {config_texto}",
+            buttons=buttons,
+            footer="Dante Propiedades 🏠"
         )
     
     elif text_lower in ["2", "no", "solo info", "informacion", "información"]:
@@ -748,6 +763,67 @@ def obtener_texto_horarios(propiedad_id=None):
         config = cargar_configuracion_horarios()
         global_config = config.get("configuracion_global", {})
         propiedades_config = config.get("propiedades", {})
+        
+        config_activa = global_config
+        if propiedad_id and propiedad_id in propiedades_config:
+            config_activa = propiedades_config[propiedad_id]
+            
+        dias = config_activa.get('dias_habiles', [0, 1, 2, 3, 4])
+        horarios = config_activa.get('horarios', [])
+        
+        nombres_dias = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+        dias_str = ", ".join([nombres_dias[d] for d in dias])
+        
+        if not horarios:
+            return f"{dias_str}"
+            
+        # Ordenar horarios para mostrar rango
+        horarios_sorted = sorted(horarios)
+        rango = f"{horarios_sorted[0]} a {horarios_sorted[-1]} hs"
+        
+        return f"{dias_str} ({rango})"
+    except:
+        return "Lunes a Viernes de 9 a 18:30 hs"
+
+
+def obtener_proximas_fechas_disponibles(propiedad_id=None, cantidad=2):
+    """Calcula las próximas X fechas disponibles (días hábiles)"""
+    try:
+        config = cargar_configuracion_horarios()
+        global_config = config.get("configuracion_global", {})
+        propiedades_config = config.get("propiedades", {})
+        
+        dias_habiles = global_config.get("dias_habiles", [0, 1, 2, 3, 4])
+        if propiedad_id and propiedad_id in propiedades_config:
+            if "dias_habiles" in propiedades_config[propiedad_id]:
+                dias_habiles = propiedades_config[propiedad_id]["dias_habiles"]
+        
+        fechas = []
+        hoy = datetime.now()
+        intentos = 0
+        dias_evaluados = 1 # Empezar desde mañana
+        
+        nombres_dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        
+        while len(fechas) < cantidad and intentos < 14: # Máximo 2 semanas de búsqueda
+            fecha_evaluar = hoy + timedelta(days=dias_evaluados)
+            if fecha_evaluar.weekday() in dias_habiles:
+                # Verificar si tiene al menos un horario libre (opcional pero recomendado)
+                # Por simplicidad aquí solo chequeamos que sea día hábil
+                fechas.append({
+                    "fecha_iso": fecha_evaluar.strftime("%Y-%m-%d"),
+                    "fecha_short": fecha_evaluar.strftime("%d/%m"),
+                    "nombre_dia": nombres_dias[fecha_evaluar.weekday()]
+                })
+            dias_evaluados += 1
+            intentos += 1
+            
+        return fechas
+    except Exception as e:
+        log(f"❌ Error en obtener_proximas_fechas_disponibles: {e}")
+        # Fallback básico
+        mañana = datetime.now() + timedelta(days=1)
+        return [{"fecha_iso": mañana.strftime("%Y-%m-%d"), "fecha_short": mañana.strftime("%d/%m"), "nombre_dia": "Próximo"}]
         
         horarios = global_config.get("horarios", CITAS_DISPONIBLES)
         
