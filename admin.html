@@ -1087,8 +1087,21 @@
                 <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border);">
                     <h3>📅 Días y Horarios de Visita</h3>
                     <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
-                        Configura los días y las horas en que el bot ofrecerá visitas a los clientes.
+                        Configura la disponibilidad para visitas. Podes definir horarios generales o específicos por propiedad.
                     </p>
+
+                    <div class="form-group">
+                        <label class="form-label">Propiedad a configurar:</label>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <select id="propiedad-horario-selector" class="form-control" onchange="cambiarPropiedadConfig()">
+                                <option value="global">🌐 Global (Todas las propiedades)</option>
+                                <!-- Se poblará con propiedades -->
+                            </select>
+                            <button id="btn-borrar-config-prop" class="btn btn-danger" style="display: none;" onclick="borrarConfigPropiedad()">
+                                🗑️ Borrar Específica
+                            </button>
+                        </div>
+                    </div>
 
                     <div class="form-group">
                         <label class="form-label">Días Habilitados:</label>
@@ -4004,24 +4017,78 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             configuracion_global: {
                 dias_habiles: [0, 1, 2, 3, 4],
                 horarios: ["09:00", "10:00", "11:00", "15:00", "16:00", "17:00"]
-            }
+            },
+            propiedades: {}
         };
+        let propiedadesParaSelector = [];
 
         async function cargarHorariosAdmin() {
             try {
+                // 1. Cargar Horarios
                 const config = await fetchConClave('/api/config/horarios');
-                if (config && config.configuracion_global) {
+                if (config) {
                     configHorariosActual = config;
-                    renderizarHorariosAdmin();
+                    if (!configHorariosActual.propiedades) configHorariosActual.propiedades = {};
                 }
+
+                // 2. Cargar Propiedades para el selector (si no están cargadas)
+                if (propiedadesParaSelector.length === 0) {
+                    const props = await fetchConClave('/api/propiedades');
+                    if (props) {
+                        propiedadesParaSelector = props;
+                        poblarSelectorPropiedadesHorarios();
+                    }
+                }
+
+                renderizarHorariosAdmin();
             } catch (error) {
                 console.error('Error cargando horarios admin:', error);
                 renderizarHorariosAdmin();
             }
         }
 
+        function poblarSelectorPropiedadesHorarios() {
+            const selector = document.getElementById('propiedad-horario-selector');
+            if (!selector) return;
+
+            // Limpiar excepto el primero
+            while (selector.options.length > 1) {
+                selector.remove(1);
+            }
+
+            propiedadesParaSelector.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `🏠 ${p.titulo} (${p.id})`;
+                selector.appendChild(opt);
+            });
+        }
+
+        function cambiarPropiedadConfig() {
+            renderizarHorariosAdmin();
+        }
+
         function renderizarHorariosAdmin() {
-            const config = configHorariosActual.configuracion_global;
+            const propId = document.getElementById('propiedad-horario-selector').value;
+            const btnBorrar = document.getElementById('btn-borrar-config-prop');
+            
+            let config;
+            let esEspecífica = false;
+
+            if (propId === 'global') {
+                config = configHorariosActual.configuracion_global;
+                btnBorrar.style.display = 'none';
+            } else {
+                if (configHorariosActual.propiedades && configHorariosActual.propiedades[propId]) {
+                    config = configHorariosActual.propiedades[propId];
+                    btnBorrar.style.display = 'block';
+                    esEspecífica = true;
+                } else {
+                    // Si no tiene específica, mostrar la global como plantilla
+                    config = configHorariosActual.configuracion_global;
+                    btnBorrar.style.display = 'none';
+                }
+            }
             
             // Marcar días
             document.querySelectorAll('input[name="dia-visita"]').forEach(cb => {
@@ -4033,7 +4100,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             if (!container) return;
             container.innerHTML = '';
             
-            [...config.horarios].sort().forEach(hora => {
+            [...(config.horarios || [])].sort().forEach(hora => {
                 const tag = document.createElement('div');
                 tag.style.cssText = 'background: #eff6ff; color: #1e40af; padding: 0.4rem 0.8rem; border-radius: 9999px; border: 1px solid #bfdbfe; display: flex; align-items: center; gap: 0.5rem; font-weight: 600;';
                 tag.innerHTML = `
@@ -4042,38 +4109,94 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 `;
                 container.appendChild(tag);
             });
+
+            // Actualizar el título informativo
+            const pInfo = document.querySelector('#tab-configuracion p');
+            if (pInfo) {
+                if (propId === 'global') {
+                    pInfo.innerHTML = 'Configurando <strong>Horarios Globales</strong> (aplican a todas las propiedades sin configuración específica).';
+                } else if (esEspecífica) {
+                    pInfo.innerHTML = `Configurando <strong>Horarios Específicos</strong> para la propiedad ID: <code>${propId}</code>.`;
+                } else {
+                    pInfo.innerHTML = `La propiedad <code>${propId}</code> no tiene configuración propia. Usando <strong>Global</strong> como base.`;
+                }
+            }
         }
 
         function agregarHorarioAdmin() {
+            const propId = document.getElementById('propiedad-horario-selector').value;
             const input = document.getElementById('nuevo-horario-input');
             const nuevaHora = input.value;
             
             if (!nuevaHora) return;
+
+            let config;
+            if (propId === 'global') {
+                config = configHorariosActual.configuracion_global;
+            } else {
+                // Si estamos en una propiedad y no tenía específica, la creamos ahora
+                if (!configHorariosActual.propiedades[propId]) {
+                    configHorariosActual.propiedades[propId] = JSON.parse(JSON.stringify(configHorariosActual.configuracion_global));
+                }
+                config = configHorariosActual.propiedades[propId];
+            }
             
-            if (configHorariosActual.configuracion_global.horarios.includes(nuevaHora)) {
+            if (config.horarios.includes(nuevaHora)) {
                 mostrarToast('La hora ya existe', 'warning');
                 return;
             }
 
-            configHorariosActual.configuracion_global.horarios.push(nuevaHora);
+            config.horarios.push(nuevaHora);
             renderizarHorariosAdmin();
             input.value = '';
         }
 
         function eliminarHorarioAdmin(hora) {
-            configHorariosActual.configuracion_global.horarios = configHorariosActual.configuracion_global.horarios.filter(h => h !== hora);
+            const propId = document.getElementById('propiedad-horario-selector').value;
+            let config;
+            
+            if (propId === 'global') {
+                config = configHorariosActual.configuracion_global;
+            } else {
+                if (!configHorariosActual.propiedades[propId]) {
+                    configHorariosActual.propiedades[propId] = JSON.parse(JSON.stringify(configHorariosActual.configuracion_global));
+                }
+                config = configHorariosActual.propiedades[propId];
+            }
+
+            config.horarios = config.horarios.filter(h => h !== hora);
             renderizarHorariosAdmin();
         }
 
+        function borrarConfigPropiedad() {
+            const propId = document.getElementById('propiedad-horario-selector').value;
+            if (propId === 'global') return;
+            
+            if (confirm(`¿Borrar los horarios específicos de la propiedad ${propId} y volver a usar los globales?`)) {
+                delete configHorariosActual.propiedades[propId];
+                renderizarHorariosAdmin();
+                mostrarToast('✅ Configuración específica eliminada. Se usarán los globales.', 'success');
+            }
+        }
+
         async function guardarConfiguracionCompleta() {
-            // Primero guardamos la config UI normal
+            // Guardar configuración de UI
             guardarConfiguracion();
 
-            // Luego guardamos los horarios al servidor
+            const propId = document.getElementById('propiedad-horario-selector').value;
             const diasHabilitados = Array.from(document.querySelectorAll('input[name="dia-visita"]:checked'))
                 .map(cb => parseInt(cb.value));
 
-            configHorariosActual.configuracion_global.dias_habiles = diasHabilitados;
+            // Actualizar la config activa (global o específica)
+            if (propId === 'global') {
+                configHorariosActual.configuracion_global.dias_habiles = diasHabilitados;
+            } else {
+                // Asegurar que exista el objeto si se modificó algo
+                if (!configHorariosActual.propiedades[propId]) {
+                    configHorariosActual.propiedades[propId] = JSON.parse(JSON.stringify(configHorariosActual.configuracion_global));
+                }
+                configHorariosActual.propiedades[propId].dias_habiles = diasHabilitados;
+            }
 
             try {
                 const res = await fetchConClave('/api/config/horarios', {
@@ -4083,11 +4206,11 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 });
 
                 if (res.status === 'success' || res.message) {
-                    mostrarToast('✅ Configuración y Horarios actualizados', 'success');
+                    mostrarToast('✅ Horarios guardados correctamente', 'success');
                 }
             } catch (error) {
                 console.error('Error guardando horarios:', error);
-                mostrarToast('❌ Error guardando horarios', 'danger');
+                mostrarToast('❌ Error al guardar', 'danger');
             }
         }
     </script>
