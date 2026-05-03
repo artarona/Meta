@@ -245,10 +245,11 @@ No hay horarios para el {fecha_display}.
             
             return {
                 "type": "interactive_buttons",
-                "body": f"📅 *FECHA SELECCIONADA:* {fecha_display} a las {hora_ingresada} hs.\n\n📧 *¿Te gustaría dejarnos tu correo electrónico?* (Opcional)\nEsto nos permite enviarte recordatorios y más detalles de la propiedad.",
+                "body": f"📅 *FECHA SELECCIONADA:* {fecha_display} a las {hora_ingresada} hs.\n\n📧 *¿Te gustaría dejarnos tu correo electrónico?* (Opcional)\nEsto nos permite enviarte recordatorios y más detalles de la propiedad.\n\n✍️ *Escribí tu email* o seleccioná una opción:",
                 "buttons": [
-                    {"id": "1", "title": "✍️ Escribir email"},
-                    {"id": "2", "title": "⏭️ Saltar Paso"}
+                    {"id": "skip", "title": "⏭️ Saltar Paso"},
+                    {"id": "m", "title": "🏠 Menú"},
+                    {"id": "s", "title": "❌ Salir"}
                 ]
             }
         else:
@@ -535,10 +536,11 @@ Por favor elegí uno de la lista:
     
     return {
         "type": "interactive_buttons",
-        "body": f"📅 *HORARIO SELECCIONADO:* {hora_elegida} hs.\n\n📧 *¿Te gustaría dejarnos tu correo electrónico?* (Opcional)\nEsto nos permite enviarte recordatorios y más detalles de la propiedad.",
+        "body": f"📅 *HORARIO SELECCIONADO:* {hora_elegida} hs.\n\n📧 *¿Te gustaría dejarnos tu correo electrónico?* (Opcional)\nEsto nos permite enviarte recordatorios y más detalles de la propiedad.\n\n✍️ *Escribí tu email* o seleccioná una opción:",
         "buttons": [
-            {"id": "1", "title": "✍️ Escribir email"},
-            {"id": "2", "title": "⏭️ Saltar Paso"}
+            {"id": "skip", "title": "⏭️ Saltar Paso"},
+            {"id": "m", "title": "🏠 Menú"},
+            {"id": "s", "title": "❌ Salir"}
         ]
     }
 
@@ -547,18 +549,14 @@ def manejar_email_cita(text, estado_usuario, user_id):
     """Maneja la captura del email (opcional) y presenta opciones de confirmación"""
     text_lower = text.lower().strip()
     
-    if text_lower in ["2", "no", "saltar", "skip", "n", "noup"]:
+    if text_lower in ["2", "no", "saltar", "skip", "n", "noup", "skip"]:
         estado_usuario['email_cliente'] = None
     else:
         # Validación básica de email
         if "@" in text and "." in text and len(text) > 5:
             estado_usuario['email_cliente'] = text
         else:
-            # Si no parece un email y no quiso saltar, le avisamos pero permitimos saltar
-            if text_lower == "1":
-                return "📧 Por favor, escribí tu correo electrónico o enviá *'2'* para saltar."
-            
-            return f"⚠️ *{text}* no parece un correo válido.\n\nPor favor, escribí un email válido o enviá *'2'* para saltar este paso."
+            return f"⚠️ *{text}* no parece un correo válido.\n\nPor favor, escribí un email válido o seleccioná *'⏭️ Saltar Paso'* para continuar."
 
     estado_usuario['paso'] = 'confirmar_cita'
     actualizar_estado_usuario(user_id, estado_usuario)
