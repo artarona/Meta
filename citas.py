@@ -629,25 +629,35 @@ def manejar_ofrecer_cita(text_lower, estado_usuario, user_id):
         if indice and 1 <= indice <= len(propiedades_lista):
             propiedad_id = propiedades_lista[indice - 1].get('id_temporal')
 
-        # Obtener las próximas 2 fechas disponibles según configuración
-        fechas_disponibles = obtener_proximas_fechas_disponibles(propiedad_id, 2)
+        # Obtener las próximas 10 fechas disponibles según configuración
+        fechas_disponibles = obtener_proximas_fechas_disponibles(propiedad_id, 10)
         
-        # Botones solicitados: Días y Horarios habilitados
-        buttons = [
-            {"id": "ver_fechas", "title": "📅 Días habilitados"},
-            {"id": "ver_horarios", "title": "🕒 Horarios"},
-            {"id": "s", "title": "SALIR ❌"}
+        rows_fechas = []
+        for f in fechas_disponibles:
+            rows_fechas.append({
+                "id": f['fecha_iso'],
+                "title": f"{f['nombre_dia']} {f['fecha_short']}",
+                "description": f"Agendar para el {f['fecha_short']}"
+            })
+
+        # Sección de información y salida
+        rows_extra = [
+            {"id": "ver_horarios", "title": "🕒 Ver Horarios", "description": "Ver horarios de atención"},
+            {"id": "s", "title": "❌ Salir", "description": "Cancelar agendamiento"}
         ]
 
         nombre_cliente = estado_usuario.get('nombre_cliente', 'Cliente')
-        
-        # Obtener texto sugerencia (ej: Lunes 10hs)
         config_texto = obtener_texto_horarios(propiedad_id)
         
-        return WhatsAppResponse.buttons(
+        # Cambiamos Buttons por List Menu directamente para ahorrar un paso
+        return WhatsAppResponse.list_menu(
             header="📅 AGENDAR VISITA",
-            body=f"Excelente *{nombre_cliente}*!\n\n¿Para qué día te gustaría agendar? Seleccioná los días habilitados o escribí una fecha.\n\n🕒 *Horarios disponibles:* {config_texto}",
-            buttons=buttons,
+            body=f"Excelente *{nombre_cliente}*!\n\nSeleccioná un día para tu visita o consultá los horarios.\n\n🕒 *Horarios base:* {config_texto}",
+            button_text="Ver Opciones",
+            sections=[
+                {"title": "Seleccionar Día", "rows": rows_fechas},
+                {"title": "Otras Opciones", "rows": rows_extra}
+            ],
             footer="Dante Propiedades 🏠"
         )
     
