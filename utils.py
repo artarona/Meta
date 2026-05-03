@@ -245,7 +245,7 @@ def generar_listado_propiedades(propiedades):
         titulo = p.get('titulo', 'Propiedad')
 
         precio_raw = p.get('precio', None)
-        moneda = p.get('moneda_precio', '')
+        moneda = p.get('moneda_precio', p.get('moneda', 'USD'))
 
         if precio_raw in (0, None):
             precio = "Consultar"
@@ -253,11 +253,16 @@ def generar_listado_propiedades(propiedades):
             if isinstance(precio_raw, (int, float)):
                 precio_formateado = f"{precio_raw:,.0f}".replace(",", ".")
             else:
-                precio_formateado = precio_raw
+                precio_formateado = str(precio_raw)
             precio = f"{moneda} {precio_formateado}".strip()
 
-        operacion = p.get('operacion', '')
-        simbolo = "💰 Venta -" if operacion == 'venta' else "🔑 Alquiler -"
+        operacion_raw = str(p.get('operacion', '')).lower()
+        if operacion_raw == 'venta':
+            simbolo = "💰 Venta -"
+        elif operacion_raw == 'alquiler':
+            simbolo = "🔑 Alquiler -"
+        else:
+            simbolo = "🏠 -"
 
         mensaje += f"*{i}.* {simbolo} {titulo}\n"
         mensaje += f"   💵 {precio}\n"

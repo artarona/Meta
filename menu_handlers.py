@@ -395,18 +395,23 @@ def responder_listado_propiedades(propiedades, titulo, user_id, estado_usuario):
         )
     
     # Si hay 10 o menos, usamos List Menu (Mejor UX en WhatsApp)
-    if 1 <= len(propiedades) <= 10:
-        rows = []
         for i, p in enumerate(propiedades):
-            # Formatear precio
-            precio = p.get('precio_usd', p.get('precio', 'Consultar'))
-            if isinstance(precio, (int, float)):
-                precio = f"USD {precio:,}".replace(",", ".")
+            # Formatear precio respetando moneda
+            moneda = p.get('moneda_precio', p.get('moneda', 'USD'))
+            precio_val = p.get('precio', 'Consultar')
+            
+            if isinstance(precio_val, (int, float)):
+                precio_str = f"{moneda} {precio_val:,.0f}".replace(",", ".")
+            else:
+                precio_str = str(precio_val)
+            
+            # Tipo de operación
+            operacion = str(p.get('operacion', '')).capitalize()
             
             rows.append({
                 "id": str(i + 1),
                 "title": f"{p.get('titulo', 'Propiedad')[:24]}",
-                "description": f"{p.get('barrio', 'Barrio')} - {precio}"
+                "description": f"{operacion} - {p.get('barrio', 'Barrio')} - {precio_str}"
             })
             
         return WhatsAppResponse.list_menu(
