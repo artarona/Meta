@@ -379,7 +379,7 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
                         {"id": "Casa", "title": "🏠 Casa"},
                         {"id": "Otro", "title": "🏭 Otro (Local/Lote)"}
                     ],
-                    footer=PIE_MENU
+                    footer=PIE_SELECCION
                 )
             
         elif paso == 'campana_recopilar_tipo':
