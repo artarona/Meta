@@ -10,6 +10,7 @@ LOGO = "🏠🗝️"
 MARCA = f"{LOGO} *DANTE PROPIEDADES*"
 DESPEDIDA = f"¡Gracias por confiar en Dante Propiedades! {LOGO}"
 PIE_MENU = "Dante Propiedades · Tu lugar ideal"
+PIE_SELECCION= "Selecciona una opción 👇"
 HINT_SALIR = "\n\n💡 _Envía '*S*' para salir o '*M*' para volver al menú._"
 
 # ========== HELPERS PARA DATA DE CAMPAÑA ==========
@@ -593,7 +594,7 @@ def mostrar_resumen_campana(data):
                 {"id": "corregir_datos", "title": "🔄 Corregir"},
                 {"id": "c_salir", "title": "❌ Cancelar"}
             ],
-            footer=PIE_MENU
+            footer=PIE_SELECCION
         )
         
         
