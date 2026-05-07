@@ -540,7 +540,8 @@ Basado en el análisis estadístico de mercado para *{datos['barrio']}* ({operac
 🏠 *Propiedad:* {datos['tipo']}
 📏 *Superficie:* {datos['m2']} m²
 💰 *Valor estimado:* {tasacion['moneda']} ${valor_redondeado:,.0f}
-📈 *Precio promedio m²:* {tasacion['moneda']} ${tasacion['precio_m2']:,.0f}
+# 📈 *Precio promedio m²:* {tasacion['moneda']} ${tasacion['precio_m2']:,.0f}
+📈 *Precio promedio m²:* {tasacion['moneda']} ${(valor_redondeado / datos['m2']),.0f}
 
 🔍 *Análisis:* basado en {muestra} propiedades de {fuentes_str}.
 
