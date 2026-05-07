@@ -81,6 +81,13 @@
         "last_update": "2026-03-19 19:52",
         "source": "scraping.json",
         "currency": "USD"
+      },
+      "ph": {
+        "avg_m2": 1197.63,
+        "muestra": 36,
+        "last_update": "2026-05-06 21:41",
+        "source": "scraping.json",
+        "currency": "USD"
       }
     },
     "alquiler": {
