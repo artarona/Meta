@@ -866,6 +866,7 @@ def debug_save_test():
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
     """Webhook para recibir mensajes de WhatsApp y Facebook Messenger"""
+    global processed_message_ids
     log(f"🔔 WEBHOOK RECIBIDO - Método: {request.method}")
     
     if request.method == "GET":
@@ -1038,7 +1039,6 @@ def webhook():
             
             # Contador de mensajes procesados
             mensajes_procesados = 0
-            processed_message_ids = []  # ← Necesitas definir esta lista
             
             for entry in data.get("entry", []):
                 # Flujo para Messenger e Instagram (messaging)
@@ -1057,6 +1057,10 @@ def webhook():
                                 continue
                             processed_message_ids.append(mid)
                             
+                            from database import registrar_mensaje_procesado
+                            if not registrar_mensaje_procesado(mid):
+                                continue
+                            
                             if procesar_mensaje_unificado(sender_id, text, platform, mid):
                                 mensajes_procesados += 1
                     continue
@@ -1070,6 +1074,10 @@ def webhook():
                             if m_id in processed_message_ids:
                                 continue
                             processed_message_ids.append(m_id)
+                            
+                            from database import registrar_mensaje_procesado
+                            if not registrar_mensaje_procesado(m_id):
+                                continue
                             
                             from_num = message.get("from")
                             m_text = ""
