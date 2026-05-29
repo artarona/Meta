@@ -136,7 +136,7 @@ def init_db(conn):
             CREATE TABLE IF NOT EXISTS leads (
                 id SERIAL PRIMARY KEY,
                 fecha TIMESTAMP DEFAULT NOW(),
-                telefono VARCHAR(20),
+                telefono VARCHAR(100),
                 nombre VARCHAR(100),
                 accion VARCHAR(50),
                 detalles TEXT
@@ -145,10 +145,10 @@ def init_db(conn):
             CREATE TABLE IF NOT EXISTS citas (
                 id SERIAL PRIMARY KEY,
                 fecha_creacion TIMESTAMP DEFAULT NOW(),
-                user_id VARCHAR(50),
+                user_id VARCHAR(100),
                 nombre VARCHAR(100),
                 email VARCHAR(100),
-                telefono VARCHAR(20),
+                telefono VARCHAR(100),
                 fecha_cita DATE,
                 hora_cita VARCHAR(10),
                 propiedad_id VARCHAR(50),
@@ -164,11 +164,12 @@ def init_db(conn):
                 
                 -- Nuevas columnas para feedback
                 feedback_enviado BOOLEAN DEFAULT FALSE,
-                feedback_enviado_en TIMESTAMP
+                feedback_enviado_en TIMESTAMP,
+                modificacion TIMESTAMP DEFAULT NOW()
             );
 
             CREATE TABLE IF NOT EXISTS user_states (
-                user_id VARCHAR(50) PRIMARY KEY,
+                user_id VARCHAR(100) PRIMARY KEY,
                 paso VARCHAR(50),
                 operacion_seleccionada VARCHAR(50),
                 propiedades_filtradas TEXT,
@@ -195,6 +196,11 @@ def init_db(conn):
                 tiempo_segundos FLOAT,
                 timestamp TIMESTAMP DEFAULT NOW()
             );
+            
+            CREATE TABLE IF NOT EXISTS processed_messages (
+                message_id VARCHAR(100) PRIMARY KEY,
+                fecha TIMESTAMP DEFAULT NOW()
+            );
         """)
         
         # 2. Asegurar columnas adicionales
@@ -202,10 +208,15 @@ def init_db(conn):
         ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
         ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_titulo VARCHAR(200);
         
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS user_id VARCHAR(50);
+        -- Aumentar tamaño de columnas para IDs de Meta (Messenger/Instagram)
+        ALTER TABLE leads ALTER COLUMN telefono TYPE VARCHAR(100);
+        
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS user_id VARCHAR(100);
+        ALTER TABLE citas ALTER COLUMN user_id TYPE VARCHAR(100);
         ALTER TABLE citas ADD COLUMN IF NOT EXISTS nombre VARCHAR(100);
         ALTER TABLE citas ADD COLUMN IF NOT EXISTS email VARCHAR(100);
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS telefono VARCHAR(20);
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS telefono VARCHAR(100);
+        ALTER TABLE citas ALTER COLUMN telefono TYPE VARCHAR(100);
         ALTER TABLE citas ADD COLUMN IF NOT EXISTS fecha_cita DATE;
         ALTER TABLE citas ADD COLUMN IF NOT EXISTS hora_cita VARCHAR(10);
         ALTER TABLE citas ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
@@ -222,11 +233,17 @@ def init_db(conn):
         -- Nuevas columnas para feedback
         ALTER TABLE citas ADD COLUMN IF NOT EXISTS feedback_enviado BOOLEAN DEFAULT FALSE;
         ALTER TABLE citas ADD COLUMN IF NOT EXISTS feedback_enviado_en TIMESTAMP;
+        ALTER TABLE citas ADD COLUMN IF NOT EXISTS modificacion TIMESTAMP DEFAULT NOW();
         
         -- Columnas para user_states si la tabla ya existía
         ALTER TABLE user_states ADD COLUMN IF NOT EXISTS tipo_seleccionado VARCHAR(50);
         ALTER TABLE user_states ADD COLUMN IF NOT EXISTS ambientes_seleccionados INTEGER;
         ALTER TABLE user_states ADD COLUMN IF NOT EXISTS ultima_accion VARCHAR(50);
+        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS cita_seleccionada_modificar TEXT;
+        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS citas_para_modificar TEXT;
+        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS fecha_cita_actualizacion VARCHAR(20);
+        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS hora_cita_actualizacion VARCHAR(10);
+        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS cita_id_a_modificar VARCHAR(50);
     """)
         
         # 3. Asegurar secuencias para tablas existentes
@@ -307,23 +324,30 @@ def obtener_estado_usuario(user_id):
         if conn:
             try:
                 cursor = conn.cursor()
-                cursor.execute("SELECT paso, operacion_seleccionada, propiedades_filtradas, ultimo_indice_preguntado, nombre_cliente, email_cliente, fecha_cita, hora_cita, horarios_disponibles, data, tipo_seleccionado, ambientes_seleccionados, timestamp, ultima_accion FROM user_states WHERE user_id = %s", (user_id,))
+                # ✅ AGREGAR 'platform' a la consulta SELECT
+                cursor.execute("""
+                    SELECT paso, operacion_seleccionada, propiedades_filtradas, 
+                           ultimo_indice_preguntado, nombre_cliente, email_cliente, 
+                           fecha_cita, hora_cita, horarios_disponibles, data, 
+                           tipo_seleccionado, ambientes_seleccionados, timestamp, 
+                           ultima_accion, cita_seleccionada_modificar, citas_para_modificar, 
+                           fecha_cita_actualizacion, hora_cita_actualizacion, cita_id_a_modificar,
+                           platform 
+                    FROM user_states WHERE user_id = %s
+                """, (user_id,))
                 res = cursor.fetchone()
                 if res:
                     # Función auxiliar para parseo seguro y profundo
                     def safe_json_loads(data, default):
                         if not data: return default
-                        # Si ya es un objeto (dict/list), devolverlo
                         if isinstance(data, (dict, list)): return data
                         
-                        # Si es un string, intentar parsear
                         current_data = data
-                        max_depth = 3 # Evitar bucles infinitos
+                        max_depth = 3
                         for _ in range(max_depth):
                             if not isinstance(current_data, str):
                                 break
                             try:
-                                # Trim para ver si parece JSON
                                 trimmed = current_data.strip()
                                 if (trimmed.startswith('{') and trimmed.endswith('}')) or (trimmed.startswith('[') and trimmed.endswith(']')):
                                     parsed = json.loads(current_data)
@@ -332,11 +356,10 @@ def obtener_estado_usuario(user_id):
                                     else:
                                         break
                                 else:
-                                    break # No parece JSON
+                                    break
                             except:
                                 break
                                 
-                        # Si al final es un dict/list, éxito. Si no, devolver default si era string basura
                         if isinstance(current_data, (dict, list)):
                             return current_data
                         return default if isinstance(data, str) and not isinstance(current_data, (dict, list)) else current_data
@@ -356,18 +379,27 @@ def obtener_estado_usuario(user_id):
                         'tipo_seleccionado': res[10],
                         'ambientes_seleccionados': res[11],
                         'timestamp': row_timestamp if row_timestamp else datetime.now().isoformat(),
-                        'ultima_accion': res[13] if len(res) > 13 else None
+                        'ultima_accion': res[13] if len(res) > 13 else None,
+                        'cita_seleccionada_modificar': safe_json_loads(res[14], {}) if len(res) > 14 else {},
+                        'citas_para_modificar': safe_json_loads(res[15], []) if len(res) > 15 else [],
+                        'fecha_cita_actualizacion': res[16] if len(res) > 16 else None,
+                        'hora_cita_actualizacion': res[17] if len(res) > 17 else None,
+                        'cita_id_a_modificar': res[18] if len(res) > 18 else None,
+                        'platform': res[19] if len(res) > 19 else None  # ✅ AGREGAR platform
                     }
                     
-                    # REPARACIÓN GLOBAL: Si la lista está vacía pero la operación es 'todas', recargarla
-                    # Esto soluciona que 'F' (fotos) falle después de elegir una propiedad de la lista completa
+                    # Log para depuración
+                    if estado.get('platform'):
+                        log(f"📱 Platform recuperado de DB para {user_id}: {estado['platform']}")
+                    
+                    # REPARACIÓN GLOBAL
                     if not estado['propiedades_filtradas'] and estado['operacion_seleccionada'] == 'todas':
                         log(f"🔄 [GLOBAL] Recargando propiedades desde cache", user_id=user_id)
                         estado['propiedades_filtradas'] = cargar_propiedades_cached()
 
                     if cached_state and cached_state.get('timestamp') and row_timestamp:
                         try:
-                            if cached_state['timestamp'] > row_timestamp:
+                            if cached_state['timestamp'] >= row_timestamp:
                                 log(f"🔄 Usando estado cacheado más reciente (DB: {row_timestamp}, Cache: {cached_state['timestamp']})", user_id=user_id)
                                 return cached_state
                         except Exception:
@@ -377,11 +409,9 @@ def obtener_estado_usuario(user_id):
                     return estado
             except Exception as e:
                 log(f"⚠️ Error recuperando estado de DB: {e}", "WARNING", user_id=user_id)
-                # El fallback se maneja abajo si res es None o si hay excepción
         
     # 3. Fallback a memoria si la DB falló o no devolvió resultado
     if cached_state:
-        # log(f"🔄 Usando estado cacheado como fallback (paso: {cached_state.get('paso')})", user_id=user_id)
         return cached_state
             
     # 4. Si no existe en ningún lado, crear nuevo
@@ -393,31 +423,43 @@ def obtener_estado_usuario(user_id):
         'tipo_seleccionado': None,
         'ambientes_seleccionados': None,
         'timestamp': datetime.now().isoformat(),
+        'platform': None,  # ✅ AGREGAR platform al nuevo estado
         'data': {
-            'mensajes_recientes': [] # Historial para análisis de IA
+            'mensajes_recientes': []
         }
     }
     estados_usuarios[user_id] = estado_nuevo
     return estado_nuevo
 
-
-def actualizar_estado_usuario(user_id, nuevo_estado):
-    """Actualiza el estado de un usuario en caché y PostgreSQL"""
-    nuevo_estado['timestamp'] = datetime.now().isoformat()
-    estados_usuarios[user_id] = nuevo_estado
+def actualizar_estado_usuario(user_id, estado):
+    """Actualiza el estado de un usuario en PostgreSQL y en caché"""
+    # Actualizar caché primero
+    estados_usuarios[user_id] = estado
     
-    # Sincronizar con PostgreSQL
+    # Actualizar PostgreSQL
     with db_session() as conn:
         if conn:
             try:
                 cursor = conn.cursor()
+                
+                # Preparar valores asegurando JSON serializable
+                propiedades_filtradas = json.dumps(estado.get('propiedades_filtradas', []))
+                horarios_disponibles = json.dumps(estado.get('horarios_disponibles', []))
+                data = json.dumps(estado.get('data', {}))
+                cita_seleccionada_modificar = json.dumps(estado.get('cita_seleccionada_modificar', {}))
+                citas_para_modificar = json.dumps(estado.get('citas_para_modificar', []))
+                
+                # ✅ AGREGAR 'platform' a la consulta INSERT/UPDATE
                 cursor.execute("""
                     INSERT INTO user_states (
-                        user_id, paso, operacion_seleccionada, propiedades_filtradas, 
-                        ultimo_indice_preguntado, nombre_cliente, email_cliente, 
-                        fecha_cita, hora_cita, horarios_disponibles, data, 
-                        tipo_seleccionado, ambientes_seleccionados, timestamp, ultima_accion
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        user_id, paso, operacion_seleccionada, propiedades_filtradas,
+                        ultimo_indice_preguntado, nombre_cliente, email_cliente,
+                        fecha_cita, hora_cita, horarios_disponibles, data,
+                        tipo_seleccionado, ambientes_seleccionados, timestamp,
+                        ultima_accion, cita_seleccionada_modificar, citas_para_modificar,
+                        fecha_cita_actualizacion, hora_cita_actualizacion, cita_id_a_modificar,
+                        platform
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (user_id) DO UPDATE SET
                         paso = EXCLUDED.paso,
                         operacion_seleccionada = EXCLUDED.operacion_seleccionada,
@@ -432,30 +474,40 @@ def actualizar_estado_usuario(user_id, nuevo_estado):
                         tipo_seleccionado = EXCLUDED.tipo_seleccionado,
                         ambientes_seleccionados = EXCLUDED.ambientes_seleccionados,
                         timestamp = EXCLUDED.timestamp,
-                        ultima_accion = EXCLUDED.ultima_accion
+                        ultima_accion = EXCLUDED.ultima_accion,
+                        cita_seleccionada_modificar = EXCLUDED.cita_seleccionada_modificar,
+                        citas_para_modificar = EXCLUDED.citas_para_modificar,
+                        fecha_cita_actualizacion = EXCLUDED.fecha_cita_actualizacion,
+                        hora_cita_actualizacion = EXCLUDED.hora_cita_actualizacion,
+                        cita_id_a_modificar = EXCLUDED.cita_id_a_modificar,
+                        platform = EXCLUDED.platform
                 """, (
-                    user_id, 
-                    nuevo_estado.get('paso'),
-                    nuevo_estado.get('operacion_seleccionada'),
-                    json.dumps(_strip_media_fields(nuevo_estado.get('propiedades_filtradas', []))) if nuevo_estado.get('operacion_seleccionada') != 'todas' else "[]",
-                    nuevo_estado.get('ultimo_indice_preguntado'),
-                    nuevo_estado.get('nombre_cliente'),
-                    nuevo_estado.get('email_cliente'),
-                    nuevo_estado.get('fecha_cita'),
-                    nuevo_estado.get('hora_cita'),
-                    json.dumps(nuevo_estado.get('horarios_disponibles', [])),
-                    json.dumps(nuevo_estado.get('data', {})),
-                    nuevo_estado.get('tipo_seleccionado'),
-                    nuevo_estado.get('ambientes_seleccionados'),
-                    nuevo_estado.get('timestamp'),
-                    nuevo_estado.get('ultima_accion')
+                    str(user_id),
+                    estado.get('paso', 'menu_principal'),
+                    estado.get('operacion_seleccionada'),
+                    propiedades_filtradas,
+                    estado.get('ultimo_indice_preguntado'),
+                    estado.get('nombre_cliente'),
+                    estado.get('email_cliente'),
+                    estado.get('fecha_cita'),
+                    estado.get('hora_cita'),
+                    horarios_disponibles,
+                    data,
+                    estado.get('tipo_seleccionado'),
+                    estado.get('ambientes_seleccionados'),
+                    estado.get('timestamp', datetime.now().isoformat()),
+                    estado.get('ultima_accion'),
+                    cita_seleccionada_modificar,
+                    citas_para_modificar,
+                    estado.get('fecha_cita_actualizacion'),
+                    estado.get('hora_cita_actualizacion'),
+                    estado.get('cita_id_a_modificar'),
+                    estado.get('platform')  # ✅ AGREGAR platform
                 ))
                 conn.commit()
-                log(f"✅ Estado persistido en DB (paso: {nuevo_estado.get('paso')})", user_id=user_id)
+                log(f"✅ Estado persistido en DB (paso: {estado.get('paso')})", user_id=user_id)
             except Exception as e:
-                log(f"🔥 Error persistiendo estado en DB (paso: {nuevo_estado.get('paso')}): {e}", "ERROR", user_id=user_id)
-                import traceback
-                log(f"🔍 Traceback: {traceback.format_exc()}", "ERROR", user_id=user_id)
+                log(f"⚠️ Error actualizando estado en DB: {e}", "WARNING", user_id=user_id)
 
 
 def registrar_lead(user_id, propiedad_id, accion, detalle=""):
@@ -691,38 +743,127 @@ def guardar_citas(citas):
     return save_json_atomic(CITAS_FILE, citas)
 
 
-def actualizar_cita_db(cita_id, nuevo_estado=None, nuevas_notas=None):
-    """Actualiza estado y/o notas de una cita en PostgreSQL y JSON"""
+def actualizar_cita_db(cita_id, nuevo_estado=None, nuevas_notas=None, nueva_fecha=None, nueva_hora=None):
+    """
+    Actualiza una cita en PostgreSQL y JSON.
+    Parámetros opcionales: estado, notas, fecha_cita, hora_cita
+    """
     conn = None
     try:
         # 1. Actualizar PostgreSQL
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor()
-            if nuevo_estado and nuevas_notas:
-                cursor.execute("UPDATE citas SET estado = %s, notas = %s WHERE id = %s", (nuevo_estado, nuevas_notas, cita_id))
-            elif nuevo_estado:
-                cursor.execute("UPDATE citas SET estado = %s WHERE id = %s", (nuevo_estado, cita_id))
-            elif nuevas_notas:
-                cursor.execute("UPDATE citas SET notas = %s WHERE id = %s", (nuevas_notas, cita_id))
-            conn.commit()
-            log(f"✅ Cita {cita_id} actualizada en PostgreSQL")
+            
+            # Construir dinámicamente el UPDATE con los campos que cambian
+            campos = []
+            valores = []
+            
+            if nuevo_estado:
+                campos.append("estado = %s")
+                valores.append(nuevo_estado)
+            if nuevas_notas:
+                campos.append("notas = %s")
+                valores.append(nuevas_notas)
+            if nueva_fecha:
+                campos.append("fecha_cita = %s")
+                valores.append(nueva_fecha)
+            if nueva_hora:
+                campos.append("hora_cita = %s")
+                valores.append(nueva_hora)
+            
+            if campos:  # Solo ejecutar si hay algo que actualizar
+                campos.append("modificacion = NOW()")
+                
+                # 🛑 IMPORTANTE: Solo intentar UPDATE en DB si el ID es numérico (SERIAL)
+                if str(cita_id).isdigit():
+                    try:
+                        # Asegurar que las columnas existan antes de actualizar
+                        init_db(conn)
+                        
+                        query = f"UPDATE citas SET {', '.join(campos)} WHERE id = %s"
+                        valores.append(int(cita_id))
+                        
+                        log(f"🛠️ Ejecutando SQL: {query} con valores {valores}")
+                        cursor.execute(query, tuple(valores))
+                        conn.commit()
+                        log(f"✅ Cita {cita_id} actualizada en PostgreSQL")
+                    except Exception as sql_err:
+                        log(f"🔥 ERROR SQL en actualizar_cita_db: {sql_err}", "ERROR")
+                        conn.rollback()
+                        return False # Retornar False para que el bot avise al usuario
+                else:
+                    log(f"ℹ️ Cita {cita_id} tiene formato no numérico. Se actualizará solo en JSON.")
         
-        # 2. Actualizar JSON (para mantener sincronía)
+        # 2. Actualizar JSON (para mantener sincronía) y buscar datos para fallback en DB
         citas = cargar_citas()
+        datos_cita_json = {}
         if citas is not None:
             for c in citas:
-                # Los IDs en JSON son strings como cita_0001, en DB son seriales
-                # Hacemos una comparación flexible o buscamos por otros campos
-                # Por ahora, si el ID coincide (convertido a string)
-                if str(c.get('id')) == str(cita_id) or c.get('id') == cita_id:
-                    if nuevo_estado: c['estado'] = nuevo_estado
-                    if nuevas_notas: c['notas'] = nuevas_notas
+                # 🔍 COMPARACIÓN FLEXIBLE
+                match_id = (str(c.get('id')) == str(cita_id) or c.get('id') == cita_id)
+                
+                if match_id:
+                    # Guardamos los datos actuales para el fallback de DB si es necesario
+                    datos_cita_json = {
+                        'telefono': c.get('telefono'),
+                        'fecha': c.get('fecha'),
+                        'hora': c.get('hora')
+                    }
+                    
+                    if nuevo_estado: 
+                        c['estado'] = nuevo_estado
+                    if nuevas_notas: 
+                        c['notas'] = nuevas_notas
+                    if nueva_fecha:
+                        c['fecha'] = nueva_fecha
+                    if nueva_hora:
+                        c['hora'] = nueva_hora
                     c['ultima_actualizacion'] = datetime.now().isoformat()
                     break
             guardar_citas(citas)
         else:
-            log(f"⚠️ No se actualizó JSON de citas porque falló la carga (ID {cita_id})")
+            log(f"⚠️ No se pudo cargar JSON de citas para ID {cita_id}")
+
+        # 3. FALLBACK DE DB: Si el ID no era numérico pero encontramos la cita en JSON,
+        # intentamos actualizar la DB usando los datos de búsqueda (Teléfono + Fecha + Hora)
+        if not str(cita_id).isdigit() and datos_cita_json and conn:
+            try:
+                cursor = conn.cursor()
+                log(f"🔍 Sincronizando cambio a DB por búsqueda (Tel: {datos_cita_json['telefono']}, Fecha: {datos_cita_json['fecha']})")
+                
+                # Construir consulta de actualización por coincidencia de datos
+                campos_fall = []
+                valores_fall = []
+                if nuevo_estado:
+                    campos_fall.append("estado = %s")
+                    valores_fall.append(nuevo_estado)
+                if nuevas_notas:
+                    campos_fall.append("notas = %s")
+                    valores_fall.append(nuevas_notas)
+                if nueva_fecha:
+                    campos_fall.append("fecha_cita = %s")
+                    valores_fall.append(nueva_fecha)
+                if nueva_hora:
+                    campos_fall.append("hora_cita = %s")
+                    valores_fall.append(nueva_hora)
+                
+                if campos_fall:
+                    campos_fall.append("modificacion = NOW()")
+                    query_fall = f"UPDATE citas SET {', '.join(campos_fall)} WHERE telefono LIKE %s AND fecha_cita = %s AND hora_cita = %s"
+                    # Usar LIKE con % para ser flexibles con el formato del teléfono
+                    tel_search = f"%{datos_cita_json['telefono'][-8:]}"
+                    valores_fall.extend([tel_search, datos_cita_json['fecha'], datos_cita_json['hora']])
+                    
+                    cursor.execute(query_fall, tuple(valores_fall))
+                    conn.commit()
+                    if cursor.rowcount > 0:
+                        log(f"✅ Sincronización exitosa en DB por búsqueda ({cursor.rowcount} filas)")
+                    else:
+                        log(f"⚠️ No se encontró registro coincidente en DB para sincronizar ID {cita_id}")
+            except Exception as e_fall:
+                log(f"⚠️ Error en fallback de sincronización DB: {e_fall}")
+
         return True
     except Exception as e:
         log(f"❌ Error actualizando cita: {e}", "ERROR")
@@ -771,5 +912,36 @@ def cargar_propiedades():
     except Exception as e:
         log(f"❌ Error inesperado cargando propiedades: {e}")
         return []
+
+
+def registrar_mensaje_procesado(message_id):
+    """
+    Registra un ID de mensaje en la base de datos para evitar procesarlo dos veces.
+    Retorna True si es nuevo y se pudo registrar, False si ya existía (duplicado).
+    """
+    if not message_id:
+        return True
+    
+    with db_session() as conn:
+        if not conn:
+            # Fallback si no hay conexión a base de datos (e.g. modo local sin DB)
+            return True
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO processed_messages (message_id)
+                VALUES (%s)
+            """, (message_id,))
+            conn.commit()
+            return True
+        except psycopg2.IntegrityError:
+            conn.rollback()
+            log(f"🛑 [DB] Mensaje duplicado detectado (IntegrityError): {message_id}")
+            return False
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            log(f"⚠️ Error registrando mensaje en processed_messages: {e}", "WARNING")
+            return True
 
 
