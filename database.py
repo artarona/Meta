@@ -196,6 +196,11 @@ def init_db(conn):
                 tiempo_segundos FLOAT,
                 timestamp TIMESTAMP DEFAULT NOW()
             );
+            
+            CREATE TABLE IF NOT EXISTS processed_messages (
+                message_id VARCHAR(100) PRIMARY KEY,
+                fecha TIMESTAMP DEFAULT NOW()
+            );
         """)
         
         # 2. Asegurar columnas adicionales
@@ -907,5 +912,36 @@ def cargar_propiedades():
     except Exception as e:
         log(f"❌ Error inesperado cargando propiedades: {e}")
         return []
+
+
+def registrar_mensaje_procesado(message_id):
+    """
+    Registra un ID de mensaje en la base de datos para evitar procesarlo dos veces.
+    Retorna True si es nuevo y se pudo registrar, False si ya existía (duplicado).
+    """
+    if not message_id:
+        return True
+    
+    with db_session() as conn:
+        if not conn:
+            # Fallback si no hay conexión a base de datos (e.g. modo local sin DB)
+            return True
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO processed_messages (message_id)
+                VALUES (%s)
+            """, (message_id,))
+            conn.commit()
+            return True
+        except psycopg2.IntegrityError:
+            conn.rollback()
+            log(f"🛑 [DB] Mensaje duplicado detectado (IntegrityError): {message_id}")
+            return False
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            log(f"⚠️ Error registrando mensaje en processed_messages: {e}", "WARNING")
+            return True
 
 
