@@ -393,27 +393,29 @@ def responder_listado_propiedades(propiedades, titulo, user_id, estado_usuario):
                 {"id": "s", "title": "Salir"}
             ]
         )
-    
+
     # Si hay 10 o menos, usamos List Menu (Mejor UX en WhatsApp)
+    if len(propiedades) <= 10:
+        rows = []
         for i, p in enumerate(propiedades):
             # Formatear precio respetando moneda
             moneda = p.get('moneda_precio', p.get('moneda', 'USD'))
             precio_val = p.get('precio', 'Consultar')
-            
+
             if isinstance(precio_val, (int, float)):
                 precio_str = f"{moneda} {precio_val:,.0f}".replace(",", ".")
             else:
                 precio_str = str(precio_val)
-            
+
             # Tipo de operación
             operacion = str(p.get('operacion', '')).capitalize()
-            
+
             rows.append({
                 "id": str(i + 1),
                 "title": f"{p.get('titulo', 'Propiedad')[:24]}",
                 "description": f"{operacion} - {p.get('barrio', 'Barrio')} - {precio_str}"
             })
-            
+
         return WhatsAppResponse.list_menu(
             header=f"📋 {titulo.upper()}",
             body=f"Encontramos {len(propiedades)} opciones para vos en {titulo.lower()}. Seleccioná una para ver fotos y detalles:",
@@ -424,7 +426,14 @@ def responder_listado_propiedades(propiedades, titulo, user_id, estado_usuario):
     
     # Si hay más de 10, usamos el listado de texto tradicional + botones
     texto = f"📋 *{titulo.upper()}*\n\n" + generar_listado_propiedades(propiedades)
-    return [texto, _nav_listado_buttons()]
+    return [texto, WhatsAppResponse.buttons(
+        header="🔙 Navegación",
+        body="Seleccioná una opción:",
+        buttons=[
+            {"id": "m", "title": "Volver al menú"},
+            {"id": "s", "title": "Salir"}
+        ]
+    )]
 
 
 def procesar_opcion_venta(estado_usuario, user_id):
