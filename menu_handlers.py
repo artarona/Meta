@@ -427,7 +427,7 @@ def responder_listado_propiedades(propiedades, titulo, user_id, estado_usuario):
             ),
             WhatsAppResponse.buttons(
                 header=" o selecciona ",
-                body="👇",
+                body="     👇    ",
                 buttons=[
                     {"id": "m", "title": "Menu principal"},
                     {"id": "s", "title": "Salir"}
