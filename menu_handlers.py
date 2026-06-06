@@ -410,10 +410,10 @@ def responder_listado_propiedades(propiedades, titulo, user_id, estado_usuario):
             # Tipo de operación
             operacion = str(p.get('operacion', '')).capitalize()
 
-            rows.append({
+                        rows.append({
                 "id": str(i + 1),
-                "title": f"{p.get('titulo', 'Propiedad')[:24]}",
-                "description": f"{operacion} - {p.get('barrio', 'Barrio')} - {precio_str}"
+                "title": f"{p.get('titulo', 'Propiedad')}",
+                "description": f"🏷️ {operacion} | 📍 {p.get('barrio', 'Barrio')} | 💰 {precio_str} | 📐 {p.get('superficie', 'N/A')} m² | 🛏️ {p.get('ambientes', 'N/A')} amb"
             })
 
         return WhatsAppResponse.list_menu(
