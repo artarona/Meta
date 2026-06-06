@@ -1,0 +1,3555 @@
+{
+  "agronomia": {
+    "nombre": "Agronomia",
+    "descripcion_general": "Agronomia es un barrio de Buenos Aires con características propias de su zona. Ofrece una combinación de vida urbana y residencial.",
+    "conclusion": "Agronomia presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 57,
+    "gastronomia": [
+      "Restaurantes locales",
+      "Bares y cafes",
+      "Opciones gastronómicas diversas"
+    ],
+    "servicios_financieros": [
+      "Cajeros automáticos",
+      "Sucursales bancarias",
+      "Servicios financieros"
+    ],
+    "transporte": [
+      "Conexiones de transporte público en Agronomia",
+      "Líneas de colectivo locales",
+      "Acceso a red de subte y tren"
+    ],
+    "comercio": [
+      "Comercio de barrio tradicional",
+      "Locales comerciales",
+      "Mercados y ferias"
+    ],
+    "seguridad": [
+      "Comisaría del barrio",
+      "Vigilancia policial",
+      "Nivel de seguridad medio"
+    ],
+    "educacion": [
+      "Institutos educativos locales",
+      "Escuelas primarias y secundarias",
+      "Centros de formación"
+    ],
+    "salud": [
+      "Centros de salud del barrio",
+      "Farmacias locales",
+      "Hospitales cercanos"
+    ],
+    "espacios_verdes": [
+      "Plazas locales",
+      "Áreas verdes",
+      "Parques cercanos"
+    ],
+    "contaminacion": [
+      "Nivel de contaminación típico urbano",
+      "Tráfico moderado",
+      "Calidad del aire variable"
+    ],
+    "vida_barrio": [
+      "Comunidad establecida",
+      "Actividades vecinales",
+      "Vida comunitaria activa"
+    ],
+    "fecha_actualizacion": "2026-06-05",
+    "generado_por_ia": true
+  },
+  "almagro": {
+    "nombre": "Almagro",
+    "descripcion_general": "Almagro es un barrio de Buenos Aires con características propias de su zona. Ofrece una combinación de vida urbana y residencial.",
+    "conclusion": "Almagro presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 59,
+    "gastronomia": [
+      "Restaurantes locales",
+      "Bares y cafes",
+      "Opciones gastronómicas diversas"
+    ],
+    "servicios_financieros": [
+      "Cajeros automáticos",
+      "Sucursales bancarias",
+      "Servicios financieros"
+    ],
+    "transporte": [
+      "Conexiones de transporte público en Almagro",
+      "Líneas de colectivo locales",
+      "Acceso a red de subte y tren"
+    ],
+    "comercio": [
+      "Comercio de barrio tradicional",
+      "Locales comerciales",
+      "Mercados y ferias"
+    ],
+    "seguridad": [
+      "Comisaría del barrio",
+      "Vigilancia policial",
+      "Nivel de seguridad medio"
+    ],
+    "educacion": [
+      "Institutos educativos locales",
+      "Escuelas primarias y secundarias",
+      "Centros de formación"
+    ],
+    "salud": [
+      "Centros de salud del barrio",
+      "Farmacias locales",
+      "Hospitales cercanos"
+    ],
+    "espacios_verdes": [
+      "Plazas locales",
+      "Áreas verdes",
+      "Parques cercanos"
+    ],
+    "contaminacion": [
+      "Nivel de contaminación típico urbano",
+      "Tráfico moderado",
+      "Calidad del aire variable"
+    ],
+    "vida_barrio": [
+      "Comunidad establecida",
+      "Actividades vecinales",
+      "Vida comunitaria activa"
+    ],
+    "fecha_actualizacion": "2026-06-05",
+    "generado_por_ia": true
+  },
+  "balvanera": {
+    "nombre": "Balvanera",
+    "descripcion_general": "Balvanera es un barrio de Buenos Aires.",
+    "conclusion": "Balvanera presenta un atractivo para inversores inmobiliarios debido a su ubicación estratégica, excelente conectividad y alta densidad poblacional. La demanda de alquileres es constante, especialmente entre estudiantes y jóvenes profesionales. Sin embargo, es crucial considerar los desafíos en términos de seguridad y contaminación al momento de evaluar una inversión. La zona de Once, si bien presenta oportunidades comerciales, requiere un análisis cuidadoso debido a los riesgos asociados a la inseguridad. La revalorización de ciertas áreas, impulsada por proyectos de renovación urbana, podría generar nuevas oportunidades de inversión a mediano y largo plazo. Ok",
+    "puntuacion_general": 74,
+    "gastronomia": {
+      "puntuacion": 75,
+      "descripcion": "La oferta gastronómica en Balvanera es variada y accesible, aunque no se destaca por restaurantes de alta cocina. Se encuentran numerosas opciones de comida rápida, bodegones tradicionales, restaurantes de cocina porteña y locales de comida internacional, especialmente en la zona de Once. La cercanía a barrios como Villa Crespo y Almagro, con una oferta gastronómica más sofisticada, complementa las opciones disponibles.",
+      "restaurantes_destacados": [
+        "Bodegones tradicionales",
+        "Restaurantes de cocina porteña",
+        "Locales de comida internacional (Once)"
+      ],
+      "zonas_gastronomicas": [
+        "Once (cocina internacional)",
+        "Avenida Corrientes (pizzerías y restaurantes)"
+      ]
+    },
+    "servicios_financieros": {
+      "puntuacion": 80,
+      "descripcion": "Balvanera cuenta con una amplia disponibilidad de servicios financieros, con sucursales de los principales bancos nacionales e internacionales, cajeros automáticos y casas de cambio. La concentración de comercios en la zona de Once genera una alta demanda de servicios financieros, lo que se traduce en una mayor presencia de instituciones bancarias.",
+      "bancos": [
+        "Banco Nación",
+        "Banco Provincia",
+        "Banco Santander",
+        "BBVA",
+        "ICBC"
+      ],
+      "cajeros_automaticos": [
+        "Red Link",
+        "Banelco"
+      ],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 90,
+      "descripcion": "Balvanera cuenta con una excelente conectividad a través de múltiples medios de transporte público. Varias líneas de subte (A, B, H) cruzan el barrio, facilitando el acceso rápido a diferentes puntos de la ciudad. Además, una extensa red de colectivos cubre todas las áreas, y la cercanía a la estación de trenes de Once agrega opciones de movilidad regional. La congestión vehicular puede ser alta en horas pico.",
+      "estaciones": [
+        "Once - 30 de Diciembre (H)",
+        "Pueyrredón (B)",
+        "Alberti (A)",
+        "Pasco (A)"
+      ],
+      "colectivos": [
+        "5",
+        "7",
+        "8",
+        "19",
+        "24",
+        "26",
+        "29",
+        "31",
+        "32",
+        "41",
+        "57",
+        "61",
+        "62",
+        "64",
+        "68",
+        "71",
+        "75",
+        "85",
+        "86",
+        "88",
+        "90",
+        "95",
+        "98",
+        "101",
+        "103",
+        "104",
+        "105",
+        "115",
+        "118",
+        "124",
+        "129",
+        "132",
+        "146",
+        "151",
+        "164",
+        "168",
+        "180",
+        "188",
+        "194"
+      ]
+    },
+    "comercio": {
+      "puntuacion": 85,
+      "descripcion": "La actividad comercial en Balvanera es intensa y variada. La Avenida Corrientes es un importante centro teatral y de librerías, mientras que la zona de Once concentra comercios mayoristas y minoristas de diversos rubros, especialmente indumentaria. Existen numerosos supermercados, mercados barriales y pequeños comercios que satisfacen las necesidades diarias de los residentes. El barrio carece de grandes centros comerciales, pero la cercanía al Abasto Shopping es un plus.",
+      "supermercados": [
+        "Coto",
+        "Carrefour Express",
+        "Día%",
+        "Jumbo (cercano en Abasto)"
+      ],
+      "centros_comerciales": [
+        "Abasto Shopping (cercano)"
+      ]
+    },
+    "seguridad": {
+      "puntuacion": 65,
+      "descripcion": "La seguridad en Balvanera es un tema de preocupación para muchos residentes. Si bien la presencia policial ha aumentado en los últimos años, especialmente en las zonas más transitadas, los robos callejeros y arrebatos son frecuentes, especialmente en Once y sus alrededores. La iluminación pública deficiente en algunas áreas contribuye a la sensación de inseguridad. La zona cercana a Plaza Miserere (Once) presenta desafíos particulares.",
+      "comisaria": "Comisaría Vecinal 3 A (ex Comisaría 8)"
+    },
+    "educacion": {
+      "puntuacion": 80,
+      "descripcion": "Balvanera ofrece una amplia gama de opciones educativas, desde jardines de infantes hasta instituciones de nivel superior. Se encuentran escuelas públicas y privadas de buena reputación, así como universidades y facultades de diversas disciplinas. La cercanía a la Ciudad Universitaria y otras instituciones educativas en barrios aledaños amplía las oportunidades para los estudiantes.",
+      "escuelas": [
+        "Colegio Mariano Moreno",
+        "Escuela Normal Superior en Lenguas Vivas Sofía B. de Spangenberg",
+        "Escuela N° 12 D.E. 03 Juan Martín de Pueyrredón"
+      ],
+      "universidades": [
+        "Facultad de Psicología (UBA - cercanía)",
+        "Facultad de Ciencias Económicas (UBA - cercanía)"
+      ]
+    },
+    "salud": {
+      "puntuacion": 75,
+      "descripcion": "Balvanera cuenta con una infraestructura de salud adecuada, con hospitales públicos y privados, centros de salud y consultorios médicos. La cercanía a importantes hospitales universitarios y centros de atención especializada garantiza el acceso a servicios de salud de calidad. Sin embargo, la demanda en los hospitales públicos puede ser alta, generando demoras en la atención.",
+      "hospitales": [
+        "Hospital Ramos Mejía",
+        "Hospital Durand (cercano)",
+        "Hospital Italiano (cercano)"
+      ],
+      "centros_salud": [
+        "CeSAC N° 9"
+      ]
+    },
+    "espacios_verdes": {
+      "puntuacion": 55,
+      "descripcion": "Balvanera carece de grandes espacios verdes. La Plaza Miserere es el principal espacio público, pero su diseño y mantenimiento dejan que desear. La falta de parques y plazas contribuye a la sensación de densidad y falta de aire fresco en el barrio. La cercanía al Parque Centenario (en Caballito) ofrece una alternativa para quienes buscan áreas verdes más amplias.",
+      "parques": [
+        "Plaza Miserere",
+        "Plazoleta Primero de Mayo"
+      ]
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "La contaminación es un problema significativo en Balvanera, principalmente debido al alto volumen de tráfico vehicular y la actividad comercial intensa. Los niveles de ruido son elevados, especialmente en las avenidas principales y en la zona de Once. La calidad del aire puede verse afectada por las emisiones de los vehículos y la falta de espacios verdes que actúen como pulmones urbanos.",
+      "nivel_ruido": "Alto",
+      "fuente": "Tráfico vehicular, Actividad comercial, Construcciones"
+    },
+    "vida_barrio": {
+      "puntuacion": 80,
+      "descripcion": "Balvanera ofrece una rica vida de barrio, con una mezcla de residentes antiguos y nuevos. La presencia de teatros en la Avenida Corrientes, librerías emblemáticas y cafés históricos le dan un carácter cultural distintivo. Si bien no es un barrio conocido por su vida nocturna, existen bares y restaurantes que atraen a un público diverso. La cercanía a otros barrios con mayor oferta de entretenimiento amplía las opciones.",
+      "bares": [
+        "Café Tortoni (cercano)",
+        "El Banderín"
+      ],
+      "cultura": [
+        "Avenida Corrientes (teatros y librerías)",
+        "Museo Casa Carlos Gardel (cercano)"
+      ]
+    }
+  },
+  "barracas": {
+    "nombre": "Barracas",
+    "descripcion_general": "Barracas es un barrio de Buenos Aires.",
+    "conclusion": "Barracas presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 58,
+    "gastronomia": {
+      "puntuacion": 76,
+      "descripcion": "Barrio en transformación con creciente oferta gastronómica. Mezcla de locaux tradicionales y nuevos restaurants.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 70,
+      "descripcion": "Servicios financieros en desarrollo con bancos y puntos de pago.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Barracas tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Barracas tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Barracas.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Barracas tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Barracas cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Barracas.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Barracas.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Barracas.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "belgrano": {
+    "nombre": "Belgrano",
+    "descripcion_general": "Belgrano es un barrio de Buenos Aires con características propias de su zona. Ofrece una combinación de vida urbana y residencial.",
+    "conclusion": "Belgrano presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 60,
+    "gastronomia": [
+      "Restaurantes locales",
+      "Bares y cafes",
+      "Opciones gastronómicas diversas"
+    ],
+    "servicios_financieros": [
+      "Cajeros automáticos",
+      "Sucursales bancarias",
+      "Servicios financieros"
+    ],
+    "transporte": [
+      "Conexiones de transporte público en Belgrano",
+      "Líneas de colectivo locales",
+      "Acceso a red de subte y tren"
+    ],
+    "comercio": [
+      "Comercio de barrio tradicional",
+      "Locales comerciales",
+      "Mercados y ferias"
+    ],
+    "seguridad": [
+      "Comisaría del barrio",
+      "Vigilancia policial",
+      "Nivel de seguridad medio"
+    ],
+    "educacion": [
+      "Institutos educativos locales",
+      "Escuelas primarias y secundarias",
+      "Centros de formación"
+    ],
+    "salud": [
+      "Centros de salud del barrio",
+      "Farmacias locales",
+      "Hospitales cercanos"
+    ],
+    "espacios_verdes": [
+      "Plazas locales",
+      "Áreas verdes",
+      "Parques cercanos"
+    ],
+    "contaminacion": [
+      "Nivel de contaminación típico urbano",
+      "Tráfico moderado",
+      "Calidad del aire variable"
+    ],
+    "vida_barrio": [
+      "Comunidad establecida",
+      "Actividades vecinales",
+      "Vida comunitaria activa"
+    ],
+    "fecha_actualizacion": "2026-06-05",
+    "generado_por_ia": true
+  },
+  "boedo": {
+    "nombre": "Boedo",
+    "descripcion_general": "Boedo, ubicado en el sureste de la Ciudad Autónoma de Buenos Aires, es un barrio con una rica historia y una fuerte identidad cultural. Se caracteriza por su arquitectura de casas bajas y sus calles arboladas, aunque también presenta un desarrollo inmobiliario creciente con edificios de mediana altura. Tradicionalmente asociado al tango y a la bohemia, Boedo ha sabido mantener su esencia a la vez que se adapta a los nuevos tiempos. Su ubicación estratégica, con fácil acceso al centro y a otras zonas de la ciudad, lo convierte en un barrio atractivo tanto para residentes como para inversores.",
+    "conclusion": "Boedo presenta un buen potencial para la inversión inmobiliaria. Su ubicación estratégica, su rica historia y su fuerte identidad cultural lo convierten en un barrio atractivo para residentes y turistas. Si bien hay algunos desafíos en materia de seguridad y espacios verdes, las perspectivas de crecimiento son favorables. Se recomienda considerar proyectos de vivienda de mediana altura y locales comerciales que se integren al espíritu del barrio.",
+    "puntuacion_general": 74,
+    "gastronomia": {
+      "puntuacion": 85,
+      "descripcion": "La oferta gastronómica en Boedo es variada y de buena calidad. Se encuentran restaurantes de cocina tradicional argentina, bodegones, pizzerías y parrillas. También hay opciones de cocina internacional y bares de tapas. La Avenida Boedo es un buen lugar para disfrutar de una cena o un almuerzo.",
+      "restaurantes_destacados": [
+        "El Buzón",
+        "La Buena Medida",
+        "Parrilla El Gallego"
+      ],
+      "zonas_gastronomicas": [
+        "La Avenida Boedo concentra gran parte de la oferta gastronómica."
+      ]
+    },
+    "servicios_financieros": {
+      "puntuacion": 70,
+      "descripcion": "Boedo cuenta con sucursales de los principales bancos del país, así como cajeros automáticos de diferentes redes. También se encuentran casas de cambio y servicios de pago. La disponibilidad de servicios financieros es adecuada para las necesidades de los residentes.",
+      "bancos": [
+        "Banco Nación",
+        "Banco Santander",
+        "Banco Galicia"
+      ],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 82,
+      "descripcion": "Boedo cuenta con una buena conectividad gracias a la Línea E del Subte, que lo atraviesa de este a oeste. Además, numerosas líneas de colectivos circulan por sus principales avenidas, facilitando el acceso a diferentes puntos de la ciudad. La cercanía con la autopista 25 de Mayo también es un factor a considerar para quienes se desplazan en automóvil.",
+      "estaciones": [
+        "Boedo (Línea E)",
+        "Inclán (Línea E)",
+        "Caseros (Línea H - Cercana)"
+      ],
+      "colectivos": [
+        "7",
+        "23",
+        "53",
+        "75",
+        "88",
+        "97",
+        "115",
+        "126",
+        "127",
+        "128",
+        "160",
+        "180"
+      ]
+    },
+    "comercio": {
+      "puntuacion": 75,
+      "descripcion": "El barrio ofrece una amplia variedad de comercios, desde los tradicionales almacenes y ferreterías hasta locales de indumentaria y servicios. La Avenida Boedo es el principal eje comercial, donde se concentran la mayoría de los negocios. También se encuentran supermercados de diversas cadenas y algunos centros comerciales de cercanía.",
+      "supermercados": [
+        "Coto",
+        "Día",
+        "Carrefour Express"
+      ],
+      "centros_comerciales": [
+        "No hay grandes centros comerciales dentro de Boedo, pero el Shopping Spinetto se encuentra relativamente cerca."
+      ]
+    },
+    "seguridad": {
+      "puntuacion": 68,
+      "descripcion": "La seguridad en Boedo es un tema que preocupa a los vecinos. Si bien la presencia policial ha aumentado en los últimos años, se registran robos y hurtos, especialmente en las zonas más transitadas. Es importante tomar precauciones y estar atento al entorno.",
+      "comisaria": "Comisaría Vecinal 7 A"
+    },
+    "educacion": {
+      "puntuacion": 78,
+      "descripcion": "Boedo cuenta con una buena oferta educativa, tanto pública como privada, que abarca todos los niveles. Se encuentran escuelas primarias y secundarias de renombre, así como jardines de infantes y centros de formación profesional. La cercanía con la Ciudad Universitaria también es un factor a considerar para estudiantes universitarios.",
+      "escuelas": [
+        "Colegio Nuestra Señora de la Misericordia",
+        "Escuela N° 11 República de México",
+        "Instituto Vocacional de Arte (IVA)"
+      ],
+      "universidades": [
+        "No hay universidades dentro de Boedo, pero la Universidad Tecnológica Nacional (UTN) y la Universidad de Buenos Aires (UBA) se encuentran relativamente cerca."
+      ]
+    },
+    "salud": {
+      "puntuacion": 72,
+      "descripcion": "El barrio cuenta con varios centros de salud, tanto públicos como privados, que brindan atención médica a los vecinos. Se encuentran consultorios, laboratorios y farmacias. Si bien no hay hospitales de gran envergadura dentro de Boedo, el Hospital Ramos Mejía se encuentra a poca distancia.",
+      "hospitales": [
+        "No hay hospitales dentro de Boedo, pero el Hospital Ramos Mejía se encuentra cerca."
+      ],
+      "centros_salud": [
+        "CeSAC N° 21"
+      ]
+    },
+    "espacios_verdes": {
+      "puntuacion": 60,
+      "descripcion": "La cantidad de espacios verdes en Boedo es limitada. Si bien hay algunas plazas y plazoletas, la falta de grandes parques es una de las principales carencias del barrio. La Plaza Boedo es el principal punto de encuentro de los vecinos.",
+      "parques": [
+        "Plaza Boedo",
+        "Plazoleta Homero Manzi"
+      ]
+    },
+    "contaminacion": {
+      "puntuacion": 65,
+      "descripcion": "La contaminación en Boedo es moderada. El nivel de ruido es alto en las principales avenidas debido al intenso tráfico vehicular. La calidad del aire se ve afectada por la emisión de gases contaminantes. La gestión de residuos es adecuada, aunque se podrían implementar mejoras.",
+      "nivel_ruido": "Medio-Alto",
+      "fuente": "Tráfico vehicular en Av. Boedo, Av. La Plata y Av. San Juan."
+    },
+    "vida_barrio": {
+      "puntuacion": 88,
+      "descripcion": "La vida de barrio en Boedo es muy activa. Los vecinos se conocen y participan en actividades culturales y sociales. Hay numerosos bares, restaurantes y centros culturales que ofrecen opciones para el entretenimiento y la recreación. El tango sigue siendo una parte importante de la identidad del barrio.",
+      "bares": [
+        "Café Homero",
+        "Esquina Sur",
+        "Bar Seddon"
+      ],
+      "cultura": [
+        "Espacio Cultural Julián Centeya",
+        "Teatro Boedo XXI",
+        "Milongas en diferentes clubes del barrio"
+      ]
+    }
+  },
+  "caballito": {
+    "nombre": "Caballito",
+    "descripcion_general": "Caballito es un barrio de Buenos Aires.",
+    "conclusion": "Caballito presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 59,
+    "gastronomia": {
+      "puntuacion": 75,
+      "descripcion": "Barrio familiar con buena oferta de restaurantes tradicionales, Parrillas y cafes de barrio. La zona de Acoyte y Rivadavia ofrece opciones para todos los gustos.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 78,
+      "descripcion": "Buenos servicios financieros con bancos y cajeros automáticos distribuidos por las avenues principales del barrio.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Caballito tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Caballito tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Caballito.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Caballito tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Caballito cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Caballito.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Caballito.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Caballito.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "chacarita": {
+    "nombre": "Chacarita",
+    "descripcion_general": "Chacarita es un barrio de Buenos Aires.",
+    "conclusion": "Chacarita presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 59,
+    "gastronomia": {
+      "puntuacion": 92,
+      "descripcion": "Chacarita es uno de los barrios más cool de Buenos Aires, seleccionado por Time Out como uno de los mejores del mundo. Centro gastronómico emergente con propuesta innovadora y ambiente bohemio.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 65,
+      "descripcion": "Buenos servicios financieros con presencia de bancos importantes en la zona. Chacarita tiene sucursales bancarias modernas y buena distribución de cajeros.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Chacarita tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Chacarita tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Chacarita cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "",
+      "bares": [],
+      "cultura": [
+        "el cementario de chacarita"
+      ]
+    }
+  },
+  "coghlan": {
+    "nombre": "Coghlan",
+    "descripcion_general": "Coghlan es un barrio de Buenos Aires.",
+    "conclusion": "Coghlan presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 57,
+    "gastronomia": {
+      "puntuacion": 70,
+      "descripcion": "Barrio residencial tranquilo con opciones principalmente locales y familiares. Menos turística pero con buena calidad en sus restaurants de barrio.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 68,
+      "descripcion": "Servicios financieros de barrio con bancos y cajeros en las avenues principales.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Coghlan tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Coghlan tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Coghlan.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Coghlan tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Coghlan cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Coghlan.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Coghlan.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Coghlan.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "colegiales": {
+    "nombre": "Colegiales",
+    "descripcion_general": "Colegiales es un barrio de Buenos Aires.",
+    "conclusion": "Colegiales presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 59,
+    "gastronomia": {
+      "puntuacion": 78,
+      "descripcion": "Barrio residencial con creciente oferta gastronómica. Mezcla de clasicos y nuevos locales.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 75,
+      "descripcion": "Buenos servicios financieros con bancos y cajeros.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Colegiales tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Colegiales tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Colegiales.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Colegiales tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Colegiales cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Colegiales.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Colegiales.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Colegiales.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "congreso": {
+    "nombre": "Congreso",
+    "descripcion_general": "Congreso es un barrio de Buenos Aires.",
+    "conclusion": "Congreso presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 54,
+    "gastronomia": {
+      "puntuacion": 60,
+      "descripcion": "Información gastronómica no disponible para esta zona.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 50,
+      "descripcion": "Información de servicios financieros no disponible para esta zona.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Congreso tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Congreso tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Congreso.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Congreso tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Congreso cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Congreso.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Congreso.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Congreso.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "constitucion": {
+    "nombre": "Constitucion",
+    "descripcion_general": "Constitucion es un barrio de Buenos Aires.",
+    "conclusion": "Constitucion presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 58,
+    "gastronomia": {
+      "puntuacion": 72,
+      "descripcion": "Zona de transbordo con oferta gastronómica práctica. Muchas opciones para viajeros.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 72,
+      "descripcion": "Buenos servicios financieros con bancos y cajeros cerca de la terminal.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Constitucion tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Constitucion tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Constitucion.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Constitucion tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Constitucion cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Constitucion.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Constitucion.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Constitucion.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "flores": {
+    "nombre": "Flores",
+    "descripcion_general": "Flores es un barrio de Buenos Aires.",
+    "conclusion": "Flores presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 59,
+    "gastronomia": {
+      "puntuacion": 78,
+      "descripcion": "Barrio familiar con oferta gastronómica centrada en Parrillas, bodegones y cafeterías. Zona comercial activa con opciones para todos los días.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 75,
+      "descripcion": "Buenos servicios financieros con bancos y cajeros en las zonas comerciales principales del barrio.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Flores tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Flores tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Flores.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Flores tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Flores cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Flores.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Flores.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Flores.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "floresta": {
+    "nombre": "Floresta",
+    "descripcion_general": "Floresta es un barrio de Buenos Aires.",
+    "conclusion": "Floresta presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 57,
+    "gastronomia": {
+      "puntuacion": 68,
+      "descripcion": "Barrio tradicional con oferta gastronómica de barrio.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 65,
+      "descripcion": "Servicios financieros de barrio.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Floresta tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Floresta tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Floresta.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Floresta tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Floresta cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Floresta.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Floresta.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Floresta.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "la boca": {
+    "nombre": "La Boca",
+    "descripcion_general": "La Boca es un barrio de Buenos Aires.",
+    "conclusion": "La Boca presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 57,
+    "gastronomia": {
+      "puntuacion": 70,
+      "descripcion": "Barrio turístico con oferta gastronómica centrada en Parrillas y comida camsinera. Caminito atrae muchos restaurants.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 65,
+      "descripcion": "Servicios financieros básicos con bancos y cajeros en la zona turística.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En La Boca tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "La Boca tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para La Boca.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "La Boca tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "La Boca cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en La Boca.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en La Boca.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en La Boca.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "la paternal": {
+    "nombre": "La Paternal",
+    "descripcion_general": "La Paternal es un barrio de Buenos Aires.",
+    "conclusion": "La Paternal presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 58,
+    "gastronomia": {
+      "puntuacion": 72,
+      "descripcion": "Barrio con oferta gastronómica emergente cerca de Chacarita.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 70,
+      "descripcion": "Buenos servicios financieros cerca de Chacarita.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En La Paternal tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "La Paternal tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para La Paternal.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "La Paternal tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "La Paternal cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en La Paternal.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en La Paternal.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en La Paternal.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "liniers": {
+    "nombre": "Liniers",
+    "descripcion_general": "Liniers es un barrio de Buenos Aires.",
+    "conclusion": "Liniers presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 57,
+    "gastronomia": {
+      "puntuacion": 70,
+      "descripcion": "Barrio comercial con oferta gastronómica variada. Buena presencia de Parrillas y restaurants familiares.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 68,
+      "descripcion": "Buenos servicios financieros con bancos y cajeros en Avenida Rivadavia.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Liniers tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Liniers tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Liniers.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Liniers tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Liniers cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Liniers.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Liniers.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Liniers.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "mataderos": {
+    "nombre": "Mataderos",
+    "descripcion_general": "Mataderos es un barrio de Buenos Aires.",
+    "conclusion": "Mataderos presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 57,
+    "gastronomia": {
+      "puntuacion": 68,
+      "descripcion": "Barrio tradicional con oferta gastronómica centrada en Parrillas y comida criolla. Famoso por su Feria de Mataderos.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 65,
+      "descripcion": "Servicios financieros básicos con bancos de barrio.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Mataderos tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Mataderos tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Mataderos.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Mataderos tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Mataderos cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Mataderos.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Mataderos.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Mataderos.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "microcentro": {
+    "nombre": "Microcentro",
+    "descripcion_general": "El Microcentro de Buenos Aires, también conocido como la City, es el corazón financiero, administrativo y comercial de la ciudad. Se caracteriza por su alta densidad de edificios de oficinas, intensa actividad durante el día y una notable transformación después del horario laboral. Su valor inmobiliario es fluctuante, influenciado por la demanda de oficinas, la conectividad de transporte y la evolución de las tendencias laborales (como el auge del trabajo remoto). Si bien históricamente ha sido un centro neurálgico de la actividad económica, enfrenta desafíos como la revitalización de espacios públicos y la diversificación de su oferta para atraer residentes y turistas más allá del horario de oficina.",
+    "conclusion": "El Microcentro presenta oportunidades de inversión inmobiliaria, principalmente en oficinas y locales comerciales, aunque requiere una cuidadosa evaluación de la demanda actual y futura, considerando las tendencias de trabajo remoto y la necesidad de revitalizar la zona. La alta conectividad de transporte y la concentración de servicios financieros son sus principales fortalezas. Inversores deben considerar la diversificación de la oferta (residencial, cultural, entretenimiento) para fomentar una mayor actividad fuera del horario de oficina y mejorar la calidad de vida en el área.",
+    "puntuacion_general": 64,
+    "gastronomia": {
+      "puntuacion": 70,
+      "descripcion": "La oferta gastronómica es variada, pero predominantemente orientada al almuerzo rápido y opciones económicas para trabajadores de oficina. Hay restaurantes tradicionales y algunos establecimientos de alta cocina, pero la diversidad es limitada. La disponibilidad de opciones vegetarianas y veganas ha ido en aumento.",
+      "restaurantes_destacados": [
+        "El Imparcial",
+        "Siga La Vaca (Puerto Madero, cercano)",
+        "Kentucky (pizzería)"
+      ],
+      "zonas_gastronomicas": [
+        "Avenidas Corrientes y Lavalle (concentración de restaurantes y pizzerías)"
+      ]
+    },
+    "servicios_financieros": {
+      "puntuacion": 90,
+      "descripcion": "La concentración de bancos, casas de cambio y cajeros automáticos es altísima. Todas las principales entidades financieras tienen sucursales en el Microcentro, lo que facilita las transacciones y operaciones bancarias. La competencia entre las entidades favorece la disponibilidad de servicios y productos financieros.",
+      "bancos": [
+        "Banco Nación",
+        "Banco Provincia",
+        "Banco Ciudad",
+        "Santander",
+        "BBVA",
+        "HSBC",
+        "ICBC",
+        "Galicia"
+      ],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 95,
+      "descripcion": "El Microcentro goza de una conectividad de transporte público excepcional. Es un nodo central para numerosas líneas de colectivos, subtes y trenes, facilitando el acceso desde cualquier punto de la ciudad y el Gran Buenos Aires. La red de subtes es particularmente relevante, con múltiples líneas que convergen en la zona.",
+      "estaciones": [
+        "Retiro (Líneas C y E)",
+        "9 de Julio (Líneas D)",
+        "Alem (Línea B)",
+        "Perú (Línea A)",
+        "Diagonal Norte (Línea C)"
+      ],
+      "colectivos": [
+        "6",
+        "7",
+        "9",
+        "10",
+        "17",
+        "22",
+        "23",
+        "24",
+        "26",
+        "28",
+        "29",
+        "33",
+        "39",
+        "45",
+        "50",
+        "56",
+        "59",
+        "60",
+        "61",
+        "62",
+        "64",
+        "67",
+        "70",
+        "74",
+        "75",
+        "86",
+        "91",
+        "93",
+        "99",
+        "100",
+        "105",
+        "108",
+        "109",
+        "111",
+        "115",
+        "126",
+        "129",
+        "130",
+        "132",
+        "140",
+        "143",
+        "146",
+        "150",
+        "152",
+        "159",
+        "180",
+        "195"
+      ]
+    },
+    "comercio": {
+      "puntuacion": 85,
+      "descripcion": "La oferta comercial es muy variada, enfocada principalmente en servicios para oficinas (librerías, imprentas, etc.) y gastronomía rápida. La peatonal Florida concentra gran cantidad de locales de indumentaria, casas de cambio y galerías comerciales. Sin embargo, la presencia de supermercados y comercios orientados a residentes es limitada.",
+      "supermercados": [
+        "Carrefour Express (varias sucursales)",
+        "Día (varias sucursales)",
+        "Open 25 (varias sucursales)"
+      ],
+      "centros_comerciales": [
+        "Galerías Pacífico",
+        "Paseo Florida",
+        "Galería Güemes"
+      ]
+    },
+    "seguridad": {
+      "puntuacion": 65,
+      "descripcion": "La seguridad es un aspecto mixto. Durante el día, la presencia policial es alta debido a la gran afluencia de personas. Sin embargo, por la noche y los fines de semana, la zona puede sentirse insegura debido a la falta de actividad y la presencia de personas en situación de calle. La iluminación es un factor a mejorar en algunas áreas.",
+      "comisaria": "Comisaría Vecinal 1 A (Av. Corrientes 466)"
+    },
+    "educacion": {
+      "puntuacion": 50,
+      "descripcion": "La oferta educativa es limitada, enfocada principalmente en instituciones terciarias y cursos de capacitación profesional. La presencia de escuelas primarias y secundarias es escasa, lo que dificulta la vida familiar en la zona.",
+      "escuelas": [
+        "Escuela de Comercio Carlos Pellegrini (ubicada en cercanías inmediatas, no estrictamente en el microcentro)"
+      ],
+      "universidades": [
+        "UCEMA (Universidad del Centro de Estudios Macroeconómicos de Argentina)",
+        "UADE (Unidad Académica de Estudios para el Desarrollo) (ubicadas en cercanías inmediatas)"
+      ]
+    },
+    "salud": {
+      "puntuacion": 60,
+      "descripcion": "El acceso a servicios de salud es relativamente bueno, con varias clínicas y consultorios médicos privados. La presencia de hospitales públicos es limitada dentro del Microcentro propiamente dicho, pero hay fácil acceso a hospitales cercanos.",
+      "hospitales": [
+        "Hospital Argerich (en cercanías, en el barrio de La Boca)",
+        "Hospital Ramos Mejía (en cercanías, en el barrio de Balvanera)"
+      ],
+      "centros_salud": [
+        "Consultorios externos de diversas obras sociales y prepagas"
+      ]
+    },
+    "espacios_verdes": {
+      "puntuacion": 30,
+      "descripcion": "La escasez de espacios verdes es una de las mayores desventajas del Microcentro. La Plaza de Mayo es el único espacio verde significativo, pero su uso está frecuentemente limitado por eventos y manifestaciones. La falta de parques y plazas contribuye a la sensación de congestión y falta de calidad de vida.",
+      "parques": [
+        "Plaza de Mayo"
+      ]
+    },
+    "contaminacion": {
+      "puntuacion": 55,
+      "descripcion": "La contaminación acústica es alta debido al intenso tráfico vehicular y la concentración de actividades comerciales. La calidad del aire también se ve afectada por las emisiones de los vehículos y la falta de ventilación en algunas calles estrechas. La limpieza de las calles es regular, pero podría mejorarse.",
+      "nivel_ruido": "Alto",
+      "fuente": "Tráfico vehicular (Avenidas Corrientes, 9 de Julio, Rivadavia), bocinas, obras en construcción."
+    },
+    "vida_barrio": {
+      "puntuacion": 40,
+      "descripcion": "La vida de barrio es casi inexistente. La zona se vacía después del horario de oficina, lo que genera una sensación de desolación y falta de comunidad. La oferta cultural y de entretenimiento es limitada por la noche, aunque existen algunos teatros y cines.",
+      "bares": [
+        "Café Tortoni",
+        "London City",
+        "The Kilkenny"
+      ],
+      "cultura": [
+        "Teatro Gran Rex",
+        "Teatro Colón (ubicado en cercanías inmediatas)"
+      ]
+    }
+  },
+  "monserrat": {
+    "nombre": "Monserrat",
+    "descripcion_general": "Monserrat es un barrio de Buenos Aires.",
+    "conclusion": "Monserrat presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 60,
+    "gastronomia": {
+      "puntuacion": 78,
+      "descripcion": "Barrio histórico con oferta gastronómica enfocada en turistas y oficinistas.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 85,
+      "descripcion": "Excelentes servicios financieros en zona histórica céntrica.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Monserrat tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Monserrat tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Monserrat.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Monserrat tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Monserrat cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Monserrat.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Monserrat.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Monserrat.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "monte castro": {
+    "nombre": "Monte Castro",
+    "descripcion_general": "Monte Castro es un barrio de Buenos Aires.",
+    "conclusion": "Monte Castro presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 56,
+    "gastronomia": {
+      "puntuacion": 65,
+      "descripcion": "Barrio periférico con oferta gastronómica limitada.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 60,
+      "descripcion": "Servicios financieros básicos.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Monte Castro tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Monte Castro tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Monte Castro.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Monte Castro tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Monte Castro cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Monte Castro.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Monte Castro.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Monte Castro.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "nueva pompeya": {
+    "nombre": "Nueva Pompeya",
+    "descripcion_general": "Nueva Pompeya es un barrio de Buenos Aires.",
+    "conclusion": "Nueva Pompeya presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 56,
+    "gastronomia": {
+      "puntuacion": 65,
+      "descripcion": "Barrio periférico con servicios gastronómicos básicos.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 60,
+      "descripcion": "Servicios financieros básicos.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Nueva Pompeya tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Nueva Pompeya tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Nueva Pompeya.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Nueva Pompeya tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Nueva Pompeya cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Nueva Pompeya.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Nueva Pompeya.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Nueva Pompeya.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "núñez": {
+    "nombre": "Núñez",
+    "descripcion_general": "Núñez es un barrio de Buenos Aires.",
+    "conclusion": "Núñez presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 58,
+    "gastronomia": {
+      "puntuacion": 72,
+      "descripcion": "Barrio mainly residencial con oferta gastronómica centrada en opciones de barrio y algunos restaurants cerca del centro comercial.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 70,
+      "descripcion": "Servicios financieros adecuados para un barrio residencial, con bancos y cajeros en las zonas comerciales.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Núñez tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Núñez tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Núñez.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Núñez tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Núñez cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Núñez.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Núñez.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Núñez.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "palermo": {
+    "nombre": "Palermo",
+    "descripcion_general": "Palermo es un barrio de Buenos Aires con características propias de su zona. Ofrece una combinación de vida urbana y residencial.",
+    "conclusion": "Palermo presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 61,
+    "gastronomia": [
+      "Restaurantes locales",
+      "Bares y cafes",
+      "Opciones gastronómicas diversas"
+    ],
+    "servicios_financieros": [
+      "Cajeros automáticos",
+      "Sucursales bancarias",
+      "Servicios financieros"
+    ],
+    "transporte": [
+      "Conexiones de transporte público en Palermo",
+      "Líneas de colectivo locales",
+      "Acceso a red de subte y tren"
+    ],
+    "comercio": [
+      "Comercio de barrio tradicional",
+      "Locales comerciales",
+      "Mercados y ferias"
+    ],
+    "seguridad": [
+      "Comisaría del barrio",
+      "Vigilancia policial",
+      "Nivel de seguridad medio"
+    ],
+    "educacion": [
+      "Institutos educativos locales",
+      "Escuelas primarias y secundarias",
+      "Centros de formación"
+    ],
+    "salud": [
+      "Centros de salud del barrio",
+      "Farmacias locales",
+      "Hospitales cercanos"
+    ],
+    "espacios_verdes": [
+      "Plazas locales",
+      "Áreas verdes",
+      "Parques cercanos"
+    ],
+    "contaminacion": [
+      "Nivel de contaminación típico urbano",
+      "Tráfico moderado",
+      "Calidad del aire variable"
+    ],
+    "vida_barrio": [
+      "Comunidad establecida",
+      "Actividades vecinales",
+      "Vida comunitaria activa"
+    ],
+    "fecha_actualizacion": "2026-06-05",
+    "generado_por_ia": true
+  },
+  "parque avellaneda": {
+    "nombre": "Parque Avellaneda",
+    "descripcion_general": "Parque Avellaneda, ubicado en el sudoeste de la Ciudad Autónoma de Buenos Aires, es un barrio residencial con una fuerte identidad barrial y un ambiente tranquilo. Se caracteriza por la presencia del extenso Parque Avellaneda, que actúa como pulmón verde y centro de actividades recreativas y culturales. El barrio ofrece una combinación de viviendas unifamiliares bajas, edificios de mediana altura y complejos habitacionales. Aunque históricamente fue un barrio de clase trabajadora, ha experimentado un gradual proceso de revitalización y gentrificación en algunas zonas, atrayendo a nuevos residentes y comercios. La conectividad con el centro de la ciudad es buena a través de diversas líneas de colectivo y la cercanía al Acceso Oeste.",
+    "conclusion": "Parque Avellaneda ofrece una buena calidad de vida para familias y personas que buscan un barrio tranquilo y con acceso a espacios verdes. El potencial de inversión inmobiliaria es interesante, especialmente en propiedades cercanas al parque y en zonas con potencial de desarrollo. Si bien la conectividad con el centro de la ciudad depende principalmente del transporte público, la cercanía a importantes vías de acceso y la creciente revitalización del barrio lo convierten en una opción atractiva para inversores a largo plazo. La seguridad es un factor a considerar, pero la fuerte identidad barrial y la presencia de espacios verdes compensan algunos de estos desafíos.",
+    "puntuacion_general": 74,
+    "gastronomia": {
+      "puntuacion": 70,
+      "descripcion": "La oferta gastronómica en Parque Avellaneda es variada, con restaurantes de cocina tradicional argentina, parrillas, pizzerías y casas de comida rápida. No se destaca por una gastronomía de alta gama, pero ofrece opciones accesibles y para todos los gustos.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 70,
+      "descripcion": "El acceso a servicios financieros en Parque Avellaneda es limitado, con algunas sucursales bancarias y cajeros automáticos ubicados principalmente sobre las avenidas principales. La oferta es menor en comparación con barrios más céntricos.",
+      "bancos": [
+        "Banco Nación",
+        "Banco Provincia"
+      ],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 75,
+      "descripcion": "El transporte público en Parque Avellaneda es principalmente a través de colectivos. No cuenta con estaciones de subterráneo ni tren dentro de sus límites, pero la cercanía a estaciones de tren en barrios vecinos como Flores y Liniers mejora la conectividad. La frecuencia de algunas líneas puede ser un desafío en horas pico.",
+      "estaciones": [],
+      "colectivos": [
+        "4",
+        "47",
+        "50",
+        "56",
+        "80",
+        "97",
+        "101",
+        "103",
+        "107",
+        "117",
+        "141",
+        "180"
+      ]
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "El comercio en Parque Avellaneda es principalmente de cercanía, con una variedad de negocios locales que atienden las necesidades diarias de los residentes. Se concentra principalmente sobre las avenidas principales como Lacarra, Directorio y Eva Perón. No hay grandes centros comerciales dentro del barrio, pero sí supermercados y ferias vecinales.",
+      "supermercados": [
+        "Coto",
+        "Carrefour Express",
+        "Día%"
+      ],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 65,
+      "descripcion": "La seguridad en Parque Avellaneda es un tema de preocupación para algunos residentes. Si bien no se considera un barrio particularmente peligroso, existen áreas con mayor incidencia de delitos menores como robos y hurtos. La presencia policial es variable y se recomienda tomar precauciones básicas.",
+      "comisaria": "Comisaría Vecinal 9C"
+    },
+    "educacion": {
+      "puntuacion": 80,
+      "descripcion": "Parque Avellaneda cuenta con una buena oferta educativa, incluyendo escuelas primarias, secundarias, técnicas y jardines de infantes, tanto públicos como privados. La calidad de la educación varía entre las instituciones, pero en general, se considera satisfactoria.",
+      "escuelas": [
+        "Escuela N° 17 Dr. Mariano Castex",
+        "Escuela Técnica N° 15 Ing. Luis A. Huergo",
+        "Instituto Nuestra Señora de Luján"
+      ],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 70,
+      "descripcion": "El acceso a la salud en Parque Avellaneda es adecuado, con la presencia de hospitales públicos en barrios aledaños y centros de atención primaria de la salud (CeSAC) dentro del barrio. La disponibilidad de especialistas puede ser limitada en algunos casos.",
+      "hospitales": [
+        "Hospital Parmenio Piñero (en Flores)",
+        "Hospital Teodoro Álvarez (en Flores)"
+      ],
+      "centros_salud": [
+        "CeSAC N° 29"
+      ]
+    },
+    "espacios_verdes": {
+      "puntuacion": 90,
+      "descripcion": "El principal atractivo de Parque Avellaneda es el parque homónimo, un extenso espacio verde que ofrece una amplia variedad de actividades recreativas, deportivas y culturales. Cuenta con canchas de fútbol, pistas de atletismo, un anfiteatro, un centro cultural y áreas de juegos para niños. El parque es un punto de encuentro para los vecinos y un importante pulmón verde para la ciudad.",
+      "parques": [
+        "Parque Avellaneda"
+      ]
+    },
+    "contaminacion": {
+      "puntuacion": 60,
+      "descripcion": "La contaminación en Parque Avellaneda es moderada. El nivel de ruido es mayor cerca de las avenidas principales debido al tráfico vehicular. La calidad del aire puede verse afectada por la cercanía a zonas industriales y la circulación de vehículos.",
+      "nivel_ruido": "Medio",
+      "fuente": "Avenidas Lacarra, Directorio y Eva Perón. Tráfico vehicular."
+    },
+    "vida_barrio": {
+      "puntuacion": 85,
+      "descripcion": "Parque Avellaneda tiene una fuerte identidad barrial, con una comunidad activa y participativa. Existen numerosos clubes de barrio, centros culturales y organizaciones vecinales que promueven actividades sociales y culturales. El ambiente es tranquilo y familiar.",
+      "bares": [],
+      "cultura": [
+        "Centro Cultural Chacra de los Remedios (dentro del Parque Avellaneda)",
+        "Anfiteatro del Parque Avellaneda"
+      ]
+    }
+  },
+  "parque chacabuco": {
+    "nombre": "Parque Chacabuco",
+    "descripcion_general": "Parque Chacabuco, ubicado en el centro geográfico de la Ciudad Autónoma de Buenos Aires, es un barrio residencial de clase media con una fuerte identidad barrial y una rica historia. Se caracteriza por su extenso parque, que le da nombre y funciona como pulmón verde y punto de encuentro social. El barrio ofrece una combinación de tranquilidad residencial y accesibilidad a importantes avenidas, lo que facilita la conexión con otros puntos de la ciudad. Presenta una mezcla de construcciones antiguas y modernas, con predominio de casas bajas y edificios de altura media. La vida barrial es activa, con una fuerte presencia de comercios locales y una oferta cultural diversa.",
+    "conclusion": "Parque Chacabuco representa una oportunidad interesante para inversores inmobiliarios que buscan un barrio residencial con potencial de crecimiento. Su ubicación estratégica, su extenso parque y su activa vida barrial lo convierten en un lugar atractivo para familias y jóvenes profesionales. Si bien la seguridad es un aspecto a considerar, las mejoras en infraestructura y servicios podrían impulsar aún más el valor de las propiedades en la zona. Es crucial analizar cuidadosamente las oportunidades y riesgos antes de tomar una decisión de inversión.",
+    "puntuacion_general": 76,
+    "gastronomia": {
+      "puntuacion": 70,
+      "descripcion": "La oferta gastronómica en Parque Chacabuco es variada, aunque no tan sofisticada como en otros barrios de la ciudad. Se encuentran restaurantes de cocina tradicional argentina, pizzerías, parrillas y algunos locales de comida rápida. La cercanía a Boedo y Caballito permite acceder a una mayor diversidad de opciones gastronómicas.",
+      "restaurantes_destacados": [
+        "Restaurantes de barrio con cocina tradicional argentina"
+      ],
+      "zonas_gastronomicas": [
+        "Cercanía a la oferta gastronómica de Boedo y Caballito"
+      ]
+    },
+    "servicios_financieros": {
+      "puntuacion": 78,
+      "descripcion": "Parque Chacabuco cuenta con sucursales de los principales bancos y una amplia red de cajeros automáticos, lo que facilita el acceso a servicios financieros para los residentes y comerciantes del barrio. La mayoría de las sucursales se encuentran ubicadas sobre las avenidas principales.",
+      "bancos": [
+        "Banco Nación",
+        "Banco Provincia",
+        "Santander Río",
+        "BBVA"
+      ],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 82,
+      "descripcion": "Parque Chacabuco cuenta con una excelente conectividad a través de diversas líneas de colectivo y la cercanía a la estación de subte Emilio Mitre (Línea E). Las principales avenidas como Asamblea, Curapaligüe y Directorio facilitan el acceso en automóvil. La frecuencia de los colectivos es alta y las conexiones con otros barrios son directas.",
+      "estaciones": [
+        "Emilio Mitre (Línea E)",
+        "Medalla Milagrosa (Línea E)",
+        "Varela (Línea E)"
+      ],
+      "colectivos": [
+        "4",
+        "7",
+        "44",
+        "50",
+        "56",
+        "97",
+        "101",
+        "103",
+        "133"
+      ]
+    },
+    "comercio": {
+      "puntuacion": 75,
+      "descripcion": "El barrio ofrece una variada oferta comercial, concentrada principalmente sobre las avenidas Asamblea y Curapaligüe. Se encuentran supermercados, farmacias, bancos, tiendas de ropa y diversos comercios de cercanía. Si bien no cuenta con grandes centros comerciales dentro de sus límites, la cercanía a Caballito y Boedo permite acceder a una mayor variedad de opciones.",
+      "supermercados": [
+        "Coto",
+        "Día",
+        "Carrefour Express"
+      ],
+      "centros_comerciales": [
+        "No hay centros comerciales dentro del barrio, pero el Shopping Caballito está a pocas cuadras."
+      ]
+    },
+    "seguridad": {
+      "puntuacion": 68,
+      "descripcion": "La seguridad en Parque Chacabuco es un tema que requiere atención. Si bien no se considera un barrio particularmente peligroso, se registran robos y hurtos, especialmente en las zonas más transitadas y en horarios nocturnos. La presencia policial es moderada y se recomienda tomar precauciones básicas para evitar incidentes.",
+      "comisaria": "Comisaría Vecinal 7B"
+    },
+    "educacion": {
+      "puntuacion": 80,
+      "descripcion": "Parque Chacabuco cuenta con una buena oferta educativa, que incluye escuelas primarias, secundarias y jardines de infantes, tanto públicos como privados. Destacan instituciones con larga trayectoria y prestigio en la zona. No hay universidades dentro del barrio, pero la cercanía a Caballito y Flores facilita el acceso a diversas facultades.",
+      "escuelas": [
+        "Escuela N°10 DE 13 \"Juan B. Alberdi\"",
+        "Colegio Nuestra Señora de la Misericordia",
+        "Escuela Técnica N° 26 \"Confederación Suiza\""
+      ],
+      "universidades": [
+        "No hay universidades dentro del barrio. Cercanía a UBA CBC Drago y otras facultades en Caballito y Flores."
+      ]
+    },
+    "salud": {
+      "puntuacion": 72,
+      "descripcion": "El barrio cuenta con algunos centros de atención primaria de la salud (CeSACs) y consultorios médicos privados. No hay hospitales de gran envergadura dentro de sus límites, pero la cercanía a hospitales en Caballito y Flores garantiza el acceso a atención médica especializada.",
+      "hospitales": [
+        "No hay hospitales dentro del barrio. Cercanía al Hospital Durand y al Hospital Ramos Mejía."
+      ],
+      "centros_salud": [
+        "CeSAC N° 22"
+      ]
+    },
+    "espacios_verdes": {
+      "puntuacion": 88,
+      "descripcion": "El principal atractivo de Parque Chacabuco es su extenso parque homónimo, que ocupa gran parte de la superficie del barrio. El parque ofrece amplias áreas verdes, senderos para caminar, canchas de deportes, juegos infantiles y un anfiteatro donde se realizan eventos culturales. Es un lugar ideal para actividades al aire libre y el esparcimiento familiar.",
+      "parques": [
+        "Parque Chacabuco"
+      ]
+    },
+    "contaminacion": {
+      "puntuacion": 65,
+      "descripcion": "La contaminación en Parque Chacabuco es moderada. El nivel de ruido es elevado en las avenidas principales debido al intenso tráfico vehicular. La calidad del aire se ve afectada por la circulación de automóviles y colectivos. Sin embargo, el parque actúa como un pulmón verde que ayuda a mitigar los efectos de la contaminación.",
+      "nivel_ruido": "Medio-Alto (en avenidas principales)",
+      "fuente": "Tráfico vehicular en Av. Asamblea, Av. Curapaligüe y Av. Directorio"
+    },
+    "vida_barrio": {
+      "puntuacion": 85,
+      "descripcion": "La vida barrial en Parque Chacabuco es activa y tradicional. Se conservan costumbres y tradiciones propias de los barrios porteños. Hay una fuerte identidad barrial y un sentido de pertenencia entre los vecinos. El barrio cuenta con clubes, centros culturales y diversas organizaciones vecinales que promueven la participación y el encuentro comunitario.",
+      "bares": [
+        "Bares y cafés tradicionales sobre Av. Asamblea y Curapaligüe"
+      ],
+      "cultura": [
+        "Anfiteatro del Parque Chacabuco (eventos culturales)",
+        "Biblioteca Ricardo Güiraldes"
+      ]
+    }
+  },
+  "parque chas": {
+    "nombre": "Parque Chas",
+    "descripcion_general": "Parque Chas es un barrio de Buenos Aires.",
+    "conclusion": "Parque Chas presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 57,
+    "gastronomia": {
+      "puntuacion": 70,
+      "descripcion": "Barrio residencial con oferta gastronómica básica de barrio.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 62,
+      "descripcion": "Servicios financieros básicos de barrio.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Parque Chas tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Parque Chas tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Parque Chas.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Parque Chas tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Parque Chas cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Parque Chas.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Parque Chas.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Parque Chas.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "parque patricios": {
+    "nombre": "Parque Patricios",
+    "descripcion_general": "Parque Patricios es un barrio de Buenos Aires.",
+    "conclusion": "Parque Patricios presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 57,
+    "gastronomia": {
+      "puntuacion": 68,
+      "descripcion": "Barrio en desarrollo con oferta gastronómica emergente.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 65,
+      "descripcion": "Servicios financieros en desarrollo.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Parque Patricios tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Parque Patricios tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Parque Patricios.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Parque Patricios tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Parque Patricios cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Parque Patricios.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Parque Patricios.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Parque Patricios.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "pilar": {
+    "nombre": "Pilar",
+    "descripcion_general": "Pilar es un barrio de Buenos Aires.",
+    "conclusion": "Pilar presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 192,
+    "gastronomia": {
+      "puntuacion": 60,
+      "descripcion": "Información gastronómica no disponible para esta zona.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 50,
+      "descripcion": "Información de servicios financieros no disponible para esta zona.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 8,
+      "descripcion": "En Pilar tienes acceso a la Autopista Acceso Norte Ramal Pilar y Ruta 8. Líneas de colectivo específicas: Línea 57, Línea 510 (Pilar Bus S.A.), Línea 176. Conexiones con Ruta Bus S.A. hacia Moreno, Areco, y Cardales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 36,
+      "descripcion": "Pilar tiene Las Palmas del Pilar (con Jumbo), Tortugas Open Mall (Panamericana Ramal Pilar Km 36,5), Paseo Pilar (Ruta Panamericana Km 44), Cardinal Shopping, y el supermercado Jumbo en Palmas del Pilar.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Pilar.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Pilar tiene colegios privados como San Patricio, colegios públicos de calidad, cercanía a universidades (UBA), institutos técnicos, centros de idiomas, y academias especializadas.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 1500,
+      "descripcion": "Pilar cuenta con Hospital Universitario Austral (Juan Domingo Perón 1500, Derqui), Sanatorio del Pilar, Hospital Central de Emergencia y Alta Complejidad de Pilar, Centro Medico Pilares, y MAS Centro Médico (Moreno 565).",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Pilar.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Pilar.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Pilar.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "puerto madero": {
+    "nombre": "Puerto Madero",
+    "descripcion_general": "Puerto Madero es un barrio de Buenos Aires.",
+    "conclusion": "Puerto Madero presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 62,
+    "gastronomia": {
+      "puntuacion": 95,
+      "descripcion": "Zona premium con restaurants de alta gama y vistas al río. Gran concentración de gastronomía upscale.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 95,
+      "descripcion": "Servicios financieros premium con bancos de primer nivel y cajeros modernos.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Puerto Madero tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Puerto Madero tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Puerto Madero.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Puerto Madero tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Puerto Madero cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Puerto Madero.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Puerto Madero.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Puerto Madero.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "recoleta": {
+    "nombre": "Recoleta",
+    "descripcion_general": "Recoleta es un barrio de Buenos Aires.",
+    "conclusion": "Recoleta presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 61,
+    "gastronomia": {
+      "puntuacion": 85,
+      "descripcion": "Zona elegante con alta concentración de restaurantes de categoría, cafes históricos y opciones gourmet. Ideal para ocasiones especiales y reuniones de negocios.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 90,
+      "descripcion": "Zona premium con excelentes servicios financieros. Sucursales bancarias de primer nivel y cajeros automáticos distribuidos por toda la zona.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Recoleta tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Recoleta tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Recoleta.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Recoleta tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Recoleta cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Recoleta.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Recoleta.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Recoleta.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "retiro": {
+    "nombre": "Retiro",
+    "descripcion_general": "Retiro es un barrio de Buenos Aires.",
+    "conclusion": "Retiro presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 61,
+    "gastronomia": {
+      "puntuacion": 85,
+      "descripcion": "Zona céntrica con oferta mixta. Desde restaurants de negocios hasta opciones rápidas.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 88,
+      "descripcion": "Excelentes servicios financieros cerca de la zona bancaria de Plaza San Martín.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Retiro tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Retiro tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Retiro.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Retiro tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Retiro cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Retiro.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Retiro.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Retiro.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "saavedra": {
+    "nombre": "Saavedra",
+    "descripcion_general": "Saavedra es un barrio de Buenos Aires.",
+    "conclusion": "Saavedra presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 57,
+    "gastronomia": {
+      "puntuacion": 68,
+      "descripcion": "Barrio periférico con opciones principalmente de barrio. Menos diversidad pero con buenos restaurants familiares y Parrillas.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 65,
+      "descripcion": "Servicios financieros básicos de barrio, suficientes para necesidades cotidianas.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Saavedra tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Saavedra tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Saavedra.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Saavedra tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Saavedra cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Saavedra.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Saavedra.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Saavedra.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "san cristobal": {
+    "nombre": "San Cristobal",
+    "descripcion_general": "San Cristobal es un barrio de Buenos Aires.",
+    "conclusion": "San Cristobal presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 58,
+    "gastronomia": {
+      "puntuacion": 72,
+      "descripcion": "Barrio con oferta gastronómica variada, especialmente cerca de Boedo.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 70,
+      "descripcion": "Buenos servicios financieros cerca de Boedo.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En San Cristobal tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "San Cristobal tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para San Cristobal.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "San Cristobal tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "San Cristobal cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en San Cristobal.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en San Cristobal.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en San Cristobal.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "san nicolas": {
+    "nombre": "San Nicolas",
+    "descripcion_general": "San Nicolas es un barrio de Buenos Aires.",
+    "conclusion": "San Nicolas presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 60,
+    "gastronomia": {
+      "puntuacion": 80,
+      "descripcion": "Centro cultural con oferta gastronómica diverse. Teatro, cafes y restaurants.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 82,
+      "descripcion": "Buenos servicios financieros en zona céntrica.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En San Nicolas tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "San Nicolas tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para San Nicolas.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "San Nicolas tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "San Nicolas cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en San Nicolas.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en San Nicolas.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en San Nicolas.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "san telmo": {
+    "nombre": "San Telmo",
+    "descripcion_general": "San Telmo es un barrio de Buenos Aires con características únicas.",
+    "conclusion": "San Telmo presenta una opción atractiva para residir o invertir.",
+    "puntuacion_general": 69,
+    "gastronomia": {
+      "puntuacion": 73,
+      "descripcion": "Gastronomía en San Telmo",
+      "restaurantes_destacados": [
+        "Restaurante típico",
+        "Parrilla"
+      ],
+      "zonas_gastronomicas": [
+        "Zona gastronómica"
+      ]
+    },
+    "servicios_financieros": {
+      "puntuacion": 70,
+      "descripcion": "Servicios financieros en San Telmo",
+      "bancos": [
+        "Banco Nación",
+        "Banco Provincia"
+      ],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "Transporte público en San Telmo",
+      "estaciones": [
+        "Estación Central",
+        "Subte Línea A"
+      ],
+      "colectivos": [
+        "15",
+        "29",
+        "57",
+        "111"
+      ]
+    },
+    "comercio": {
+      "puntuacion": 72,
+      "descripcion": "Comercios locales en San Telmo",
+      "supermercados": [
+        "Coto",
+        "Día",
+        "Carrefour"
+      ],
+      "centros_comerciales": [
+        "Shopping"
+      ]
+    },
+    "seguridad": {
+      "puntuacion": 68,
+      "descripcion": "Seguridad en San Telmo",
+      "comisaria": "Comisaría de la zona"
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Educación en San Telmo",
+      "escuelas": [
+        "Escuela primaria",
+        "Colegio secundario"
+      ],
+      "universidades": [
+        "Universidad cercana"
+      ]
+    },
+    "salud": {
+      "puntuacion": 69,
+      "descripcion": "Salud en San Telmo",
+      "hospitales": [
+        "Hospital público"
+      ],
+      "centros_salud": [
+        "Centro de salud"
+      ]
+    },
+    "espacios_verdes": {
+      "puntuacion": 65,
+      "descripcion": "Espacios verdes en San Telmo",
+      "parques": [
+        "Plaza principal"
+      ]
+    },
+    "contaminacion": {
+      "puntuacion": 55,
+      "descripcion": "Contaminación en San Telmo",
+      "nivel_ruido": "Medio",
+      "fuente": "Tráfico vehicular"
+    },
+    "vida_barrio": {
+      "puntuacion": 75,
+      "descripcion": "Vida de barrio en San Telmo",
+      "bares": [
+        "Bar local",
+        "Cervecería"
+      ],
+      "cultura": [
+        "Centro cultural"
+      ]
+    }
+  },
+  "versailles": {
+    "nombre": "Versailles",
+    "descripcion_general": "Versailles es un barrio de Buenos Aires.",
+    "conclusion": "Versailles presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 56,
+    "gastronomia": {
+      "puntuacion": 65,
+      "descripcion": "Barrio pequeño con servicios gastronómicos básicos.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 60,
+      "descripcion": "Servicios financieros limitados.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Versailles tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Versailles tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Versailles.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Versailles tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Versailles cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Versailles.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Versailles.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Versailles.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "villa crespo": {
+    "nombre": "Villa Crespo",
+    "descripcion_general": "Villa Crespo es un barrio de Buenos Aires.",
+    "conclusion": "Villa Crespo presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 59,
+    "gastronomia": {
+      "puntuacion": 88,
+      "descripcion": "Barrio en auge gastronómico con propuesta trendy y accesibles. Antigua industria reconvertida en locales de comida, con fuerte presencia de burgers, pizzas y bowles.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 72,
+      "descripcion": "Servicios financieros básicos con bancos y cajeros automáticos en las zonas comerciales principales.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Villa Crespo tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Villa Crespo tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Villa Crespo.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Villa Crespo tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Villa Crespo cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Villa Crespo.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Villa Crespo.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Villa Crespo.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "villa del parque": {
+    "nombre": "Villa Del Parque",
+    "descripcion_general": "Villa Del Parque es un barrio de Buenos Aires.",
+    "conclusion": "Villa Del Parque presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 58,
+    "gastronomia": {
+      "puntuacion": 72,
+      "descripcion": "Barrio familiar con oferta gastronómica tradicional. Buenos restaurants de barrio y Parrillas.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 70,
+      "descripcion": "Servicios financieros de barrio con bancos y puntos de pago.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Villa Del Parque tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Villa Del Parque tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Villa Del Parque.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Villa Del Parque tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Villa Del Parque cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Villa Del Parque.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Villa Del Parque.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Villa Del Parque.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "villa devoto": {
+    "nombre": "Villa Devoto",
+    "descripcion_general": "Villa Devoto es un barrio de Buenos Aires.",
+    "conclusion": "Villa Devoto presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 58,
+    "gastronomia": {
+      "puntuacion": 75,
+      "descripcion": "Barrio residencial italiano con excelente oferta gastronómica. Parrillas, trattorias y cafes de calidad.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 75,
+      "descripcion": "Buenos servicios financieros con bancos y cajeros en zonas comerciales.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Villa Devoto tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Villa Devoto tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Villa Devoto.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Villa Devoto tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Villa Devoto cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Villa Devoto.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Villa Devoto.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Villa Devoto.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "villa general mitre": {
+    "nombre": "Villa General Mitre",
+    "descripcion_general": "Villa General Mitre es un barrio de Buenos Aires.",
+    "conclusion": "Villa General Mitre presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 57,
+    "gastronomia": {
+      "puntuacion": 68,
+      "descripcion": "Barrio periférico con servicios gastronómicos básicos.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 65,
+      "descripcion": "Servicios financieros básicos.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Villa General Mitre tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Villa General Mitre tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Villa General Mitre.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Villa General Mitre tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Villa General Mitre cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Villa General Mitre.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Villa General Mitre.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Villa General Mitre.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "villa lugano": {
+    "nombre": "Villa Lugano",
+    "descripcion_general": "Villa Lugano es un barrio de Buenos Aires.",
+    "conclusion": "Villa Lugano presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 56,
+    "gastronomia": {
+      "puntuacion": 65,
+      "descripcion": "Barrio periférico con opciones gastronómicas básicas de barrio. Menor diversidad pero precios accesibles.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 60,
+      "descripcion": "Servicios financieros básicos de barrio.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Villa Lugano tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Villa Lugano tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Villa Lugano.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Villa Lugano tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Villa Lugano cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Villa Lugano.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Villa Lugano.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Villa Lugano.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "villa luro": {
+    "nombre": "Villa Luro",
+    "descripcion_general": "Villa Luro es un barrio de Buenos Aires.",
+    "conclusion": "Villa Luro presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 58,
+    "gastronomia": {
+      "puntuacion": 72,
+      "descripcion": "Barrio con oferta gastronómica centrada en Parrillas y restaurants familiares.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 70,
+      "descripcion": "Buenos servicios financieros de barrio.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Villa Luro tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Villa Luro tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Villa Luro.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Villa Luro tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Villa Luro cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Villa Luro.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Villa Luro.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Villa Luro.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "villa ortuzar": {
+    "nombre": "Villa Ortuzar",
+    "descripcion_general": "Villa Ortuzar es un barrio de Buenos Aires.",
+    "conclusion": "Villa Ortuzar presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 58,
+    "gastronomia": {
+      "puntuacion": 73,
+      "descripcion": "Barrio residencial tranquilo con oferta gastronómica básica de barrio.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 68,
+      "descripcion": "Servicios financieros básicos de barrio.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Villa Ortuzar tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Villa Ortuzar tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Villa Ortuzar.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Villa Ortuzar tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Villa Ortuzar cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Villa Ortuzar.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Villa Ortuzar.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Villa Ortuzar.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "villa pueyrredon": {
+    "nombre": "Villa Pueyrredon",
+    "descripcion_general": "Villa Pueyrredon es un barrio de Buenos Aires.",
+    "conclusion": "Villa Pueyrredon presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 57,
+    "gastronomia": {
+      "puntuacion": 70,
+      "descripcion": "Barrio residencial con oferta gastronómica de barrio.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 68,
+      "descripcion": "Servicios financieros adecuados.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Villa Pueyrredon tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Villa Pueyrredon tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Villa Pueyrredon.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Villa Pueyrredon tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Villa Pueyrredon cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Villa Pueyrredon.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Villa Pueyrredon.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Villa Pueyrredon.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "villa real": {
+    "nombre": "Villa Real",
+    "descripcion_general": "Villa Real es un barrio de Buenos Aires.",
+    "conclusion": "Villa Real presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 55,
+    "gastronomia": {
+      "puntuacion": 62,
+      "descripcion": "Barrio periférico con servicios gastronómicos básicos.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 58,
+      "descripcion": "Servicios financieros básicos de barrio.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Villa Real tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Villa Real tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Villa Real.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Villa Real tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Villa Real cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Villa Real.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Villa Real.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Villa Real.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "villa santa rita": {
+    "nombre": "Villa Santa Rita",
+    "descripcion_general": "Villa Santa Rita es un barrio de Buenos Aires.",
+    "conclusion": "Villa Santa Rita presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 56,
+    "gastronomia": {
+      "puntuacion": 65,
+      "descripcion": "Barrio con oferta gastronómica limitada de barrio.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 60,
+      "descripcion": "Servicios financieros limitados.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Villa Santa Rita tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Villa Santa Rita tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Villa Santa Rita.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Villa Santa Rita tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Villa Santa Rita cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Villa Santa Rita.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Villa Santa Rita.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Villa Santa Rita.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "villa urquiza": {
+    "nombre": "Villa Urquiza",
+    "descripcion_general": "Villa Urquiza es un barrio de Buenos Aires.",
+    "conclusion": "Villa Urquiza presenta una opción viable para vivir e invertir.",
+    "puntuacion_general": 59,
+    "gastronomia": {
+      "puntuacion": 78,
+      "descripcion": "Barrio residencial con buena oferta gastronómica. Mezcla de Parrillas tradicionales y nuevos cafes.",
+      "restaurantes_destacados": [],
+      "zonas_gastronomicas": []
+    },
+    "servicios_financieros": {
+      "puntuacion": 75,
+      "descripcion": "Buenos servicios financieros con bancos y cajeros distribuidos.",
+      "bancos": [],
+      "cajeros_automaticos": [],
+      "sucursales_bancarias": [],
+      "otros_servicios": []
+    },
+    "transporte": {
+      "puntuacion": 70,
+      "descripcion": "En Villa Urquiza tienes conectividad con líneas de colectivo locales, acceso a subte según la línea disponible, paradas de taxi estratégicas, y acceso a autopistas principales.",
+      "estaciones": [],
+      "colectivos": []
+    },
+    "comercio": {
+      "puntuacion": 70,
+      "descripcion": "Villa Urquiza tiene supermercados de cadenas reconocidas, centros comerciales, tiendas especializadas, librerías, jugueterías, y servicios básicos.",
+      "supermercados": [],
+      "centros_comerciales": []
+    },
+    "seguridad": {
+      "puntuacion": 50,
+      "descripcion": "Información de seguridad para Villa Urquiza.",
+      "comisaria": ""
+    },
+    "educacion": {
+      "puntuacion": 70,
+      "descripcion": "Villa Urquiza tiene colegios primarios y secundarios, universidades cercanas, institutos técnicos, centros de idiomas, y academias.",
+      "escuelas": [],
+      "universidades": []
+    },
+    "salud": {
+      "puntuacion": 24,
+      "descripcion": "Villa Urquiza cuenta con hospitales públicos y privados, consultorios médicos especializados, centros de diagnóstico, farmacias 24hs, y servicios de emergencia.",
+      "hospitales": [],
+      "centros_salud": []
+    },
+    "espacios_verdes": {
+      "puntuacion": 50,
+      "descripcion": "Parques y plazas en Villa Urquiza.",
+      "parques": []
+    },
+    "contaminacion": {
+      "puntuacion": 50,
+      "descripcion": "Niveles de contaminación en Villa Urquiza.",
+      "nivel_ruido": "Medio",
+      "fuente": ""
+    },
+    "vida_barrio": {
+      "puntuacion": 50,
+      "descripcion": "Vida cultural y social en Villa Urquiza.",
+      "bares": [],
+      "cultura": []
+    }
+  },
+  "once": {
+    "nombre": "Once",
+    "descripcion_general": [
+      "Once es un barrio vibrante y comercial de Buenos Aires, conocido por su fuerte presencia de la comunidad judía y su intensa actividad comercial, especialmente en el rubro textil y de indumentaria. Es un punto neurálgico de transporte y un crisol de culturas."
+    ],
+    "conclusion": "",
+    "fecha_actualizacion": "2026-03-18",
+    "transporte": [
+      "Estación Once de Septiembre: Conexión con trenes (Ferrocarril Sarmiento) y subte (Línea A).",
+      "Múltiples líneas de colectivos: Amplia cobertura a diferentes puntos de la ciudad y el Gran Buenos Aires.",
+      "Proximidad a la Autopista 25 de Mayo: Facilita el acceso en automóvil desde y hacia el sur de la ciudad."
+    ],
+    "educacion": [
+      "ORT Belgrano: Reconocida institución educativa con orientación tecnológica.",
+      "Colegio Bialik de Villa Crespo (cercano a Once): Colegio con fuerte tradición judía.",
+      "Escuela de Comercio N° 10 \"Dr. Antonio Bermejo\": Escuela pública de nivel secundario.",
+      "Instituto Superior de Estudios de Radio y Televisión (ISER): Importante instituto de formación en medios."
+    ],
+    "salud": [
+      "Hospital Ramos Mejía: Hospital público de referencia en la zona.",
+      "Hospital de Clínicas José de San Martín (cercano a Once): Hospital universitario con diversas especialidades.",
+      "Clínica Modelo de Once: Institución privada con servicios de internación y consultorios externos.",
+      "Centros de Atención Primaria de la Salud (CAPS): Distribuidos en el barrio, ofrecen atención básica."
+    ],
+    "comercio": [
+      "Comercio textil y de indumentaria: Amplia oferta de telas, avíos y prendas de vestir al por mayor y menor.",
+      "Comercio mayorista y minorista: Variedad de productos, desde electrónica hasta artículos para el hogar.",
+      "Galerías comerciales: Concentración de locales con diferentes rubros."
+    ],
+    "gastronomia": [
+      "Comida judía: Restaurantes y panaderías especializadas en platos tradicionales.",
+      "Restaurantes económicos: Variedad de opciones para comer a precios accesibles.",
+      "Confiterías y cafés tradicionales: Lugares de encuentro para los vecinos."
+    ],
+    "recreacion": [],
+    "servicios_financieros": [
+      "Sucursales bancarias: Presencia de bancos nacionales e internacionales.",
+      "Cajeros automáticos: Amplia disponibilidad en la zona comercial."
+    ],
+    "seguridad": [
+      "Presencia policial: Mayor despliegue en las zonas comerciales.",
+      "Robos y hurtos: Riesgo de delitos menores, especialmente en horas pico y zonas concurridas."
+    ],
+    "espacios_verdes": [
+      "Plaza Miserere: Principal espacio verde del barrio, punto de encuentro y recreación.",
+      "Plazoleta Primero de Mayo: Espacio verde más pequeño, ubicado sobre la calle Moreno."
+    ],
+    "contaminacion": [
+      "Contaminación sonora: Elevado nivel de ruido debido al intenso tráfico y la actividad comercial.",
+      "Contaminación atmosférica: Presencia de smog y partículas contaminantes debido al tránsito vehicular."
+    ],
+    "vida_barrio": [
+      "Fuerte identidad cultural judía: Presencia de sinagogas, centros comunitarios y celebraciones religiosas.",
+      "Intensa actividad comercial: El barrio nunca duerme, con actividad desde temprano hasta tarde."
+    ],
+    "generado_por_ia": true
+  }
+}
