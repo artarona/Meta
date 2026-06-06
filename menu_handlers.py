@@ -395,7 +395,8 @@ def responder_listado_propiedades(propiedades, titulo, user_id, estado_usuario):
         )
 
     # Si hay 10 o menos, usamos List Menu (Mejor UX en WhatsApp)
-    if len(propiedades) <= 10:
+    # if len(propiedades) <= 10:
+    if len(propiedades) >= 1:
         rows = []
         for i, p in enumerate(propiedades):
             # Formatear precio respetando moneda
