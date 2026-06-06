@@ -430,7 +430,8 @@ def responder_listado_propiedades(propiedades, titulo, user_id, estado_usuario):
                 body="Seleccioná una opción:",
                 buttons=[
                     {"id": "m", "title": "Menu principal"},
-                    {"id": "s", "title": "Salir"}
+                    {"id": "s", "title": "Salir"},
+                    {"id": "v", "title": "Ver propiedades"}
                 ]
             )
         ]
