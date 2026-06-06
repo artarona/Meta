@@ -443,8 +443,8 @@ def responder_listado_propiedades(propiedades, titulo, user_id, estado_usuario):
     return [
         texto, 
         WhatsAppResponse.buttons(
-            header="🔙 Navegación",
-            body="Seleccioná una opción:",
+            header=" o selecciona ",
+            body="     👇    ",
             buttons=[
                 {"id": "m", "title": "Volver al menú"},
                 {"id": "s", "title": "Salir"}
