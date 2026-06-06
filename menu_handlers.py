@@ -410,7 +410,7 @@ def responder_listado_propiedades(propiedades, titulo, user_id, estado_usuario):
             # Tipo de operación
             operacion = str(p.get('operacion', '')).capitalize()
 
-                        rows.append({
+            rows.append({  # ← CORREGIDO: misma indentación que las líneas anteriores
                 "id": str(i + 1),
                 "title": f"{p.get('titulo', 'Propiedad')}",
                 "description": f"🏷️ {operacion} | 📍 {p.get('barrio', 'Barrio')} | 💰 {precio_str} | 📐 {p.get('superficie', 'N/A')} m² | 🛏️ {p.get('ambientes', 'N/A')} amb"
@@ -426,15 +426,17 @@ def responder_listado_propiedades(propiedades, titulo, user_id, estado_usuario):
     
     # Si hay más de 10, usamos el listado de texto tradicional + botones
     texto = f"📋 *{titulo.upper()}*\n\n" + generar_listado_propiedades(propiedades)
-    return [texto, WhatsAppResponse.buttons(
-        header="🔙 Navegación",
-        body="Seleccioná una opción:",
-        buttons=[
-            {"id": "m", "title": "Volver al menú"},
-            {"id": "s", "title": "Salir"}
-        ]
-    )]
-
+    return [
+        texto, 
+        WhatsAppResponse.buttons(
+            header="🔙 Navegación",
+            body="Seleccioná una opción:",
+            buttons=[
+                {"id": "m", "title": "Volver al menú"},
+                {"id": "s", "title": "Salir"}
+            ]
+        )
+    ]
 
 def procesar_opcion_venta(estado_usuario, user_id):
     """Procesa la opción de venta listando todas directamente"""
