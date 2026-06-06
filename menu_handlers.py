@@ -376,7 +376,7 @@ def _nav_listado_buttons():
         header="📍Selecciona la propiedad",
         body="o selecciona 👇",
         buttons=[
-            {"id": "m", "title": "Volver al menú"},
+            {"id": "m", "title": "Menu principal"},
             {"id": "s", "title": "Salir"}
         ]
     )
@@ -389,7 +389,7 @@ def responder_listado_propiedades(propiedades, titulo, user_id, estado_usuario):
             header=f"📭 SIN {titulo.upper()}",
             body=f"Actualmente no tenemos propiedades en {titulo.lower()}. Probá con otra categoría.",
             buttons=[
-                {"id": "m", "title": "Volver al menú"},
+                {"id": "m", "title": "Menu principal"},
                 {"id": "s", "title": "Salir"}
             ]
         )
@@ -416,13 +416,24 @@ def responder_listado_propiedades(propiedades, titulo, user_id, estado_usuario):
                 "description": f"🏷️ {operacion} | 📍 {p.get('barrio', 'Barrio')} | 💰 {precio_str} | 📐 {p.get('superficie', 'N/A')} m² | 🛏️ {p.get('ambientes', 'N/A')} amb"
             })
 
-        return WhatsAppResponse.list_menu(
-            header=f"📋 {titulo.upper()}",
-            body=f"Encontramos {len(propiedades)} opciones para vos en {titulo.lower()}. Seleccioná una para ver fotos y detalles:",
-            button_text="Ver propiedades",
-            sections=[{"title": "Resultados", "rows": rows}],
-            footer="Dante Propiedades 🏠"
-        )
+        # Retornamos el List Menu y, a continuación, botones de navegación estándar
+        return [
+            WhatsAppResponse.list_menu(
+                header=f"📋 {titulo.upper()}",
+                body=f"Encontramos {len(propiedades)} opciones para vos en {titulo.lower()}. Seleccioná una para ver fotos y detalles:",
+                button_text="Ver propiedades",
+                sections=[{"title": "Resultados", "rows": rows}],
+                footer="Dante Propiedades 🏠"
+            ),
+            WhatsAppResponse.buttons(
+                header="🔙 Navegación",
+                body="Seleccioná una opción:",
+                buttons=[
+                    {"id": "m", "title": "Menu principal"},
+                    {"id": "s", "title": "Salir"}
+                ]
+            )
+        ]
     
     # Si hay más de 10, usamos el listado de texto tradicional + botones
     texto = f"📋 *{titulo.upper()}*\n\n" + generar_listado_propiedades(propiedades)
