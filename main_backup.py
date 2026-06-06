@@ -1584,10 +1584,6 @@ def manejar_tasacion_m2(text, estado_usuario, user_id):
         m2_str = text.replace(',', '.').strip()
         m2 = float(m2_str)
         
-        # Validar que m2 sea un número positivo y razonable
-        if m2 < 5 or m2 > 10000:
-            return "⚠️ Por favor, ingresá un número válido de m² (entre 5 y 10000).\n\nEjemplo: 65, 120, 200, etc."
-        
         if 'datos_tasacion' not in estado_usuario['data']:
             estado_usuario['data']['datos_tasacion'] = {}
             
@@ -1595,10 +1591,7 @@ def manejar_tasacion_m2(text, estado_usuario, user_id):
         estado_usuario['paso'] = 'tasacion_ambientes'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "🔢 *¿Cuántos ambientes tiene?* (ej: 3)"
-    except ValueError:
-        return "⚠️ Por favor, ingresá un número válido para los metros cuadrados (usa . para decimales).\n\nEjemplo: 65, 120.5, 200"
-    except Exception as e:
-        log(f"🔥 Error en manejar_tasacion_m2: {e}")
+    except:
         return "⚠️ Por favor, ingresá un número válido para los metros cuadrados."
 
 def manejar_tasacion_ambientes(text, estado_usuario, user_id):
@@ -1606,10 +1599,6 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
     try:
         amb_str = "".join(filter(str.isdigit, text))
         ambientes = int(amb_str) if amb_str else 0
-        
-        # Validar que haya al menos 1 ambiente
-        if ambientes < 1:
-            return "⚠️ Por favor, ingresá un número válido de ambientes (mínimo 1).\n\nEjemplo: 1, 2, 3, etc."
         
         if 'datos_tasacion' not in estado_usuario['data']:
             estado_usuario['data']['datos_tasacion'] = {}
@@ -1628,9 +1617,7 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
 
 9️⃣ Volver al menú
 0️⃣ Salir"""
-    except Exception as e:
-        log(f"⚠️ Error en manejar_tasacion_ambientes: {e}")
-        return "⚠️ Por favor, ingresá un número para los ambientes. (Ejemplo: 2, 3, 4)"
+    except:
         return "⚠️ Por favor, ingresá un número para los ambientes."
 
 def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
@@ -1645,32 +1632,11 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
     
     if text_lower in estados:
         if 'datos_tasacion' not in estado_usuario['data']:
-            log(f"❌ Error: datos_tasacion no encontrado en estado_usuario['data']")
-            return "⚠️ Ocurrió un error en el flujo. Por favor, enviá 'Hola' para comenzar de nuevo."
-        
-        # Validar que todos los datos requeridos estén presentes
-        datos = estado_usuario['data']['datos_tasacion']
-        campos_requeridos = ['barrio', 'tipo', 'm2', 'ambientes']
-        
-        for campo in campos_requeridos:
-            if campo not in datos or datos[campo] is None or str(datos[campo]).strip() == '':
-                log(f"❌ Error: Campo '{campo}' faltante o vacío en datos_tasacion: {datos}")
-                return f"⚠️ Error: Falta información en el campo '{campo}'. Por favor, iniciá nuevamente con 'Hola'."
-        
-        # Convertir m2 y ambientes a números si es necesario
-        try:
-            datos['m2'] = float(datos['m2'])
-            datos['ambientes'] = int(datos['ambientes'])
-        except (ValueError, TypeError) as e:
-            log(f"❌ Error al convertir m2 o ambientes: {e}, datos: {datos}")
-            return f"⚠️ Error al procesar los datos. Por favor, iniciá nuevamente con 'Hola'."
-        
-        # Agregar el estado
+             return "⚠️ Ocurrió un error en el flujo. Por favor, enviá 'Hola' para comenzar de nuevo."
+             
         estado_usuario['data']['datos_tasacion']['estado'] = estados[text_lower]
-        actualizar_estado_usuario(user_id, estado_usuario)
+        datos = estado_usuario['data']['datos_tasacion']
         
-        log(f"✅ Datos de tasación completos: {estado_usuario['data']['datos_tasacion']}")
-            
         # 1. Obtener tasación
         tasacion = obtener_tasacion_ia(
             datos['barrio'], 
@@ -1710,89 +1676,43 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
 📈 *Precio promedio m²:* {tasacion['moneda']} ${tasacion['precio_m2']:,.0f}
 {info_fuentes}
 
-⚠️ *Nota:* Esta es una estimación orientativa basada en datos de mercado. Para una tasación profesional, un asesor debe visitar la propiedad.
+⚠️ *Nota:* Esta es una estimación orientativa basada en datos de mercado. Para una tasación profesional y exacta, un asesor debe visitar la propiedad.
 
-¿Qué deseas hacer?"""
-            
-            # Retornar menú de lista interactivo
-            return WhatsAppResponse.list_menu(
-                body=mensaje,
-                button_text="Opciones",
-                sections=[
-                    {
-                        "title": "Acciones",
-                        "rows": [
-                            {"id": "1", "title": "✅ Deseas una Tasación", "description": "Profesional con visita"},
-                            {"id": "2", "title": "⏭️ No por ahora", "description": "Continuar explorando"},
-                            {"id": "m", "title": "🔙 Menú Principal", "description": "Ir al inicio"},
-                            {"id": "s", "title": "❌ Salir", "description": "Terminar sesión"}
-                        ]
-                    }
-                ],
-                footer="Selecciona una opción 👇"
-            )
+¿Te gustaría que un tasador te contacte para una visita formal?
+1️⃣ Sí, quiero una tasación profesional
+2️⃣ No por ahora, gracias
+
+9️⃣ Volver al menú
+0️⃣ Salir"""
         else:
             mensaje = f"""✅ *¡Datos recibidos!*
 
 Aún no tenemos suficientes datos comparativos en *{datos['barrio']}* para darte una cifra automática exacta, pero un asesor experto va a analizar tu caso personalmente.
 
-¿Qué deseas hacer?"""
-            
-            # Retornar menú de lista interactivo
-            return WhatsAppResponse.list_menu(
-                body=mensaje,
-                button_text="Opciones",
-                sections=[
-                    {
-                        "title": "Acciones",
-                        "rows": [
-                            {"id": "1", "title": "✅ Tasación Profesional", "description": "Con visita personal"},
-                            {"id": "2", "title": "⏭️ No por ahora", "description": "Continuar explorando"},
-                            {"id": "m", "title": "🔙 Menú Principal", "description": "Ir al inicio"},
-                            {"id": "s", "title": "❌ Salir", "description": "Terminar sesión"}
-                        ]
-                    }
-                ],
-                footer="Selecciona una opción 👇"
-            )
+¿Te gustaría que un tasador te contacte para coordinar una visita y darte el valor real?
+1️⃣ Sí, por favor
+2️⃣ No por ahora
+
+9️⃣ Volver al menú
+0️⃣ Salir"""
             
         estado_usuario['paso'] = 'tasacion_esperando_contacto'
         actualizar_estado_usuario(user_id, estado_usuario)
+        return mensaje
     else:
         return "⚠️ Por favor, elegí una opción válida (1 al 5)."
 
 def manejar_tasacion_contacto(text_lower, estado_usuario, user_id):
     """Maneja la respuesta final del flujo de tasación"""
-    # Mapear IDs de botones del menú interactivo
-    mapeo_botones = {
-        "1": "1",
-        "2": "2",
-        "m": "menu",
-        "s": "salir"
-    }
-    
-    comando = mapeo_botones.get(text_lower, text_lower)
-    
-    if comando == "1":
+    if text_lower == "1":
         notificar_agente(f"📞 *SOLICITUD DE TASACIÓN PROFESIONAL*\n📞 Tel: +{user_id}\nEl cliente solicitó contacto humano después de la tasación virtual.")
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "✅ ¡Perfecto! Un asesor se pondrá en contacto con vos a la brevedad para coordinar la visita. ¡Gracias por confiar en nosotros! 🏠🗝️"
-    
-    elif comando == "menu":
-        estado_usuario['paso'] = 'menu_principal'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "WELCOME_FLOW_TRIGGER"
-    
-    elif comando == "salir":
-        estado_usuario['paso'] = 'menu_principal'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
-    
     else:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "Entendido. Si necesitás algo más, acá estoy. 😊"
+        return "Entendido. Si necesitás algo más, acá estoy. 😊\n\n9️⃣ Volver al menú"
 
 # ========== MANEJADORES DE SUBMENÚS ==========
 
@@ -2091,85 +2011,6 @@ Opciones disponibles:
 
 📱 *0. Volver al menú principal*"""
 
-def devolver_detalle_propiedad_menu(propiedad):
-    """Devuelve el detalle de propiedad con menú de lista interactivo optimizado"""
-    # Generar el cuerpo con la información de la propiedad
-    titulo = propiedad.get('titulo', 'Propiedad Destacada').strip()
-    operacion = propiedad.get('operacion', '')
-    
-    # Crear resumen compacto para el body del menú
-    barrio = propiedad.get('barrio', '')
-    precio = propiedad.get('precio', 0)
-    moneda = propiedad.get('moneda_precio', 'USD')
-    simbolo = "USD$" if moneda == 'USD' else "$"
-    expensas = propiedad.get('expensas', 0)
-    ambientes = propiedad.get('ambientes', 0)
-    m2 = propiedad.get('metros_cuadrados', 0)
-    
-    # Body más compacto para el menú de lista
-    body = f"""✨ *{titulo}* ✨
-
-📍 {barrio}
-💵 {simbolo} {precio:,.0f}"""
-    
-    if expensas > 0:
-        moneda_exp = propiedad.get('moneda_expensas', 'ARS')
-        simb_exp = "USD$" if moneda_exp == 'USD' else "$"
-        body += f" | 🏢 {simb_exp} {expensas:,.0f}"
-    
-    body += f"\n📐 {ambientes} amb. en {m2} m²"
-    
-    # Amenities
-    amenities = []
-    if str(propiedad.get('balcon', 'No')).lower() in ['si', 'sí', '1', 'true', 'x']:
-        amenities.append("🌆 Balcón")
-    if str(propiedad.get('cochera', 'No')).lower() in ['si', 'sí', '1', 'true', 'x']:
-        amenities.append("🚗 Cochera")
-    if str(propiedad.get('acepta_mascotas', 'No')).lower() in ['si', 'sí', '1', 'true']:
-        amenities.append("🐾 Pet Friendly")
-    if str(propiedad.get('pileta', 'No')).lower() in ['si', 'sí', '1', 'true']:
-        amenities.append("🏊 Pileta")
-    if str(propiedad.get('aire_acondicionado', 'No')).lower() in ['si', 'sí', '1', 'true']:
-        amenities.append("❄️ Aire")
-        
-    if amenities:
-        body += f"\n⭐ {' • '.join(amenities)}"
-    
-    body += "\n\n¿Qué deseas hacer?"
-    
-    # Crear las secciones del menú
-    sections = [
-        {
-            "title": "Ver Información",
-            "rows": [
-                {"id": "ver_fotos", "title": "📷 Ver Fotos", "description": "Galería de imágenes"},
-                {"id": "ver_pdf", "title": "📄 Ver Ficha Técnica", "description": "Descargar PDF completo"},
-            ]
-        },
-        {
-            "title": "Acciones",
-            "rows": [
-                {"id": "me_interesa", "title": "👁️ Me Interesa", "description": "Agendar visita"},
-                {"id": "requisitos", "title": "📋 Ver Requisitos", "description": "Condiciones de ingreso"},
-            ]
-        },
-        {
-            "title": "Navegación",
-            "rows": [
-                {"id": "ver_listado", "title": "📋 Más Propiedades", "description": "Ver otras opciones"},
-                {"id": "m", "title": "Ⓜ️ Menú Principal", "description": "Ir al inicio"},
-                {"id": "s", "title": "❌ Salir", "description": "Terminar sesión"}
-            ]
-        }
-    ]
-    
-    return WhatsAppResponse.list_menu(
-        body=body,
-        button_text="Opciones",
-        sections=sections,
-        footer="Selecciona una opción del menú 👇"
-    )
-
 def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
     """Maneja la selección de propiedades del listado"""
     if not text_lower.isdigit():
@@ -2201,36 +2042,15 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         
         registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_detalle", f"Título: {propiedad.get('titulo')}")
         
-        # Retornar menú interactivo optimizado
-        return devolver_detalle_propiedad_menu(propiedad)
+        operacion = propiedad.get('operacion', '')
+        titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
+        return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
     else:
-        return WhatsAppResponse.buttons(
-    header="❌ Entrada inválida",
-    body=f"El número {indice} está fuera de rango (1-{len(propiedades)}). Elige uno o envía 9 para volver.",
-    buttons=[
-        {"id": "9", "title": "Volver"},
-        {"id": "0", "title": "Salir"}
-    ]
-)
+        return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}). Elige uno o envía 9 para volver.\n0️⃣ *Salir*"
 
 def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
     """Maneja las opciones en el detalle de propiedad"""
-    
-    # Mapear IDs de botones del menú interactivo a comandos
-    mapeo_botones = {
-        "ver_fotos": "f",
-        "ver_pdf": "p",
-        "me_interesa": "i",
-        "ver_listado": "l",
-        "m": "1",
-        "s": "0",
-        "requisitos": "req"
-    }
-    
-    # Convertir ID de botón a comando si es necesario
-    comando = mapeo_botones.get(text_lower, text_lower)
-    
-    if comando == "1":
+    if text_lower == "1":
         estado_usuario.update({
             'paso': 'menu_principal',
             'operacion_seleccionada': None,
@@ -2240,67 +2060,8 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
         actualizar_estado_usuario(user_id, estado_usuario)
         return "WELCOME_FLOW_TRIGGER"
     
-    if comando == "0":
-        estado_usuario.update({
-            'paso': 'menu_principal',
-            'propiedades_filtradas': []
-        })
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
-    
-    if comando in ["l", "listado"]:
-        propiedades = estado_usuario.get('propiedades_filtradas', [])
-        if propiedades:
-            estado_usuario['paso'] = 'listado_propiedades'
-            actualizar_estado_usuario(user_id, estado_usuario)
-            return generar_listado_propiedades(propiedades)
-    
-    if comando in ["i", "me_interesa"]:
-        indice = estado_usuario.get('ultimo_indice_preguntado')
-        propiedades = estado_usuario.get('propiedades_filtradas', [])
-        
-        if indice and 1 <= indice <= len(propiedades):
-            propiedad = propiedades[indice - 1]
-            estado_usuario['paso'] = 'esperando_nombre_lead'
-            actualizar_estado_usuario(user_id, estado_usuario)
-            
-            try:
-                registrar_lead(user_id, propiedad.get('id_temporal'), 'click_me_interesa', f"Interés expresado en Propiedad: {propiedad.get('titulo')}")
-                notificar_agente(f"👀 *INTERÉS INICIAL*\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad.get('titulo')}")
-            except Exception as e:
-                log(f"⚠️ Error: {e}")
-            
-            return f"✅ ¡Excelente! Mostraste interés en: *{propiedad.get('titulo')}*\n\n¿Cuál es tu nombre?"
-    
-    if comando == "f":
-        indice = estado_usuario.get('ultimo_indice_preguntado')
-        propiedades = estado_usuario.get('propiedades_filtradas', [])
-        if indice and 1 <= indice <= len(propiedades):
-            propiedad = propiedades[indice - 1]
-            return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
-    
-    if comando == "p":
-        indice = estado_usuario.get('ultimo_indice_preguntado')
-        propiedades = estado_usuario.get('propiedades_filtradas', [])
-        if indice and 1 <= indice <= len(propiedades):
-            propiedad = propiedades[indice - 1]
-            BASE_URL = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")
-            return f"📄 Ficha técnica: {BASE_URL}/fichas/{propiedad.get('id_temporal')}"
-    
-    if comando == "req":
-        return """📋 *REQUISITOS PARA ALQUILER*
-
-📝 Documentación requerida:
-• DNI vigente
-• Comprobante de ingresos (últimos 3 recibos)
-• Constancia de trabajo (mín 3x la renta)
-
-💰 Depósito caución + primer mes adelantado
-
-¿Necesitas más información? Contactanos."""
-    
-    if comando.isdigit():
-        indice = int(comando)
+    if text_lower.isdigit():
+        indice = int(text_lower)
         propiedades = estado_usuario.get('propiedades_filtradas', [])
         if 1 <= indice <= len(propiedades):
             propiedad = propiedades[indice - 1]
@@ -2309,8 +2070,9 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
             
             registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_detalle", f"Título: {propiedad.get('titulo')}")
             
-            # Retornar menú interactivo optimizado
-            return devolver_detalle_propiedad_menu(propiedad)
+            operacion = propiedad.get('operacion', '')
+            titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
+            return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
     
     return "📷 'F' Fotos | 8️⃣ '8' Me interesa\n9️⃣ Volver al menú | 0️⃣ *Salir*"
 
@@ -3151,12 +2913,6 @@ def send_welcome_flow(user_id):
                 {"id": "opcion_5", "title": "👤 Hablar con asesor", "description": "Contacto directo con un humano"},
                 {"id": "opcion_3", "title": "🌐 Sitio Web", "description": "Visitar dantepropiedades.com.ar"}
             ]
-        },
-        {
-            "title": "Otras Opciones",
-            "rows": [
-                {"id": "opcion_salir", "title": "❌ Salir", "description": "Salir de la aplicación"}
-            ]
         }
     ]
     
@@ -3508,7 +3264,6 @@ def webhook():
                                     "opcion_6": "6",  # FAQs
                                     "opcion_7": "7",  # Todos los Inmuebles
                                     "opcion_tasacion": "10", # Tasación
-                                    "opcion_salir": "s",  # Salir
                                     "volver_menu": "9",
                                     "salir_chat": "0"
                                 }
