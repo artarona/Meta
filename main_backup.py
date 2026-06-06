@@ -2204,7 +2204,14 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         # Retornar menú interactivo optimizado
         return devolver_detalle_propiedad_menu(propiedad)
     else:
-        return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}). Elige uno o envía 9 para volver.\n0️⃣ *Salir*"
+        return WhatsAppResponse.buttons(
+    header="❌ Entrada inválida",
+    body=f"El número {indice} está fuera de rango (1-{len(propiedades)}). Elige uno o envía 9 para volver.",
+    buttons=[
+        {"id": "9", "title": "Volver"},
+        {"id": "0", "title": "Salir"}
+    ]
+)
 
 def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
     """Maneja las opciones en el detalle de propiedad"""
