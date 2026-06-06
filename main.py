@@ -1,4 +1,5 @@
-from config import *
+import sys, os
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 from utils import *
 from database import *
 from whatsapp_api import *
@@ -21,6 +22,7 @@ from logic.gemini_client import call_gemini_with_rotation
 # IMPORTAR LOGGING (CRUCIAL)
 # ============================================
 import logging
+import requests
 logger = logging.getLogger(__name__)
 
 # ============================================
@@ -299,14 +301,14 @@ PROPIEDADES_FILE = "propiedades.json"
 
 # ========== BOT OPTIMIZADO ==========
 def get_bot_response(text, user_id):
-    """Responde con un mensaje simple, manteniendo estado de usuario"""
+    """Responde con un mensaje simple, manteniendo estado de usuario - VERSIÓN OPTIMIZADA"""
     try:
         start_time = time.time()
         text_lower = text.lower().strip()
         
         estado_usuario = obtener_estado_usuario(user_id)
         
-        # Guardar mensaje en el historial para análisis de IA (Phase 7)
+        # Guardar mensaje en el historial para análisis de IA
         if not isinstance(estado_usuario.get('data'), dict):
             estado_usuario['data'] = {}
             
@@ -314,15 +316,15 @@ def get_bot_response(text, user_id):
         if not isinstance(historial, list):
             historial = []
             
-        # Evitar duplicar el mismo mensaje (reintentos de webhook)
         if not historial or historial[-1].get('text') != text:
             historial.append({'role': 'user', 'text': text, 'timestamp': datetime.now().isoformat()})
             estado_usuario['data']['mensajes_recientes'] = historial[-10:]
             actualizar_estado_usuario(user_id, estado_usuario)
             
         log(f"👤 Usuario {user_id}: {estado_usuario['paso']}")
+        paso = estado_usuario.get('paso', 'menu_principal')
         
-        # ========== COMANDOS UNIVERSALES (NUEVO ORDEN: EJECUTAR PRIMERO) ==========
+        # ========== 1. COMANDOS UNIVERSALES (SIEMPRE PRIORITARIOS) ==========
         if text_lower in ["m", "menu", "principal", "inicio"]:
             estado_usuario.update({
                 'paso': 'menu_principal',
@@ -343,7 +345,6 @@ def get_bot_response(text, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
 
-        # Comandos de compatibilidad
         if text_lower in ["hola", "hi", "hello", "volver", "atras"]:
             estado_usuario.update({
                 'paso': 'menu_principal',
@@ -355,144 +356,104 @@ def get_bot_response(text, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             return "WELCOME_FLOW_TRIGGER"
         
-        # --- LÓGICA POR ESTADO ---
-        paso = estado_usuario['paso']
+        # ========== 2. ACCIONES ESPECIALES (MÁS COMUNES) ==========
+        if text_lower == "flow_response_trigger":
+            return manejar_flow_response(estado_usuario, user_id)
+            
+        if text_lower in ["i", "interesa", "me interesa"]:
+            return manejar_interes_propiedad(estado_usuario, user_id)
+            
+        if text_lower == "f":
+            return manejar_fotos_propiedad(estado_usuario, user_id)
+            
+        if text_lower == "p":
+            return manejar_pdf_propiedad(estado_usuario, user_id)
+                
+        if text_lower in ["l", "listado"]:
+            return manejar_listado_completo(estado_usuario, user_id)
+            
+        # ========== 3. MANEJO DE OPCIONES NUMÉRICAS (MENÚ PRINCIPAL) ==========
+        # Esto resuelve el error de "opcion_7"
+        if paso == 'menu_principal' and text_lower.isdigit():
+            opcion = int(text_lower)
+            # Opción 7: Todos los Inmuebles
+            if opcion == 7:
+                return procesar_opcion_todas(estado_usuario, user_id)
         
-        # --- LÓGICA POR ESTADO (PRIMERO) ---
+        # ========== 4. ROUTING POR ESTADO ==========
+        # Submenús
         if paso == 'submenu_consultar':
             return manejar_submenu_consultar(text_lower, estado_usuario, user_id)
-            
         elif paso == 'submenu_visita':
             return manejar_submenu_visita(text_lower, estado_usuario, user_id)
-            
         elif paso == 'submenu_asesor':
             return manejar_submenu_asesor(text_lower, estado_usuario, user_id)
-            
         elif paso == 'submenu_faqs':
             return manejar_submenu_faqs(text_lower, estado_usuario, user_id)
-
+        
+        # Filtros
         elif paso == 'filtro_tipo':
             return manejar_filtro_tipo(text_lower, estado_usuario, user_id)
-            
         elif paso == 'filtro_ambientes':
             return manejar_filtro_ambientes(text_lower, estado_usuario, user_id)
-
+        
+        # Propiedades
         elif paso == 'listado_propiedades':
             return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
-        
         elif paso == 'detalle_propiedad':
             return manejar_detalle_propiedad(text_lower, estado_usuario, user_id)
         
+        # Leads y citas
         elif paso == 'esperando_nombre_lead':
             return manejar_nombre_lead(text, estado_usuario, user_id)
-        
         elif paso == 'ofrecer_cita':
             return manejar_ofrecer_cita(text_lower, estado_usuario, user_id)
-        
         elif paso == 'solicitar_fecha_cita':
             return manejar_solicitar_fecha_cita(text_lower, estado_usuario, user_id)
-        
         elif paso == 'seleccionar_hora_cita':
             return manejar_seleccionar_hora_cita(text, estado_usuario, user_id)
-            
         elif paso == 'confirmar_cita':
             return manejar_confirmar_cita(text_lower, estado_usuario, user_id)
-        
         elif paso == 'esperando_email_cita':
             return manejar_email_cita(text, estado_usuario, user_id)
-        
         elif paso == 'esperando_feedback':
             return manejar_respuesta_feedback(text, estado_usuario, user_id)
-        
         elif paso == 'esperando_confirmacion_recordatorio':
             return manejar_confirmacion_recordatorio(text, estado_usuario, user_id)
         
+        # Modificar citas
+        elif paso == 'seleccionar_cita_modificar':
+            return manejar_seleccion_cita_modificar(text_lower, user_id)
+        elif paso == 'opciones_modificar_cita':
+            return manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id)
+        elif paso == 'solicitar_fecha_actualizacion_cita':
+            return manejar_solicitar_fecha_actualizacion_cita(text_lower, estado_usuario, user_id)
+        elif paso == 'seleccionar_hora_actualizacion_cita':
+            return manejar_seleccionar_hora_actualizacion_cita(text, estado_usuario, user_id)
+        elif paso == 'confirmar_actualizacion_cita':
+            return manejar_confirmar_actualizacion_cita(text_lower, estado_usuario, user_id)
+        
+        # Tasación
         elif paso == 'tasacion_operacion':
             return manejar_tasacion_operacion(text_lower, estado_usuario, user_id)
-        
         elif paso == 'tasacion_barrio':
             return manejar_tasacion_barrio(text, estado_usuario, user_id)
-            
         elif paso == 'tasacion_tipo':
             return manejar_tasacion_tipo(text_lower, estado_usuario, user_id)
-            
         elif paso == 'tasacion_m2':
             return manejar_tasacion_m2(text, estado_usuario, user_id)
-            
         elif paso == 'tasacion_ambientes':
             return manejar_tasacion_ambientes(text, estado_usuario, user_id)
-            
         elif paso == 'tasacion_estado':
             return manejar_tasacion_estado(text_lower, estado_usuario, user_id)
-            
         elif paso == 'tasacion_esperando_contacto':
             return manejar_tasacion_contacto(text_lower, estado_usuario, user_id)
         
+        # Vista de fotos
         elif paso == 'vista_fotos':
             return "Para ver fotos, envía 'F' cuando estés en el detalle de una propiedad."
-
-        # ========== ACCIONES ESPECIALES ==========
-        if text_lower in ["i", "interesa", "me interesa"]:
-            indice = estado_usuario.get('ultimo_indice_preguntado')
-            propiedades = estado_usuario.get('propiedades_filtradas', [])
-            
-            if indice and 1 <= indice <= len(propiedades):
-                propiedad = propiedades[indice - 1]
-                log(f"🎯 ACCIÓN: Me interesa (Prop ID: {propiedad.get('id_temporal')})")
-                estado_usuario['paso'] = 'esperando_nombre_lead'
-                actualizar_estado_usuario(user_id, estado_usuario)
-                
-                try:
-                    registrar_lead(user_id, propiedad.get('id_temporal'), 'click_me_interesa', f"Interés expresado en Propiedad: {propiedad.get('titulo')}")
-                    notificar_agente(f"👀 *INTERÉS INICIAL*\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad.get('titulo')}\n_(Esperando que el usuario ingrese su nombre...)_")
-                except Exception as e:
-                    log(f"⚠️ Error registrando lead inicial: {e}")
-                    
-                return f"✅ ¡Genial! Me interesa la propiedad: *{propiedad.get('titulo')}*.\n\nPor favor, decime tu *Nombre y Apellido* para que un asesor te contacte."
-            else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado."
-
-        if text_lower == "f":
-            indice = estado_usuario.get('ultimo_indice_preguntado')
-            propiedades = estado_usuario.get('propiedades_filtradas', [])
-            if indice and 1 <= indice <= len(propiedades):
-                propiedad = propiedades[indice - 1]
-                return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
-            else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
         
-        if text_lower == "p":
-            indice = estado_usuario.get('ultimo_indice_preguntado')
-            propiedades = estado_usuario.get('propiedades_filtradas', [])
-            if indice and 1 <= indice <= len(propiedades):
-                propiedad = propiedades[indice - 1]
-                prop_id = propiedad.get('id_temporal')
-                return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
-            else:
-                return "⚠️ Por favor, primero selecciona una propiedad del listado para obtener el PDF."
-                
-        if text_lower in ["l", "listado"]:
-            propiedades = estado_usuario.get('propiedades_filtradas', [])
-            if propiedades:
-                estado_usuario['paso'] = 'listado_propiedades'
-                actualizar_estado_usuario(user_id, estado_usuario)
-                from utils import generar_listado_propiedades
-                return generar_listado_propiedades(propiedades)
-            else:
-                return "⚠️ No hay propiedades en el listado. Envía 'MENU' para volver al inicio."
-
-        # Fallback seguro si se perdió el paso pero el usuario ya venía de un listado de propiedades
-        if text_lower.isdigit() and estado_usuario.get('ultima_accion') == 'mostrar_listado':
-            propiedades = estado_usuario.get('propiedades_filtradas', [])
-            try:
-                opcion_num = int(text_lower)
-                if 1 <= opcion_num <= len(propiedades):
-                    log(f"🐞 DEBUG fallback a manejar_listado_propiedades: paso={paso}, text={text_lower}, ultima_accion={estado_usuario.get('ultima_accion')}")
-                    return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
-            except ValueError:
-                pass
-
-        # BUSCADOR POR TEXTO
+        # ========== 5. BUSCADOR POR TEXTO ==========
         if text_lower.startswith("buscar ") or (len(text_lower) > 3 and paso == 'menu_principal' and not text_lower.isdigit()):
             fecha_detectada = analizar_fecha(text_lower)
             if fecha_detectada and len(text_lower.split()) <= 3:
@@ -507,12 +468,19 @@ Por favor:
 
             termino = text_lower.replace("buscar ", "").strip()
             return manejar_busqueda_keywords(termino, estado_usuario, user_id)
-
-        # OPCIONES DEL MENÚ PRINCIPAL
+        
+        # ========== 6. MENÚ PRINCIPAL ==========
         if paso == 'menu_principal':
             return manejar_menu_principal(text_lower, estado_usuario, user_id)
         
-        # Respuesta por defecto
+        # Fallback para números cuando el paso se perdió
+        if text_lower.isdigit() and estado_usuario.get('ultima_accion') == 'mostrar_listado':
+            propiedades = estado_usuario.get('propiedades_filtradas', [])
+            if propiedades and 1 <= int(text_lower) <= len(propiedades):
+                log(f"🐞 DEBUG fallback a manejar_listado_propiedades: paso={paso}, text={text_lower}")
+                return manejar_listado_propiedades(text_lower, estado_usuario, user_id)
+        
+        # ========== 7. RESPUESTA POR DEFECTO ==========
         return """No pude identificar esa opción. Por favor elegí una opción válida del menú.
 
 Ⓜ️ *Volver al menú principal (Envía 'M')*
@@ -523,6 +491,55 @@ Por favor:
         error_trace = traceback.format_exc()
         log(f"🔥 ERROR EN get_bot_response: {e}\n{error_trace}")
         return "❌ *Lo siento, ocurrió un error interno.*\n\nPor favor, intenta de nuevo enviando 'M' o contacta al administrador."
+
+
+# ========== FUNCIONES AUXILIARES PARA OPTIMIZACIÓN ==========
+
+def manejar_interes_propiedad(estado_usuario, user_id):
+    """Maneja el interés en una propiedad"""
+    indice = estado_usuario.get('ultimo_indice_preguntado')
+    propiedades = estado_usuario.get('propiedades_filtradas', [])
+    
+    if indice and 1 <= indice <= len(propiedades):
+        propiedad = propiedades[indice - 1]
+        log(f"🎯 ACCIÓN: Me interesa (Prop ID: {propiedad.get('id_temporal')})")
+        
+        # Si es WhatsApp, intentamos usar Meta Flow
+        if estado_usuario.get('platform') == 'whatsapp':
+             from whatsapp_api import send_whatsapp_contact_flow
+             send_whatsapp_contact_flow(user_id, body_text=f"✅ ¡Genial! Me interesa la propiedad: *{propiedad.get('titulo')}*.\n\nPara brindarte una mejor atención, por favor completa tus datos en el siguiente formulario:")
+             return None # El flow es asíncrono, no retornamos texto ahora
+             
+        estado_usuario['paso'] = 'esperando_nombre_lead'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        try:
+            registrar_lead(user_id, propiedad.get('id_temporal'), 'click_me_interesa', f"Interés expresado en Propiedad: {propiedad.get('titulo')}")
+            notificar_agente(f"👀 *INTERÉS INICIAL*\n📞 Tel: +{user_id}\n🏠 Propiedad: {propiedad.get('titulo')}\n_(Esperando que el usuario ingrese su nombre...)_")
+        except Exception as e:
+            log(f"⚠️ Error registrando lead inicial: {e}")
+            
+        return f"✅ ¡Genial! Me interesa la propiedad: *{propiedad.get('titulo')}*.\n\nPor favor, decime tu *Nombre y Apellido* para que un asesor te contacte."
+    else:
+        return "⚠️ Por favor, primero selecciona una propiedad del listado."
+
+
+
+
+def manejar_listado_completo(estado_usuario, user_id):
+    """Maneja la solicitud del listado completo"""
+    propiedades = estado_usuario.get('propiedades_filtradas', [])
+    if propiedades:
+        estado_usuario['paso'] = 'listado_propiedades'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        from utils import generar_listado_propiedades
+        return generar_listado_propiedades(propiedades)
+    else:
+        return "⚠️ No hay propiedades en el listado. Envía 'MENU' para volver al inicio."
+
+
+
+
 
 # ========== FUNCIONES DE WHATSAPP API MEJORADAS ==========
 # def check_token_validity():
@@ -849,8 +866,10 @@ def debug_save_test():
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
-    """Webhook para recibir mensajes de WhatsApp"""
+    """Webhook para recibir mensajes de WhatsApp y Facebook Messenger"""
+    global processed_message_ids
     log(f"🔔 WEBHOOK RECIBIDO - Método: {request.method}")
+    
     if request.method == "GET":
         mode = request.args.get("hub.mode")
         token = request.args.get("hub.verify_token")
@@ -870,7 +889,7 @@ def webhook():
         return "Webhook endpoint", 200
     
     elif request.method == "POST":
-        # === LOG DE DIAGNÓSTICO EXTREMO ===
+        # === LOG DE DIAGNÓSTICO ===
         print("=" * 60)
         print(f"🔔 WEBHOOK POST RECIBIDO - {datetime.now()}")
         print(f"📋 HEADERS: {dict(request.headers)}")
@@ -880,7 +899,6 @@ def webhook():
         print(f"📦 RAW BODY (primeros 500 chars): {raw_body[:500]}")
         print("=" * 60)
         
-        # También usar tu función log existente
         log("📨 Nuevo webhook POST recibido")
         log(f"📦 Body completo (primeros 500): {raw_body[:500]}")
         
@@ -895,279 +913,215 @@ def webhook():
             print(f"✅ JSON parseado exitosamente")
             log(f"📊 Estructura JSON: {json.dumps(data, indent=2)[:1000]}")
             
-            if data.get("object") != "whatsapp_business_account":
-                log("❌ No es un webhook de WhatsApp Business")
-                print("❌ ERROR: No es un webhook de WhatsApp Business")
-                return jsonify({"status": "not_whatsapp"}), 200
+            obj_type = data.get("object")
+            platform = "whatsapp"
+            
+            if obj_type == "page":
+                platform = "messenger"
+            elif obj_type == "instagram":
+                platform = "instagram"
+            elif obj_type == "whatsapp_business_account":
+                platform = "whatsapp"
+            else:
+                log(f"❌ Objeto no reconocido: {obj_type}")
+                return jsonify({"status": "unsupported_object"}), 200
+            
+            log(f"📱 Plataforma detectada: {platform}")
+            
+            # ============================================================
+            # FUNCIÓN INTERNA: procesar_mensaje_unificado
+            # ============================================================
+            def procesar_mensaje_unificado(from_id, message_text, platform, message_id=None):
+                """Lógica centralizada para procesar un mensaje de cualquier plataforma"""
+                if not from_id or not message_text:
+                    return False
+                
+                # ✅ PASO 1: Guardar el platform en el estado del usuario
+                from database import obtener_estado_usuario, actualizar_estado_usuario
+                
+                # Obtener estado del usuario
+                estado_usuario = obtener_estado_usuario(from_id)
+                
+                # Guardar platform si es diferente
+                if estado_usuario.get('platform') != platform:
+                    estado_usuario['platform'] = platform
+                    actualizar_estado_usuario(from_id, estado_usuario)
+                    log(f"📱 Platform guardado en DB para {from_id}: {platform}")
+                
+                # Normalizar texto para comandos de usuario y botones
+                processed_text = message_text.strip().lower()
+                emoji_digit_map = {
+                    "0️⃣": "0", "1️⃣": "1", "2️⃣": "2", "3️⃣": "3", "4️⃣": "4",
+                    "5️⃣": "5", "6️⃣": "6", "7️⃣": "7", "8️⃣": "8", "9️⃣": "9", "🔟": "10"
+                }
+                processed_text = emoji_digit_map.get(processed_text, processed_text)
+                
+                # Diccionario de alias
+                # Diccionario de alias
+                boton_a_numero = {
+                    "opcion_1": "1", "opcion_2": "2", "opcion_3": "3", "opcion_4": "4",
+                    "opcion_5": "5", "opcion_6": "6", "opcion_7": "7", "opcion_tasacion": "10",
+                    "opcion_salir": "s", "volver_menu": "9", "salir_chat": "0",
+                    "venta": "1", "alquiler": "2", "comprar": "1", "asesor": "5",
+                    "c_menu": "m", "c_salir": "s",
+                    # Agregar específicamente para opción 7 (Todos los Inmuebles)
+                    "7": "7", "opcion_7": "7"
+                }
+                
+                if processed_text in boton_a_numero:
+                    message_text = boton_a_numero[processed_text]
+                else:
+                    # Normalización de títulos con emojis
+                    texto_normalizado = processed_text.replace('🏠', '').replace('🔑', '').replace('🏢', '').replace('📋', '').replace('❓', '').replace('👤', '').replace('🌐', '').replace('📈', '').strip()
+                    message_text = boton_a_numero.get(texto_normalizado, message_text.strip())
+                
+                log(f"👤 [{platform}] Usuario: {from_id}, Input: '{message_text}'")
+                
+                # Obtener respuesta del bot según el TIPO_MENU
+                if TIPO_MENU == 1:
+                    from campana_handlers import get_bot_response_campana
+                    response_text = get_bot_response_campana(message_text, from_id)
+                else:
+                    response_text = get_bot_response(message_text, from_id)
+                
+                # Despacho de respuesta
+                base_url = request.host_url.rstrip('/')
+                
+                def dispatch_single(resp):
+                    if not resp:
+                        return
+                    
+                    if resp == "WELCOME_FLOW_TRIGGER":
+                        if platform == "whatsapp":
+                            from whatsapp_api import send_welcome_flow
+                            return send_welcome_flow(from_id)
+                        else:
+                            resp = "🏠🗝️ *DANTE PROPIEDADES*\n\n¡Hola! Soy el asistente inmobiliario de Dante Propiedades.\n*¿Cómo podemos ayudarte hoy?*\n\n👉 Envía '1' para ver Inmuebles\n👉 Envía '2' para Tasación Virtual\n👉 Envía '3' para Mis Citas\n👉 Envía '4' para Hablar con un asesor\n👉 Envía '5' para Visitar nuestra web"
+                    
+                    elif isinstance(resp, str) and resp.startswith("OFFER_MEETING_TRIGGER|"):
+                        prop_titulo = resp.split("|")[1]
+                        text_body = f"✅ *¡Perfecto!*\n\nHemos registrado tu interés en:\n🏠 *{prop_titulo}*\n\n📅 *¿Te gustaría agendar una cita para visitar la propiedad?*"
+                        botones = [
+                            {"id": "agendar", "title": "📅 SÍ, AGENDAR CITA"},
+                            {"id": "solo info", "title": "📋 Solo información"},
+                            {"id": "ofertar", "title": "💰 Quiero ofertar"}
+                        ]
+                        from whatsapp_api import send_whatsapp_interactive_buttons
+                        return send_whatsapp_interactive_buttons(from_id, text_body, botones)
+                    
+                    elif isinstance(resp, str) and resp.startswith("PHOTOS_TRIGGER|"):
+                        prop_id = resp.split("|")[1]
+                        clean_base_url = base_url
+                        if "onrender.com" in clean_base_url and not clean_base_url.startswith("https"):
+                            clean_base_url = clean_base_url.replace("http://", "https://")
+                        
+                        log(f"🚀 Iniciando hilo de fotos para propiedad {prop_id}")
+                        from whatsapp_api import send_photos_async, send_whatsapp_message
+                        thread = threading.Thread(target=send_photos_async, args=(from_id, prop_id, clean_base_url))
+                        thread.start()
+                        
+                        confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'Hola' para volver al menú."
+                        return send_whatsapp_message(from_id, confirmacion)
+                    
+                    # Delegamos TODO el envío a whatsapp_api.py
+                    from whatsapp_api import send_message
+                    return send_message(from_id, resp, platform=platform)
+                
+                if isinstance(response_text, list):
+                    for r in response_text:
+                        dispatch_single(r)
+                else:
+                    dispatch_single(response_text)
+                return True
+            
+            # ============================================================
+            # FIN DE LA FUNCIÓN procesar_mensaje_unificado
+            # ============================================================
             
             # Contador de mensajes procesados
             mensajes_procesados = 0
             
             for entry in data.get("entry", []):
+                # Flujo para Messenger e Instagram (messaging)
+                if "messaging" in entry:
+                    for messaging_event in entry.get("messaging", []):
+                        if "message" in messaging_event:
+                            message = messaging_event["message"]
+                            sender_id = messaging_event["sender"]["id"]
+                            text = message.get("text", "")
+                            mid = message.get("mid")
+                            
+                            if message.get("is_echo"):
+                                continue
+                            
+                            if mid in processed_message_ids:
+                                continue
+                            processed_message_ids.append(mid)
+                            
+                            from database import registrar_mensaje_procesado
+                            if not registrar_mensaje_procesado(mid):
+                                continue
+                            
+                            if procesar_mensaje_unificado(sender_id, text, platform, mid):
+                                mensajes_procesados += 1
+                    continue
+                
+                # Flujo para WhatsApp (changes -> value -> messages)
                 for change in entry.get("changes", []):
                     value = change.get("value", {})
-                    
                     if "messages" in value:
-                        messages = value["messages"]
-                        print(f"📨 Se encontraron {len(messages)} mensajes en el webhook")
-                        log(f"📨 Se encontraron {len(messages)} mensajes")
-                        
-                        for message in messages:
-                            mensajes_procesados += 1
-                            message_id = message.get("id")
-                            
-                            # Log detallado del mensaje
-                            print(f"\n--- Mensaje #{mensajes_procesados} ---")
-                            print(f"🆔 ID: {message_id}")
-                            print(f"👤 From: {message.get('from')}")
-                            print(f"📝 Type: {message.get('type')}")
-                            print(f"📦 Mensaje completo: {json.dumps(message, indent=2)}")
-                            
-                            if message_id in processed_message_ids:
-                                log(f"🛑 Mensaje duplicado ignorado: {message_id}")
-                                print(f"🛑 Mensaje duplicado ignorado: {message_id}")
+                        for message in value["messages"]:
+                            m_id = message.get("id")
+                            if m_id in processed_message_ids:
                                 continue
-                                
-                            processed_message_ids.append(message_id)
+                            processed_message_ids.append(m_id)
                             
-                            from_number = message.get("from")
-                            message_text = ""
+                            from database import registrar_mensaje_procesado
+                            if not registrar_mensaje_procesado(m_id):
+                                continue
                             
-                            # Procesar mensajes de texto plano
+                            from_num = message.get("from")
+                            m_text = ""
+                            
                             if message.get("type") == "text":
-                                message_text = message.get("text", {}).get("body", "")
-                                print(f"💬 Texto recibido: '{message_text}'")
-                                log(f"💬 Texto recibido de {from_number}: '{message_text}'")
-                            
-                            # Procesar mensajes interactivos (Botones nativos o Listas)
+                                m_text = message.get("text", {}).get("body", "")
                             elif message.get("type") == "interactive":
                                 interactive = message.get("interactive", {})
                                 int_type = interactive.get("type")
-                                print(f"🔘 Mensaje interactivo tipo: {int_type}")
-                                print(f"🔘 Payload interactivo: {json.dumps(interactive, ensure_ascii=False)}")
-                                log(f"🔘 Payload interactivo: {json.dumps(interactive, ensure_ascii=False)}")
-                                
                                 if int_type == "button_reply":
-                                    button_reply = interactive.get("button_reply", {})
-                                    message_text = button_reply.get("id", "") or button_reply.get("title", "")
-                                    log(f"🔘 Botón presionado: {message_text} - Objeto: {json.dumps(button_reply, ensure_ascii=False)}")
-                                    print(f"🔘 Botón presionado ID/Título: {message_text}")
-                                    print(f"🔘 Button reply completo: {json.dumps(button_reply, ensure_ascii=False)}")
-                                    
+                                    m_text = interactive.get("button_reply", {}).get("id", "")
                                 elif int_type == "list_reply":
-                                    list_reply = interactive.get("list_reply", {})
-                                    message_text = list_reply.get("id", "") or list_reply.get("title", "")
-                                    log(f"📋 Opción de lista seleccionada: {message_text} - Objeto: {json.dumps(list_reply, ensure_ascii=False)}")
-                                    print(f"📋 Lista seleccionada ID/Título: {message_text}")
-                                    print(f"📋 List reply completo: {json.dumps(list_reply, ensure_ascii=False)}")
+                                    m_text = interactive.get("list_reply", {}).get("id", "")
+                                elif int_type == "nfm_reply":
+                                    # RESPUESTA DE META FLOW
+                                    m_text = "FLOW_RESPONSE_TRIGGER"
+                                    flow_response = interactive.get("nfm_reply", {}).get("response_json")
+                                    if flow_response:
+                                        try:
+                                            # Guardar la respuesta cruda para procesarla en el handler
+                                            from database import obtener_estado_usuario, actualizar_estado_usuario
+                                            est = obtener_estado_usuario(from_num)
+                                            est['last_flow_response'] = json.loads(flow_response)
+                                            actualizar_estado_usuario(from_num, est)
+                                            log(f"📥 Respuesta de Meta Flow recibida y guardada para {from_num}")
+                                        except Exception as fe:
+                                            log(f"⚠️ Error parseando Flow response: {fe}")
                             
-                            else:
-                                print(f"⚠️ Tipo de mensaje no manejado: {message.get('type')}")
-                                log(f"⚠️ Tipo de mensaje no manejado: {message.get('type')}")
-                            
-                            if from_number and message_text:
-                                # Normalizar texto para comandos de usuario y botones
-                                processed_text = message_text.strip().lower()
-                                emoji_digit_map = {
-                                    "0️⃣": "0",
-                                    "1️⃣": "1",
-                                    "2️⃣": "2",
-                                    "3️⃣": "3",
-                                    "4️⃣": "4",
-                                    "5️⃣": "5",
-                                    "6️⃣": "6",
-                                    "7️⃣": "7",
-                                    "8️⃣": "8",
-                                    "9️⃣": "9",
-                                    "🔟": "10"
-                                }
-                                processed_text = emoji_digit_map.get(processed_text, processed_text)
-                                
-                                # Convertir IDs de botones y sinónimos a comandos numéricos
-                                boton_a_numero = {
-                                    "opcion_1": "1",  # Ventas
-                                    "opcion_2": "2",  # Alquiler
-                                    "opcion_3": "3",  # Sitio Web
-                                    "opcion_4": "4",  # Mis Citas
-                                    "opcion_5": "5",  # Hablar Asesor
-                                    "opcion_6": "6",  # FAQs
-                                    "opcion_7": "7",  # Todos los Inmuebles
-                                    "opcion_tasacion": "10", # Tasación
-                                    "volver_menu": "9",
-                                    "salir_chat": "0",
-                                    "mis citas": "4",
-                                    "ver mis citas": "4",
-                                    "mis citas programadas": "4",
-                                    "mis visitas": "4",
-                                    "mis visitas programadas": "4",
-                                    "venta": "1",
-                                    "en venta": "1",
-                                    "comprar": "1",
-                                    "alquiler": "2",
-                                    "en alquiler": "2",
-                                    "todos los inmuebles": "7",
-                                    "mis citas": "4",
-                                    "hablar con asesor": "5",
-                                    "asesor": "5",
-                                    "requisitos": "6",
-                                    "faqs": "6",
-                                    "requisitos / faqs": "6",
-                                    "sitio web": "3",
-                                    "web": "3",
-                                    "tasación virtual": "10",
-                                    "tasacion virtual": "10",
-                                    "tasación": "10",
-                                    "tasacion": "10",
-                                    "enviar mensaje": "1",
-                                    "solicitar llamada": "2",
-                                    "departamento": "1",
-                                    "casa": "2",
-                                    "ph": "3",
-                                    "oficina / local": "4",
-                                    "oficina": "4",
-                                    "local": "4",
-                                    "terreno / lote": "5",
-                                    "terreno": "5",
-                                    "lote": "5",
-                                    "0️⃣": "0",
-                                    "1️⃣": "1",
-                                    "2️⃣": "2",
-                                    "3️⃣": "3",
-                                    "4️⃣": "4",
-                                    "5️⃣": "5",
-                                    "6️⃣": "6",
-                                    "7️⃣": "7",
-                                    "8️⃣": "8",
-                                    "9️⃣": "9",
-                                    "🔟": "10"
-                                }
-                                
-                                if processed_text in boton_a_numero:
-                                    original_text = message_text
-                                    message_text = boton_a_numero[processed_text]
-                                    print(f"🔄 Traduciendo botón/comando: '{original_text}' → '{message_text}'")
-                                else:
-                                    # Si el texto viene de un título de botón/lista, intentar normalizar opciones conocidas
-                                    texto_normalizado = processed_text.replace('🏠', '').replace('🔑', '').replace('🏢', '').replace('📋', '').replace('❓', '').replace('👤', '').replace('🌐', '').replace('📈', '').strip()
-                                    message_text = boton_a_numero.get(texto_normalizado, message_text.strip())
-                                    if message_text != texto_normalizado and texto_normalizado in boton_a_numero:
-                                        print(f"🔄 Traduciendo título de botón/comando: '{texto_normalizado}' → '{message_text}'")
-                                print(f"👤 Usuario: {from_number}, Input Procesado: '{message_text}'")
-                                log(f"👤 Usuario: {from_number}, Input Procesado: {message_text}")
-
-                                # Llamar a get_bot_response
-                                print(f"🤖 Llamando a get_bot_response con input: '{message_text}'")
-                                response_text = get_bot_response(message_text, from_number)
-                                print(f"🤖 Respuesta del bot: {str(response_text)[:100]}..." if response_text else "🤖 Respuesta vacía")
-
-                                # ── Despacho de respuesta ──────────────────────────────
-                                # Soporta: str, dict (interactive), list[str|dict] (Opción A: 2 mensajes)
-                                def dispatch_single_response(resp, base_url_for_photos=None):
-                                    """Envía una única respuesta al usuario (texto, botones, lista o trigger)."""
-                                    if isinstance(resp, dict):
-                                        if resp.get("type") == "interactive_buttons":
-                                            return send_whatsapp_interactive_buttons(
-                                                from_number,
-                                                resp["body"],
-                                                resp["buttons"],
-                                                header_text=resp.get("header"),
-                                                footer_text=resp.get("footer")
-                                            )
-                                        elif resp.get("type") == "interactive_list":
-                                            return send_whatsapp_list_menu(
-                                                from_number, resp["body"], resp["button_text"],
-                                                resp["sections"], footer_text=resp.get("footer", "")
-                                            )
-                                        else:
-                                            return send_whatsapp_message(from_number, str(resp))
-                                    
-                                    elif resp == "WELCOME_FLOW_TRIGGER":
-                                        log("🎯 Enviando flujo de bienvenida interactivo")
-                                        return send_welcome_flow(from_number)
-                                    
-                                    elif resp and resp.startswith("OFFER_MEETING_TRIGGER|"):
-                                        prop_titulo = resp.split("|")[1]
-                                        text_body = f"✅ *¡Perfecto!*\n\nHemos registrado tu interés en:\n🏠 *{prop_titulo}*\n\n📅 *¿Te gustaría agendar una cita para visitar la propiedad?*"
-                                        botones = [
-                                            {"id": "agendar", "title": "📅 SÍ, AGENDAR CITA"},
-                                            {"id": "solo info", "title": "📋 Solo información"},
-                                            {"id": "ofertar", "title": "💰 Quiero ofertar"}
-                                        ]
-                                        return send_whatsapp_interactive_buttons(from_number, text_body, botones)
-                                    
-                                    elif resp and resp.startswith("CONFIRM_MEETING_TRIGGER|"):
-                                        partes = resp.split("|")
-                                        fecha_display = partes[1]
-                                        hora = partes[2]
-                                        email = partes[3]
-                                        text_body = f"📅 *RESUMEN DE TU VISITA*\n\n📅 Fecha: *{fecha_display}*\n⏰ Hora: *{hora} hs*\n📧 Email: *{email}*\n\n¿Confirmas la cita?"
-                                        botones = [
-                                            {"id": "confirmar", "title": "✅ Confirmar cita"},
-                                            {"id": "cambiar", "title": "🔄 Cambiar hora"},
-                                            {"id": "cancelar", "title": "❌ Cancelar"}
-                                        ]
-                                        return send_whatsapp_interactive_buttons(from_number, text_body, botones)
-                                    
-                                    elif resp and resp.startswith("PHOTOS_TRIGGER|"):
-                                        prop_id = resp.split("|")[1]
-                                        b_url = base_url_for_photos or request.host_url.rstrip('/')
-                                        if "onrender.com" in b_url and not b_url.startswith("https"):
-                                            b_url = b_url.replace("http://", "https://")
-                                        log(f"🚀 Iniciando hilo de fotos para propiedad {prop_id}")
-                                        thread = threading.Thread(target=send_photos_async, args=(from_number, prop_id, b_url))
-                                        thread.start()
-                                        return send_whatsapp_message(from_number, "📸 *Enviando fotos...* Esto puede tardar unos segundos.")
-                                    
-                                    elif resp:
-                                        return send_whatsapp_message(from_number, resp)
-                                    
-                                    return {"status": "skipped", "reason": "empty_response"}
-
-                                # ── Ejecutar dispatch ────────────────────────────────
-                                base_url = request.host_url.rstrip('/')
-                                if isinstance(response_text, list):
-                                    # Opción A: múltiples mensajes (ej: texto largo + botones)
-                                    result = {"status": "skipped"}
-                                    for single in response_text:
-                                        result = dispatch_single_response(single, base_url)
-                                        print(f"📊 Enviado sub-mensaje: {result.get('status')}")
-                                else:
-                                    result = dispatch_single_response(response_text, base_url)
-
-                                
-                                print(f"📊 Resultado envío: {result.get('status')}")
-                                log(f"📊 Resultado: {result.get('status')}")
-                                return jsonify({
-                                    "status": "processed",
-                                    "user": from_number,
-                                    "result": result
-                                }), 200
-                            else:
-                                print(f"⚠️ Mensaje sin contenido procesable: from_number={from_number}, message_text='{message_text}'")
-                                log(f"⚠️ Mensaje sin contenido procesable: from={from_number}, text={message_text}")
+                            if procesar_mensaje_unificado(from_num, m_text, "whatsapp", m_id):
+                                mensajes_procesados += 1
                     
                     elif "statuses" in value:
                         for status in value["statuses"]:
-                            log(f"📊 Estado de mensaje: {status.get('status')} para ID: {status.get('id')}")
-                            print(f"📊 Estado update: {status.get('status')} - ID: {status.get('id')}")
-                        return jsonify({"status": "status_update"}), 200
+                            log(f"📊 Estado: {status.get('status')} - ID: {status.get('id')}")
             
-            if mensajes_procesados == 0:
-                print("ℹ️ Webhook sin mensajes para procesar")
-                log("ℹ️ Webhook sin mensajes de texto para procesar")
-                return jsonify({"status": "no_text_messages"}), 200
-            else:
-                print(f"✅ Procesados {mensajes_procesados} mensajes")
-                return jsonify({"status": "processed", "count": mensajes_procesados}), 200
-                
+            return jsonify({"status": "processed", "count": mensajes_procesados}), 200
+        
         except Exception as e:
-            print(f"❌ ERROR EXCEPCIÓN: {str(e)}")
             import traceback
-            print(f"❌ TRACEBACK: {traceback.format_exc()}")
             log(f"❌ Error procesando webhook: {str(e)}")
             log(f"❌ Traceback: {traceback.format_exc()}")
             return jsonify({"status": "error", "error": str(e)}), 500
-
+        
 # ========== GESTIÓN DE CITAS ==========
 
 
@@ -1761,7 +1715,33 @@ def api_leads():
     try:
         conn = get_db_connection()
         if not conn:
-            return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
+            log("⚠️ Fallback a JSON para leads (DB no disponible)", "WARNING")
+            try:
+                import os, json
+                import sys, os
+                sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+                from config import LEADS_FILE
+                leads_fallback = []
+                if os.path.exists(LEADS_FILE):
+                    with open(LEADS_FILE, 'r', encoding='utf-8') as f:
+                        leads_fallback = json.load(f)
+                
+                leads_formateados = []
+                # Invertir para mostrar los más recientes primero
+                for idx, lead in enumerate(reversed(leads_fallback)):
+                    leads_formateados.append({
+                        "id": f"json_{idx}",
+                        "timestamp": lead.get("timestamp"),
+                        "user_id": lead.get("user_id"),
+                        "nombre": "Sin nombre",
+                        "propiedad_id": lead.get("propiedad_id"),
+                        "propiedad_titulo": lead.get("propiedad_nombre"),
+                        "accion": lead.get("accion"),
+                        "detalle": lead.get("detalle")
+                    })
+                return jsonify({"error": "No DB, usando fallback local", "leads": leads_formateados}), 200
+            except Exception as e:
+                return jsonify({"error": "No se pudo conectar a la base de datos y falló el JSON fallback", "leads": []}), 200
         
         cursor = conn.cursor()
         
@@ -1936,10 +1916,19 @@ def obtener_barrios():
                 barrios[barrio] = {}
             barrios[barrio]['financial'] = data
         
+        barrios_list = []
+        for barrio, data in barrios.items():
+            barrios_list.append({
+                "nombre": barrio,
+                "fecha_actualizacion": datetime.now().isoformat(),
+                "actualizado_por": "sistema",
+                "datos": data
+            })
+            
         return jsonify({
             "success": True,
-            "barrios": barrios,
-            "total": len(barrios),
+            "barrios": barrios_list,
+            "total": len(barrios_list),
             "timestamp": datetime.now().isoformat()
         })
     except Exception as e:
@@ -1965,6 +1954,14 @@ def obtener_market_status():
             mtime = os.path.getmtime(file_path)
             status["last_update"] = datetime.fromtimestamp(mtime).isoformat()
             status["size_kb"] = round(os.path.getsize(file_path) / 1024, 2)
+            
+            # Leer metadata si existe para el frontend
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                if 'metadata' in data:
+                    status['metadata'] = data['metadata']
+                    status['zone'] = data['metadata'].get('zone', 'Desconocida')
+                    status['sample_size'] = data['metadata'].get('sample_size', 0)
         except Exception as e:
             logger.error(f"Error obteniendo estado de market: {e}")
     
@@ -2498,7 +2495,26 @@ def api_citas():
     try:
         conn = get_db_connection()
         if not conn:
-            return jsonify({"error": "No se pudo conectar a la base de datos", "citas": []}), 500
+            log("⚠️ Fallback a JSON para citas (DB no disponible)", "WARNING")
+            try:
+                citas_fallback = cargar_citas()
+                citas_formateadas = []
+                for c in citas_fallback:
+                    citas_formateadas.append({
+                        "id": c.get("id", ""),
+                        "nombre": c.get("nombre", "Sin nombre"),
+                        "telefono": c.get("telefono", c.get("user_id", "")),
+                        "fecha_cita": c.get("fecha", ""),
+                        "hora_cita": c.get("hora", ""),
+                        "propiedad_id": c.get("propiedad_id", ""),
+                        "estado": c.get("estado", "pendiente"),
+                        "notas": c.get("notas", ""),
+                        "fecha_creacion": c.get("creacion", ""),
+                        "email": c.get("email", "")
+                    })
+                return jsonify({"error": "No DB, usando fallback local", "citas": citas_formateadas}), 200
+            except Exception as e:
+                return jsonify({"error": "No se pudo conectar a la base de datos y falló el JSON fallback", "citas": []}), 200
         
         cursor = conn.cursor()
         
@@ -2691,33 +2707,43 @@ def api_send_manual_message_main():
     else:
         return jsonify(resultado), 500
 
-@app.route("/api/config/horarios", methods=["GET"])
+@app.route("/api/config/horarios", methods=["GET", "POST"])
 def api_config_horarios():
-    """Obtiene la configuración de horarios"""
+    """Obtiene o guarda la configuración de horarios de visita"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
     
+    if request.method == "POST":
+        try:
+            data = request.json
+            if not data:
+                return jsonify({"error": "Datos inválidos"}), 400
+                
+            with open("dias-horarios-visitas.json", 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+                
+            log("✅ Configuración de horarios actualizada desde Admin")
+            return jsonify({"status": "success", "message": "Horarios actualizados correctamente"})
+        except Exception as e:
+            log(f"❌ Error guardando horarios: {e}", "ERROR")
+            return jsonify({"error": str(e)}), 500
+
+    # Método GET (Existente)
     try:
         if os.path.exists("dias-horarios-visitas.json"):
             with open("dias-horarios-visitas.json", 'r', encoding='utf-8') as f:
                 config = json.load(f)
             return jsonify(config)
         else:
-            # Configuración por defecto
             default_config = {
                 "configuracion_global": {
                     "dias_habiles": [0, 1, 2, 3, 4],
-                    "horarios": [
-                        "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
-                        "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
-                        "17:00", "17:30", "18:00", "18:30"
-                    ]
+                    "horarios": ["09:00", "10:00", "11:00", "15:00", "16:00", "17:00"]
                 },
                 "propiedades": {}
             }
             return jsonify(default_config)
-            
     except Exception as e:
         log(f"❌ Error en api_config_horarios: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
@@ -3014,7 +3040,53 @@ def debug_calendar_key_status():
     
     return jsonify(result)
 
-
+@app.route('/fix-db-direct', methods=['GET'])
+def fix_db_direct():
+    """Agrega la columna platform a la base de datos REAL que Render está usando"""
+    try:
+        import psycopg2
+        import os
+        
+        # Usar la misma conexión que usa la aplicación
+        database_url = os.environ.get("DATABASE_URL")
+        
+        if not database_url:
+            return {"error": "DATABASE_URL no encontrada"}, 500
+        
+        # Limpiar la URL
+        if database_url.upper().startswith("DATABASE_URL"):
+            database_url = database_url[len("DATABASE_URL"):].lstrip().lstrip("=").lstrip()
+        
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
+        
+        # Conectar y ejecutar
+        conn = psycopg2.connect(database_url)
+        conn.autocommit = True
+        cursor = conn.cursor()
+        
+        # Verificar si la columna existe
+        cursor.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'user_states' AND column_name = 'platform'
+        """)
+        
+        exists = cursor.fetchone()
+        
+        if exists:
+            result = "La columna platform YA EXISTE"
+        else:
+            cursor.execute("ALTER TABLE user_states ADD COLUMN platform VARCHAR(50)")
+            result = "Columna platform AGREGADA exitosamente"
+        
+        cursor.close()
+        conn.close()
+        
+        return {"message": result, "database_url_prefix": database_url[:50] + "..."}
+        
+    except Exception as e:
+        return {"error": str(e)}, 500
 
 if __name__ == "__main__":
 

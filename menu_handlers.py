@@ -382,6 +382,60 @@ def _nav_listado_buttons():
     )
 
 
+def responder_listado_propiedades(propiedades, titulo, user_id, estado_usuario):
+    """Genera una respuesta estandarizada para listados de propiedades usando List Menus de Meta"""
+    if not propiedades:
+        return WhatsAppResponse.buttons(
+            header=f"📭 SIN {titulo.upper()}",
+            body=f"Actualmente no tenemos propiedades en {titulo.lower()}. Probá con otra categoría.",
+            buttons=[
+                {"id": "m", "title": "Volver al menú"},
+                {"id": "s", "title": "Salir"}
+            ]
+        )
+
+    # Si hay 10 o menos, usamos List Menu (Mejor UX en WhatsApp)
+    if len(propiedades) <= 10:
+        rows = []
+        for i, p in enumerate(propiedades):
+            # Formatear precio respetando moneda
+            moneda = p.get('moneda_precio', p.get('moneda', 'USD'))
+            precio_val = p.get('precio', 'Consultar')
+
+            if isinstance(precio_val, (int, float)):
+                precio_str = f"{moneda} {precio_val:,.0f}".replace(",", ".")
+            else:
+                precio_str = str(precio_val)
+
+            # Tipo de operación
+            operacion = str(p.get('operacion', '')).capitalize()
+
+            rows.append({
+                "id": str(i + 1),
+                "title": f"{p.get('titulo', 'Propiedad')[:24]}",
+                "description": f"{operacion} - {p.get('barrio', 'Barrio')} - {precio_str}"
+            })
+
+        return WhatsAppResponse.list_menu(
+            header=f"📋 {titulo.upper()}",
+            body=f"Encontramos {len(propiedades)} opciones para vos en {titulo.lower()}. Seleccioná una para ver fotos y detalles:",
+            button_text="Ver propiedades",
+            sections=[{"title": "Resultados", "rows": rows}],
+            footer="Dante Propiedades 🏠"
+        )
+    
+    # Si hay más de 10, usamos el listado de texto tradicional + botones
+    texto = f"📋 *{titulo.upper()}*\n\n" + generar_listado_propiedades(propiedades)
+    return [texto, WhatsAppResponse.buttons(
+        header="🔙 Navegación",
+        body="Seleccioná una opción:",
+        buttons=[
+            {"id": "m", "title": "Volver al menú"},
+            {"id": "s", "title": "Salir"}
+        ]
+    )]
+
+
 def procesar_opcion_venta(estado_usuario, user_id):
     """Procesa la opción de venta listando todas directamente"""
     todas = cargar_propiedades_cached()
@@ -399,19 +453,7 @@ def procesar_opcion_venta(estado_usuario, user_id):
 
     
     actualizar_estado_usuario(user_id, estado_usuario)
-    
-    if not filtradas:
-        return WhatsAppResponse.buttons(
-            header="📭 SIN PROPIEDADES EN VENTA",
-            body="Actualmente no tenemos propiedades en venta. Probá con otra categoría.",
-            buttons=[
-                {"id": "opcion_2", "title": "Ver Alquileres"},
-                {"id": "m", "title": "Volver al menú"}
-            ]
-        )
-    
-    texto = "💰 *INMUEBLES EN VENTA*\n\n" + generar_listado_propiedades(filtradas)
-    return [texto, _nav_listado_buttons()]
+    return responder_listado_propiedades(filtradas, "Inmuebles en Venta", user_id, estado_usuario)
 
 
 def procesar_opcion_alquiler(estado_usuario, user_id):
@@ -429,19 +471,7 @@ def procesar_opcion_alquiler(estado_usuario, user_id):
         'ultima_accion': 'mostrar_listado'
     })
     actualizar_estado_usuario(user_id, estado_usuario)
-    
-    if not filtradas:
-        return WhatsAppResponse.buttons(
-            header="📭 SIN PROPIEDADES EN ALQUILER",
-            body="Actualmente no tenemos propiedades en alquiler. Probá con otra categoría.",
-            buttons=[
-                {"id": "opcion_1", "title": "Ver Ventas"},
-                {"id": "m", "title": "Volver al menú"}
-            ]
-        )
-    
-    texto = "🔑 *INMUEBLES EN ALQUILER*\n\n" + generar_listado_propiedades(filtradas)
-    return [texto, _nav_listado_buttons()]
+    return responder_listado_propiedades(filtradas, "Inmuebles en Alquiler", user_id, estado_usuario)
 
 
 def procesar_opcion_todas(estado_usuario, user_id):
@@ -453,8 +483,7 @@ def procesar_opcion_todas(estado_usuario, user_id):
         'ultima_accion': 'mostrar_listado'
     })
     actualizar_estado_usuario(user_id, estado_usuario)
-    texto = "📋 *TODAS LAS PROPIEDADES*\n\n" + generar_listado_propiedades(estado_usuario['propiedades_filtradas'])
-    return [texto, _nav_listado_buttons()]
+    return responder_listado_propiedades(estado_usuario['propiedades_filtradas'], "Todas las Propiedades", user_id, estado_usuario)
 
 
 def procesar_opcion_mis_citas(user_id):
@@ -482,6 +511,64 @@ def procesar_opcion_mis_citas(user_id):
                 {"id": "m", "title": "Volver al menú"}
             ]
         )
+    
+    estado_usuario = obtener_estado_usuario(user_id)
+    
+    # 🔥 SI HAY SOLO 1 CITA, ENTRAR DIRECTAMENTE A MODIFICAR
+    if len(citas_usuario) == 1:
+        # Guardar la cita seleccionada y pasar a opciones
+        cita_seleccionada = citas_usuario[0]
+        log(f"🔍 DEBUG CITA: {cita_seleccionada}")  # 👈 Agregar este log
+        # Obtener información de la propiedad
+        todas_propiedades = cargar_propiedades_cached()
+        props_dict = {p.get('id_temporal', ''): p for p in todas_propiedades}
+        propiedad_id_cita = cita_seleccionada.get('propiedad_id', '')
+        propiedad = props_dict.get(propiedad_id_cita, {})
+        titulo = propiedad.get('titulo', propiedad_id_cita if propiedad_id_cita else 'Propiedad N/A')
+        
+
+        # Guardar en estado - ASEGURAR QUE LA FECHA ESTÉ PRESENTE
+        cita_seleccionada['propiedad_titulo'] = titulo
+
+        # 👇 FORZAR que la fecha exista
+        if 'fecha' not in cita_seleccionada or not cita_seleccionada['fecha']:
+            log(f"⚠️ ADVERTENCIA: La cita no tiene fecha. Cita: {cita_seleccionada}")
+            # Intentar obtener la fecha del formato que tenga
+            if 'fecha_cita' in cita_seleccionada:
+                cita_seleccionada['fecha'] = cita_seleccionada['fecha_cita']
+            elif 'fecha_str' in cita_seleccionada:
+                cita_seleccionada['fecha'] = cita_seleccionada['fecha_str']
+
+        
+        
+        estado_usuario['cita_seleccionada_modificar'] = cita_seleccionada
+        estado_usuario['paso'] = 'opciones_modificar_cita'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        # Formatear la información de la cita
+        try:
+            fecha_obj = datetime.strptime(cita_seleccionada.get('fecha', ''), "%Y-%m-%d")
+            fecha_formateada = fecha_obj.strftime("%d/%m/%Y")
+        except (ValueError, TypeError):
+            fecha_formateada = cita_seleccionada.get('fecha', 'Sin fecha')
+        
+        # Mostrar solo los botones de Meta sin duplicar opciones de texto
+        nav_buttons = WhatsAppResponse.buttons(
+            header=f"🔧 CITA: {titulo}",
+            body=f"📅 {fecha_formateada} - ⏰ {cita_seleccionada.get('hora', 'Sin hora')} hs\n\n¿Qué deseás hacer?",
+            buttons=[
+                {"id": "opcion_cambiar_fecha", "title": "Cambiar fecha/hora"},
+                {"id": "opcion_cancelar_cita", "title": "Cancelar cita"},
+                {"id": "m", "title": "Volver"}
+            ]
+        )
+        
+        return nav_buttons
+    
+    # Si hay 2 o más citas, mostrar lista para elegir
+    estado_usuario['citas_para_modificar'] = citas_usuario
+    estado_usuario['paso'] = 'seleccionar_cita_modificar'
+    actualizar_estado_usuario(user_id, estado_usuario)
     
     mensaje = f"📅 *TUS CITAS AGENDADAS*\n\nTienes *{len(citas_usuario)}* cita(s) activa(s):\n\n"
     
@@ -514,14 +601,487 @@ def procesar_opcion_mis_citas(user_id):
     # Opción A: enviar texto rico + botones como 2 mensajes
     nav_buttons = WhatsAppResponse.buttons(
         header="📅 TUS CITAS",
-        body="Para consultar o modificar una cita, contactá al administrador.",
+        body="¿Qué deseás hacer? Escribí el número de la cita para modificarla (ej: '1', '2', etc.)",
         buttons=[
-            {"id": "opcion_4", "title": "Ver mis citas"},
+            {"id": "opcion_modificar_cita", "title": "Modificar cita"},
             {"id": "m", "title": "Volver al menú"},
             {"id": "s", "title": "Salir"}
         ]
     )
-    return [mensaje, nav_buttons]
+    return nav_buttons
+
+def manejar_seleccion_cita_modificar(text_lower, user_id):
+    """Maneja la selección de una cita para modificarla desde el menú de citas"""
+
+    # Manejar navegación
+    if text_lower in ["m", "volver"]:
+        estado_usuario = obtener_estado_usuario(user_id)
+        estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['cita_seleccionada_modificar'] = None
+        estado_usuario['citas_para_modificar'] = []
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "WELCOME_FLOW_TRIGGER"
+    
+    if text_lower in ["s", "salir"]:
+        return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
+    
+    # Validar número
+    try:
+        numero_cita = int(text_lower)
+    except ValueError:
+        return "❌ *Entrada inválida*. Escribí el número de la cita.\n\nⓂ️ *VOLVER AL MENÚ* (Envía 'M')"
+    
+    # Obtener citas
+    estado_usuario = obtener_estado_usuario(user_id)
+    citas_usuario = estado_usuario.get('citas_para_modificar', [])
+
+    if not citas_usuario:
+        citas_usuario = obtener_todas_citas_usuario(user_id)
+        if not citas_usuario:
+            citas_json = cargar_citas()
+            if citas_json:
+                citas_usuario = [
+                    c for c in citas_json 
+                    if (son_numeros_identicos(c.get('telefono'), user_id) or son_numeros_identicos(c.get('user_id'), user_id))
+                    and c.get('estado', '').lower() not in ['cancelada', 'finalizada']
+                ]
+    
+    # Validar rango
+    if numero_cita < 1 or numero_cita > len(citas_usuario):
+        return f"❌ *Número inválido*. Seleccioná entre 1 y {len(citas_usuario)}.\n\nⓂ️ *VOLVER AL MENÚ* (Envía 'M')"
+    
+    # Seleccionar cita
+    cita_seleccionada = citas_usuario[numero_cita - 1]
+    estado_usuario['cita_seleccionada_modificar'] = cita_seleccionada
+    estado_usuario['paso'] = 'opciones_modificar_cita'
+    actualizar_estado_usuario(user_id, estado_usuario)
+
+    # Botones (único menú)
+    nav_buttons = WhatsAppResponse.buttons(
+        header="🔧 MODIFICAR CITA",
+        body="Seleccioná qué acción deseás realizar con esta cita.",
+        buttons=[
+            {"id": "opcion_cambiar_fecha", "title": "Cambiar fecha/hora"},
+            {"id": "opcion_cancelar_cita", "title": "Cancelar cita"},
+            {"id": "m", "title": "Volver"}
+        ]
+    )
+
+    return nav_buttons
+
+
+
+def manejar_opciones_modificar_cita(text_lower, estado_usuario, user_id):
+    """Maneja las opciones de modificación de una cita seleccionada"""
+    cita_seleccionada = estado_usuario.get('cita_seleccionada_modificar', {})
+    
+    text_lower = text_lower.lower().strip()
+    
+    # 👇 RECONOCER EL ID EXACTO DEL BOTÓN
+    if text_lower in ["opcion_cambiar_fecha", "1", "cambiar fecha", "cambiar fecha/hora", "modificar fecha"]:
+        # Opción: Cambiar fecha/hora
+        log(f"🔄 Usuario {user_id} solicita cambiar fecha de cita")
+        
+        # Preparar el estado para solicitar nueva fecha
+        estado_usuario['paso'] = 'solicitar_fecha_actualizacion_cita'
+        estado_usuario['cita_id_a_modificar'] = cita_seleccionada.get('id')
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        return "🔄 *Perfecto! Vamos a cambiar la fecha de tu visita.*\n\n📅 Enviá la nueva fecha que prefieras (ej: '29-04-26', 'mañana 10am', 'jueves 14:30'):"
+    
+    # 👇 RECONOCER EL ID EXACTO DEL BOTÓN
+    elif text_lower in ["opcion_cancelar_cita", "2", "cancelar cita", "cancelar", "anular"]:
+        # Opción: Cancelar cita
+        log(f"❌ Usuario {user_id} solicita cancelar cita")
+        
+        cita_id = cita_seleccionada.get('id')
+        try:
+            actualizar_cita_db(cita_id, nuevo_estado='cancelada')
+            log(f"✅ Cita {cita_id} cancelada exitosamente")
+            
+            guardar_en_postgresql(
+                telefono=user_id,
+                nombre=estado_usuario.get('nombre_cliente', 'Cliente'),
+                accion="cita_cancelada",
+                detalles=f"Cita {cita_id} cancelada por el usuario desde 'Modificar cita'"
+            )
+            
+            try:
+                titulo_propiedad = cita_seleccionada.get('propiedad_titulo', 'Propiedad N/A')
+                fecha_cita = cita_seleccionada.get('fecha', 'Sin fecha')
+                hora_cita = cita_seleccionada.get('hora', 'Sin hora')
+                notificar_agente(f"❌ *CITA CANCELADA*\n👤 {estado_usuario.get('nombre_cliente', 'Cliente')}\n📞 +{user_id}\n🏠 {titulo_propiedad}\n📅 {fecha_cita} {hora_cita}")
+            except:
+                pass
+            
+            estado_usuario['paso'] = 'menu_principal'
+            estado_usuario['cita_seleccionada_modificar'] = None
+            estado_usuario['citas_para_modificar'] = []
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            return WhatsAppResponse.buttons(
+                header="✅ CITA CANCELADA",
+                body="Tu cita ha sido cancelada exitosamente. Si en otro momento deseas agendar una visita, podés volver a empezar desde el catálogo.",
+                buttons=[
+                    {"id": "opcion_7", "title": "Ver propiedades"},
+                    {"id": "m", "title": "Volver al menú"},
+                    {"id": "s", "title": "Salir"}
+                ]
+            )
+        except Exception as e:
+            log(f"❌ Error cancelando cita: {e}")
+            return "❌ *Error al cancelar la cita*\n\nPor favor, intentá nuevamente o contactá a un asesor.\n\nⓜ️ *VOLVER AL MENÚ* (Envía 'M')"
+    
+    elif text_lower in ["m", "volver"]:
+        # Volver a la lista de citas
+        log(f"↩️ Usuario {user_id} volviendo a lista de citas")
+        estado_usuario['paso'] = 'menu_principal'
+        estado_usuario['cita_seleccionada_modificar'] = None
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        return procesar_opcion_mis_citas(user_id)
+    
+    else:
+        # Solo llegar acá si realmente no se reconoce nada
+        return """❌ *Operación no reconocida.*
+
+Por favor elegí una de las siguientes opciones:
+
+1️⃣ *Cambiar fecha/hora* 📅
+2️⃣ *Cancelar cita* ❌
+Ⓜ️ *Volver* (Envía 'M')
+"""
+
+
+def manejar_solicitar_fecha_actualizacion_cita(text_lower, estado_usuario, user_id):
+    """Maneja la solicitud de nueva fecha para actualizar una cita existente"""
+    
+    if text_lower in ["ver fechas", "disponibles", "fechas"]:
+        return mostrar_fechas_disponibles(estado_usuario)
+    
+    # 1. Analizar Fecha
+    fecha_ingresada = analizar_fecha(text_lower)
+    
+    if not fecha_ingresada:
+        return """❌ *No entendí la fecha*
+Por favor, probá con:
+✅ "Mañana a las 10"
+✅ "El jueves por la tarde"
+✅ "25-10-2026"
+
+1️⃣ *Ver fechas* (Ver disponibilidad)
+Ⓜ️ *Volver* (Ir al menú - Envía 'M')"""
+
+    # Validaciones de fecha
+    hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    if fecha_ingresada < hoy and fecha_ingresada.date() != hoy.date():
+        return "❌ *Fecha pasada*\nPor favor elige una fecha futura."
+    
+    # 2. Analizar Hora (si el usuario la incluyó)
+    hora_ingresada = analizar_hora(text_lower)
+    
+    fecha_str = fecha_ingresada.strftime("%Y-%m-%d")
+    fecha_display = fecha_ingresada.strftime("%d-%m-%Y")
+    
+    # Obtener ID de la propiedad de la cita a modificar
+    cita_seleccionada = estado_usuario.get('cita_seleccionada_modificar', {})
+    propiedad_id = cita_seleccionada.get('propiedad_id')
+        
+    horarios_disponibles = obtener_horarios_disponibles(fecha_str, propiedad_id)
+    
+    if not horarios_disponibles:
+        return f"""❌ *Sin disponibilidad*
+No hay horarios para el {fecha_display}.
+
+1️⃣ *Ver fechas* (Elegir otro día)
+Ⓜ️ *Volver* (Ir al menú - Envía 'M')"""
+
+    # 👇 IMPORTANTE: Guardar la fecha en MÚLTIPLES lugares
+    estado_usuario['fecha_cita_actualizacion'] = fecha_str
+    
+    # También guardar en la cita seleccionada para respaldo
+    if 'cita_seleccionada_modificar' in estado_usuario:
+        estado_usuario['cita_seleccionada_modificar']['nueva_fecha'] = fecha_str
+    
+    # CASO A: Usuario indicó fecha Y hora ("mañana a las 10")
+    if hora_ingresada:
+        if hora_ingresada in horarios_disponibles:
+            # Hora válida -> Confirmar la actualización
+            estado_usuario['hora_cita_actualizacion'] = hora_ingresada
+            estado_usuario['paso'] = 'confirmar_actualizacion_cita'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            return f"""✅ *NUEVA FECHA SELECCIONADA*
+
+📅 *Fecha:* {fecha_display}
+⏰ *Hora:* {hora_ingresada} hs
+
+¿Confirmás este cambio?
+
+1️⃣ *SÍ, CAMBIAR* ✅
+2️⃣ *NO, ELEGIR OTRA FECHA* 🔄
+Ⓜ️ *CANCELAR* (Envía 'M')
+"""
+        else:
+            # Hora inválida o ocupada
+            return f"""❌ *Horario no disponible*
+El horario {hora_ingresada} no está disponible para el {fecha_display}.
+
+⏰ *Horarios libres:*
+{", ".join(horarios_disponibles)}
+
+Por favor, escribí uno de los horarios disponibles."""
+
+    # CASO B: Solicitó solo fecha -> Pedir hora
+    estado_usuario['paso'] = 'seleccionar_hora_actualizacion_cita'
+    estado_usuario['horarios_disponibles'] = horarios_disponibles
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    return mostrar_seleccion_horarios(fecha_display, horarios_disponibles)
+
+
+def manejar_seleccionar_hora_actualizacion_cita(text, estado_usuario, user_id):
+    """Maneja la selección de hora para actualizar una cita"""
+    
+    text_lower = text.lower().strip()
+    
+    # Opción para volver
+    if text_lower in ["m", "volver", "atrás"]:
+        estado_usuario['paso'] = 'opciones_modificar_cita'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "↩️ Volviendo a opciones de cita..."
+    
+    # Intentar analizar la hora del texto
+    hora_ingresada = analizar_hora(text_lower)
+    
+    if not hora_ingresada:
+        try:
+            opcion = int(text_lower)
+            horarios_disponibles = estado_usuario.get('horarios_disponibles', [])
+            if 1 <= opcion <= len(horarios_disponibles):
+                hora_ingresada = horarios_disponibles[opcion - 1]
+            else:
+                return f"❌ Opción inválida. Seleccioná entre 1 y {len(horarios_disponibles)}."
+        except ValueError:
+            horarios = estado_usuario.get('horarios_disponibles', [])
+            return f"""❌ No entendí esa hora
+
+Horarios disponibles: {', '.join(horarios)}"""
+    
+    # 👇 BUSCAR LA FECHA EN MÚLTIPLES LUGARES
+    fecha_str = None
+    
+    # 1. Buscar en fecha_cita_actualizacion (la nueva fecha)
+    fecha_str = estado_usuario.get('fecha_cita_actualizacion', '')
+    
+    # 2. Si no, buscar en la cita seleccionada
+    if not fecha_str:
+        cita = estado_usuario.get('cita_seleccionada_modificar', {})
+        fecha_str = cita.get('fecha', '')
+        if not fecha_str:
+            fecha_str = cita.get('fecha_cita', '')
+    
+    # 3. Si no, buscar en horarios_disponibles (contexto)
+    if not fecha_str:
+        # Intentar reconstruir desde el mensaje anterior
+        log(f"⚠️ No se encontró fecha en el estado. Estado: {estado_usuario.keys()}")
+    
+    if not fecha_str:
+        # 4. ÚLTIMO RECURSO: Buscar en la cita actual del estado de usuario
+        if 'fecha_cita' in estado_usuario:
+            fecha_str = estado_usuario['fecha_cita']
+            
+    if not fecha_str:
+        log(f"❌ Error crítico: Se perdió la fecha en el paso {estado_usuario.get('paso')}. Estado: {estado_usuario.keys()}")
+        estado_usuario['paso'] = 'opciones_modificar_cita'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "❌ Error interno: No se encontró la fecha de la cita. Por favor, intentá nuevamente desde el menú de modificación."
+    
+    try:
+        fecha_display = datetime.strptime(fecha_str, "%Y-%m-%d").strftime("%d-%m-%Y")
+    except Exception as e:
+        log(f"Error parseando fecha '{fecha_str}': {e}")
+        fecha_display = fecha_str
+    
+    estado_usuario['hora_cita_actualizacion'] = hora_ingresada
+    estado_usuario['paso'] = 'confirmar_actualizacion_cita'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    return f"""✅ NUEVA HORA SELECCIONADA
+
+📅 Fecha: {fecha_display}
+⏰ Nueva hora: {hora_ingresada} hs
+
+¿Confirmás este cambio?
+
+1️⃣ SÍ, CAMBIAR ✅
+2️⃣ NO, ELEGIR OTRA FECHA 🔄
+Ⓜ️ CANCELAR (Envía 'M')
+"""
+
+def manejar_confirmar_actualizacion_cita(text_lower, estado_usuario, user_id):
+    """Confirma la actualización de una cita existente"""
+    
+    if text_lower in ["1", "si", "sí", "cambiar", "confirmar"]:
+        # Confirmar cambio
+        cita_id = estado_usuario.get('cita_id_a_modificar')
+        nueva_fecha = estado_usuario.get('fecha_cita_actualizacion')
+        nueva_hora = estado_usuario.get('hora_cita_actualizacion')
+        
+        try:
+            # Usar la función única para actualizar la cita
+            exito = actualizar_cita_db(cita_id, nueva_fecha=nueva_fecha, nueva_hora=nueva_hora)
+            
+            if not exito:
+                log(f"❌ Error al actualizar la cita {cita_id} en los registros", "ERROR")
+                return "❌ *Error al guardar los cambios*\n\nHubo un problema técnico al actualizar tu cita. Por favor, intentá nuevamente en unos minutos o contactá a un asesor.\n\nⓂ️ *VOLVER AL MENÚ* (Envía 'M')"
+
+            log(f"✅ Cita {cita_id} actualizada: {nueva_fecha} {nueva_hora}")
+            
+            # Notificar al agente
+            try:
+                cita_seleccionada = estado_usuario.get('cita_seleccionada_modificar', {})
+                titulo_propiedad = cita_seleccionada.get('propiedad_titulo', 'Propiedad N/A')
+                fecha_formateada = datetime.strptime(nueva_fecha, "%Y-%m-%d").strftime("%d/%m/%Y")
+                notificar_agente(f"🔄 *CITA ACTUALIZADA*\n👤 {estado_usuario.get('nombre_cliente', 'Cliente')}\n📞 +{user_id}\n🏠 {titulo_propiedad}\n📅 Nueva fecha: {fecha_formateada} a las {nueva_hora} hs")
+            except:
+                pass
+            
+            # Resetear estado
+            estado_usuario['paso'] = 'menu_principal'
+            estado_usuario['cita_seleccionada_modificar'] = None
+            estado_usuario['citas_para_modificar'] = []
+            estado_usuario['fecha_cita_actualizacion'] = None
+            estado_usuario['hora_cita_actualizacion'] = None
+            actualizar_estado_usuario(user_id, estado_usuario)
+            
+            fecha_formateada = datetime.strptime(nueva_fecha, "%Y-%m-%d").strftime("%d/%m/%Y")
+            
+            return WhatsAppResponse.buttons(
+                header="✅ CITA ACTUALIZADA",
+                body=f"Tu cita ha sido actualizada exitosamente para el {fecha_formateada} a las {nueva_hora} hs.",
+                buttons=[
+                    {"id": "opcion_4", "title": "Ver mis citas"},
+                    {"id": "m", "title": "Volver al menú"},
+                    {"id": "s", "title": "Salir"}
+                ]
+            )
+        except Exception as e:
+            log(f"❌ Error actualizando cita: {e}")
+            return "❌ *Error al actualizar la cita*\n\nPor favor, intentá nuevamente o contactá a un asesor.\n\nⓜ️ *VOLVER AL MENÚ* (Envía 'M')"
+    
+    elif text_lower in ["2", "no", "elegir", "otra"]:
+        # Volver a elegir fecha
+        estado_usuario['paso'] = 'solicitar_fecha_actualizacion_cita'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "🔄 *Perfecto! Enviá una nueva fecha para tu cita*\n\n📅 (ej: 'mañana 10am', 'jueves 14:30'):"
+    
+    elif text_lower in ["m", "cancelar", "volver"]:
+        # Cancelar la actualización
+        estado_usuario['paso'] = 'opciones_modificar_cita'
+        estado_usuario['fecha_cita_actualizacion'] = None
+        estado_usuario['hora_cita_actualizacion'] = None
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        return """❌ *Actualización cancelada*
+
+¿Qué deseás hacer?
+
+1️⃣ *Modificar fecha/hora* 📅
+2️⃣ *Cancelar cita* ❌
+3️⃣ *Ver detalles* 📋
+Ⓜ️ *Volver* (Envía 'M')
+"""
+    
+    else:
+        return """❌ *Opción no válida*
+
+Por favor elegí una de las siguientes opciones:
+
+1️⃣ *SÍ, CAMBIAR* ✅
+2️⃣ *NO, ELEGIR OTRA FECHA* 🔄
+Ⓜ️ *CANCELAR* (Envía 'M')
+"""
+
+
+def devolver_detalle_propiedad_menu(propiedad):
+    """Devuelve el detalle de propiedad con menú de lista interactivo optimizado"""
+    # Generar el cuerpo con la información de la propiedad (sin los botones al final)
+    titulo = propiedad.get('titulo', 'Propiedad Destacada').strip()
+    operacion = propiedad.get('operacion', '')
+    
+    # Crear resumen compacto para el body del menú
+    barrio = propiedad.get('barrio', '')
+    precio = propiedad.get('precio', 0)
+    moneda = propiedad.get('moneda_precio', 'USD')
+    simbolo = "USD$" if moneda == 'USD' else "$"
+    expensas = propiedad.get('expensas', 0)
+    ambientes = propiedad.get('ambientes', 0)
+    m2 = propiedad.get('metros_cuadrados', 0)
+    
+    # Body más compacto para el menú de lista
+    body = f"""✨ *{titulo}* ✨
+
+📍 {barrio}
+💵 {simbolo} {precio:,.0f}"""
+    
+    if expensas > 0:
+        moneda_exp = propiedad.get('moneda_expensas', 'ARS')
+        simb_exp = "USD$" if moneda_exp == 'USD' else "$"
+        body += f" | 🏢 {simb_exp} {expensas:,.0f}"
+    
+    body += f"\n📐 {ambientes} amb. en {m2} m²"
+    
+    # Amenities
+    amenities = []
+    if str(propiedad.get('balcon', 'No')).lower() in ['si', 'sí', '1', 'true', 'x']:
+        amenities.append("🌆 Balcón")
+    if str(propiedad.get('cochera', 'No')).lower() in ['si', 'sí', '1', 'true', 'x']:
+        amenities.append("🚗 Cochera")
+    if str(propiedad.get('acepta_mascotas', 'No')).lower() in ['si', 'sí', '1', 'true']:
+        amenities.append("🐾 Pet Friendly")
+    if str(propiedad.get('pileta', 'No')).lower() in ['si', 'sí', '1', 'true']:
+        amenities.append("🏊 Pileta")
+    if str(propiedad.get('aire_acondicionado', 'No')).lower() in ['si', 'sí', '1', 'true']:
+        amenities.append("❄️ Aire")
+        
+    if amenities:
+        body += f"\n⭐ {' • '.join(amenities)}"
+    
+    body += "\n\n¿Qué deseas hacer?"
+    
+    # Crear las secciones del menú
+    sections = [
+        {
+            "title": "Ver Información",
+            "rows": [
+                {"id": "ver_fotos", "title": "📷 Ver Fotos", "description": "Galería de imágenes"},
+                {"id": "ver_pdf", "title": "📄 Ver Ficha Técnica", "description": "Descargar PDF completo"},
+            ]
+        },
+        {
+            "title": "Acciones",
+            "rows": [
+                {"id": "me_interesa", "title": "👁️ Me Interesa", "description": "Agendar visita"},
+                {"id": "requisitos", "title": "📋 Ver Requisitos", "description": "Condiciones de ingreso"},
+            ]
+        },
+        {
+            "title": "Navegación",
+            "rows": [
+                {"id": "ver_listado", "title": "📋 Más Propiedades", "description": "Ver otras opciones"},
+                {"id": "m", "title": "Ⓜ️ Menú Principal", "description": "Ir al inicio"},
+                {"id": "s", "title": "❌ Salir", "description": "Terminar sesión"}
+            ]
+        }
+    ]
+    
+    return WhatsAppResponse.list_menu(
+        body=body,
+        button_text="Opciones",
+        sections=sections,
+        footer="Selecciona una opción del menú 👇"
+    )
 
 
 def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
@@ -590,9 +1150,8 @@ def manejar_listado_propiedades(text_lower, estado_usuario, user_id):
         
         registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_detalle", f"Título: {propiedad.get('titulo')}")
         
-        operacion = propiedad.get('operacion', '')
-        titulo_op = "💰 VENTA" if operacion == 'venta' else "🔑 ALQUILER" if operacion == 'alquiler' else "🏠 PROPIEDAD"
-        return f"{titulo_op}\n" + "─" * 30 + "\n" + formatear_detalle_propiedad(propiedad)
+        # Retornar menú interactivo optimizado
+        return devolver_detalle_propiedad_menu(propiedad)
     else:
         return f"❌ El número {indice} está fuera de rango (1-{len(propiedades)}).\n\n📱 Enviá *MENU* para volver al inicio o *SALIR* para terminar."
 
@@ -734,40 +1293,79 @@ def manejar_busqueda_keywords(termino, estado_usuario, user_id):
     estado_usuario.update({
         'paso': 'listado_propiedades',
         'propiedades_filtradas': resultados,
-        'operacion_seleccionada': 'busqueda'
+        'operacion_seleccionada': 'busqueda',
+        'ultima_accion': 'mostrar_listado'
     })
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    mensaje = f"🔎 *Resultados para: {termino}* ({len(resultados)})\n\n"
-    for i, p in enumerate(resultados[:5]):
-        mensaje += f"*{i+1}️⃣ {p.get('titulo')}*\n📍 {p.get('barrio', 'S/D')} - ${p.get('precio', 'S/D')}\n\n"
+    return responder_listado_propiedades(resultados, f"Resultados para: {termino}", user_id, estado_usuario)
+
+def manejar_fotos_propiedad(estado_usuario, user_id):
+    """Maneja la solicitud de fotos de una propiedad"""
+    indice = estado_usuario.get('ultimo_indice_preguntado')
+    propiedades = estado_usuario.get('propiedades_filtradas', [])
+    if indice and 1 <= indice <= len(propiedades):
+        propiedad = propiedades[indice - 1]
+        return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
+    else:
+        return "⚠️ Por favor, primero selecciona una propiedad del listado para ver las fotos."
+
+def manejar_pdf_propiedad(estado_usuario, user_id):
+    """Maneja la solicitud de PDF de una propiedad"""
+    indice = estado_usuario.get('ultimo_indice_preguntado')
+    propiedades = estado_usuario.get('propiedades_filtradas', [])
     
-    if len(resultados) > 5:
-        mensaje += "📝 _Mostrando los primeros 5 resultados..._\n"
+    if propiedades and indice and 1 <= indice <= len(propiedades):
+        propiedad = propiedades[indice - 1]
+        prop_id = propiedad.get('id_temporal')
+        base_url = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")
         
-    mensaje += "\n👉 *Respondé con el número* (1, 2, 3...) para ver más detalle.\n"
-    mensaje += "❌ *Envía 'S' para SALIR*"
-    return mensaje
+        texto = f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{base_url}/fichas/{prop_id}\n\n📍 Seleccioná la propiedad o seleccioná 👇"
+        
+        return WhatsAppResponse.buttons(
+            body=texto,
+            buttons=[
+                {"id": "m", "title": "Volver al Menú"},
+                {"id": "s", "title": "Salir"}
+            ]
+        )
+    else:
+        return "⚠️ Error al identificar la propiedad. Por favor selecciona una del listado."
+
 
 def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
     """Maneja las interacciones cuando el usuario está viendo el detalle de una propiedad"""
     
+    # Mapear IDs de botones del menú interactivo a comandos
+    mapeo_botones = {
+        "ver_fotos": "f",
+        "ver_pdf": "p",
+        "me_interesa": "i",
+        "ver_listado": "l",
+        "m": "m",
+        "s": "s",
+        "requisitos": "req"
+    }
+    
+    # Convertir ID de botón a comando si es necesario
+    comando = mapeo_botones.get(text_lower, text_lower)
+    
     # Comandos de navegación
-    if text_lower in ["menu", "volver", "hola"]:
+    if comando in ["menu", "volver", "hola", "m"]:
         estado_usuario['paso'] = 'menu_principal'
         estado_usuario['propiedades_filtradas'] = []
         estado_usuario['ultimo_indice_preguntado'] = None
         actualizar_estado_usuario(user_id, estado_usuario)
         return "WELCOME_FLOW_TRIGGER"
     
-    if text_lower in ["salir", "chau", "adios", "0"]:
+    if comando in ["salir", "chau", "adios", "0", "s"]:
         estado_usuario['paso'] = 'menu_principal'
         estado_usuario['propiedades_filtradas'] = []
         actualizar_estado_usuario(user_id, estado_usuario)
         return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
     
     # Comando para volver al listado de propiedades
-    if text_lower in ["listado", "l", "listado propiedades"]:
+    if comando in ["listado", "l", "listado propiedades"]:
         propiedades = estado_usuario.get('propiedades_filtradas', [])
         if propiedades:
             estado_usuario['paso'] = 'listado_propiedades'
@@ -778,8 +1376,8 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
             actualizar_estado_usuario(user_id, estado_usuario)
             return "⚠️ No hay propiedades en el listado. Envía 'MENU' para volver al inicio."
     
-    # Comando "I" - Me interesa
-    if text_lower in ["i", "interesa", "me interesa"]:
+    # Comando "I" o "me_interesa" - Me interesa
+    if comando in ["i", "interesa", "me interesa"]:
         indice = estado_usuario.get('ultimo_indice_preguntado')
         propiedades = estado_usuario.get('propiedades_filtradas', [])
         
@@ -798,27 +1396,70 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
         else:
             return "⚠️ Error: No se pudo identificar la propiedad. Por favor, volvé al listado y seleccioná la propiedad nuevamente."
     
-    # Comando "f" - Ver fotos
-    if text_lower == "f":
-        indice = estado_usuario.get('ultimo_indice_preguntado')
-        propiedades = estado_usuario.get('propiedades_filtradas', [])
-        if indice and 1 <= indice <= len(propiedades):
-            propiedad = propiedades[indice - 1]
-            return f"PHOTOS_TRIGGER|{propiedad.get('id_temporal')}"
-        else:
-            return "⚠️ Error: No se pudo identificar la propiedad para mostrar las fotos."
+    # Comando "f" o "ver_fotos" - Ver fotos
+    if comando == "f":
+        return manejar_fotos_propiedad(estado_usuario, user_id)
     
-    # Comando "p" - Descargar PDF
-    if text_lower == "p":
+    # Comando "p" o "ver_pdf" - Descargar PDF
+    if comando == "p":
+        return manejar_pdf_propiedad(estado_usuario, user_id)
+    
+    # Comando "req" o "requisitos" - Ver requisitos
+    if comando == "req":
         indice = estado_usuario.get('ultimo_indice_preguntado')
         propiedades = estado_usuario.get('propiedades_filtradas', [])
         if indice and 1 <= indice <= len(propiedades):
             propiedad = propiedades[indice - 1]
-            prop_id = propiedad.get('id_temporal')
-            BASE_URL = os.environ.get("BASE_URL", "https://meta-rjpb.onrender.com")
-            return f"📄 *Aquí tenés la ficha técnica oficial de {prop_id} para descargar:*\n{BASE_URL}/fichas/{prop_id}"
+            operacion = propiedad.get('operacion', 'alquiler')
+            
+            if operacion == 'alquiler':
+                return """📋 *REQUISITOS PARA ALQUILER*
+
+Para poder alquilar esta propiedad necesitas:
+
+📝 *Documentación:*
+• DNI vigente
+• CUIL/CUIT
+• Comprobante de ingresos (últimos 3 recibos)
+
+💼 *Laborales:*
+• Constancia de trabajo (con sueldo mínimo 3x la renta)
+• Antiguedad en el trabajo: mín 1 año
+• Referencias laborales
+
+🏠 *Personales:*
+• 2 referencias personales
+• Comprobante de domicilio actual
+
+💰 *Económicos:*
+• Depósito caución: 2 meses de renta
+• 1er mes de renta adelantado
+• Gastos de gestión (según inmobiliaria)
+
+¿Necesitás ayuda para completar la documentación? 📞"""
+            else:
+                return """📋 *REQUISITOS PARA COMPRA*
+
+Para poder comprar esta propiedad necesitas:
+
+📝 *Documentación:*
+• DNI vigente
+• CUIL/CUIT
+• Comprobante de origen de fondos
+• Estado patrimonial
+
+💼 *Financieros:*
+• Capacidad de financiamiento
+• Certificado de no adeudar impuestos
+• Comprobantes de ingresos
+
+🏦 *Bancarios:*
+• Pre-aprobación de crédito (si aplica)
+• Referencias bancarias
+
+¿Necesitás ayuda para la gestión? 📞"""
         else:
-            return "⚠️ Error: No se pudo identificar la propiedad para generar el PDF."
+            return "⚠️ Error: No se pudo identificar la propiedad."
     
     # Si no se reconoce el comando, mostrar opciones con botones
     return WhatsAppResponse.buttons(
@@ -831,3 +1472,50 @@ def manejar_detalle_propiedad(text_lower, estado_usuario, user_id):
         ],
         footer="L = Listado | M = Menú | S = Salir"
     )
+
+def manejar_flow_response(estado_usuario, user_id):
+    """Procesa la respuesta recibida desde un Meta Flow"""
+    response = estado_usuario.get('last_flow_response', {})
+    if not response:
+        return "⚠️ Error: No se encontraron datos en el formulario."
+        
+    # Extraer datos del Flow (según el JSON definido)
+    nombre = response.get('full_name', 'Cliente')
+    email = response.get('email', 'No provisto')
+    motivo = response.get('reason', 'consulta')
+    
+    # Limpiar la respuesta para no procesarla dos veces
+    estado_usuario['last_flow_response'] = None
+    estado_usuario['nombre_cliente'] = nombre
+    estado_usuario['email_cliente'] = email
+    
+    # Obtener propiedad si existe
+    indice = estado_usuario.get('ultimo_indice_preguntado')
+    propiedades_lista = estado_usuario.get('propiedades_filtradas', [])
+    prop_id = "N/A"
+    prop_titulo = "General"
+    
+    if indice and 1 <= indice <= len(propiedades_lista) and isinstance(propiedades_lista, list):
+        prop = propiedades_lista[indice - 1]
+        prop_id = prop.get('id_temporal', 'N/A')
+        prop_titulo = prop.get('titulo', 'Propiedad')
+
+    # Registrar el lead completo
+    try:
+        registrar_lead(user_id, prop_id, 'flow_contact', f"Nombre: {nombre}, Email: {email}, Motivo: {motivo}")
+        notificar_agente(f"🎯 *NUEVO LEAD (META FLOW)*\n👤 Nombre: {nombre}\n📧 Email: {email}\n📞 Tel: +{user_id}\n🏠 Propiedad: {prop_titulo}\n📝 Motivo: {motivo}")
+    except Exception as e:
+        log(f"⚠️ Error registrando lead desde Flow: {e}")
+
+    # Responder al usuario y ofrecer cita si es relevante
+    mensaje_exito = f"✅ ¡Gracias {nombre}! Hemos recibido tus datos correctamente.\n\n📧 Email registrado: {email}\n\nUn asesor se contactará contigo a la brevedad por {motivo}."
+    
+    # Si el motivo es relevante para una cita, ofrecemos agendar
+    if motivo.lower() in ['alquiler', 'venta', 'tasacion']:
+        estado_usuario['paso'] = 'ofrecer_cita'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return [mensaje_exito, "📅 *¿Te gustaría agendar una visita o entrevista para avanzar?* (Si/No)"]
+    
+    estado_usuario['paso'] = 'menu_principal'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    return [mensaje_exito, "WELCOME_FLOW_TRIGGER"]
