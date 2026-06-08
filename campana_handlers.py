@@ -172,8 +172,7 @@ def iniciar_campana(platform=None):
         "¿En qué puedo ayudarte hoy? Por favor, elegí una opción enviando el número:\n\n"
         "1. **Tasación Virtual Inteligente:** Obtené un valor estimado de tu propiedad en segundos.\n"
         "2. **Quiero Vender:** Iniciá el proceso para que publiquemos tu inmueble.\n"
-        "3. **Ver Propiedades:** Explorá nuestro catálogo en "
-        "[dantepropiedades.com.ar](http://dantepropiedades.com.ar/?fbclid=IwZXh0bgNhZW0CMTAAYnJpZBExaDQ5eGhEWU5CcUpTQlpOSXNydGMGYXBwX2lkEDIyMjAzOTE3ODgyMDA4OTIAAR57JGohGQaJjznuekXrhFX2ns0LFDk4_3gB_XpOvq3JEbuAzua7M6dJg0e_cA_aem_featLz6ajeQsMTmUacwIJg).\n"
+        "3. **Ver Propiedades:** Explorá nuestro catálogo en dantepropiedades.com.ar.\n"
         "4. **Asesoramiento:** Consultas sobre trámites, contratos o tasaciones profesionales.\n"
         "5. **Hablar con Dante:** Si necesitás atención personalizada inmediata."
     )
