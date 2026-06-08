@@ -179,42 +179,34 @@ def iniciar_campana(platform=None):
     )
     
     if es_fb_ig:
-        partes = [
-            "¡Hola! Bienvenido a *Dante Propiedades Inmobiliaria*. Soy tu asistente inteligente.",
-            "¿En qué puedo ayudarte hoy? Por favor, elegí una opción enviando el número:",
-            "",
-            "1️⃣ Tasación Virtual Inteligente - Obtené un valor estimado de tu propiedad en segundos.",
-            "2️⃣ Quiero Vender - Iniciá el proceso para que publiquemos tu inmueble.",
-            "3️⃣ Ver Propiedades - Explorá nuestro catálogo en dantepropiedades.com.ar",
-            "4️⃣ Asesoramiento - Consultas sobre trámites, contratos o tasaciones profesionales.",
-            "5️⃣ Hablar con Dante - Si necesitás atención personalizada inmediata.",
-            "",
-            "💡 *Envía el número de la opción deseada* 👇"
-        ]
-
-
-        return [{"type": "text", "body": parte, "preview": False} for parte in partes if parte]
-
-    
-    else:
-        # WhatsApp: lista interactiva
-        rows = [
-            {"id": "c_tasar", "title": "1️⃣ Tasación Virtual Inteligente", "description": "Obtené un valor estimado de tu propiedad en segundos"},
-            {"id": "c_vender", "title": "2️⃣ Quiero Vender", "description": "Iniciá el proceso para publicar tu inmueble"},
-            {"id": "c_propiedades", "title": "3️⃣ Ver Propiedades", "description": "Explorá nuestro catálogo"},
-            {"id": "c_asesor", "title": "4️⃣ Asesoramiento", "description": "Consultas sobre trámites, contratos o tasaciones"},
-            {"id": "c_dante", "title": "5️⃣ Hablar con Dante", "description": "Atención personalizada inmediata"}
-        ]
-        
-        return WhatsAppResponse.list_menu(
-            header=f"Dante Propiedades 🏠🗝️",
-            body=cuerpo_base,
-            button_text="Ver opciones",
-            sections=[
-                {"title": "Opciones disponibles", "rows": rows}
-            ],
-            footer=PIE_MENU
+        cuerpo_plano = (
+            "¡Hola! Bienvenido a Dante Propiedades Inmobiliaria. Soy tu asistente inteligente. "
+            "¿En qué puedo ayudarte hoy? Por favor, elegí una opción enviando el número:\n\n"
+            "1. Tasación Virtual Inteligente: Obtené un valor estimado de tu propiedad en segundos.\n"
+            "2. Quiero Vender: Iniciá el proceso para que publiquemos tu inmueble.\n"
+            "3. Ver Propiedades: Explorá nuestro catálogo en dantepropiedades.com.ar\n"
+            "4. Asesoramiento: Consultas sobre trámites, contratos o tasaciones profesionales.\n"
+            "5. Hablar con Dante: Si necesitás atención personalizada inmediata."
         )
+        return {"type": "text", "body": cuerpo_plano, "preview": False}
+
+    rows = [
+        {"id": "c_tasar", "title": "1️⃣ Tasación Virtual Inteligente", "description": "Obtené un valor estimado de tu propiedad en segundos"},
+        {"id": "c_vender", "title": "2️⃣ Quiero Vender", "description": "Iniciá el proceso para publicar tu inmueble"},
+        {"id": "c_propiedades", "title": "3️⃣ Ver Propiedades", "description": "Explorá nuestro catálogo"},
+        {"id": "c_asesor", "title": "4️⃣ Asesoramiento", "description": "Consultas sobre trámites, contratos o tasaciones"},
+        {"id": "c_dante", "title": "5️⃣ Hablar con Dante", "description": "Atención personalizada inmediata"}
+    ]
+
+    return WhatsAppResponse.list_menu(
+        header="Dante Propiedades 🏠🗝️",
+        body=cuerpo_base,
+        button_text="Ver opciones",
+        sections=[
+            {"title": "Opciones disponibles", "rows": rows}
+        ],
+        footer=PIE_MENU
+    )
         
 # ========== MANEJO DE INTENCIÓN ==========
 
