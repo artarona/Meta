@@ -37,7 +37,7 @@ def _clear_campana_data(estado_usuario):
         estado_usuario['data']['campana'] = {}
 
 
-def get_bot_response_campana(text, user_id):
+def get_bot_response_campana(text, user_id, platform=None):
     """
     Despachador principal para el MODO CAMPAÑA (TIPO_MENU = 1).
     """
@@ -47,10 +47,11 @@ def get_bot_response_campana(text, user_id):
     estado_usuario = obtener_estado_usuario(user_id)
     paso_actual = estado_usuario.get('paso', 'campana_inicio')
     
-    # ✅ IMPORTANTE: Forzar obtener el platform NUEVAMENTE desde la DB
-    from database import obtener_estado_usuario as get_fresh_state
-    fresh_state = get_fresh_state(user_id)
-    platform = fresh_state.get('platform') or estado_usuario.get('platform')
+    # Usar la plataforma real del webhook cuando esté disponible; si no, caer al estado guardado.
+    if not platform:
+        from database import obtener_estado_usuario as get_fresh_state
+        fresh_state = get_fresh_state(user_id)
+        platform = fresh_state.get('platform') or estado_usuario.get('platform')
     
     # Log para depuración
     log(f"🔍 get_bot_response_campana - platform obtenido: '{platform}'")
