@@ -215,8 +215,13 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
     _clear_campana_data(estado_usuario)
     data = {}
     
-    # Obtener platform del estado
-    platform = estado_usuario.get('platform')
+    # Obtener platform fresco para no depender de un valor viejo guardado en DB.
+    from database import obtener_estado_usuario as get_fresh_state
+    fresh_state = get_fresh_state(user_id)
+    platform = fresh_state.get('platform') or estado_usuario.get('platform')
+    if estado_usuario.get('platform') != platform:
+        estado_usuario['platform'] = platform
+        actualizar_estado_usuario(user_id, estado_usuario)
     es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
     
     log(f"🔍 manejar_intencion_campana - platform: {platform}, es_fb_ig: {es_fb_ig}")
@@ -363,8 +368,13 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
     data = _get_campana_data(estado_usuario)
     intencion = data.get('intencion')
     
-    # Obtener platform para saber qué formato usar
-    platform = estado_usuario.get('platform', 'whatsapp')
+    # Obtener platform fresco para saber qué formato usar.
+    from database import obtener_estado_usuario as get_fresh_state
+    fresh_state = get_fresh_state(user_id)
+    platform = fresh_state.get('platform') or estado_usuario.get('platform', 'whatsapp')
+    if estado_usuario.get('platform') != platform:
+        estado_usuario['platform'] = platform
+        actualizar_estado_usuario(user_id, estado_usuario)
     es_fb_ig = platform in ("messenger", "facebook", "instagram")
     
     # Log para depuración
