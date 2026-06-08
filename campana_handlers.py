@@ -170,12 +170,7 @@ def iniciar_campana(platform=None):
     
     cuerpo_base = (
         "¡Hola! Bienvenido a **Dante Propiedades Inmobiliaria**. Soy tu asistente inteligente. "
-        "¿En qué puedo ayudarte hoy? Por favor, elegí una opción enviando el número:\n\n"
-        "1. **Tasación Virtual Inteligente:** Obtené un valor estimado de tu propiedad en segundos.\n"
-        "2. **Quiero Vender:** Iniciá el proceso para que publiquemos tu inmueble.\n"
-        "3. **Ver Propiedades:** Explorá nuestro catálogo en dantepropiedades.com.ar.\n"
-        "4. **Asesoramiento:** Consultas sobre trámites, contratos o tasaciones profesionales.\n"
-        "5. **Hablar con Dante:** Si necesitás atención personalizada inmediata."
+        "¿En qué puedo ayudarte hoy?"
     )
     
     if es_fb_ig:
@@ -186,7 +181,8 @@ def iniciar_campana(platform=None):
             "2. Quiero Vender: Iniciá el proceso para que publiquemos tu inmueble.\n"
             "3. Ver Propiedades: Explorá nuestro catálogo en dantepropiedades.com.ar\n"
             "4. Asesoramiento: Consultas sobre trámites, contratos o tasaciones profesionales.\n"
-            "5. Hablar con Dante: Si necesitás atención personalizada inmediata."
+            "5. Hablar con Dante: Si necesitás atención personalizada inmediata.\n"
+            "6. Salir: Finalizar la conversación."
         )
         return {"type": "text", "body": cuerpo_plano, "preview": False}
 
@@ -195,7 +191,8 @@ def iniciar_campana(platform=None):
         {"id": "c_vender", "title": "2️⃣ Quiero Vender", "description": "Iniciá el proceso para publicar tu inmueble"},
         {"id": "c_propiedades", "title": "3️⃣ Ver Propiedades", "description": "Explorá nuestro catálogo"},
         {"id": "c_asesor", "title": "4️⃣ Asesoramiento", "description": "Consultas sobre trámites, contratos o tasaciones"},
-        {"id": "c_dante", "title": "5️⃣ Hablar con Dante", "description": "Atención personalizada inmediata"}
+        {"id": "c_dante", "title": "5️⃣ Hablar con Dante", "description": "Atención personalizada inmediata"},
+        {"id": "c_salir", "title": "6️⃣ Salir", "description": "Finalizar la conversación"}
     ]
 
     return WhatsAppResponse.list_menu(
@@ -236,11 +233,13 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
         "3": "c_propiedades",
         "4": "c_asesor",
         "5": "c_dante",
+        "6": "c_salir",
         "uno": "c_tasar",
         "dos": "c_vender",
         "tres": "c_propiedades",
         "cuatro": "c_asesor",
         "cinco": "c_dante",
+        "seis": "c_salir",
         "tasacion": "c_tasar",
         "tasación": "c_tasar",
         "tasar": "c_tasar",
