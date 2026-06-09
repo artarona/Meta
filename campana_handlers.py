@@ -124,8 +124,7 @@ def get_bot_response_campana(text, user_id):
         from tasaciones import (
             manejar_tasacion_operacion, manejar_tasacion_barrio, 
             manejar_tasacion_tipo, manejar_tasacion_m2, 
-            manejar_tasacion_ambientes, manejar_tasacion_estado, 
-            manejar_tasacion_contacto
+            manejar_tasacion_estado, manejar_tasacion_contacto
         )
         resp = None
         if paso_actual == 'tasacion_operacion':
@@ -136,8 +135,6 @@ def get_bot_response_campana(text, user_id):
             resp = manejar_tasacion_tipo(text_lower, estado_usuario, user_id)
         elif paso_actual == 'tasacion_m2':
             resp = manejar_tasacion_m2(text, estado_usuario, user_id)
-        elif paso_actual == 'tasacion_ambientes':
-            resp = manejar_tasacion_ambientes(text, estado_usuario, user_id)
         elif paso_actual == 'tasacion_estado':
             resp = manejar_tasacion_estado(text_lower, estado_usuario, user_id)
         elif paso_actual == 'tasacion_esperando_contacto':

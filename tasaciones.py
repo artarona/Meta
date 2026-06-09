@@ -319,68 +319,111 @@ def manejar_tasacion_tipo(text_lower, estado_usuario, user_id):
                 footer="Dante Propiedades · Tu lugar ideal"
             )
     else:
-        # Si no es una opción válida, mostrar el menú de tipos nuevamente con botones
-        if es_fb_ig:
-            return {
-                "type": "text",
-                "body": "⚠️ Opción no válida.\n\n🏠 *¿Qué tipo de propiedad es?*\n\n1️⃣ Departamento\n2️⃣ Casa\n3️⃣ PH\n4️⃣ Oficina / Local\n5️⃣ Terreno\n\n1️⃣ Volver al menú\n2️⃣ Salir\n\n💡 *Envía el número de la opción deseada*",
-                "preview": False
-            }
-        else:
-            return {
-                "type": "interactive_list",
-                "body": "⚠️ Opción no válida.\n\n🏠 *¿Qué tipo de propiedad es?*",
-                "button_text": "Tipos",
-                "sections": [
-                    {
-                        "title": "Tipo de Propiedad",
-                        "rows": [
-                            {"id": "1", "title": "Departamento"},
-                            {"id": "2", "title": "Casa"},
-                            {"id": "3", "title": "PH"},
-                            {"id": "4", "title": "Oficina / Local"},
-                            {"id": "5", "title": "Terreno"}
-                        ]
-                    }
-                ],
-                "footer": "Selecciona una opción 👇"
-            }
-
+        # Si no es una opción válida, mostrar el menú de tipos nuevamente SIN el hint
+        return {
+            "type": "interactive_list",
+            "body": "⚠️ Opción no válida.\n\n🏠 *¿Qué tipo de propiedad es?*",
+            "button_text": "Tipos",
+            "sections": [
+                {
+                    "title": "Tipo de Propiedad",
+                    "rows": [
+                        {"id": "1", "title": "Departamento"},
+                        {"id": "2", "title": "Casa"},
+                        {"id": "3", "title": "PH"},
+                        {"id": "4", "title": "Oficina / Local"},
+                        {"id": "5", "title": "Terreno"}
+                    ]
+                }
+            ],
+            "footer": "Selecciona una opción 👇"  # ← Footer limpio
+        }
 
 def manejar_tasacion_m2(text, estado_usuario, user_id):
-    """Guarda los m2 e inicia la carga de ambientes (o finaliza si es Terreno)"""
+    """Guarda los m2 e inicia la carga de estado (saltando ambientes)"""
     try:
         m2_str = text.replace(',', '.').strip()
         m2 = float(m2_str)
         
         # Validar que m2 sea un número positivo y razonable
         if m2 < 5 or m2 > 10000:
-            return "⚠️ Por favor, ingresá un número válido de m² (entre 5 y 10000).\n\nEjemplo: 65, 120, 200, etc."
+            cuerpo = "⚠️ Por favor, ingresá un número válido de m² (entre 5 y 10000).\n\nEjemplo: 65, 120, 200, etc."
+            
+            platform = estado_usuario.get('platform', 'whatsapp')
+            es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+            
+            if es_fb_ig:
+                return {
+                    "type": "text",
+                    "body": f"{cuerpo}\n\n1️⃣ Volver al menú\n2️⃣ Salir\n\n💡 *Envía el número de la opción deseada*",
+                    "preview": False
+                }
+            else:
+                return WhatsAppResponse.buttons(
+                    body=cuerpo,
+                    buttons=[
+                        {"id": "c_menu", "title": "📋 Volver al menú"},
+                        {"id": "c_salir", "title": "❌ Salir"}
+                    ],
+                    footer="Dante Propiedades · Tu lugar ideal"
+                )
         
         if 'datos_tasacion' not in estado_usuario['data']:
             estado_usuario['data']['datos_tasacion'] = {}
             
         estado_usuario['data']['datos_tasacion']['m2'] = m2
-        datos = estado_usuario['data']['datos_tasacion']
         
-        # SI ES TERRENO, SALTAR AMBIENTES Y ESTADO
-        if datos.get('tipo') == 'Terreno':
-            log(f"🌱 Propiedad tipo Terreno detectada para {user_id}. Saltando pasos adicionales.")
-            datos['ambientes'] = 1  # Cambiar a 1 en lugar de 0 para evitar problemas en la tasación
-            datos['estado'] = 'Bueno' # Factor neutro 1.0
-            actualizar_estado_usuario(user_id, estado_usuario)
-            return _finalizar_tasacion_y_responder(user_id, estado_usuario, datos)
-            
-        estado_usuario['paso'] = 'tasacion_ambientes'
+        # Asignar un valor por defecto para ambientes (no influye en la tasación)
+        estado_usuario['data']['datos_tasacion']['ambientes'] = 1
+        
+        # Saltar directamente al estado de la propiedad
+        estado_usuario['paso'] = 'tasacion_estado'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "🔢 *¿Cuántos ambientes tiene?* (ej: 3)"
+        
+        # Mostrar pregunta de estado
+        return {
+            "type": "interactive_list",
+            "body": "🏗️ *¿En qué estado se encuentra la propiedad?*",
+            "button_text": "Estado",
+            "sections": [
+                {
+                    "title": "Condición",
+                    "rows": [
+                        {"id": "1", "title": "Excelente / A estrenar"},
+                        {"id": "2", "title": "Muy bueno"},
+                        {"id": "3", "title": "Bueno"},
+                        {"id": "4", "title": "Regular"},
+                        {"id": "5", "title": "A refaccionar"}
+                    ]
+                }
+            ],
+            "footer": "Selecciona una opción 👇"
+        }
     except ValueError:
         log(f"⚠️ Error: No se pudo convertir '{text}' a número")
-        return "⚠️ Por favor, ingresá un número válido para los metros cuadrados (usa . para decimales si es necesario).\n\nEjemplo: 65, 120.5, 200"
+        cuerpo = "⚠️ Por favor, ingresá un número válido para los metros cuadrados (usa . para decimales si es necesario).\n\nEjemplo: 65, 120.5, 200"
+        
+        platform = estado_usuario.get('platform', 'whatsapp')
+        es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+        
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": f"{cuerpo}\n\n1️⃣ Volver al menú\n2️⃣ Salir\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            return WhatsAppResponse.buttons(
+                body=cuerpo,
+                buttons=[
+                    {"id": "c_menu", "title": "📋 Volver al menú"},
+                    {"id": "c_salir", "title": "❌ Salir"}
+                ],
+                footer="Dante Propiedades · Tu lugar ideal"
+            )
     except Exception as e:
         log(f"🔥 Error crítico en manejar_tasacion_m2: {e}")
         return "⚠️ Por favor, ingresá un número válido para los metros cuadrados."
-
 
 def manejar_tasacion_ambientes(text, estado_usuario, user_id):
     """Guarda ambientes e inicia la carga de estado"""
