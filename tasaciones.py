@@ -289,6 +289,10 @@ def manejar_tasacion_tipo(text_lower, estado_usuario, user_id):
         "5": "Terreno"
     }
     
+    # Detectar plataforma
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    
     if text_lower in tipos:
         if 'datos_tasacion' not in estado_usuario['data']:
             estado_usuario['data']['datos_tasacion'] = {}
@@ -296,9 +300,51 @@ def manejar_tasacion_tipo(text_lower, estado_usuario, user_id):
         estado_usuario['data']['datos_tasacion']['tipo'] = tipos[text_lower]
         estado_usuario['paso'] = 'tasacion_m2'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "📏 *¿Cuántos m² cubiertos tiene la propiedad?* (Ingresá solo el número, ej: 65)"
+        
+        cuerpo = "📏 *¿Cuántos m² cubiertos tiene la propiedad?*\n_(Ingresá solo el número, ej: 65)_"
+        
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": f"{cuerpo}\n\n1️⃣ Volver al menú\n2️⃣ Salir\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            return WhatsAppResponse.buttons(
+                body=cuerpo,
+                buttons=[
+                    {"id": "c_menu", "title": "📋 Volver al menú"},
+                    {"id": "c_salir", "title": "❌ Salir"}
+                ],
+                footer="Dante Propiedades · Tu lugar ideal"
+            )
     else:
-        return "⚠️ Por favor, elegí una opción válida (1 al 5)."
+        # Si no es una opción válida, mostrar el menú de tipos nuevamente con botones
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": "⚠️ Opción no válida.\n\n🏠 *¿Qué tipo de propiedad es?*\n\n1️⃣ Departamento\n2️⃣ Casa\n3️⃣ PH\n4️⃣ Oficina / Local\n5️⃣ Terreno\n\n1️⃣ Volver al menú\n2️⃣ Salir\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            return {
+                "type": "interactive_list",
+                "body": "⚠️ Opción no válida.\n\n🏠 *¿Qué tipo de propiedad es?*",
+                "button_text": "Tipos",
+                "sections": [
+                    {
+                        "title": "Tipo de Propiedad",
+                        "rows": [
+                            {"id": "1", "title": "Departamento"},
+                            {"id": "2", "title": "Casa"},
+                            {"id": "3", "title": "PH"},
+                            {"id": "4", "title": "Oficina / Local"},
+                            {"id": "5", "title": "Terreno"}
+                        ]
+                    }
+                ],
+                "footer": "Selecciona una opción 👇"
+            }
 
 
 def manejar_tasacion_m2(text, estado_usuario, user_id):
@@ -342,9 +388,28 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
         amb_str = "".join(filter(str.isdigit, text))
         ambientes = int(amb_str) if amb_str else 0
         
-        # Validar que haya al menos 1 ambiente
         if ambientes < 1:
-            return "⚠️ Por favor, ingresá un número válido de ambientes (mínimo 1).\n\nEjemplo: 1, 2, 3, etc."
+            cuerpo = "⚠️ Por favor, ingresá un número válido de ambientes (mínimo 1).\n\nEjemplo: 1, 2, 3, etc."
+            
+            # Detectar plataforma
+            platform = estado_usuario.get('platform', 'whatsapp')
+            es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+            
+            if es_fb_ig:
+                return {
+                    "type": "text",
+                    "body": f"{cuerpo}\n\n1️⃣ Volver al menú\n2️⃣ Salir\n\n💡 *Envía el número de la opción deseada*",
+                    "preview": False
+                }
+            else:
+                return WhatsAppResponse.buttons(
+                    body=cuerpo,
+                    buttons=[
+                        {"id": "c_menu", "title": "📋 Volver al menú"},
+                        {"id": "c_salir", "title": "❌ Salir"}
+                    ],
+                    footer="Dante Propiedades · Tu lugar ideal"
+                )
         
         if 'datos_tasacion' not in estado_usuario['data']:
             estado_usuario['data']['datos_tasacion'] = {}
@@ -369,11 +434,31 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
                     ]
                 }
             ],
-            "footer": "Ⓜ️ Envía 'M' para Volver | ❌ Envía 'S' para Salir"
+            "footer": "Selecciona una opción 👇"
         }
     except Exception as e:
         log(f"⚠️ Error en manejar_tasacion_ambientes: {e}")
-        return "⚠️ Por favor, ingresá un número para los ambientes. (Ejemplo: 2, 3, 4)"
+        
+        platform = estado_usuario.get('platform', 'whatsapp')
+        es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+        
+        cuerpo = "⚠️ Por favor, ingresá un número para los ambientes. (Ejemplo: 2, 3, 4)"
+        
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": f"{cuerpo}\n\n1️⃣ Volver al menú\n2️⃣ Salir\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            return WhatsAppResponse.buttons(
+                body=cuerpo,
+                buttons=[
+                    {"id": "c_menu", "title": "📋 Volver al menú"},
+                    {"id": "c_salir", "title": "❌ Salir"}
+                ],
+                footer="Dante Propiedades · Tu lugar ideal"
+            )
 
 
 def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
@@ -415,8 +500,25 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
         log(f"✅ Datos de tasación completos: {estado_usuario['data']['datos_tasacion']}")
         return _finalizar_tasacion_y_responder(user_id, estado_usuario, estado_usuario['data']['datos_tasacion'])
     else:
-        return "⚠️ Por favor, elegí una opción válida (1 al 5)."
-
+        # Opción inválida: mostrar nuevamente la lista de estados
+        return {
+            "type": "interactive_list",
+            "body": "⚠️ Opción no válida.\n\n🏗️ *¿En qué estado se encuentra la propiedad?*",
+            "button_text": "Estado",
+            "sections": [
+                {
+                    "title": "Condición",
+                    "rows": [
+                        {"id": "1", "title": "Excelente / A estrenar"},
+                        {"id": "2", "title": "Muy bueno"},
+                        {"id": "3", "title": "Bueno"},
+                        {"id": "4", "title": "Regular"},
+                        {"id": "5", "title": "A refaccionar"}
+                    ]
+                }
+            ],
+            "footer": "Selecciona una opción 👇"
+        }
 
 def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
     """Lógica compartida para calcular tasación, registrar lead y responder"""
