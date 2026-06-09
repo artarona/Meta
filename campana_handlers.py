@@ -187,13 +187,14 @@ def iniciar_campana(platform=None):
         return {"type": "text", "body": cuerpo_plano, "preview": False}
 
     rows = [
-        {"id": "c_tasar", "title": "1️⃣ Tasación Virtual Inteligente", "description": "Obtené un valor estimado de tu propiedad en segundos"},
-        {"id": "c_vender", "title": "2️⃣ Quiero Vender", "description": "Iniciá el proceso para publicar tu inmueble"},
-        {"id": "c_propiedades", "title": "3️⃣ Ver Propiedades", "description": "Explorá nuestro catálogo"},
-        {"id": "c_asesor", "title": "4️⃣ Asesoramiento", "description": "Consultas sobre trámites, contratos o tasaciones"},
-        {"id": "c_dante", "title": "5️⃣ Hablar con Dante", "description": "Atención personalizada inmediata"},
-        {"id": "c_salir", "title": "6️⃣ Salir", "description": "Finalizar la conversación"}
+        {"id": "c_tasar", "title": "Tasación Virtual Inteligente", "description": "Obtené un valor estimado de tu propiedad en segundos"},
+        {"id": "c_vender", "title": "Quiero Vender", "description": "Iniciá el proceso para publicar tu inmueble"},
+        {"id": "c_propiedades", "title": "Ver Propiedades", "description": "Explorá nuestro catálogo"},
+        {"id": "c_asesor", "title": "Asesoramiento", "description": "Consultas sobre trámites, contratos o tasaciones"},
+        {"id": "c_dante", "title": "Hablar con Dante", "description": "Atención personalizada inmediata"},
+        {"id": "c_salir", "title": "Salir", "description": "Finalizar la conversación"}
     ]
+
 
     return WhatsAppResponse.list_menu(
         header="Dante Propiedades 🏠🗝️",
