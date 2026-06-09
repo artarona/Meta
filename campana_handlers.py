@@ -37,7 +37,7 @@ def _clear_campana_data(estado_usuario):
         estado_usuario['data']['campana'] = {}
 
 
-def get_bot_response_campana(text, user_id, platform=None):
+def get_bot_response_campana(text, user_id):
     """
     Despachador principal para el MODO CAMPAÑA (TIPO_MENU = 1).
     """
@@ -47,11 +47,10 @@ def get_bot_response_campana(text, user_id, platform=None):
     estado_usuario = obtener_estado_usuario(user_id)
     paso_actual = estado_usuario.get('paso', 'campana_inicio')
     
-    # Usar la plataforma real del webhook cuando esté disponible; si no, caer al estado guardado.
-    if not platform:
-        from database import obtener_estado_usuario as get_fresh_state
-        fresh_state = get_fresh_state(user_id)
-        platform = fresh_state.get('platform') or estado_usuario.get('platform')
+    # ✅ IMPORTANTE: Forzar obtener el platform NUEVAMENTE desde la DB
+    from database import obtener_estado_usuario as get_fresh_state
+    fresh_state = get_fresh_state(user_id)
+    platform = fresh_state.get('platform') or estado_usuario.get('platform')
     
     # Log para depuración
     log(f"🔍 get_bot_response_campana - platform obtenido: '{platform}'")
@@ -169,42 +168,58 @@ def iniciar_campana(platform=None):
     log(f"🔍 iniciar_campana - platform: '{platform}', es_fb_ig: {es_fb_ig}")
     
     cuerpo_base = (
-        "¡Hola! Bienvenido a **Dante Propiedades Inmobiliaria**. Soy tu asistente inteligente. "
-        "¿En qué puedo ayudarte hoy?"
+        "¡Hola! 👋 Soy el asistente de Dante Propiedades 🏠🗝️.\n\n"
+        "Estamos para acompañarte en todo el proceso de compra, venta o tasación de tu propiedad.\n\n"
+        "¿Te gustaría recibir una valoración gratuita o conocer las mejores oportunidades del mercado?\n\n"
+        "Contame qué necesitás y te ayudo personalmente a avanzar."  # ← Sin asteriscos
     )
     
     if es_fb_ig:
-        cuerpo_plano = (
-            "¡Hola! Bienvenido a Dante Propiedades Inmobiliaria. Soy tu asistente inteligente. "
-            "¿En qué puedo ayudarte hoy? Por favor, elegí una opción enviando el número:\n\n"
-            "1. Tasación Virtual Inteligente: Obtené un valor estimado de tu propiedad en segundos.\n"
-            "2. Quiero Vender: Iniciá el proceso para que publiquemos tu inmueble.\n"
-            "3. Ver Propiedades: Explorá nuestro catálogo en dantepropiedades.com.ar\n"
-            "4. Asesoramiento: Consultas sobre trámites, contratos o tasaciones profesionales.\n"
-            "5. Hablar con Dante: Si necesitás atención personalizada inmediata.\n"
-            "6. Salir: Finalizar la conversación."
+        # Dividir el mensaje en partes separadas
+        partes = [
+            "¡Hola! 👋 Soy el asistente de Dante Propiedades 🏠🗝️",
+            "Estamos para acompañarte en todo el proceso de compra, venta o tasación de tu propiedad.\n"
+            "¿Te gustaría recibir una valoración gratuita o conocer las mejores oportunidades del mercado?\n"
+            "Contame qué necesitás y te ayudo personalmente a avanzar.",
+            "",
+            "*Servicios Disponibles*\n"
+            "1️⃣ 🏡 Quiero Comprar - Busco comprar una propiedad\n"
+            "2️⃣ 🔑 Quiero Alquilar - Busco alquilar una propiedad\n"
+            "3️⃣ 📈 Tasar mi Propiedad - Quiero saber el valor de mercado (¡gratis!)\n"
+            "4️⃣ 👤 Hablar con Asesor - Atención personalizada inmediata",
+            "",
+            "*Otras Opciones*\n"
+            "5️⃣ ❌ Salir - Finalizar la conversación",
+            "",
+            "💡 *Envía el número de la opción deseada* 👇"
+        ]
+
+
+        return [{"type": "text", "body": parte, "preview": False} for parte in partes if parte]
+
+    
+    else:
+        # WhatsApp: lista interactiva
+        rows = [
+            {"id": "c_comprar", "title": "🏡 Quiero Comprar", "description": "Busco comprar una propiedad"},
+            {"id": "c_alquilar", "title": "🔑 Quiero Alquilar", "description": "Busco alquilar una propiedad"},
+            {"id": "c_tasar", "title": "📈 Tasar mi Propiedad", "description": "Quiero saber el valor de mercado (¡gratis!)"},
+            {"id": "c_asesor", "title": "👤 Hablar con Asesor", "description": "Atención personalizada inmediata"}
+        ]
+        otras = [
+            {"id": "c_salir", "title": "❌ Salir", "description": "Finalizar la conversación"}
+        ]
+        
+        return WhatsAppResponse.list_menu(
+            header=f"Dante Propiedades 🏠🗝️",
+            body=cuerpo_base,
+            button_text="Ver opciones",
+            sections=[
+                {"title": "Servicios Disponibles", "rows": rows},
+                {"title": "Otras Opciones", "rows": otras}
+            ],
+            footer=PIE_MENU
         )
-        return {"type": "text", "body": cuerpo_plano, "preview": False}
-
-    rows = [
-        {"id": "c_tasar", "title": "Tasación Virtual Inteligente", "description": "Obtené un valor estimado de tu propiedad en segundos"},
-        {"id": "c_vender", "title": "Quiero Vender", "description": "Iniciá el proceso para publicar tu inmueble"},
-        {"id": "c_propiedades", "title": "Ver Propiedades", "description": "Explorá nuestro catálogo"},
-        {"id": "c_asesor", "title": "Asesoramiento", "description": "Consultas sobre trámites, contratos o tasaciones"},
-        {"id": "c_dante", "title": "Hablar con Dante", "description": "Atención personalizada inmediata"},
-        {"id": "c_salir", "title": "Salir", "description": "Finalizar la conversación"}
-    ]
-
-
-    return WhatsAppResponse.list_menu(
-        header="Dante Propiedades 🏠🗝️",
-        body=cuerpo_base,
-        button_text="Ver opciones",
-        sections=[
-            {"title": "Opciones disponibles", "rows": rows}
-        ],
-        footer=PIE_MENU
-    )
         
 # ========== MANEJO DE INTENCIÓN ==========
 
@@ -213,13 +228,8 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
     _clear_campana_data(estado_usuario)
     data = {}
     
-    # Obtener platform fresco para no depender de un valor viejo guardado en DB.
-    from database import obtener_estado_usuario as get_fresh_state
-    fresh_state = get_fresh_state(user_id)
-    platform = fresh_state.get('platform') or estado_usuario.get('platform')
-    if estado_usuario.get('platform') != platform:
-        estado_usuario['platform'] = platform
-        actualizar_estado_usuario(user_id, estado_usuario)
+    # Obtener platform del estado
+    platform = estado_usuario.get('platform')
     es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
     
     log(f"🔍 manejar_intencion_campana - platform: {platform}, es_fb_ig: {es_fb_ig}")
@@ -227,67 +237,30 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
     # Normalizar el texto recibido
     text_normalized = text.lower().strip()
     
-    # Mapeo de opciones numéricas para el menú de campaña
-    opciones_numericas = {
-        "1": "c_tasar",
-        "2": "c_vender",
-        "3": "c_propiedades",
-        "4": "c_asesor",
-        "5": "c_dante",
-        "6": "c_salir",
-        "uno": "c_tasar",
-        "dos": "c_vender",
-        "tres": "c_propiedades",
-        "cuatro": "c_asesor",
-        "cinco": "c_dante",
-        "seis": "c_salir",
-        "tasacion": "c_tasar",
-        "tasación": "c_tasar",
-        "tasar": "c_tasar",
-        "vender": "c_vender",
-        "venta": "c_vender",
-        "propiedades": "c_propiedades",
-        "ver propiedades": "c_propiedades",
-        "catalogo": "c_propiedades",
-        "asesoramiento": "c_asesor",
-        "asesor": "c_asesor",
-        "hablar con dante": "c_dante",
-        "dante": "c_dante",
-        "salir": "c_salir"
-    }
-
-    if text_normalized in opciones_numericas:
-        text_normalized = opciones_numericas[text_normalized]
-        log(f"🔄 Conversión numérica: '{text}' -> '{text_normalized}'")
+    # Mapeo de opciones numéricas SOLO para Facebook/Instagram
+    if es_fb_ig:
+        opciones_numericas = {
+            "1": "c_comprar",
+            "2": "c_alquilar",
+            "3": "c_tasar",
+            "4": "c_asesor",
+            "5": "c_salir",
+            "uno": "c_comprar",
+            "dos": "c_alquilar",
+            "tres": "c_tasar",
+            "cuatro": "c_asesor",
+            "cinco": "c_salir",
+            "comprar": "c_comprar",
+            "alquilar": "c_alquilar",
+            "tasar": "c_tasar",
+            "asesor": "c_asesor",
+            "salir": "c_salir"
+        }
+        
+        if text_normalized in opciones_numericas:
+            text_normalized = opciones_numericas[text_normalized]
+            log(f"🔄 Conversión numérica: '{text}' -> '{text_normalized}'")
     
-    if text_normalized in ["c_vender", "vender", "venta", "quiero vender"]:
-        data['intencion'] = "Vender"
-        estado_usuario['paso'] = 'campana_pedir_nombre'
-        _set_campana_data(estado_usuario, data)
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return (
-            "🏠🗝️ *¡Perfecto! Quiero ayudarte a vender tu propiedad.*\n\n"
-            "Un asesor de Dante Propiedades te contactará para coordinar una evaluación inicial.\n\n"
-            "Por favor, enviá tu *Nombre y Apellido* para empezar:"
-        )
-
-    if text_normalized in ["c_propiedades", "propiedades", "ver propiedades", "catalogo"]:
-        return (
-            "🏡 *Explorá nuestro catálogo:*\n\n"
-            "https://www.dantepropiedades.com.ar\n\n"
-            "Si querés, también podés escribir 'M' para volver al menú o 'S' para salir."
-        )
-
-    if text_normalized in ["c_dante", "dante", "hablar con dante", "hablar con asesor"]:
-        data['intencion'] = "Asesoramiento"
-        estado_usuario['paso'] = 'campana_pedir_nombre'
-        _set_campana_data(estado_usuario, data)
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return (
-            "👤 *¡Genial!* Un asesor experto de Dante Propiedades te atenderá a la brevedad.\n\n"
-            "Por favor, enviá tu *Nombre y Apellido* para que podamos ayudarte mejor:"
-        )
-
     if text_normalized in ["c_comprar", "comprar", "quiero comprar", "compra"]:
         data['intencion'] = "Comprar"
         estado_usuario['paso'] = 'campana_recopilar_zona'
@@ -368,13 +341,8 @@ def manejar_recopilacion_datos(text, estado_usuario, user_id):
     data = _get_campana_data(estado_usuario)
     intencion = data.get('intencion')
     
-    # Obtener platform fresco para saber qué formato usar.
-    from database import obtener_estado_usuario as get_fresh_state
-    fresh_state = get_fresh_state(user_id)
-    platform = fresh_state.get('platform') or estado_usuario.get('platform', 'whatsapp')
-    if estado_usuario.get('platform') != platform:
-        estado_usuario['platform'] = platform
-        actualizar_estado_usuario(user_id, estado_usuario)
+    # Obtener platform para saber qué formato usar
+    platform = estado_usuario.get('platform', 'whatsapp')
     es_fb_ig = platform in ("messenger", "facebook", "instagram")
     
     # Log para depuración
