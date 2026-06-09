@@ -58,6 +58,20 @@ def _clear_campana_data(estado_usuario):
     if isinstance(estado_usuario.get('data'), dict):
         estado_usuario['data']['campana'] = {}
 
+def manejar_reintentar_tasacion(estado_usuario, user_id):
+    """Reinicia el flujo de tasación"""
+    if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
+        estado_usuario['data'] = {}
+    
+    estado_usuario['data']['datos_tasacion'] = {
+        "operacion": "venta"
+    }
+    estado_usuario['paso'] = 'tasacion_barrio_seleccion'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    # NO importar, llamar directamente
+    return mostrar_lista_barrios(estado_usuario, user_id)
+
 
 def get_bot_response_campana(text, user_id):
     """
@@ -120,9 +134,9 @@ def get_bot_response_campana(text, user_id):
         return iniciar_campana(platform)
     
     # MANEJO ESPECIAL PARA REINTENTAR TASACIÓN (ID 10)
-    if text_lower == "10":
-        from tasaciones import manejar_reintentar_tasacion
-        return manejar_reintentar_tasacion(estado_usuario, user_id)
+    if text_lower == "-1":
+       # from tasaciones import manejar_reintentar_tasacion
+       # return manejar_reintentar_tasacion(estado_usuario, user_id)
     
     # ========== ROUTING POR PASO ==========
     if paso_actual in ('campana_inicio', 'menu_principal'):
