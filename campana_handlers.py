@@ -142,7 +142,7 @@ def get_bot_response_campana(text, user_id):
     elif paso_actual == 'campana_pedir_nombre':
         return manejar_pedir_nombre_asesor(text, estado_usuario, user_id)
     
-        elif paso_actual == 'vender_menu_principal':
+    elif paso_actual == 'vender_menu_principal':
             return manejar_vender_menu(text_lower, estado_usuario, user_id)
     
     elif paso_actual == 'vender_submenu_datos':
