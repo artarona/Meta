@@ -276,68 +276,107 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
 # ========== VENDER - FLUJO SECUENCIAL ==========
 
 def manejar_vender_paso1_nombre(text, estado_usuario, user_id):
+    """Paso 1: Guarda el nombre y avanza a preguntar barrio"""
     data = _get_campana_data(estado_usuario)
     data['nombre_completo'] = text
     _set_campana_data(estado_usuario, data)
     guardar_lead_vender(user_id, data, "nombre_completo", text)
     
-    estado_usuario['paso'] = 'vender_paso2_documentacion'
+    # Avanzar al paso de barrio
+    estado_usuario['paso'] = 'vender_paso2_barrio'
     actualizar_estado_usuario(user_id, estado_usuario)
+    
+    return mostrar_lista_barrios_vender(estado_usuario, user_id)
+
+
+     
+        
+def manejar_vender_paso2_barrio(text, estado_usuario, user_id):
+    """Paso 2: Guarda el barrio y avanza a documentación"""
+    from logic.constants import BARRIOS_VALIDOS
+    
+    text_stripped = text.strip()
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    
+    barrio_seleccionado = None
+    
+    # Intentar por número
+    if text_stripped.isdigit():
+        idx = int(text_stripped) - 1
+        if 0 <= idx < len(BARRIOS_VALIDOS):
+            barrio_seleccionado = BARRIOS_VALIDOS[idx]
+    
+    # Intentar por nombre exacto o parcial
+    if not barrio_seleccionado:
+        for barrio in BARRIOS_VALIDOS:
+            if barrio.lower() == text_stripped.lower():
+                barrio_seleccionado = barrio
+                break
+        if not barrio_seleccionado:
+            for barrio in BARRIOS_VALIDOS:
+                if barrio.lower().startswith(text_stripped.lower()) or text_stripped.lower() in barrio.lower():
+                    barrio_seleccionado = barrio
+                    break
+    
+    if barrio_seleccionado:
+        data = _get_campana_data(estado_usuario)
+        data['barrio'] = barrio_seleccionado
+        _set_campana_data(estado_usuario, data)
+        guardar_lead_vender(user_id, data, "barrio", barrio_seleccionado)
+        
+        # Avanzar al paso 3: Documentación
+        estado_usuario['paso'] = 'vender_paso3_documentacion'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": "📄 *¿Contás con la escritura o título de propiedad a tu nombre?*\n\nEsto nos permite verificar la viabilidad legal inmediata de la venta.\n\n1. Sí, la tengo\n2. No, todavía no\n3. Está en trámite\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            return WhatsAppResponse.buttons(
+                body="📄 *¿Contás con la escritura o título de propiedad a tu nombre?*\n\nEsto nos permite verificar la viabilidad legal inmediata de la venta.",
+                buttons=[
+                    {"id": "doc_si", "title": "✅ Sí, la tengo"},
+                    {"id": "doc_no", "title": "❌ No, todavía no"},
+                    {"id": "doc_tramite", "title": "📋 Está en trámite"}
+                ],
+                footer="Selecciona una opción 👇"
+            )
+    else:
+        # Barrio no reconocido, mostrar lista nuevamente
+        return mostrar_lista_barrios_vender(estado_usuario, user_id)        
+        
+        
+def mostrar_lista_barrios_vender(estado_usuario, user_id):
+    """Muestra la lista de barrios para seleccionar"""
+    from logic.constants import BARRIOS_VALIDOS
     
     platform = estado_usuario.get('platform', 'whatsapp')
     es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
     
     if es_fb_ig:
+        barrios_texto = ""
+        for i, barrio in enumerate(BARRIOS_VALIDOS, 1):
+            barrios_texto += f"{i}. {barrio}\n"
+        
         return {
             "type": "text",
-            "body": "📄 *¿Contás con la escritura o título de propiedad a tu nombre?*\n\nEsto nos permite verificar la viabilidad legal inmediata de la venta.\n\n1. Sí, la tengo\n2. No, todavía no\n3. Está en trámite\n\n💡 *Envía el número de la opción deseada*",
+            "body": f"📍 *¿En qué barrio se encuentra tu propiedad?*\n\n{barrios_texto}\n💡 *Envía el número o el nombre del barrio*",
             "preview": False
         }
     else:
-        return WhatsAppResponse.buttons(
-            body="📄 *¿Contás con la escritura o título de propiedad a tu nombre?*\n\nEsto nos permite verificar la viabilidad legal inmediata de la venta.",
-            buttons=[
-                {"id": "doc_si", "title": "✅ Sí, la tengo"},
-                {"id": "doc_no", "title": "❌ No, todavía no"},
-                {"id": "doc_tramite", "title": "📋 Está en trámite"}
-            ],
-            footer="Selecciona una opción 👇"
+        rows = [{"id": barrio, "title": barrio} for barrio in BARRIOS_VALIDOS]
+        
+        return WhatsAppResponse.list_menu(
+            header="📍 Selección de Barrio",
+            body="*¿En qué barrio se encuentra tu propiedad?*\n\nSeleccioná una opción de la lista:",
+            button_text="Ver barrios",
+            sections=[{"title": "Barrios disponibles", "rows": rows}],
+            footer="Selecciona tu barrio 👇"
         )
-
-def manejar_vender_paso1_nombre(text, estado_usuario, user_id):
-    """Paso 1a: Guarda el nombre y avanza a preguntar horario"""
-    data = _get_campana_data(estado_usuario)
-    data['nombre_completo'] = text
-    _set_campana_data(estado_usuario, data)
-    guardar_lead_vender(user_id, data, "nombre_completo", text)
-    
-    # Avanzar al paso de horario
-    estado_usuario['paso'] = 'vender_paso1_horario'
-    actualizar_estado_usuario(user_id, estado_usuario)
-    
-    platform = estado_usuario.get('platform', 'whatsapp')
-    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
-    
-    cuerpo = "📅 *¿En qué horario te gustaría que Dante te llame?*\n\nSeleccioná una opción:"
-    
-    if es_fb_ig:
-        return {
-            "type": "text",
-            "body": f"{cuerpo}\n\n1. 🌅 Mañana (9 a 12hs)\n2. ☀️ Mediodía (12 a 15hs)\n3. 🌇 Tarde (15 a 18hs)\n4. 🌙 Noche (18 a 20hs)\n\n💡 *Envía el número de la opción deseada*",
-            "preview": False
-        }
-    else:
-        return WhatsAppResponse.buttons(
-            body=cuerpo,
-            buttons=[
-                {"id": "horario_manana", "title": "🌅 Mañana (9-12hs)"},
-                {"id": "horario_mediodia", "title": "☀️ Mediodía (12-15hs)"},
-                {"id": "horario_tarde", "title": "🌇 Tarde (15-18hs)"},
-                {"id": "horario_noche", "title": "🌙 Noche (18-20hs)"}
-            ],
-            footer="Selecciona un horario 👇"
-        )
-
 
 def manejar_vender_paso1_horario(text, estado_usuario, user_id):
     """Paso 1b: Guarda el horario y avanza a documentación"""
