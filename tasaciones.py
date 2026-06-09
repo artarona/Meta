@@ -124,14 +124,14 @@ def manejar_menu_tasacion(text_lower, estado_usuario, user_id):
     else:
         # WhatsApp: botones interactivos
         return {
-            "type": "interactive_buttons",
-            "body": "📊 *TASACIÓN VIRTUAL*\n\n¿Qué tipo de operación te interesa tasar?",
-            "buttons": [
-                {"id": "1", "title": "Venta 🏠"},
-                {"id": "2", "title": "Alquiler 🗝️"},
-                {"id": "m", "title": "Volver 🔙"}
-            ],
-            "footer": "Selecciona una opción 👇"
+            # "type": "interactive_buttons",
+            # "body": "📊 *TASACIÓN VIRTUAL*\n\n¿Qué tipo de operación te interesa tasar?",
+            # "buttons": [
+            #     {"id": "1", "title": "Venta 🏠"},
+            #     {"id": "2", "title": "Alquiler 🗝️"},
+            #     {"id": "m", "title": "Volver 🔙"}
+            # ],
+            # "footer": "Selecciona una opción 👇"
         }
         
         
