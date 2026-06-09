@@ -133,11 +133,6 @@ def get_bot_response_campana(text, user_id):
         actualizar_estado_usuario(user_id, estado_usuario)
         return iniciar_campana(platform)
     
-    # MANEJO ESPECIAL PARA REINTENTAR TASACIÓN (ID 10)
-    if text_lower == "-1":
-       # from tasaciones import manejar_reintentar_tasacion
-       # return manejar_reintentar_tasacion(estado_usuario, user_id)
-    
     # ========== ROUTING POR PASO ==========
     if paso_actual in ('campana_inicio', 'menu_principal'):
         estado_usuario['paso'] = 'campana_intent'
@@ -156,7 +151,7 @@ def get_bot_response_campana(text, user_id):
     elif paso_actual == 'campana_pedir_nombre':
         return manejar_pedir_nombre_asesor(text, estado_usuario, user_id)
     
-    # ========== VENDER - FLUJO SECUENCIAL (NUEVO) ==========
+    # ========== VENDER - FLUJO SECUENCIAL ==========
     elif paso_actual == 'vender_paso1_nombre':
         return manejar_vender_paso1_nombre(text, estado_usuario, user_id)
     
@@ -212,7 +207,6 @@ def get_bot_response_campana(text, user_id):
     estado_usuario['paso'] = 'campana_intent'
     actualizar_estado_usuario(user_id, estado_usuario)
     return iniciar_campana(platform)
-
 # ========== MENÚ PRINCIPAL DE CAMPAÑA ==========
 
 def iniciar_campana(platform=None):
