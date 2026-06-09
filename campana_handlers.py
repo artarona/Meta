@@ -140,13 +140,20 @@ def get_bot_response_campana(text, user_id):
         return manejar_confirmacion_campana(text_lower, estado_usuario, user_id)
         
     elif paso_actual == 'campana_pedir_nombre':
-        return manejar_pedir_nombre_asesor(text, estado_usuario, user_id)
+            return manejar_pedir_nombre_asesor(text, estado_usuario, user_id)
     
+    # ========== VENDER (QUIERO VENDER) ==========
     elif paso_actual == 'vender_menu_principal':
-            return manejar_vender_menu(text_lower, estado_usuario, user_id)
+        return manejar_vender_menu(text_lower, estado_usuario, user_id)
     
     elif paso_actual == 'vender_submenu_datos':
         return manejar_vender_datos(text, estado_usuario, user_id)
+    
+    elif paso_actual == 'vender_submenu_horario':
+        return manejar_vender_horario(text_lower, estado_usuario, user_id)
+    
+    elif paso_actual == 'vender_horario_personalizado':
+        return manejar_vender_horario_personalizado(text, estado_usuario, user_id)
     
     elif paso_actual == 'vender_submenu_documentacion':
         return manejar_vender_documentacion(text_lower, estado_usuario, user_id)
@@ -169,15 +176,7 @@ def get_bot_response_campana(text, user_id):
     elif paso_actual == 'vender_disponibilidad_otro_espera':
         return manejar_vender_disponibilidad_otro(text, estado_usuario, user_id)
     
-    elif paso_actual == 'vender_submenu_datos':
-            return manejar_vender_datos(text, estado_usuario, user_id)
-    
-    elif paso_actual == 'vender_submenu_horario':
-        return manejar_vender_horario(text_lower, estado_usuario, user_id)
-    
-    elif paso_actual == 'vender_horario_personalizado':
-        return manejar_vender_horario_personalizado(text, estado_usuario, user_id)
-        
+    # ========== TASACIÓN ==========
     elif paso_actual.startswith('tasacion_'):
         from tasaciones import (
             manejar_tasacion_operacion, manejar_tasacion_barrio_seleccion, 
