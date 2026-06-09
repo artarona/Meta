@@ -319,25 +319,33 @@ def manejar_tasacion_tipo(text_lower, estado_usuario, user_id):
                 footer="Dante Propiedades · Tu lugar ideal"
             )
     else:
-        # Si no es una opción válida, mostrar el menú de tipos nuevamente SIN el hint
-        return {
-            "type": "interactive_list",
-            "body": "⚠️ Opción no válida.\n\n🏠 *¿Qué tipo de propiedad es?*",
-            "button_text": "Tipos",
-            "sections": [
-                {
-                    "title": "Tipo de Propiedad",
-                    "rows": [
-                        {"id": "1", "title": "Departamento"},
-                        {"id": "2", "title": "Casa"},
-                        {"id": "3", "title": "PH"},
-                        {"id": "4", "title": "Oficina / Local"},
-                        {"id": "5", "title": "Terreno"}
-                    ]
-                }
-            ],
-            "footer": "Selecciona una opción 👇"  # ← Footer limpio
-        }
+        # Si no es una opción válida, mostrar el menú de tipos nuevamente con botones (sin hint)
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": "⚠️ Opción no válida.\n\n🏠 *¿Qué tipo de propiedad es?*\n\n1️⃣ Departamento\n2️⃣ Casa\n3️⃣ PH\n4️⃣ Oficina / Local\n5️⃣ Terreno\n\n1️⃣ Volver al menú\n2️⃣ Salir\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            # WhatsApp: lista interactiva SIN el hint en el footer
+            return {
+                "type": "interactive_list",
+                "body": "⚠️ Opción no válida.\n\n🏠 *¿Qué tipo de propiedad es?*",
+                "button_text": "Ver tipos",
+                "sections": [
+                    {
+                        "title": "Tipo de Propiedad",
+                        "rows": [
+                            {"id": "1", "title": "Departamento"},
+                            {"id": "2", "title": "Casa"},
+                            {"id": "3", "title": "PH"},
+                            {"id": "4", "title": "Oficina / Local"},
+                            {"id": "5", "title": "Terreno"}
+                        ]
+                    }
+                ],
+                "footer": "Selecciona una opción 👇"  # ← Footer limpio
+            }
 
 def manejar_tasacion_m2(text, estado_usuario, user_id):
     """Guarda los m2 e inicia la carga de estado (saltando ambientes)"""
