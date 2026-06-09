@@ -520,64 +520,6 @@ def manejar_vender_menu(text_lower, estado_usuario, user_id):
     # ========== OPCIÓN NO RECONOCIDA ==========
     else:
         return mostrar_menu_vender(estado_usuario, user_id)
-    
-def manejar_vender_datos(text, estado_usuario, user_id):
-    """Guarda el nombre y luego pregunta horario"""
-    
-    def manejar_vender_datos(text, estado_usuario, user_id):
-        """Guarda el nombre y luego pregunta horario"""
-        log(f"🔍 [DATOS] Inicio - texto: '{text}'")
-        log(f"🔍 [DATOS] paso actual antes: {estado_usuario.get('paso')}")
-        
-        data = _get_campana_data(estado_usuario)
-        log(f"🔍 [DATOS] data actual: {data}")
-        
-        # Verificar si ya tenemos el nombre o es el primer paso
-        if 'nombre_completo' not in data:
-            log(f"🔍 [DATOS] No hay nombre_completo, guardando...")
-            
-            # Primer paso: guardar nombre
-            data['nombre_completo'] = text
-            _set_campana_data(estado_usuario, data)
-            
-            # Guardar progreso parcial
-            guardar_lead_vender(user_id, data, "nombre_completo", text)
-            
-            # Cambiar al siguiente paso (horario)
-            estado_usuario['paso'] = 'vender_submenu_horario'
-            actualizar_estado_usuario(user_id, estado_usuario)
-            
-            log(f"🔍 [DATOS] paso cambiado a: {estado_usuario['paso']}")
-            
-            # Mostrar menú de horarios
-            log(f"🔍 [DATOS] Llamando a mostrar_menu_horarios")
-            return mostrar_menu_horarios(estado_usuario, user_id)
-        
-        else:
-            log(f"🔍 [DATOS] YA existe nombre_completo: {data['nombre_completo']}")
-            return mostrar_menu_horarios(estado_usuario, user_id)
-    
-    data = _get_campana_data(estado_usuario)
-    
-    # Verificar si ya tenemos el nombre o es el primer paso
-    if 'nombre_completo' not in data:
-        # Primer paso: guardar nombre
-        data['nombre_completo'] = text
-        _set_campana_data(estado_usuario, data)
-        
-        # Guardar progreso parcial
-        guardar_lead_vender(user_id, data, "nombre_completo", text)
-        
-        # Cambiar al siguiente paso (horario)
-        estado_usuario['paso'] = 'vender_submenu_horario'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        
-        # Mostrar menú de horarios
-        return mostrar_menu_horarios(estado_usuario, user_id)
-    
-    else:
-        # Si ya tenemos nombre, esto no debería ocurrir
-        return mostrar_menu_horarios(estado_usuario, user_id)
 
 
 def mostrar_menu_horarios(estado_usuario, user_id):
@@ -711,30 +653,6 @@ def manejar_vender_horario_personalizado(text, estado_usuario, user_id):
         
         
 
-def manejar_vender_documentacion(text, estado_usuario, user_id):
-    """Guarda la respuesta de documentación"""
-    opciones = {
-        "1": "Sí, la tengo",
-        "2": "No, todavía no",
-        "3": "Está en trámite",
-        "vender_doc_si": "Sí, la tengo",
-        "vender_doc_no": "No, todavía no",
-        "vender_doc_tramite": "Está en trámite"
-    }
-    
-    respuesta = opciones.get(text, text)
-    data = _get_campana_data(estado_usuario)
-    data['documentacion'] = respuesta
-    _set_campana_data(estado_usuario, data)
-    
-    guardar_lead_vender(user_id, data, "documentacion", respuesta)
-    
-    estado_usuario['paso'] = 'vender_menu_principal'
-    actualizar_estado_usuario(user_id, estado_usuario)
-    
-    return mostrar_menu_vender(estado_usuario, user_id)
-
-
 def manejar_vender_detalles(text, estado_usuario, user_id):
     """Guarda la respuesta de detalles técnicos"""
     opciones = {
@@ -759,6 +677,7 @@ def manejar_vender_detalles(text, estado_usuario, user_id):
     return mostrar_menu_vender(estado_usuario, user_id)
 
 
+
 def manejar_vender_ocupacion(text, estado_usuario, user_id):
     """Guarda la respuesta de estado de ocupación"""
     opciones = {
@@ -781,7 +700,6 @@ def manejar_vender_ocupacion(text, estado_usuario, user_id):
     actualizar_estado_usuario(user_id, estado_usuario)
     
     return mostrar_menu_vender(estado_usuario, user_id)
-
 
 def manejar_vender_precio(text, estado_usuario, user_id):
     """Guarda la respuesta de precio pretendido"""
@@ -808,7 +726,6 @@ def manejar_vender_precio(text, estado_usuario, user_id):
         actualizar_estado_usuario(user_id, estado_usuario)
         return mostrar_menu_vender(estado_usuario, user_id)
 
-
 def manejar_vender_precio_valor(text, estado_usuario, user_id):
     """Guarda el valor específico del precio"""
     data = _get_campana_data(estado_usuario)
@@ -822,36 +739,6 @@ def manejar_vender_precio_valor(text, estado_usuario, user_id):
     return mostrar_menu_vender(estado_usuario, user_id)
 
 
-def manejar_vender_disponibilidad(text, estado_usuario, user_id):
-    """Guarda la respuesta de disponibilidad"""
-    opciones = {
-        "1": "Mañana",
-        "2": "Tarde",
-        "3": "Fines de semana",
-        "4": "Coordinar otro horario",
-        "vender_disponibilidad_manana": "Mañana",
-        "vender_disponibilidad_tarde": "Tarde",
-        "vender_disponibilidad_finde": "Fines de semana",
-        "vender_disponibilidad_otro": "Coordinar otro horario"
-    }
-    
-    respuesta = opciones.get(text, text)
-    
-    if respuesta == "Coordinar otro horario":
-        estado_usuario['paso'] = 'vender_disponibilidad_otro_espera'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "📅 *Contanos qué días y horarios te quedan cómodos:*\n\n_(Ej: Lunes y miércoles de 10 a 12hs, o sábados por la mañana)_"
-    else:
-        data = _get_campana_data(estado_usuario)
-        data['disponibilidad'] = respuesta
-        _set_campana_data(estado_usuario, data)
-        
-        guardar_lead_vender(user_id, data, "disponibilidad", respuesta)
-        
-        # Finalizar flujo y notificar
-        return finalizar_vender_y_notificar(user_id, estado_usuario, data)
-
-
 def manejar_vender_disponibilidad_otro(text, estado_usuario, user_id):
     """Guarda el horario personalizado"""
     data = _get_campana_data(estado_usuario)
@@ -861,60 +748,6 @@ def manejar_vender_disponibilidad_otro(text, estado_usuario, user_id):
     guardar_lead_vender(user_id, data, "disponibilidad", text)
     
     return finalizar_vender_y_notificar(user_id, estado_usuario, data)
-
-
-def finalizar_vender_y_notificar(user_id, estado_usuario, data):
-    """Finaliza el flujo de venta y notifica al agente"""
-    # Construir detalles completos
-    detalles = []
-    for key, value in data.items():
-        if key != 'intencion':
-            detalles.append(f"{key}: {value}")
-    
-    detalles_str = " | ".join(detalles)
-    
-    # Guardar lead final en PostgreSQL y JSON
-    nombre = data.get('nombre_horario', f"Lead Venta {str(user_id)[-4:]}")
-    guardar_lead_campana(user_id, data)  # Reusamos la función existente
-    
-    # Notificar al agente
-    mensaje_agente = f"🏠 *NUEVO LEAD DE VENTA* 🏠\n\n"
-    mensaje_agente += f"👤 *Contacto:* {nombre}\n"
-    mensaje_agente += f"📱 *WhatsApp:* +{user_id}\n"
-    mensaje_agente += f"📋 *Detalles completos:*\n{detalles_str}\n\n"
-    mensaje_agente += "👉 *Requiere seguimiento comercial.*"
-    
-    notificar_agente(mensaje_agente)
-    
-    # Resetear estado
-    estado_usuario['paso'] = 'campana_inicio'
-    _clear_campana_data(estado_usuario)
-    actualizar_estado_usuario(user_id, estado_usuario)
-    
-    platform = estado_usuario.get('platform', 'whatsapp')
-    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
-    
-    mensaje_final = (
-        "✅ *¡Excelente!* Hemos recibido toda la información de tu propiedad.\n\n"
-        "Un asesor especializado de Dante Propiedades se pondrá en contacto contigo a la brevedad para coordinar los próximos pasos y comenzar con la comercialización.\n\n"
-        "¡Gracias por confiar en nosotros! 🏠🗝️"
-    )
-    
-    if es_fb_ig:
-        return {
-            "type": "text",
-            "body": f"{mensaje_final}\n\n1. Volver al menú principal\n2. Salir\n\n💡 *Envía el número de la opción deseada*",
-            "preview": False
-        }
-    else:
-        return WhatsAppResponse.buttons(
-            body=mensaje_final,
-            buttons=[
-                {"id": "c_menu", "title": "📋 Volver al menú"},
-                {"id": "c_salir", "title": "❌ Salir"}
-            ],
-            footer="Dante Propiedades · Tu lugar ideal"
-        )
 
 
 def guardar_lead_vender(user_id, data, paso, valor):
@@ -933,6 +766,9 @@ def guardar_lead_vender(user_id, data, paso, valor):
             except Exception:
                 leads = []
         
+        # IMPORTANTE: Usar nombre_completo en lugar de nombre_horario
+        nombre = data.get('nombre_completo') or data.get('nombre_horario', f"Lead Venta {str(user_id)[-4:]}")
+        
         nuevo_lead = {
             'timestamp': datetime.now().isoformat(),
             'user_id': user_id,
@@ -940,8 +776,11 @@ def guardar_lead_vender(user_id, data, paso, valor):
             'accion': f"venta_{paso}",
             'detalle': valor,
             'propiedad_nombre': f"Venta - {paso}",
-            'nombre': data.get('nombre_horario', f"Lead Venta {str(user_id)[-4:]}")
+            'nombre': nombre
         }
+        
+        # Agregar al array existente
+        leads.append(nuevo_lead)
         save_json_atomic(LEADS_FILE, leads)
         log(f"✅ Progreso de venta guardado: {user_id} - {paso}: {valor}")
     except Exception as e:
@@ -949,150 +788,39 @@ def guardar_lead_vender(user_id, data, paso, valor):
         
         
 def manejar_vender_datos(text, estado_usuario, user_id):
-    """Guarda los datos de contacto"""
+    """Guarda el nombre y luego pregunta horario"""
+    log(f"🔍 [DATOS] Inicio - texto: '{text}'")
+    log(f"🔍 [DATOS] paso actual antes: {estado_usuario.get('paso')}")
+    
     data = _get_campana_data(estado_usuario)
-    data['nombre_horario'] = text
-    _set_campana_data(estado_usuario, data)
+    log(f"🔍 [DATOS] data actual: {data}")
     
-    # Guardar lead parcial y continuar
-    guardar_lead_vender(user_id, data, "datos_contacto", text)
-    
-    # Volver al menú principal de venta
-    estado_usuario['paso'] = 'vender_menu_principal'
-    actualizar_estado_usuario(user_id, estado_usuario)
-    
-    platform = estado_usuario.get('platform', 'whatsapp')
-    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
-    
-    respuesta = f"✅ *¡Gracias!* Hemos registrado tu información: {text}\n\n¿Necesitás completar algún otro dato o prefieres que un asesor te contacte?"
-    
-    if es_fb_ig:
-        return {
-            "type": "text",
-            "body": f"{respuesta}\n\n1. Volver al menú Vender\n2. Salir\n\n💡 *Envía el número de la opción deseada*",
-            "preview": False
-        }
-    else:
-        return WhatsAppResponse.buttons(
-            body=respuesta,
-            buttons=[
-                {"id": "vender_menu", "title": "📋 Volver al menú Vender"},
-                {"id": "c_salir", "title": "❌ Salir"}
-            ],
-            footer="Dante Propiedades · Tu lugar ideal"
-        )
-
-
-def manejar_vender_documentacion(text, estado_usuario, user_id):
-    """Guarda la respuesta de documentación"""
-    opciones = {
-        "1": "Sí, la tengo",
-        "2": "No, todavía no",
-        "3": "Está en trámite",
-        "vender_doc_si": "Sí, la tengo",
-        "vender_doc_no": "No, todavía no",
-        "vender_doc_tramite": "Está en trámite"
-    }
-    
-    respuesta = opciones.get(text, text)
-    data = _get_campana_data(estado_usuario)
-    data['documentacion'] = respuesta
-    _set_campana_data(estado_usuario, data)
-    
-    guardar_lead_vender(user_id, data, "documentacion", respuesta)
-    
-    estado_usuario['paso'] = 'vender_menu_principal'
-    actualizar_estado_usuario(user_id, estado_usuario)
-    
-    return mostrar_menu_vender(estado_usuario, user_id)
-
-
-def manejar_vender_detalles(text, estado_usuario, user_id):
-    """Guarda la respuesta de detalles técnicos"""
-    opciones = {
-        "1": "Sí, planos aprobados",
-        "2": "No tiene planos",
-        "3": "No estoy seguro",
-        "vender_detalles_si": "Sí, planos aprobados",
-        "vender_detalles_no": "No tiene planos",
-        "vender_detalles_duda": "No estoy seguro"
-    }
-    
-    respuesta = opciones.get(text, text)
-    data = _get_campana_data(estado_usuario)
-    data['detalles_tecnicos'] = respuesta
-    _set_campana_data(estado_usuario, data)
-    
-    guardar_lead_vender(user_id, data, "detalles_tecnicos", respuesta)
-    
-    estado_usuario['paso'] = 'vender_menu_principal'
-    actualizar_estado_usuario(user_id, estado_usuario)
-    
-    return mostrar_menu_vender(estado_usuario, user_id)
-
-
-def manejar_vender_ocupacion(text, estado_usuario, user_id):
-    """Guarda la respuesta de estado de ocupación"""
-    opciones = {
-        "1": "Habitada",
-        "2": "Vacía",
-        "3": "Alquilada",
-        "vender_ocupacion_habitada": "Habitada",
-        "vender_ocupacion_vacia": "Vacía",
-        "vender_ocupacion_alquilada": "Alquilada"
-    }
-    
-    respuesta = opciones.get(text, text)
-    data = _get_campana_data(estado_usuario)
-    data['estado_ocupacion'] = respuesta
-    _set_campana_data(estado_usuario, data)
-    
-    guardar_lead_vender(user_id, data, "estado_ocupacion", respuesta)
-    
-    estado_usuario['paso'] = 'vender_menu_principal'
-    actualizar_estado_usuario(user_id, estado_usuario)
-    
-    return mostrar_menu_vender(estado_usuario, user_id)
-
-
-def manejar_vender_precio(text, estado_usuario, user_id):
-    """Guarda la respuesta de precio pretendido"""
-    opciones = {
-        "1": "Tengo un valor",
-        "2": "Prefiero tasación profesional",
-        "vender_precio_valor": "Tengo un valor",
-        "vender_precio_tasacion": "Prefiero tasación profesional"
-    }
-    
-    respuesta = opciones.get(text, text)
-    data = _get_campana_data(estado_usuario)
-    
-    if respuesta == "Tengo un valor":
-        estado_usuario['paso'] = 'vender_precio_valor_espera'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "💰 *¿Cuál es el valor de venta que tenés en mente?*\n\n_(Ej: 120.000 USD, 150.000 USD, etc.)_"
-    else:
-        data['precio_pretendido'] = respuesta
-        _set_campana_data(estado_usuario, data)
-        guardar_lead_vender(user_id, data, "precio_pretendido", respuesta)
+    # Verificar si ya tenemos el nombre o es el primer paso
+    if 'nombre_completo' not in data:
+        log(f"🔍 [DATOS] No hay nombre_completo, guardando...")
         
-        estado_usuario['paso'] = 'vender_menu_principal'
+        # Primer paso: guardar nombre
+        data['nombre_completo'] = text
+        _set_campana_data(estado_usuario, data)
+        
+        # Guardar progreso parcial
+        guardar_lead_vender(user_id, data, "nombre_completo", text)
+        
+        # Cambiar al siguiente paso (horario)
+        estado_usuario['paso'] = 'vender_submenu_horario'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return mostrar_menu_vender(estado_usuario, user_id)
-
-
-def manejar_vender_precio_valor(text, estado_usuario, user_id):
-    """Guarda el valor específico del precio"""
-    data = _get_campana_data(estado_usuario)
-    data['precio_pretendido'] = text
-    _set_campana_data(estado_usuario, data)
+        
+        log(f"🔍 [DATOS] paso cambiado a: {estado_usuario['paso']}")
+        
+        # Mostrar menú de horarios
+        log(f"🔍 [DATOS] Llamando a mostrar_menu_horarios")
+        return mostrar_menu_horarios(estado_usuario, user_id)
     
-    guardar_lead_vender(user_id, data, "precio_pretendido", text)
+    else:
+        log(f"🔍 [DATOS] YA existe nombre_completo: {data['nombre_completo']}")
+        return mostrar_menu_horarios(estado_usuario, user_id)
     
-    estado_usuario['paso'] = 'vender_menu_principal'
-    actualizar_estado_usuario(user_id, estado_usuario)
-    return mostrar_menu_vender(estado_usuario, user_id)
-
+    
 
 def manejar_vender_disponibilidad(text, estado_usuario, user_id):
     """Guarda la respuesta de disponibilidad"""
@@ -1124,17 +852,6 @@ def manejar_vender_disponibilidad(text, estado_usuario, user_id):
         return finalizar_vender_y_notificar(user_id, estado_usuario, data)
 
 
-def manejar_vender_disponibilidad_otro(text, estado_usuario, user_id):
-    """Guarda el horario personalizado"""
-    data = _get_campana_data(estado_usuario)
-    data['disponibilidad'] = text
-    _set_campana_data(estado_usuario, data)
-    
-    guardar_lead_vender(user_id, data, "disponibilidad", text)
-    
-    return finalizar_vender_y_notificar(user_id, estado_usuario, data)
-
-
 def finalizar_vender_y_notificar(user_id, estado_usuario, data):
     """Finaliza el flujo de venta y notifica al agente"""
     # Construir detalles completos
@@ -1145,8 +862,8 @@ def finalizar_vender_y_notificar(user_id, estado_usuario, data):
     
     detalles_str = " | ".join(detalles)
     
-    # Guardar lead final en PostgreSQL y JSON
-    nombre = data.get('nombre_horario', f"Lead Venta {str(user_id)[-4:]}")
+    # IMPORTANTE: Usar nombre_completo en lugar de nombre_horario
+    nombre = data.get('nombre_completo', f"Lead Venta {str(user_id)[-4:]}")
     guardar_lead_campana(user_id, data)  # Reusamos la función existente
     
     # Notificar al agente
@@ -1187,38 +904,6 @@ def finalizar_vender_y_notificar(user_id, estado_usuario, data):
             ],
             footer="Dante Propiedades · Tu lugar ideal"
         )
-
-
-def guardar_lead_vender(user_id, data, paso, valor):
-    """Guarda progreso parcial del lead de venta en JSON"""
-    try:
-        import os, json
-        from config import LEADS_FILE
-        from utils import save_json_atomic
-        from datetime import datetime
-        
-        leads = []
-        if os.path.exists(LEADS_FILE):
-            try:
-                with open(LEADS_FILE, 'r', encoding='utf-8') as f:
-                    leads = json.load(f)
-            except Exception:
-                leads = []
-        
-        nuevo_lead = {
-            'timestamp': datetime.now().isoformat(),
-            'user_id': user_id,
-            'propiedad_id': '',
-            'accion': f"venta_{paso}",
-            'detalle': valor,
-            'propiedad_nombre': f"Venta - {paso}",
-            'nombre': data.get('nombre_horario', f"Lead Venta {str(user_id)[-4:]}")
-        }
-        save_json_atomic(LEADS_FILE, leads)
-        log(f"✅ Progreso de venta guardado: {user_id} - {paso}: {valor}")
-    except Exception as e:
-        log(f"⚠️ Error guardando progreso de venta: {e}", "WARNING")
-        
 
 
 
