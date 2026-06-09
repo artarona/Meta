@@ -168,6 +168,15 @@ def get_bot_response_campana(text, user_id):
     
     elif paso_actual == 'vender_disponibilidad_otro_espera':
         return manejar_vender_disponibilidad_otro(text, estado_usuario, user_id)
+    
+    elif paso_actual == 'vender_submenu_datos':
+            return manejar_vender_datos(text, estado_usuario, user_id)
+    
+    elif paso_actual == 'vender_submenu_horario':
+        return manejar_vender_horario(text_lower, estado_usuario, user_id)
+    
+    elif paso_actual == 'vender_horario_personalizado':
+        return manejar_vender_horario_personalizado(text, estado_usuario, user_id)
         
     elif paso_actual.startswith('tasacion_'):
         from tasaciones import (
@@ -392,11 +401,14 @@ def manejar_vender_menu(text_lower, estado_usuario, user_id):
     # Datos de la campaña
     data = _get_campana_data(estado_usuario)
     
+    # ========== OPCIÓN 1: DATOS DE CONTACTO ==========
     if text_lower == "vender_datos":
         estado_usuario['paso'] = 'vender_submenu_datos'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "Para comenzar, por favor confirmame tu *nombre completo* y un *horario de preferencia* para que Dante te llame.\n\n_(Ej: Juan Pérez, después de las 15hs)_"
+        # 👇 TEXTO ACTUALIZADO AQUÍ
+        return "📇 *Para comenzar, por favor confirmame tu nombre completo:*\n\n_(Ej: Juan Pérez, María González)_"
     
+    # ========== OPCIÓN 2: DOCUMENTACIÓN ==========
     elif text_lower == "vender_documentacion":
         estado_usuario['paso'] = 'vender_submenu_documentacion'
         actualizar_estado_usuario(user_id, estado_usuario)
@@ -418,6 +430,7 @@ def manejar_vender_menu(text_lower, estado_usuario, user_id):
                 footer="Selecciona una opción 👇"
             )
     
+    # ========== OPCIÓN 3: DETALLES TÉCNICOS ==========
     elif text_lower == "vender_detalles":
         estado_usuario['paso'] = 'vender_submenu_detalles'
         actualizar_estado_usuario(user_id, estado_usuario)
@@ -439,6 +452,7 @@ def manejar_vender_menu(text_lower, estado_usuario, user_id):
                 footer="Selecciona una opción 👇"
             )
     
+    # ========== OPCIÓN 4: ESTADO DE OCUPACIÓN ==========
     elif text_lower == "vender_ocupacion":
         estado_usuario['paso'] = 'vender_submenu_ocupacion'
         actualizar_estado_usuario(user_id, estado_usuario)
@@ -460,6 +474,7 @@ def manejar_vender_menu(text_lower, estado_usuario, user_id):
                 footer="Selecciona una opción 👇"
             )
     
+    # ========== OPCIÓN 5: PRECIO PRETENDIDO ==========
     elif text_lower == "vender_precio":
         estado_usuario['paso'] = 'vender_submenu_precio'
         actualizar_estado_usuario(user_id, estado_usuario)
@@ -480,6 +495,7 @@ def manejar_vender_menu(text_lower, estado_usuario, user_id):
                 footer="Selecciona una opción 👇"
             )
     
+    # ========== OPCIÓN 6: DISPONIBILIDAD PARA VISITA ==========
     elif text_lower == "vender_disponibilidad":
         estado_usuario['paso'] = 'vender_submenu_disponibilidad'
         actualizar_estado_usuario(user_id, estado_usuario)
@@ -502,27 +518,139 @@ def manejar_vender_menu(text_lower, estado_usuario, user_id):
                 footer="Selecciona una opción 👇"
             )
     
+    # ========== OPCIÓN NO RECONOCIDA ==========
     else:
-        # Opción no reconocida
         return mostrar_menu_vender(estado_usuario, user_id)
     
 def manejar_vender_datos(text, estado_usuario, user_id):
-    """Guarda los datos de contacto"""
+    """Guarda el nombre y luego pregunta horario"""
     data = _get_campana_data(estado_usuario)
-    data['nombre_horario'] = text
+    
+    # Verificar si ya tenemos el nombre o es el primer paso
+    if 'nombre_completo' not in data:
+        # Primer paso: guardar nombre
+        data['nombre_completo'] = text
+        _set_campana_data(estado_usuario, data)
+        
+        # Guardar progreso parcial
+        guardar_lead_vender(user_id, data, "nombre_completo", text)
+        
+        # Cambiar al siguiente paso (horario)
+        estado_usuario['paso'] = 'vender_submenu_horario'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        # Mostrar menú de horarios
+        return mostrar_menu_horarios(estado_usuario, user_id)
+    
+    else:
+        # Si ya tenemos nombre, esto no debería ocurrir
+        return mostrar_menu_horarios(estado_usuario, user_id)
+
+
+def mostrar_menu_horarios(estado_usuario, user_id):
+    """Muestra los rangos horarios para que el usuario elija"""
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    
+    cuerpo = "📅 *¿En qué horario te gustaría que Dante te llame?*\n\nSeleccioná una opción:"
+    
+    if es_fb_ig:
+        return {
+            "type": "text",
+            "body": f"{cuerpo}\n\n1. 🌅 Mañana (9 a 12hs)\n2. ☀️ Mediodía (12 a 15hs)\n3. 🌇 Tarde (15 a 18hs)\n4. 🌙 Noche (18 a 20hs)\n5. 📅 Coordinar otro horario\n\n💡 *Envía el número de la opción deseada*",
+            "preview": False
+        }
+    else:
+        return WhatsAppResponse.buttons(
+            body=cuerpo,
+            buttons=[
+                {"id": "horario_manana", "title": "🌅 Mañana (9-12hs)"},
+                {"id": "horario_mediodia", "title": "☀️ Mediodía (12-15hs)"},
+                {"id": "horario_tarde", "title": "🌇 Tarde (15-18hs)"},
+                {"id": "horario_noche", "title": "🌙 Noche (18-20hs)"},
+                {"id": "horario_otro", "title": "📅 Coordinar otro horario"}
+            ],
+            footer="Selecciona un horario 👇"
+        )
+
+
+def manejar_vender_horario(text, estado_usuario, user_id):
+    """Maneja la selección de horario"""
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    
+    # Mapeo de opciones
+    opciones = {
+        "1": "Mañana (9 a 12hs)",
+        "2": "Mediodía (12 a 15hs)",
+        "3": "Tarde (15 a 18hs)",
+        "4": "Noche (18 a 20hs)",
+        "5": "Coordinar otro horario",
+        "horario_manana": "Mañana (9 a 12hs)",
+        "horario_mediodia": "Mediodía (12 a 15hs)",
+        "horario_tarde": "Tarde (15 a 18hs)",
+        "horario_noche": "Noche (18 a 20hs)",
+        "horario_otro": "Coordinar otro horario"
+    }
+    
+    # Normalizar para FB/IG (números)
+    if es_fb_ig and text.isdigit():
+        text = opciones.get(text, text)
+    
+    horario = opciones.get(text, text)
+    data = _get_campana_data(estado_usuario)
+    
+    if horario == "Coordinar otro horario":
+        # Pedir horario personalizado
+        estado_usuario['paso'] = 'vender_horario_personalizado'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "📅 *Contanos qué horario te queda más cómodo:*\n\n_(Ej: Lunes de 10 a 12hs, o después de las 16hs)_"
+    else:
+        # Guardar horario y finalizar
+        data['horario_preferido'] = horario
+        _set_campana_data(estado_usuario, data)
+        
+        guardar_lead_vender(user_id, data, "horario_preferido", horario)
+        
+        # Volver al menú principal de venta
+        estado_usuario['paso'] = 'vender_menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        respuesta = f"✅ *¡Gracias {data.get('nombre_completo', '')}!* Hemos registrado tu horario: {horario}\n\n¿Necesitás completar algún otro dato o preferís que un asesor te contacte?"
+        
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": f"{respuesta}\n\n1. Volver al menú Vender\n2. Salir\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            return WhatsAppResponse.buttons(
+                body=respuesta,
+                buttons=[
+                    {"id": "vender_menu", "title": "📋 Volver al menú Vender"},
+                    {"id": "c_salir", "title": "❌ Salir"}
+                ],
+                footer="Dante Propiedades · Tu lugar ideal"
+            )
+
+
+def manejar_vender_horario_personalizado(text, estado_usuario, user_id):
+    """Guarda el horario personalizado"""
+    data = _get_campana_data(estado_usuario)
+    data['horario_preferido'] = text
     _set_campana_data(estado_usuario, data)
     
-    # Guardar lead parcial y continuar
-    guardar_lead_vender(user_id, data, "datos_contacto", text)
+    guardar_lead_vender(user_id, data, "horario_preferido", text)
+    
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
     
     # Volver al menú principal de venta
     estado_usuario['paso'] = 'vender_menu_principal'
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    platform = estado_usuario.get('platform', 'whatsapp')
-    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
-    
-    respuesta = f"✅ *¡Gracias!* Hemos registrado tu información: {text}\n\n¿Necesitás completar algún otro dato o prefieres que un asesor te contacte?"
+    respuesta = f"✅ *¡Gracias {data.get('nombre_completo', '')}!* Hemos registrado tu horario: {text}\n\n¿Necesitás completar algún otro dato o preferís que un asesor te contacte?"
     
     if es_fb_ig:
         return {
@@ -539,7 +667,10 @@ def manejar_vender_datos(text, estado_usuario, user_id):
             ],
             footer="Dante Propiedades · Tu lugar ideal"
         )
-
+        
+        
+        
+        
 
 def manejar_vender_documentacion(text, estado_usuario, user_id):
     """Guarda la respuesta de documentación"""
