@@ -180,9 +180,9 @@ def iniciar_campana(platform=None):
             "Contame qué necesitás y te ayudo personalmente a avanzar.",
             "",
             "*Servicios Disponibles*\n"
-            "1️⃣ 🏡 Quiero Vender - Para propietarios que ya están decididos y quieren que publiques su propiedad.\n"
-            "2️⃣ 🔑 Ver Propiedades Disponibles - Explorá nuestro catálogo actualizado en dantepropiedades.com.ar.\n"
-            "3️⃣ 📈 Tasación Virtual Inteligente - Obtené un valor estimado de tu propiedad en segundos.\n"
+            "1️⃣ 📈 Tasación Virtual Inteligente - Obtené un valor estimado de tu propiedad en segundos.\n"
+            "2️⃣ 🏡 Quiero Vender - Para propietarios que ya están decididos y quieren que publiques su propiedad.\n"
+            "3️⃣ 🔑 Ver Propiedades Disponibles - Explorá nuestro catálogo actualizado en dantepropiedades.com.ar.\n"
             "4️⃣ 👤 Asesoramiento Inmobiliario - Para consultas sobre trámites, contratos o asesoría técnica.",
             "",
             "*Otras Opciones*\n"
@@ -196,9 +196,9 @@ def iniciar_campana(platform=None):
     else:
         # WhatsApp: lista interactiva
         rows = [
+            {"id": "c_tasar", "title": "📈 Tasación Virtual Inteligente", "description": "Obtené un valor estimado de tu propiedad en segundos."},
             {"id": "c_comprar", "title": "🏡 Quiero Vender", "description": "Para propietarios que ya están decididos y quieren que publiques su propiedad."},
             {"id": "c_alquilar", "title": "🔑 Ver Propiedades Disponibles", "description": "Explorá nuestro catálogo actualizado en dantepropiedades.com.ar."},
-            {"id": "c_tasar", "title": "📈 Tasación Virtual Inteligente", "description": "Obtené un valor estimado de tu propiedad en segundos."},
             {"id": "c_asesor", "title": "👤 Asesoramiento Inmobiliario", "description": "Para consultas sobre trámites, contratos o asesoría técnica."}
         ]
         otras = [
