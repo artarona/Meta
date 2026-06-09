@@ -218,7 +218,6 @@ def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado, operacion='venta'):
 
 def manejar_menu_tasacion(text_lower, estado_usuario, user_id):
     """Inicia el flujo de tasación"""
-    # Usar el campo 'data' para persistencia segura en DB
     if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
         estado_usuario['data'] = {}
         
@@ -227,10 +226,9 @@ def manejar_menu_tasacion(text_lower, estado_usuario, user_id):
     actualizar_estado_usuario(user_id, estado_usuario)
     return {
         "type": "interactive_buttons",
-        "body": "📊 *TASACIÓN VIRTUAL*\n\n¿Qué tipo de operación te interesa tasar?",
+        "body": "📊 *TASACIÓN VIRTUAL*\n\nVamos a tasar tu propiedad para VENTA.",
         "buttons": [
-            {"id": "1", "title": "Venta 🏠"},
-            {"id": "2", "title": "Alquiler 🗝️"},
+            {"id": "1", "title": "Comenzar Tasación 🏠"},
             {"id": "m", "title": "Volver 🔙"}
         ],
         "footer": "Selecciona una opción 👇"
