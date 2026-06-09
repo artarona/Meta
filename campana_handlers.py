@@ -171,11 +171,11 @@ def iniciar_campana(platform=None):
         "¡Hola! 👋 Soy el asistente de Dante Propiedades 🏠🗝️.\n\n"
         "Estamos para acompañarte en todo el proceso de compra, venta o tasación de tu propiedad.\n\n"
         "¿Te gustaría recibir una valoración gratuita o conocer las mejores oportunidades del mercado?\n\n"
-        "Contame qué necesitás y te ayudo personalmente a avanzar."  # ← Sin asteriscos
+        "Contame qué necesitás y te ayudo personalmente a avanzar."
     )
     
     if es_fb_ig:
-        # Dividir el mensaje en partes separadas
+        # Facebook/Instagram/Messenger: texto plano con números
         partes = [
             "¡Hola! 👋 Soy el asistente de Dante Propiedades 🏠🗝️",
             "Estamos para acompañarte en todo el proceso de compra, venta o tasación de tu propiedad.\n"
@@ -183,31 +183,29 @@ def iniciar_campana(platform=None):
             "Contame qué necesitás y te ayudo personalmente a avanzar.",
             "",
             "*Servicios Disponibles*\n"
-            "1️⃣ 🏡 Quiero Comprar - Busco comprar una propiedad\n"
-            "2️⃣ 🔑 Quiero Alquilar - Busco alquilar una propiedad\n"
-            "3️⃣ 📈 Tasar mi Propiedad - Quiero saber el valor de mercado (¡gratis!)\n"
-            "4️⃣ 👤 Hablar con Asesor - Atención personalizada inmediata",
+            "1️⃣ 🏡 Quiero Vender - Para propietarios que ya están decididos y quieren que publiques su propiedad.\n"
+            "2️⃣ 🔑 Ver Propiedades Disponibles - Explorá nuestro catálogo actualizado en dantepropiedades.com.ar.\n"
+            "3️⃣ 📈 Tasación Virtual Inteligente - Obtené un valor estimado de tu propiedad en segundos.\n"
+            "4️⃣ 👤 Asesoramiento Inmobiliario - Para consultas sobre trámites, contratos o asesoría técnica.",
             "",
             "*Otras Opciones*\n"
-            "5️⃣ ❌ Salir - Finalizar la conversación",
+            "5️⃣ ❌ Salir - Finalizar la conversación.",
             "",
             "💡 *Envía el número de la opción deseada* 👇"
         ]
 
-
         return [{"type": "text", "body": parte, "preview": False} for parte in partes if parte]
 
-    
     else:
         # WhatsApp: lista interactiva
         rows = [
-            {"id": "c_comprar", "title": "🏡 Quiero Comprar", "description": "Busco comprar una propiedad"},
-            {"id": "c_alquilar", "title": "🔑 Quiero Alquilar", "description": "Busco alquilar una propiedad"},
-            {"id": "c_tasar", "title": "📈 Tasar mi Propiedad", "description": "Quiero saber el valor de mercado (¡gratis!)"},
-            {"id": "c_asesor", "title": "👤 Hablar con Asesor", "description": "Atención personalizada inmediata"}
+            {"id": "c_comprar", "title": "🏡 Quiero Vender", "description": "Para propietarios que ya están decididos y quieren que publiques su propiedad."},
+            {"id": "c_alquilar", "title": "🔑 Ver Propiedades Disponibles", "description": "Explorá nuestro catálogo actualizado en dantepropiedades.com.ar."},
+            {"id": "c_tasar", "title": "📈 Tasación Virtual Inteligente", "description": "Obtené un valor estimado de tu propiedad en segundos."},
+            {"id": "c_asesor", "title": "👤 Asesoramiento Inmobiliario", "description": "Para consultas sobre trámites, contratos o asesoría técnica."}
         ]
         otras = [
-            {"id": "c_salir", "title": "❌ Salir", "description": "Finalizar la conversación"}
+            {"id": "c_salir", "title": "❌ Salir", "description": "Finalizar la conversación."}
         ]
         
         return WhatsAppResponse.list_menu(
@@ -220,7 +218,6 @@ def iniciar_campana(platform=None):
             ],
             footer=PIE_MENU
         )
-        
 # ========== MANEJO DE INTENCIÓN ==========
 
 def manejar_intencion_campana(text, estado_usuario, user_id):
