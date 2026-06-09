@@ -9,7 +9,7 @@ from whatsapp_api import notificar_agente
 LOGO = "🏠🗝️"
 MARCA = f"{LOGO} *DANTE PROPIEDADES*"
 DESPEDIDA = f"¡Gracias por confiar en Dante Propiedades! {LOGO}"
-PIE_MENU = "Dante Propiedades · Tu lugar ideal"
+PIE_MENU = "🏠 Dante Propiedades · Tu lugar ideal 🗝️"
 PIE_SELECCION= "Selecciona una opción 👇"
 HINT_SALIR = "\n\n💡 _Envía '*S*' para salir o '*M*' para volver al menú._"
 
@@ -97,6 +97,9 @@ def get_bot_response_campana(text, user_id):
     elif paso_actual == 'vender_paso1_nombre':
         return manejar_vender_paso1_nombre(text, estado_usuario, user_id)
     
+    elif paso_actual == 'vender_paso1_horario':  # ← NUEVO PASO
+        return manejar_vender_paso1_horario(text_lower, estado_usuario, user_id)
+    
     elif paso_actual == 'vender_paso2_documentacion':
         return manejar_vender_paso2_documentacion(text_lower, estado_usuario, user_id)
     
@@ -158,7 +161,7 @@ def iniciar_campana(platform=None):
         es_fb_ig = platform_lower in ("messenger", "facebook", "instagram")
     
     cuerpo_base = (
-        "¡Hola! 👋 Soy el asistente de Dante Propiedades 🏠🗝️.\n\n"
+        "¡Hola! 👋 Soy el asistente de Dante Propiedades.\n\n"
         "Estamos para acompañarte en todo el proceso de venta o tasación de tu propiedad.\n\n"
         "¿Te gustaría recibir una valoración gratuita o conocer las mejores oportunidades del mercado?\n\n"
         "Contame qué necesitás y te ayudo personalmente a avanzar."
@@ -166,7 +169,7 @@ def iniciar_campana(platform=None):
     
     if es_fb_ig:
         partes = [
-            "¡Hola! 👋 Soy el asistente de Dante Propiedades 🏠🗝️",
+            "¡Hola! 👋 Soy el asistente de Dante Propiedades ",
             "Estamos para acompañarte en todo el proceso de venta o tasación de tu propiedad.\n"
             "¿Te gustaría recibir una valoración gratuita o conocer las mejores oportunidades del mercado?\n"
             "Contame qué necesitás y te ayudo personalmente a avanzar.",
@@ -222,13 +225,14 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
         if text_normalized in opciones_numericas:
             text_normalized = opciones_numericas[text_normalized]
     
-    # OPCIÓN 1: QUIERO VENDER
+    # ========== OPCIÓN 1: QUIERO VENDER ==========
     if text_normalized in ["c_comprar", "comprar", "vender", "quiero vender", "venta", "1"]:
         data['intencion'] = "Vender"
-        estado_usuario['paso'] = 'vender_paso1_nombre'
+        estado_usuario['paso'] = 'vender_paso1_nombre'  # Cambia a paso1_nombre
         _set_campana_data(estado_usuario, data)
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "📇 *Para comenzar, por favor confirmame tu nombre completo y un horario de preferencia para que Dante te llame.*\n\n_(Ej: Juan Pérez, después de las 15hs)_"
+        # Solo pedir nombre, no horario
+        return "📇 *Para comenzar, por favor confirmame tu nombre completo:*\n\n_(Ej: Juan Pérez, María González)_"
     
     # OPCIÓN 2: VER PROPIEDADES DISPONIBLES
     elif text_normalized in ["c_alquilar", "alquilar", "ver propiedades", "propiedades", "sitio web", "web", "catalogo", "2"]:
@@ -299,6 +303,112 @@ def manejar_vender_paso1_nombre(text, estado_usuario, user_id):
             ],
             footer="Selecciona una opción 👇"
         )
+
+def manejar_vender_paso1_nombre(text, estado_usuario, user_id):
+    """Paso 1a: Guarda el nombre y avanza a preguntar horario"""
+    data = _get_campana_data(estado_usuario)
+    data['nombre_completo'] = text
+    _set_campana_data(estado_usuario, data)
+    guardar_lead_vender(user_id, data, "nombre_completo", text)
+    
+    # Avanzar al paso de horario
+    estado_usuario['paso'] = 'vender_paso1_horario'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    
+    cuerpo = "📅 *¿En qué horario te gustaría que Dante te llame?*\n\nSeleccioná una opción:"
+    
+    if es_fb_ig:
+        return {
+            "type": "text",
+            "body": f"{cuerpo}\n\n1. 🌅 Mañana (9 a 12hs)\n2. ☀️ Mediodía (12 a 15hs)\n3. 🌇 Tarde (15 a 18hs)\n4. 🌙 Noche (18 a 20hs)\n\n💡 *Envía el número de la opción deseada*",
+            "preview": False
+        }
+    else:
+        return WhatsAppResponse.buttons(
+            body=cuerpo,
+            buttons=[
+                {"id": "horario_manana", "title": "🌅 Mañana (9-12hs)"},
+                {"id": "horario_mediodia", "title": "☀️ Mediodía (12-15hs)"},
+                {"id": "horario_tarde", "title": "🌇 Tarde (15-18hs)"},
+                {"id": "horario_noche", "title": "🌙 Noche (18-20hs)"}
+            ],
+            footer="Selecciona un horario 👇"
+        )
+
+
+def manejar_vender_paso1_horario(text, estado_usuario, user_id):
+    """Paso 1b: Guarda el horario y avanza a documentación"""
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    
+    opciones = {
+        "1": "Mañana (9 a 12hs)",
+        "2": "Mediodía (12 a 15hs)",
+        "3": "Tarde (15 a 18hs)",
+        "4": "Noche (18 a 20hs)",
+        "horario_manana": "Mañana (9 a 12hs)",
+        "horario_mediodia": "Mediodía (12 a 15hs)",
+        "horario_tarde": "Tarde (15 a 18hs)",
+        "horario_noche": "Noche (18 a 20hs)"
+    }
+    
+    # Normalizar para FB/IG
+    if es_fb_ig and text.isdigit():
+        text = opciones.get(text, text)
+    
+    horario = opciones.get(text, text)
+    
+    # Validar que sea una opción válida
+    if horario not in ["Mañana (9 a 12hs)", "Mediodía (12 a 15hs)", "Tarde (15 a 18hs)", "Noche (18 a 20hs)"]:
+        # Opción no válida, mostrar el menú nuevamente
+        cuerpo = "📅 *¿En qué horario te gustaría que Dante te llame?*\n\nSeleccioná una opción válida:"
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": f"{cuerpo}\n\n1. 🌅 Mañana (9 a 12hs)\n2. ☀️ Mediodía (12 a 15hs)\n3. 🌇 Tarde (15 a 18hs)\n4. 🌙 Noche (18 a 20hs)\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            return WhatsAppResponse.buttons(
+                body=cuerpo,
+                buttons=[
+                    {"id": "horario_manana", "title": "🌅 Mañana (9-12hs)"},
+                    {"id": "horario_mediodia", "title": "☀️ Mediodía (12-15hs)"},
+                    {"id": "horario_tarde", "title": "🌇 Tarde (15-18hs)"},
+                    {"id": "horario_noche", "title": "🌙 Noche (18-20hs)"}
+                ],
+                footer="Selecciona un horario 👇"
+            )
+    
+    data = _get_campana_data(estado_usuario)
+    data['horario_preferido'] = horario
+    _set_campana_data(estado_usuario, data)
+    guardar_lead_vender(user_id, data, "horario_preferido", horario)
+    
+    # Avanzar al paso 2: Documentación
+    estado_usuario['paso'] = 'vender_paso2_documentacion'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    if es_fb_ig:
+        return {
+            "type": "text",
+            "body": "📄 *¿Contás con la escritura o título de propiedad a tu nombre?*\n\nEsto nos permite verificar la viabilidad legal inmediata de la venta.\n\n1. Sí, la tengo\n2. No, todavía no\n3. Está en trámite\n\n💡 *Envía el número de la opción deseada*",
+            "preview": False
+        }
+    else:
+        return WhatsAppResponse.buttons(
+            body="📄 *¿Contás con la escritura o título de propiedad a tu nombre?*\n\nEsto nos permite verificar la viabilidad legal inmediata de la venta.",
+            buttons=[
+                {"id": "doc_si", "title": "✅ Sí, la tengo"},
+                {"id": "doc_no", "title": "❌ No, todavía no"},
+                {"id": "doc_tramite", "title": "📋 Está en trámite"}
+            ],
+            footer="Selecciona una opción 👇"
+        )
+
 
 def manejar_vender_paso2_documentacion(text, estado_usuario, user_id):
     opciones = {"1": "Sí, la tengo", "2": "No, todavía no", "3": "Está en trámite",
@@ -517,7 +627,7 @@ def finalizar_vender_y_notificar(user_id, estado_usuario, data):
     return WhatsAppResponse.buttons(
         body=mensaje_final,
         buttons=[{"id": "c_menu", "title": "📋 Volver al menú"}, {"id": "c_salir", "title": "❌ Salir"}],
-        footer="Dante Propiedades · Tu lugar ideal"
+        footer="🏠 Dante Propiedades · Tu lugar ideal 🗝️"
     )
 
 # ========== RECOPILACIÓN DE DATOS ==========

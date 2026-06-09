@@ -487,7 +487,7 @@ def manejar_tasacion_tipo(text_lower, estado_usuario, user_id):
                     {"id": "c_menu", "title": "📋 Volver al menú"},
                     {"id": "c_salir", "title": "❌ Salir"}
                 ],
-                footer="Dante Propiedades · Tu lugar ideal"
+                footer="🏠 Dante Propiedades · Tu lugar ideal 🗝️"
             )
     else:
         # Si no es una opción válida, mostrar el menú de tipos nuevamente con botones (sin hint)
@@ -544,7 +544,7 @@ def manejar_tasacion_m2(text, estado_usuario, user_id):
                         {"id": "c_menu", "title": "📋 Volver al menú"},
                         {"id": "c_salir", "title": "❌ Salir"}
                     ],
-                    footer="Dante Propiedades · Tu lugar ideal"
+                    footer="🏠 Dante Propiedades · Tu lugar ideal 🗝️"
                 )
         
         if 'datos_tasacion' not in estado_usuario['data']:
@@ -598,7 +598,7 @@ def manejar_tasacion_m2(text, estado_usuario, user_id):
                     {"id": "c_menu", "title": "📋 Volver al menú"},
                     {"id": "c_salir", "title": "❌ Salir"}
                 ],
-                footer="Dante Propiedades · Tu lugar ideal"
+                footer="🏠 Dante Propiedades · Tu lugar ideal 🗝️"
             )
     except Exception as e:
         log(f"🔥 Error crítico en manejar_tasacion_m2: {e}")
@@ -630,7 +630,7 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
                         {"id": "c_menu", "title": "📋 Volver al menú"},
                         {"id": "c_salir", "title": "❌ Salir"}
                     ],
-                    footer="Dante Propiedades · Tu lugar ideal"
+                    footer="🏠 Dante Propiedades · Tu lugar ideal 🗝️"
                 )
         
         if 'datos_tasacion' not in estado_usuario['data']:
@@ -679,7 +679,7 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
                     {"id": "c_menu", "title": "📋 Volver al menú"},
                     {"id": "c_salir", "title": "❌ Salir"}
                 ],
-                footer="Dante Propiedades · Tu lugar ideal"
+                footer="🏠 Dante Propiedades · Tu lugar ideal 🗝️"
             )
 
 
