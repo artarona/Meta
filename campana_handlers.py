@@ -122,16 +122,13 @@ def get_bot_response_campana(text, user_id):
         
     elif paso_actual.startswith('tasacion_'):
         from tasaciones import (
-            manejar_tasacion_operacion, manejar_tasacion_barrio, 
-            manejar_tasacion_barrio_seleccion, manejar_tasacion_tipo, 
-            manejar_tasacion_m2, manejar_tasacion_estado, 
-            manejar_tasacion_contacto
+            manejar_tasacion_operacion, manejar_tasacion_barrio_seleccion, 
+            manejar_tasacion_tipo, manejar_tasacion_m2, 
+            manejar_tasacion_estado, manejar_tasacion_contacto
         )
         resp = None
         if paso_actual == 'tasacion_operacion':
             resp = manejar_tasacion_operacion(text_lower, estado_usuario, user_id)
-        elif paso_actual == 'tasacion_barrio':
-            resp = manejar_tasacion_barrio(text, estado_usuario, user_id)
         elif paso_actual == 'tasacion_barrio_seleccion':
             resp = manejar_tasacion_barrio_seleccion(text, estado_usuario, user_id)
         elif paso_actual == 'tasacion_tipo':
