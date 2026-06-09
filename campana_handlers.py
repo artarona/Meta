@@ -248,9 +248,11 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
             "cuatro": "c_asesor",
             "cinco": "c_salir",
             "comprar": "c_comprar",
+            "vender": "c_comprar",  # ← añadido para "quiero vender"
             "alquilar": "c_alquilar",
             "tasar": "c_tasar",
             "asesor": "c_asesor",
+            "asesoramiento": "c_asesor",
             "salir": "c_salir"
         }
         
@@ -258,53 +260,57 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
             text_normalized = opciones_numericas[text_normalized]
             log(f"🔄 Conversión numérica: '{text}' -> '{text_normalized}'")
     
-    if text_normalized in ["c_comprar", "comprar", "quiero comprar", "compra"]:
-        data['intencion'] = "Comprar"
+    # ========== OPCIÓN 1: QUIERO VENDER (antes "comprar") ==========
+    if text_normalized in ["c_comprar", "comprar", "vender", "quiero vender", "venta"]:
+        data['intencion'] = "Comprar"  # Mantenemos el mismo valor interno
         estado_usuario['paso'] = 'campana_recopilar_zona'
         _set_campana_data(estado_usuario, data)
         actualizar_estado_usuario(user_id, estado_usuario)
         
         if es_fb_ig:
             return (
-                f"🏠🗝️ *¡Excelente elección!* Te ayudaremos a encontrar el hogar ideal.\n\n"
-                f"📍 ¿En qué *barrio o zona* te gustaría comprar?\n"
+                f"🏠🗝️ *¡Excelente elección!* Te ayudaremos a vender tu propiedad.\n\n"
+                f"📍 ¿En qué *barrio o zona* se encuentra tu propiedad?\n"
                 f"_(Ej: Caballito, Palermo, Belgrano)_\n\n"
                 f"💡 *Envía 'M' para volver al menú o 'S' para salir.*"
             )
         else:
             return (
-                f"🏠🗝️ *¡Excelente elección!* Te ayudaremos a encontrar el hogar ideal.\n\n"
-                f"📍 ¿En qué *barrio o zona* te gustaría comprar?\n"
+                f"🏠🗝️ *¡Excelente elección!* Te ayudaremos a vender tu propiedad.\n\n"
+                f"📍 ¿En qué *barrio o zona* se encuentra tu propiedad?\n"
                 f"_(Ej: Caballito, Palermo, Belgrano)_ {HINT_SALIR}\n\n"
-                "Contame tus preferencias y te acompaño en todo el proceso."
+                "Contame los detalles y te acompañamos en todo el proceso."
             )
-        
-    elif text_normalized in ["c_alquilar", "alquilar", "quiero alquilar", "alquiler"]:
-        data['intencion'] = "Alquilar"
-        estado_usuario['paso'] = 'campana_recopilar_zona'
-        _set_campana_data(estado_usuario, data)
-        actualizar_estado_usuario(user_id, estado_usuario)
+    
+    # ========== OPCIÓN 2: VER PROPIEDADES DISPONIBLES (antes "alquilar") ==========
+    elif text_normalized in ["c_alquilar", "alquilar", "ver propiedades", "propiedades", "sitio web", "web", "catalogo"]:
+        # Redirigir al sitio web
+        sitio_web = "https://www.dantepropiedades.com.ar"
         
         if es_fb_ig:
-            return (
-                f"🏠🗝️ *¡Perfecto!* Vamos a buscar juntos el alquiler ideal para vos.\n\n"
-                f"📍 ¿En qué *barrio o zona* estás buscando?\n"
-                f"_(Ej: Almagro, Villa Crespo, Belgrano)_\n\n"
-                f"💡 *Envía 'M' para volver al menú o 'S' para salir.*"
-            )
+            return {
+                "type": "text",
+                "body": f"🔍 *Catálogo de Propiedades*\n\nPodés explorar todas nuestras propiedades disponibles en nuestro sitio web:\n\n👉 {sitio_web}\n\n¿Necesitás ayuda con algo más?\n\n1️⃣ Volver al menú\n2️⃣ Salir\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
         else:
-            return (
-                f"🏠🗝️ *¡Perfecto!* Vamos a buscar juntos el alquiler ideal para vos.\n\n"
-                f"📍 ¿En qué *barrio o zona* estás buscando?\n"
-                f"_(Ej: Almagro, Villa Crespo, Belgrano)_ {HINT_SALIR}\n\n"
-                "Contame tus preferencias y te acompaño en todo el proceso."
+            # WhatsApp: botones interactivos
+            return WhatsAppResponse.buttons(
+                body=f"🔍 *Catálogo de Propiedades*\n\nPodés explorar todas nuestras propiedades disponibles en nuestro sitio web:\n\n👉 {sitio_web}\n\n¿Necesitás ayuda con algo más?",
+                buttons=[
+                    {"id": "c_menu", "title": "📋 Volver al menú"},
+                    {"id": "c_salir", "title": "❌ Salir"}
+                ],
+                footer=PIE_MENU
             )
-        
-    elif text_normalized in ["c_tasar", "tasar", "tasacion", "valorar", "3"]:
+    
+    # ========== OPCIÓN 3: TASACIÓN VIRTUAL INTELIGENTE ==========
+    elif text_normalized in ["c_tasar", "tasar", "tasacion", "valorar", "3", "tasación virtual", "tasación inteligente"]:
         from tasaciones import manejar_menu_tasacion
         return manejar_menu_tasacion(text, estado_usuario, user_id)
-        
-    elif text_normalized in ["c_asesor", "asesor", "hablar con asesor", "asesoramiento", "contacto", "4"]:
+    
+    # ========== OPCIÓN 4: ASESORAMIENTO INMOBILIARIO ==========
+    elif text_normalized in ["c_asesor", "asesor", "asesoramiento", "hablar con asesor", "contacto", "4"]:
         data['intencion'] = "Asesoramiento"
         estado_usuario['paso'] = 'campana_pedir_nombre'
         _set_campana_data(estado_usuario, data)
@@ -312,25 +318,29 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
         
         if es_fb_ig:
             return (
-                "👤 *¡Genial!* Un asesor experto de Dante Propiedades 🏠🗝️ te contactará a la brevedad para acompañarte personalmente.\n\n"
+                "👤 *¡Genial!* Un asesor experto de Dante Propiedades 🏠🗝️ te contactará a la brevedad para asesorarte.\n\n"
                 f"Por favor, decime tu *Nombre y Apellido* para que podamos ayudarte mejor:\n\n"
                 f"💡 *Envía 'M' para volver al menú o 'S' para salir.*"
             )
         else:
             return (
-                "👤 *¡Genial!* Un asesor experto de Dante Propiedades 🏠🗝️ te contactará a la brevedad para acompañarte personalmente.\n\n"
+                "👤 *¡Genial!* Un asesor experto de Dante Propiedades 🏠🗝️ te contactará a la brevedad para asesorarte.\n\n"
                 f"Por favor, decime tu *Nombre y Apellido* para que podamos ayudarte mejor: {HINT_SALIR}"
             )
     
+    # ========== OPCIÓN 5: SALIR ==========
     elif text_normalized in ["c_salir", "salir", "s", "exit", "0", "5"]:
         estado_usuario['paso'] = 'campana_inicio'
         _clear_campana_data(estado_usuario)
         actualizar_estado_usuario(user_id, estado_usuario)
         return DESPEDIDA
-        
+    
+    # ========== FALLBACK ==========
     else:
         log(f"⚠️ Opción no reconocida en campaña: '{text}' - Mostrando menú nuevamente")
         return iniciar_campana(platform)
+    
+    
 # ========== RECOPILACIÓN DE DATOS ==========
 
 def manejar_recopilacion_datos(text, estado_usuario, user_id):
