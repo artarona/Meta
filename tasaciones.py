@@ -7,6 +7,7 @@ import json
 import requests
 import os
 from logic.constants import BARRIOS_VALIDOS
+from tasaciones import mostrar_lista_barrios
 
 def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
     """Busca valoración en el mapa estadístico o BD local (Venta/Alquiler)"""
@@ -362,6 +363,9 @@ def manejar_tasacion_operacion(text_lower, estado_usuario, user_id):
 #             ],
 #             footer="Selecciona tu barrio 👇"
 #         )
+
+
+
 
 def manejar_tasacion_barrio_seleccion(text, estado_usuario, user_id):
     """Maneja la selección de barrio desde la lista"""
