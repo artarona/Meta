@@ -261,25 +261,28 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
             log(f"🔄 Conversión numérica: '{text}' -> '{text_normalized}'")
     
     # ========== OPCIÓN 1: QUIERO VENDER (antes "comprar") ==========
-    if text_normalized in ["c_comprar", "comprar", "vender", "quiero vender", "venta"]:
-        data['intencion'] = "Comprar"  # Mantenemos el mismo valor interno
+    if text_normalized in ["c_comprar", "comprar", "vender", "quiero vender", "venta", "1"]:
+        data['intencion'] = "Comprar"
         estado_usuario['paso'] = 'campana_recopilar_zona'
         _set_campana_data(estado_usuario, data)
         actualizar_estado_usuario(user_id, estado_usuario)
         
+        cuerpo = "🏠🗝️ *¡Excelente elección!* Te ayudaremos a vender tu propiedad.\n\n📍 ¿En qué *barrio o zona* se encuentra tu propiedad?\n_(Ej: Caballito, Palermo, Belgrano)_"
+        
         if es_fb_ig:
-            return (
-                f"🏠🗝️ *¡Excelente elección!* Te ayudaremos a vender tu propiedad.\n\n"
-                f"📍 ¿En qué *barrio o zona* se encuentra tu propiedad?\n"
-                f"_(Ej: Caballito, Palermo, Belgrano)_\n\n"
-                f"💡 *Envía 'M' para volver al menú o 'S' para salir.*"
-            )
+            return {
+                "type": "text",
+                "body": f"{cuerpo}\n\n1️⃣ Volver al menú\n2️⃣ Salir\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
         else:
-            return (
-                f"🏠🗝️ *¡Excelente elección!* Te ayudaremos a vender tu propiedad.\n\n"
-                f"📍 ¿En qué *barrio o zona* se encuentra tu propiedad?\n"
-                f"_(Ej: Caballito, Palermo, Belgrano)_ {HINT_SALIR}\n\n"
-                "Contame los detalles y te acompañamos en todo el proceso."
+            return WhatsAppResponse.buttons(
+                body=cuerpo,
+                buttons=[
+                    {"id": "c_menu", "title": "📋 Volver al menú"},
+                    {"id": "c_salir", "title": "❌ Salir"}
+                ],
+                footer=PIE_MENU
             )
     
     # ========== OPCIÓN 2: VER PROPIEDADES DISPONIBLES (antes "alquilar") ==========
