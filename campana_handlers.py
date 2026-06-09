@@ -13,6 +13,28 @@ PIE_MENU = "Dante Propiedades · Tu lugar ideal"
 PIE_SELECCION= "Selecciona una opción 👇"
 HINT_SALIR = "\n\n💡 _Envía '*S*' para salir o '*M*' para volver al menú._"
 
+# ========== CONSTANTES PARA QUIERO VENDER ==========
+VENDER_OPCIONES = {
+    "1": {"id": "vender_datos", "titulo": "📇 Datos de contacto"},
+    "2": {"id": "vender_documentacion", "titulo": "📄 Documentación"},
+    "3": {"id": "vender_detalles", "titulo": "📐 Detalles técnicos"},
+    "4": {"id": "vender_ocupacion", "titulo": "🚪 Estado de ocupación"},
+    "5": {"id": "vender_precio", "titulo": "💰 Precio pretendido"},
+    "6": {"id": "vender_disponibilidad", "titulo": "📅 Disponibilidad para visita"}
+}
+
+# Mapeo para números (FB/IG)
+VENDER_NUMEROS = {
+    "1": "vender_datos",
+    "2": "vender_documentacion",
+    "3": "vender_detalles",
+    "4": "vender_ocupacion",
+    "5": "vender_precio",
+    "6": "vender_disponibilidad"
+}
+
+
+
 # ========== HELPERS PARA DATA DE CAMPAÑA ==========
 # Usamos estado_usuario['data']['campana'] porque 'data' es el único
 # campo JSON que se persiste en la tabla user_states de PostgreSQL.
@@ -119,6 +141,33 @@ def get_bot_response_campana(text, user_id):
         
     elif paso_actual == 'campana_pedir_nombre':
         return manejar_pedir_nombre_asesor(text, estado_usuario, user_id)
+    
+        elif paso_actual == 'vender_menu_principal':
+            return manejar_vender_menu(text_lower, estado_usuario, user_id)
+    
+    elif paso_actual == 'vender_submenu_datos':
+        return manejar_vender_datos(text, estado_usuario, user_id)
+    
+    elif paso_actual == 'vender_submenu_documentacion':
+        return manejar_vender_documentacion(text_lower, estado_usuario, user_id)
+    
+    elif paso_actual == 'vender_submenu_detalles':
+        return manejar_vender_detalles(text_lower, estado_usuario, user_id)
+    
+    elif paso_actual == 'vender_submenu_ocupacion':
+        return manejar_vender_ocupacion(text_lower, estado_usuario, user_id)
+    
+    elif paso_actual == 'vender_submenu_precio':
+        return manejar_vender_precio(text_lower, estado_usuario, user_id)
+    
+    elif paso_actual == 'vender_precio_valor_espera':
+        return manejar_vender_precio_valor(text, estado_usuario, user_id)
+    
+    elif paso_actual == 'vender_submenu_disponibilidad':
+        return manejar_vender_disponibilidad(text_lower, estado_usuario, user_id)
+    
+    elif paso_actual == 'vender_disponibilidad_otro_espera':
+        return manejar_vender_disponibilidad_otro(text, estado_usuario, user_id)
         
     elif paso_actual.startswith('tasacion_'):
         from tasaciones import (
@@ -166,7 +215,7 @@ def iniciar_campana(platform=None):
     
     cuerpo_base = (
         "¡Hola! 👋 Soy el asistente de Dante Propiedades 🏠🗝️.\n\n"
-        "Estamos para acompañarte en todo el proceso de compra, venta o tasación de tu propiedad.\n\n"
+        "Estamos para acompañarte en todo el proceso de venta o tasación de tu propiedad.\n\n"
         "¿Te gustaría recibir una valoración gratuita o conocer las mejores oportunidades del mercado?\n\n"
         "Contame qué necesitás y te ayudo personalmente a avanzar."
     )
@@ -175,7 +224,7 @@ def iniciar_campana(platform=None):
         # Facebook/Instagram/Messenger: texto plano con números
         partes = [
             "¡Hola! 👋 Soy el asistente de Dante Propiedades 🏠🗝️",
-            "Estamos para acompañarte en todo el proceso de compra, venta o tasación de tu propiedad.\n"
+            "Estamos para acompañarte en todo el proceso de venta o tasación de tu propiedad.\n"
             "¿Te gustaría recibir una valoración gratuita o conocer las mejores oportunidades del mercado?\n"
             "Contame qué necesitás y te ayudo personalmente a avanzar.",
             "",
@@ -245,7 +294,7 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
             "cuatro": "c_asesor",
             "cinco": "c_salir",
             "comprar": "c_comprar",
-            "vender": "c_comprar",  # ← añadido para "quiero vender"
+            "vender": "c_comprar",
             "alquilar": "c_alquilar",
             "tasar": "c_tasar",
             "asesor": "c_asesor",
@@ -257,14 +306,19 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
             text_normalized = opciones_numericas[text_normalized]
             log(f"🔄 Conversión numérica: '{text}' -> '{text_normalized}'")
     
-    # ========== OPCIÓN 1: QUIERO VENDER (antes "comprar") ==========
+    # ========== OPCIÓN 1: QUIERO VENDER ==========
     if text_normalized in ["c_comprar", "comprar", "vender", "quiero vender", "venta", "1"]:
-        data['intencion'] = "Comprar"
-        estado_usuario['paso'] = 'campana_recopilar_zona'
+        data['intencion'] = "Vender"
+        estado_usuario['paso'] = 'vender_menu_principal'
         _set_campana_data(estado_usuario, data)
         actualizar_estado_usuario(user_id, estado_usuario)
+        return mostrar_menu_vender(estado_usuario, user_id)
+    
+    # ========== OPCIÓN 2: VER PROPIEDADES DISPONIBLES ==========
+    elif text_normalized in ["c_alquilar", "alquilar", "ver propiedades", "propiedades", "sitio web", "web", "catalogo", "2"]:
+        sitio_web = "https://www.dantepropiedades.com.ar"
         
-        cuerpo = "🏠🗝️ *¡Excelente elección!* Te ayudaremos a vender tu propiedad.\n\n📍 ¿En qué *barrio o zona* se encuentra tu propiedad?\n_(Ej: Caballito, Palermo, Belgrano)_"
+        cuerpo = f"🔍 *Catálogo de Propiedades*\n\nPodés explorar todas nuestras propiedades disponibles en nuestro sitio web:\n\n👉 {sitio_web}\n\n¿Necesitas ayuda con algo más?"
         
         if es_fb_ig:
             return {
@@ -275,28 +329,6 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
         else:
             return WhatsAppResponse.buttons(
                 body=cuerpo,
-                buttons=[
-                    {"id": "c_menu", "title": "📋 Volver al menú"},
-                    {"id": "c_salir", "title": "❌ Salir"}
-                ],
-                footer=PIE_MENU
-            )
-    
-    # ========== OPCIÓN 2: VER PROPIEDADES DISPONIBLES (antes "alquilar") ==========
-    elif text_normalized in ["c_alquilar", "alquilar", "ver propiedades", "propiedades", "sitio web", "web", "catalogo"]:
-        # Redirigir al sitio web
-        sitio_web = "https://www.dantepropiedades.com.ar"
-        
-        if es_fb_ig:
-            return {
-                "type": "text",
-                "body": f"🔍 *Catálogo de Propiedades*\n\nPodés explorar todas nuestras propiedades disponibles en nuestro sitio web:\n\n👉 {sitio_web}\n\n¿Necesitás ayuda con algo más?\n\n1️⃣ Volver al menú\n2️⃣ Salir\n\n💡 *Envía el número de la opción deseada*",
-                "preview": False
-            }
-        else:
-            # WhatsApp: botones interactivos
-            return WhatsAppResponse.buttons(
-                body=f"🔍 *Catálogo de Propiedades*\n\nPodés explorar todas nuestras propiedades disponibles en nuestro sitio web:\n\n👉 {sitio_web}\n\n¿Necesitás ayuda con algo más?",
                 buttons=[
                     {"id": "c_menu", "title": "📋 Volver al menú"},
                     {"id": "c_salir", "title": "❌ Salir"}
@@ -340,7 +372,733 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
         log(f"⚠️ Opción no reconocida en campaña: '{text}' - Mostrando menú nuevamente")
         return iniciar_campana(platform)
     
+
+def manejar_vender_menu(text_lower, estado_usuario, user_id):
+    """Maneja la selección del menú principal de Vender"""
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
     
+    # Normalizar para FB/IG (números)
+    if es_fb_ig and text_lower in VENDER_NUMEROS:
+        text_lower = VENDER_NUMEROS[text_lower]
+    
+    # Comandos globales
+    if text_lower in ["0", "volver", "menu"]:
+        estado_usuario['paso'] = 'campana_intent'
+        _clear_campana_data(estado_usuario)
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return iniciar_campana(platform)
+    
+    # Datos de la campaña
+    data = _get_campana_data(estado_usuario)
+    
+    if text_lower == "vender_datos":
+        estado_usuario['paso'] = 'vender_submenu_datos'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "Para comenzar, por favor confirmame tu *nombre completo* y un *horario de preferencia* para que Dante te llame.\n\n_(Ej: Juan Pérez, después de las 15hs)_"
+    
+    elif text_lower == "vender_documentacion":
+        estado_usuario['paso'] = 'vender_submenu_documentacion'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": "¿Contás con la escritura o título de propiedad a tu nombre?\nEsto nos permite verificar la viabilidad legal inmediata de la venta.\n\n1. Sí, la tengo\n2. No, todavía no\n3. Está en trámite\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            return WhatsAppResponse.buttons(
+                body="¿Contás con la escritura o título de propiedad a tu nombre?\nEsto nos permite verificar la viabilidad legal inmediata de la venta.",
+                buttons=[
+                    {"id": "vender_doc_si", "title": "✅ Sí, la tengo"},
+                    {"id": "vender_doc_no", "title": "❌ No, todavía no"},
+                    {"id": "vender_doc_tramite", "title": "📋 Está en trámite"}
+                ],
+                footer="Selecciona una opción 👇"
+            )
+    
+    elif text_lower == "vender_detalles":
+        estado_usuario['paso'] = 'vender_submenu_detalles'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": "¿La propiedad tiene planos aprobados y está apta para crédito bancario?\n\n1. Sí, planos aprobados\n2. No tiene planos\n3. No estoy seguro\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            return WhatsAppResponse.buttons(
+                body="¿La propiedad tiene planos aprobados y está apta para crédito bancario?",
+                buttons=[
+                    {"id": "vender_detalles_si", "title": "✅ Sí, planos aprobados"},
+                    {"id": "vender_detalles_no", "title": "❌ No tiene planos"},
+                    {"id": "vender_detalles_duda", "title": "🤔 No estoy seguro"}
+                ],
+                footer="Selecciona una opción 👇"
+            )
+    
+    elif text_lower == "vender_ocupacion":
+        estado_usuario['paso'] = 'vender_submenu_ocupacion'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": "¿La propiedad se encuentra habitada, vacía o alquilada actualmente?\n\n1. Habitada\n2. Vacía\n3. Alquilada\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            return WhatsAppResponse.buttons(
+                body="¿La propiedad se encuentra habitada, vacía o alquilada actualmente?",
+                buttons=[
+                    {"id": "vender_ocupacion_habitada", "title": "🏠 Habitada"},
+                    {"id": "vender_ocupacion_vacia", "title": "🏚️ Vacía"},
+                    {"id": "vender_ocupacion_alquilada", "title": "🔑 Alquilada"}
+                ],
+                footer="Selecciona una opción 👇"
+            )
+    
+    elif text_lower == "vender_precio":
+        estado_usuario['paso'] = 'vender_submenu_precio'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": "¿Tenés un valor de venta en mente o preferís que realicemos primero la tasación profesional?\n\n1. Tengo un valor\n2. Prefiero tasación profesional\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            return WhatsAppResponse.buttons(
+                body="¿Tenés un valor de venta en mente o preferís que realicemos primero la tasación profesional?",
+                buttons=[
+                    {"id": "vender_precio_valor", "title": "💰 Tengo un valor"},
+                    {"id": "vender_precio_tasacion", "title": "📊 Prefiero tasación profesional"}
+                ],
+                footer="Selecciona una opción 👇"
+            )
+    
+    elif text_lower == "vender_disponibilidad":
+        estado_usuario['paso'] = 'vender_submenu_disponibilidad'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": "¿Qué días y horarios te quedarían cómodos para que visitemos la propiedad y tomemos las fotos profesionales para la publicación?\n\n1. Mañana\n2. Tarde\n3. Fines de semana\n4. Coordinar otro horario\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            return WhatsAppResponse.buttons(
+                body="¿Qué días y horarios te quedarían cómodos para que visitemos la propiedad y tomemos las fotos profesionales para la publicación?",
+                buttons=[
+                    {"id": "vender_disponibilidad_manana", "title": "🌅 Mañana"},
+                    {"id": "vender_disponibilidad_tarde", "title": "☀️ Tarde"},
+                    {"id": "vender_disponibilidad_finde", "title": "📅 Fines de semana"},
+                    {"id": "vender_disponibilidad_otro", "title": "⏰ Coordinar otro horario"}
+                ],
+                footer="Selecciona una opción 👇"
+            )
+    
+    else:
+        # Opción no reconocida
+        return mostrar_menu_vender(estado_usuario, user_id)
+    
+def manejar_vender_datos(text, estado_usuario, user_id):
+    """Guarda los datos de contacto"""
+    data = _get_campana_data(estado_usuario)
+    data['nombre_horario'] = text
+    _set_campana_data(estado_usuario, data)
+    
+    # Guardar lead parcial y continuar
+    guardar_lead_vender(user_id, data, "datos_contacto", text)
+    
+    # Volver al menú principal de venta
+    estado_usuario['paso'] = 'vender_menu_principal'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    
+    respuesta = f"✅ *¡Gracias!* Hemos registrado tu información: {text}\n\n¿Necesitás completar algún otro dato o prefieres que un asesor te contacte?"
+    
+    if es_fb_ig:
+        return {
+            "type": "text",
+            "body": f"{respuesta}\n\n1. Volver al menú Vender\n2. Salir\n\n💡 *Envía el número de la opción deseada*",
+            "preview": False
+        }
+    else:
+        return WhatsAppResponse.buttons(
+            body=respuesta,
+            buttons=[
+                {"id": "vender_menu", "title": "📋 Volver al menú Vender"},
+                {"id": "c_salir", "title": "❌ Salir"}
+            ],
+            footer="Dante Propiedades · Tu lugar ideal"
+        )
+
+
+def manejar_vender_documentacion(text, estado_usuario, user_id):
+    """Guarda la respuesta de documentación"""
+    opciones = {
+        "1": "Sí, la tengo",
+        "2": "No, todavía no",
+        "3": "Está en trámite",
+        "vender_doc_si": "Sí, la tengo",
+        "vender_doc_no": "No, todavía no",
+        "vender_doc_tramite": "Está en trámite"
+    }
+    
+    respuesta = opciones.get(text, text)
+    data = _get_campana_data(estado_usuario)
+    data['documentacion'] = respuesta
+    _set_campana_data(estado_usuario, data)
+    
+    guardar_lead_vender(user_id, data, "documentacion", respuesta)
+    
+    estado_usuario['paso'] = 'vender_menu_principal'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    return mostrar_menu_vender(estado_usuario, user_id)
+
+
+def manejar_vender_detalles(text, estado_usuario, user_id):
+    """Guarda la respuesta de detalles técnicos"""
+    opciones = {
+        "1": "Sí, planos aprobados",
+        "2": "No tiene planos",
+        "3": "No estoy seguro",
+        "vender_detalles_si": "Sí, planos aprobados",
+        "vender_detalles_no": "No tiene planos",
+        "vender_detalles_duda": "No estoy seguro"
+    }
+    
+    respuesta = opciones.get(text, text)
+    data = _get_campana_data(estado_usuario)
+    data['detalles_tecnicos'] = respuesta
+    _set_campana_data(estado_usuario, data)
+    
+    guardar_lead_vender(user_id, data, "detalles_tecnicos", respuesta)
+    
+    estado_usuario['paso'] = 'vender_menu_principal'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    return mostrar_menu_vender(estado_usuario, user_id)
+
+
+def manejar_vender_ocupacion(text, estado_usuario, user_id):
+    """Guarda la respuesta de estado de ocupación"""
+    opciones = {
+        "1": "Habitada",
+        "2": "Vacía",
+        "3": "Alquilada",
+        "vender_ocupacion_habitada": "Habitada",
+        "vender_ocupacion_vacia": "Vacía",
+        "vender_ocupacion_alquilada": "Alquilada"
+    }
+    
+    respuesta = opciones.get(text, text)
+    data = _get_campana_data(estado_usuario)
+    data['estado_ocupacion'] = respuesta
+    _set_campana_data(estado_usuario, data)
+    
+    guardar_lead_vender(user_id, data, "estado_ocupacion", respuesta)
+    
+    estado_usuario['paso'] = 'vender_menu_principal'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    return mostrar_menu_vender(estado_usuario, user_id)
+
+
+def manejar_vender_precio(text, estado_usuario, user_id):
+    """Guarda la respuesta de precio pretendido"""
+    opciones = {
+        "1": "Tengo un valor",
+        "2": "Prefiero tasación profesional",
+        "vender_precio_valor": "Tengo un valor",
+        "vender_precio_tasacion": "Prefiero tasación profesional"
+    }
+    
+    respuesta = opciones.get(text, text)
+    data = _get_campana_data(estado_usuario)
+    
+    if respuesta == "Tengo un valor":
+        estado_usuario['paso'] = 'vender_precio_valor_espera'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "💰 *¿Cuál es el valor de venta que tenés en mente?*\n\n_(Ej: 120.000 USD, 150.000 USD, etc.)_"
+    else:
+        data['precio_pretendido'] = respuesta
+        _set_campana_data(estado_usuario, data)
+        guardar_lead_vender(user_id, data, "precio_pretendido", respuesta)
+        
+        estado_usuario['paso'] = 'vender_menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return mostrar_menu_vender(estado_usuario, user_id)
+
+
+def manejar_vender_precio_valor(text, estado_usuario, user_id):
+    """Guarda el valor específico del precio"""
+    data = _get_campana_data(estado_usuario)
+    data['precio_pretendido'] = text
+    _set_campana_data(estado_usuario, data)
+    
+    guardar_lead_vender(user_id, data, "precio_pretendido", text)
+    
+    estado_usuario['paso'] = 'vender_menu_principal'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    return mostrar_menu_vender(estado_usuario, user_id)
+
+
+def manejar_vender_disponibilidad(text, estado_usuario, user_id):
+    """Guarda la respuesta de disponibilidad"""
+    opciones = {
+        "1": "Mañana",
+        "2": "Tarde",
+        "3": "Fines de semana",
+        "4": "Coordinar otro horario",
+        "vender_disponibilidad_manana": "Mañana",
+        "vender_disponibilidad_tarde": "Tarde",
+        "vender_disponibilidad_finde": "Fines de semana",
+        "vender_disponibilidad_otro": "Coordinar otro horario"
+    }
+    
+    respuesta = opciones.get(text, text)
+    
+    if respuesta == "Coordinar otro horario":
+        estado_usuario['paso'] = 'vender_disponibilidad_otro_espera'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "📅 *Contanos qué días y horarios te quedan cómodos:*\n\n_(Ej: Lunes y miércoles de 10 a 12hs, o sábados por la mañana)_"
+    else:
+        data = _get_campana_data(estado_usuario)
+        data['disponibilidad'] = respuesta
+        _set_campana_data(estado_usuario, data)
+        
+        guardar_lead_vender(user_id, data, "disponibilidad", respuesta)
+        
+        # Finalizar flujo y notificar
+        return finalizar_vender_y_notificar(user_id, estado_usuario, data)
+
+
+def manejar_vender_disponibilidad_otro(text, estado_usuario, user_id):
+    """Guarda el horario personalizado"""
+    data = _get_campana_data(estado_usuario)
+    data['disponibilidad'] = text
+    _set_campana_data(estado_usuario, data)
+    
+    guardar_lead_vender(user_id, data, "disponibilidad", text)
+    
+    return finalizar_vender_y_notificar(user_id, estado_usuario, data)
+
+
+def finalizar_vender_y_notificar(user_id, estado_usuario, data):
+    """Finaliza el flujo de venta y notifica al agente"""
+    # Construir detalles completos
+    detalles = []
+    for key, value in data.items():
+        if key != 'intencion':
+            detalles.append(f"{key}: {value}")
+    
+    detalles_str = " | ".join(detalles)
+    
+    # Guardar lead final en PostgreSQL y JSON
+    nombre = data.get('nombre_horario', f"Lead Venta {str(user_id)[-4:]}")
+    guardar_lead_campana(user_id, data)  # Reusamos la función existente
+    
+    # Notificar al agente
+    mensaje_agente = f"🏠 *NUEVO LEAD DE VENTA* 🏠\n\n"
+    mensaje_agente += f"👤 *Contacto:* {nombre}\n"
+    mensaje_agente += f"📱 *WhatsApp:* +{user_id}\n"
+    mensaje_agente += f"📋 *Detalles completos:*\n{detalles_str}\n\n"
+    mensaje_agente += "👉 *Requiere seguimiento comercial.*"
+    
+    notificar_agente(mensaje_agente)
+    
+    # Resetear estado
+    estado_usuario['paso'] = 'campana_inicio'
+    _clear_campana_data(estado_usuario)
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    
+    mensaje_final = (
+        "✅ *¡Excelente!* Hemos recibido toda la información de tu propiedad.\n\n"
+        "Un asesor especializado de Dante Propiedades se pondrá en contacto contigo a la brevedad para coordinar los próximos pasos y comenzar con la comercialización.\n\n"
+        "¡Gracias por confiar en nosotros! 🏠🗝️"
+    )
+    
+    if es_fb_ig:
+        return {
+            "type": "text",
+            "body": f"{mensaje_final}\n\n1. Volver al menú principal\n2. Salir\n\n💡 *Envía el número de la opción deseada*",
+            "preview": False
+        }
+    else:
+        return WhatsAppResponse.buttons(
+            body=mensaje_final,
+            buttons=[
+                {"id": "c_menu", "title": "📋 Volver al menú"},
+                {"id": "c_salir", "title": "❌ Salir"}
+            ],
+            footer="Dante Propiedades · Tu lugar ideal"
+        )
+
+
+def guardar_lead_vender(user_id, data, paso, valor):
+    """Guarda progreso parcial del lead de venta en JSON"""
+    try:
+        import os, json
+        from config import LEADS_FILE
+        from utils import save_json_atomic
+        from datetime import datetime
+        
+        leads = []
+        if os.path.exists(LEADS_FILE):
+            try:
+                with open(LEADS_FILE, 'r', encoding='utf-8') as f:
+                    leads = json.load(f)
+            except Exception:
+                leads = []
+        
+        nuevo_lead = {
+            'timestamp': datetime.now().isoformat(),
+            'user_id': user_id,
+            'propiedad_id': '',
+            'accion': f"venta_{paso}",
+            'detalle': valor,
+            'propiedad_nombre': f"Venta - {paso}",
+            'nombre': data.get('nombre_horario', f"Lead Venta {str(user_id)[-4:]}")
+        }
+        save_json_atomic(LEADS_FILE, leads)
+        log(f"✅ Progreso de venta guardado: {user_id} - {paso}: {valor}")
+    except Exception as e:
+        log(f"⚠️ Error guardando progreso de venta: {e}", "WARNING")
+        
+        
+def manejar_vender_datos(text, estado_usuario, user_id):
+    """Guarda los datos de contacto"""
+    data = _get_campana_data(estado_usuario)
+    data['nombre_horario'] = text
+    _set_campana_data(estado_usuario, data)
+    
+    # Guardar lead parcial y continuar
+    guardar_lead_vender(user_id, data, "datos_contacto", text)
+    
+    # Volver al menú principal de venta
+    estado_usuario['paso'] = 'vender_menu_principal'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    
+    respuesta = f"✅ *¡Gracias!* Hemos registrado tu información: {text}\n\n¿Necesitás completar algún otro dato o prefieres que un asesor te contacte?"
+    
+    if es_fb_ig:
+        return {
+            "type": "text",
+            "body": f"{respuesta}\n\n1. Volver al menú Vender\n2. Salir\n\n💡 *Envía el número de la opción deseada*",
+            "preview": False
+        }
+    else:
+        return WhatsAppResponse.buttons(
+            body=respuesta,
+            buttons=[
+                {"id": "vender_menu", "title": "📋 Volver al menú Vender"},
+                {"id": "c_salir", "title": "❌ Salir"}
+            ],
+            footer="Dante Propiedades · Tu lugar ideal"
+        )
+
+
+def manejar_vender_documentacion(text, estado_usuario, user_id):
+    """Guarda la respuesta de documentación"""
+    opciones = {
+        "1": "Sí, la tengo",
+        "2": "No, todavía no",
+        "3": "Está en trámite",
+        "vender_doc_si": "Sí, la tengo",
+        "vender_doc_no": "No, todavía no",
+        "vender_doc_tramite": "Está en trámite"
+    }
+    
+    respuesta = opciones.get(text, text)
+    data = _get_campana_data(estado_usuario)
+    data['documentacion'] = respuesta
+    _set_campana_data(estado_usuario, data)
+    
+    guardar_lead_vender(user_id, data, "documentacion", respuesta)
+    
+    estado_usuario['paso'] = 'vender_menu_principal'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    return mostrar_menu_vender(estado_usuario, user_id)
+
+
+def manejar_vender_detalles(text, estado_usuario, user_id):
+    """Guarda la respuesta de detalles técnicos"""
+    opciones = {
+        "1": "Sí, planos aprobados",
+        "2": "No tiene planos",
+        "3": "No estoy seguro",
+        "vender_detalles_si": "Sí, planos aprobados",
+        "vender_detalles_no": "No tiene planos",
+        "vender_detalles_duda": "No estoy seguro"
+    }
+    
+    respuesta = opciones.get(text, text)
+    data = _get_campana_data(estado_usuario)
+    data['detalles_tecnicos'] = respuesta
+    _set_campana_data(estado_usuario, data)
+    
+    guardar_lead_vender(user_id, data, "detalles_tecnicos", respuesta)
+    
+    estado_usuario['paso'] = 'vender_menu_principal'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    return mostrar_menu_vender(estado_usuario, user_id)
+
+
+def manejar_vender_ocupacion(text, estado_usuario, user_id):
+    """Guarda la respuesta de estado de ocupación"""
+    opciones = {
+        "1": "Habitada",
+        "2": "Vacía",
+        "3": "Alquilada",
+        "vender_ocupacion_habitada": "Habitada",
+        "vender_ocupacion_vacia": "Vacía",
+        "vender_ocupacion_alquilada": "Alquilada"
+    }
+    
+    respuesta = opciones.get(text, text)
+    data = _get_campana_data(estado_usuario)
+    data['estado_ocupacion'] = respuesta
+    _set_campana_data(estado_usuario, data)
+    
+    guardar_lead_vender(user_id, data, "estado_ocupacion", respuesta)
+    
+    estado_usuario['paso'] = 'vender_menu_principal'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    return mostrar_menu_vender(estado_usuario, user_id)
+
+
+def manejar_vender_precio(text, estado_usuario, user_id):
+    """Guarda la respuesta de precio pretendido"""
+    opciones = {
+        "1": "Tengo un valor",
+        "2": "Prefiero tasación profesional",
+        "vender_precio_valor": "Tengo un valor",
+        "vender_precio_tasacion": "Prefiero tasación profesional"
+    }
+    
+    respuesta = opciones.get(text, text)
+    data = _get_campana_data(estado_usuario)
+    
+    if respuesta == "Tengo un valor":
+        estado_usuario['paso'] = 'vender_precio_valor_espera'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "💰 *¿Cuál es el valor de venta que tenés en mente?*\n\n_(Ej: 120.000 USD, 150.000 USD, etc.)_"
+    else:
+        data['precio_pretendido'] = respuesta
+        _set_campana_data(estado_usuario, data)
+        guardar_lead_vender(user_id, data, "precio_pretendido", respuesta)
+        
+        estado_usuario['paso'] = 'vender_menu_principal'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return mostrar_menu_vender(estado_usuario, user_id)
+
+
+def manejar_vender_precio_valor(text, estado_usuario, user_id):
+    """Guarda el valor específico del precio"""
+    data = _get_campana_data(estado_usuario)
+    data['precio_pretendido'] = text
+    _set_campana_data(estado_usuario, data)
+    
+    guardar_lead_vender(user_id, data, "precio_pretendido", text)
+    
+    estado_usuario['paso'] = 'vender_menu_principal'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    return mostrar_menu_vender(estado_usuario, user_id)
+
+
+def manejar_vender_disponibilidad(text, estado_usuario, user_id):
+    """Guarda la respuesta de disponibilidad"""
+    opciones = {
+        "1": "Mañana",
+        "2": "Tarde",
+        "3": "Fines de semana",
+        "4": "Coordinar otro horario",
+        "vender_disponibilidad_manana": "Mañana",
+        "vender_disponibilidad_tarde": "Tarde",
+        "vender_disponibilidad_finde": "Fines de semana",
+        "vender_disponibilidad_otro": "Coordinar otro horario"
+    }
+    
+    respuesta = opciones.get(text, text)
+    
+    if respuesta == "Coordinar otro horario":
+        estado_usuario['paso'] = 'vender_disponibilidad_otro_espera'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        return "📅 *Contanos qué días y horarios te quedan cómodos:*\n\n_(Ej: Lunes y miércoles de 10 a 12hs, o sábados por la mañana)_"
+    else:
+        data = _get_campana_data(estado_usuario)
+        data['disponibilidad'] = respuesta
+        _set_campana_data(estado_usuario, data)
+        
+        guardar_lead_vender(user_id, data, "disponibilidad", respuesta)
+        
+        # Finalizar flujo y notificar
+        return finalizar_vender_y_notificar(user_id, estado_usuario, data)
+
+
+def manejar_vender_disponibilidad_otro(text, estado_usuario, user_id):
+    """Guarda el horario personalizado"""
+    data = _get_campana_data(estado_usuario)
+    data['disponibilidad'] = text
+    _set_campana_data(estado_usuario, data)
+    
+    guardar_lead_vender(user_id, data, "disponibilidad", text)
+    
+    return finalizar_vender_y_notificar(user_id, estado_usuario, data)
+
+
+def finalizar_vender_y_notificar(user_id, estado_usuario, data):
+    """Finaliza el flujo de venta y notifica al agente"""
+    # Construir detalles completos
+    detalles = []
+    for key, value in data.items():
+        if key != 'intencion':
+            detalles.append(f"{key}: {value}")
+    
+    detalles_str = " | ".join(detalles)
+    
+    # Guardar lead final en PostgreSQL y JSON
+    nombre = data.get('nombre_horario', f"Lead Venta {str(user_id)[-4:]}")
+    guardar_lead_campana(user_id, data)  # Reusamos la función existente
+    
+    # Notificar al agente
+    mensaje_agente = f"🏠 *NUEVO LEAD DE VENTA* 🏠\n\n"
+    mensaje_agente += f"👤 *Contacto:* {nombre}\n"
+    mensaje_agente += f"📱 *WhatsApp:* +{user_id}\n"
+    mensaje_agente += f"📋 *Detalles completos:*\n{detalles_str}\n\n"
+    mensaje_agente += "👉 *Requiere seguimiento comercial.*"
+    
+    notificar_agente(mensaje_agente)
+    
+    # Resetear estado
+    estado_usuario['paso'] = 'campana_inicio'
+    _clear_campana_data(estado_usuario)
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    
+    mensaje_final = (
+        "✅ *¡Excelente!* Hemos recibido toda la información de tu propiedad.\n\n"
+        "Un asesor especializado de Dante Propiedades se pondrá en contacto contigo a la brevedad para coordinar los próximos pasos y comenzar con la comercialización.\n\n"
+        "¡Gracias por confiar en nosotros! 🏠🗝️"
+    )
+    
+    if es_fb_ig:
+        return {
+            "type": "text",
+            "body": f"{mensaje_final}\n\n1. Volver al menú principal\n2. Salir\n\n💡 *Envía el número de la opción deseada*",
+            "preview": False
+        }
+    else:
+        return WhatsAppResponse.buttons(
+            body=mensaje_final,
+            buttons=[
+                {"id": "c_menu", "title": "📋 Volver al menú"},
+                {"id": "c_salir", "title": "❌ Salir"}
+            ],
+            footer="Dante Propiedades · Tu lugar ideal"
+        )
+
+
+def guardar_lead_vender(user_id, data, paso, valor):
+    """Guarda progreso parcial del lead de venta en JSON"""
+    try:
+        import os, json
+        from config import LEADS_FILE
+        from utils import save_json_atomic
+        from datetime import datetime
+        
+        leads = []
+        if os.path.exists(LEADS_FILE):
+            try:
+                with open(LEADS_FILE, 'r', encoding='utf-8') as f:
+                    leads = json.load(f)
+            except Exception:
+                leads = []
+        
+        nuevo_lead = {
+            'timestamp': datetime.now().isoformat(),
+            'user_id': user_id,
+            'propiedad_id': '',
+            'accion': f"venta_{paso}",
+            'detalle': valor,
+            'propiedad_nombre': f"Venta - {paso}",
+            'nombre': data.get('nombre_horario', f"Lead Venta {str(user_id)[-4:]}")
+        }
+        save_json_atomic(LEADS_FILE, leads)
+        log(f"✅ Progreso de venta guardado: {user_id} - {paso}: {valor}")
+    except Exception as e:
+        log(f"⚠️ Error guardando progreso de venta: {e}", "WARNING")
+        
+
+
+
+
+def mostrar_menu_vender(estado_usuario, user_id):
+    """Muestra el menú principal de 'Quiero Vender'"""
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    
+    cuerpo = "Perfecto, te acompaño con la venta de tu propiedad. Para avanzar, seleccioná una de las siguientes opciones:"
+    
+    if es_fb_ig:
+        # Facebook/Instagram: texto con numeración
+        opciones_texto = (
+            "1. 📇 Datos de contacto\n"
+            "2. 📄 Documentación\n"
+            "3. 📐 Detalles técnicos\n"
+            "4. 🚪 Estado de ocupación\n"
+            "5. 💰 Precio pretendido\n"
+            "6. 📅 Disponibilidad para visita\n\n"
+            "💡 *Envía el número de la opción deseada*\n\n"
+            "0️⃣ Volver al menú principal"
+        )
+        
+        return {
+            "type": "text",
+            "body": f"{cuerpo}\n\n{opciones_texto}",
+            "preview": False
+        }
+    else:
+        # WhatsApp: botones interactivos
+        buttons = [
+            {"id": "vender_datos", "title": "📇 Datos de contacto"},
+            {"id": "vender_documentacion", "title": "📄 Documentación"},
+            {"id": "vender_detalles", "title": "📐 Detalles técnicos"},
+            {"id": "vender_ocupacion", "title": "🚪 Estado de ocupación"},
+            {"id": "vender_precio", "title": "💰 Precio pretendido"},
+            {"id": "vender_disponibilidad", "title": "📅 Disponibilidad para visita"}
+        ]
+        
+        return WhatsAppResponse.buttons(
+            body=cuerpo,
+            buttons=buttons,
+            footer="Selecciona una opción 👇"
+        )
+        
+        
+
+
+
 # ========== RECOPILACIÓN DE DATOS ==========
 
 def manejar_recopilacion_datos(text, estado_usuario, user_id):
