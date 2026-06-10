@@ -770,6 +770,9 @@ def manejar_vender_paso5_precio(text, estado_usuario, user_id):
             
 def manejar_vender_paso5_precio_valor(text, estado_usuario, user_id):
     """Guarda el valor específico del precio y avanza a disponibilidad"""
+    log(f"🔍 [PRECIO_VALOR] INICIO - texto: '{text}'")
+    log(f"🔍 [PRECIO_VALOR] Paso antes: {estado_usuario.get('paso')}")
+    
     data = _get_campana_data(estado_usuario)
     data['precio_pretendido'] = text
     _set_campana_data(estado_usuario, data)
@@ -779,16 +782,21 @@ def manejar_vender_paso5_precio_valor(text, estado_usuario, user_id):
     estado_usuario['paso'] = 'vender_paso7_disponibilidad'
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    es_fb_ig = es_plataforma_fb_ig(estado_usuario)
+    log(f"🔍 [PRECIO_VALOR] Paso cambiado a: {estado_usuario['paso']}")
     
-    # ✅ Mostrar pregunta de disponibilidad (esto estaba faltando)
+    es_fb_ig = es_plataforma_fb_ig(estado_usuario)
+    log(f"🔍 [PRECIO_VALOR] es_fb_ig: {es_fb_ig}")
+    
+    # Mostrar pregunta de disponibilidad
     if es_fb_ig:
+        log(f"🔍 [PRECIO_VALOR] Mostrando opciones FB/IG")
         return {
             "type": "text",
             "body": "📅 *¿Qué días y horarios te quedarían cómodos para que visitemos la propiedad y tomemos las fotos profesionales para la publicación?*\n\n1. Mañana\n2. Tarde\n3. Fines de semana\n4. Coordinar otro horario\n\n💡 *Envía el número de la opción deseada*",
             "preview": False
         }
     else:
+        log(f"🔍 [PRECIO_VALOR] Mostrando botones WhatsApp")
         return WhatsAppResponse.buttons(
             body="📅 *¿Qué días y horarios te quedarían cómodos para que visitemos la propiedad y tomemos las fotos profesionales para la publicación?*",
             buttons=[
@@ -803,69 +811,9 @@ def manejar_vender_paso5_precio_valor(text, estado_usuario, user_id):
         
 
 def manejar_vender_paso6_disponibilidad(text, estado_usuario, user_id):
-    """Guarda disponibilidad y avanza a horario de llamada"""
-    es_fb_ig = es_plataforma_fb_ig(estado_usuario)
-    
-    # Mapeo para FB/IG
-    opciones_fb_ig = {
-        "1": "Mañana",
-        "2": "Tarde",
-        "3": "Fines de semana",
-        "4": "Coordinar otro horario"
-    }
-    
-    if es_fb_ig:
-        text = normalizar_respuesta_fb_ig(text, opciones_fb_ig)
-    
-    opciones = {
-        "1": "Mañana",
-        "2": "Tarde",
-        "3": "Fines de semana",
-        "4": "Coordinar otro horario",
-        "disponibilidad_manana": "Mañana",
-        "disponibilidad_tarde": "Tarde",
-        "disponibilidad_finde": "Fines de semana",
-        "disponibilidad_otro": "Coordinar otro horario",
-        "Mañana": "Mañana",
-        "Tarde": "Tarde",
-        "Fines de semana": "Fines de semana",
-        "Coordinar otro horario": "Coordinar otro horario"
-    }
-    
-    respuesta = opciones.get(text, text)
-    
-    if respuesta == "Coordinar otro horario":
-        estado_usuario['paso'] = 'vender_paso7_disponibilidad_otro'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return "📅 *Contanos qué días y horarios te quedan cómodos:*\n\n_(Ej: Lunes y miércoles de 10 a 12hs, o sábados por la mañana)_"
-    else:
-        data = _get_campana_data(estado_usuario)
-        data['disponibilidad_visita'] = respuesta
-        _set_campana_data(estado_usuario, data)
-        guardar_lead_vender(user_id, data, "disponibilidad_visita", respuesta)
-        
-        # Avanzar al paso 8: horario de llamada
-        estado_usuario['paso'] = 'vender_paso8_horario_llamada'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        
-        # Mostrar pregunta de horario de llamada
-        if es_fb_ig:
-            return {
-                "type": "text",
-                "body": "📅 *¿En qué horario te gustaría que Dante te llame?*\n\n1. 🌅 Mañana (9 a 12hs)\n2. ☀️ Mediodía (12 a 15hs)\n3. 🌇 Tarde (15 a 18hs)\n4. 🌙 Noche (18 a 20hs)\n\n💡 *Envía el número de la opción deseada*",
-                "preview": False
-            }
-        else:
-            return WhatsAppResponse.buttons(
-                body="📅 *¿En qué horario te gustaría que Dante te llame?*",
-                buttons=[
-                    {"id": "horario_manana", "title": "🌅 Mañana (9-12hs)"},
-                    {"id": "horario_mediodia", "title": "☀️ Mediodía (12-15hs)"},
-                    {"id": "horario_tarde", "title": "🌇 Tarde (15-18hs)"},
-                    {"id": "horario_noche", "title": "🌙 Noche (18-20hs)"}
-                ],
-                footer="Selecciona un horario 👇"
-            )
+    log(f"🔍 [DISPO] INICIO - texto: '{text}'")
+    log(f"🔍 [DISPO] Paso actual: {estado_usuario.get('paso')}")
+    # ... resto del código
         
 
 def manejar_vender_paso6_disponibilidad_otro(text, estado_usuario, user_id):
