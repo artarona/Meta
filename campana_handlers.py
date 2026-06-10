@@ -13,6 +13,23 @@ PIE_MENU = "🏠 Dante Propiedades · Tu lugar ideal 🗝️"
 PIE_SELECCION= "Selecciona una opción 👇"
 HINT_SALIR = "\n\n💡 _Envía '*S*' para salir o '*M*' para volver al menú._"
 
+
+
+
+# ========== FUNCIONES AUXILIARES PARA FB/IG ==========
+
+def es_plataforma_fb_ig(estado_usuario):
+    """Determina si la plataforma es Facebook/Instagram/Messenger"""
+    platform = estado_usuario.get('platform', 'whatsapp')
+    return platform in ("messenger", "facebook", "instagram")
+
+def normalizar_respuesta_fb_ig(text, opciones_numericas):
+    """Convierte un número de FB/IG en el valor correspondiente"""
+    if text in opciones_numericas:
+        return opciones_numericas[text]
+    return text
+
+
 # ========== HELPERS PARA DATA DE CAMPAÑA ==========
 
 def _get_campana_data(estado_usuario):
@@ -45,7 +62,6 @@ def get_bot_response_campana(text, user_id):
     if not platform:
         try:
             import psycopg2
-            from config import DATABASE_URL
             conn = psycopg2.connect(DATABASE_URL)
             cur = conn.cursor()
             cur.execute("SELECT state FROM user_states WHERE user_id = %s", (str(user_id),))
@@ -97,39 +113,31 @@ def get_bot_response_campana(text, user_id):
     elif paso_actual == 'vender_paso1_nombre':
         return manejar_vender_paso1_nombre(text, estado_usuario, user_id)
     
-    elif paso_actual == 'vender_paso2_barrio':  # ← NUEVO: preguntar barrio
+    elif paso_actual == 'vender_paso2_barrio':
         return manejar_vender_paso2_barrio(text, estado_usuario, user_id)
     
     elif paso_actual == 'vender_paso3_documentacion':
-        # Usamos la función EXISTENTE (antes se llamaba vender_paso2_documentacion)
         return manejar_vender_paso2_documentacion(text_lower, estado_usuario, user_id)
     
     elif paso_actual == 'vender_paso4_detalles':
-        # Usamos la función EXISTENTE (antes se llamaba vender_paso3_detalles)
         return manejar_vender_paso3_detalles(text_lower, estado_usuario, user_id)
     
     elif paso_actual == 'vender_paso5_ocupacion':
-        # Usamos la función EXISTENTE (antes se llamaba vender_paso4_ocupacion)
         return manejar_vender_paso4_ocupacion(text_lower, estado_usuario, user_id)
     
     elif paso_actual == 'vender_paso6_precio':
-        # Usamos la función EXISTENTE (antes se llamaba vender_paso5_precio)
         return manejar_vender_paso5_precio(text_lower, estado_usuario, user_id)
     
     elif paso_actual == 'vender_paso6_precio_valor_espera':
-        # Usamos la función EXISTENTE (antes se llamaba vender_paso5_precio_valor_espera)
         return manejar_vender_paso5_precio_valor(text, estado_usuario, user_id)
     
     elif paso_actual == 'vender_paso7_disponibilidad':
-        # Usamos la función EXISTENTE (antes se llamaba vender_paso6_disponibilidad)
         return manejar_vender_paso6_disponibilidad(text_lower, estado_usuario, user_id)
     
     elif paso_actual == 'vender_paso7_disponibilidad_otro':
-        # Usamos la función EXISTENTE (antes se llamaba vender_paso6_disponibilidad_otro)
         return manejar_vender_paso6_disponibilidad_otro(text, estado_usuario, user_id)
     
     elif paso_actual == 'vender_paso8_horario_llamada':
-        # NUEVA FUNCIÓN - hay que crearla
         return manejar_vender_paso8_horario_llamada(text_lower, estado_usuario, user_id)
     
     # ========== TASACIÓN ==========
@@ -293,7 +301,6 @@ def manejar_vender_paso1_nombre(text, estado_usuario, user_id):
     _set_campana_data(estado_usuario, data)
     guardar_lead_vender(user_id, data, "nombre_completo", text)
     
-    # Avanzar al paso de barrio
     estado_usuario['paso'] = 'vender_paso2_barrio'
     actualizar_estado_usuario(user_id, estado_usuario)
     
@@ -302,8 +309,18 @@ def manejar_vender_paso1_nombre(text, estado_usuario, user_id):
 
 def manejar_vender_paso8_horario_llamada(text, estado_usuario, user_id):
     """Paso 8: Guarda el horario de llamada y finaliza el flujo"""
-    platform = estado_usuario.get('platform', 'whatsapp')
-    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    es_fb_ig = es_plataforma_fb_ig(estado_usuario)
+    
+    # Mapeo para FB/IG
+    opciones_fb_ig = {
+        "1": "Mañana (9 a 12hs)",
+        "2": "Mediodía (12 a 15hs)",
+        "3": "Tarde (15 a 18hs)",
+        "4": "Noche (18 a 20hs)"
+    }
+    
+    if es_fb_ig:
+        text = normalizar_respuesta_fb_ig(text, opciones_fb_ig)
     
     opciones = {
         "1": "Mañana (9 a 12hs)",
@@ -313,52 +330,31 @@ def manejar_vender_paso8_horario_llamada(text, estado_usuario, user_id):
         "horario_manana": "Mañana (9 a 12hs)",
         "horario_mediodia": "Mediodía (12 a 15hs)",
         "horario_tarde": "Tarde (15 a 18hs)",
-        "horario_noche": "Noche (18 a 20hs)"
+        "horario_noche": "Noche (18 a 20hs)",
+        "Mañana (9 a 12hs)": "Mañana (9 a 12hs)",
+        "Mediodía (12 a 15hs)": "Mediodía (12 a 15hs)",
+        "Tarde (15 a 18hs)": "Tarde (15 a 18hs)",
+        "Noche (18 a 20hs)": "Noche (18 a 20hs)"
     }
-    
-    # Normalizar para FB/IG
-    if es_fb_ig and text.isdigit():
-        for key, value in opciones.items():
-            if key == text:
-                text = value
-                break
     
     horario = opciones.get(text, text)
     
-    # Validar que sea una opción válida
+    # Validar respuesta
     opciones_validas = ["Mañana (9 a 12hs)", "Mediodía (12 a 15hs)", "Tarde (15 a 18hs)", "Noche (18 a 20hs)"]
     
-    if horario not in opciones_validas:
-        # Opción no válida, mostrar el menú nuevamente
-        cuerpo = "📅 *¿En qué horario te gustaría que Dante te llame?*\n\nSeleccioná una opción válida:"
-        
-        if es_fb_ig:
-            return {
-                "type": "text",
-                "body": f"{cuerpo}\n\n1. 🌅 Mañana (9 a 12hs)\n2. ☀️ Mediodía (12 a 15hs)\n3. 🌇 Tarde (15 a 18hs)\n4. 🌙 Noche (18 a 20hs)\n\n💡 *Envía el número de la opción deseada*",
-                "preview": False
-            }
-        else:
-            return WhatsAppResponse.buttons(
-                body=cuerpo,
-                buttons=[
-                    {"id": "horario_manana", "title": "🌅 Mañana (9-12hs)"},
-                    {"id": "horario_mediodia", "title": "☀️ Mediodía (12-15hs)"},
-                    {"id": "horario_tarde", "title": "🌇 Tarde (15-18hs)"},
-                    {"id": "horario_noche", "title": "🌙 Noche (18-20hs)"}
-                ],
-                footer="Selecciona un horario 👇"
-            )
+    if es_fb_ig and horario not in opciones_validas:
+        return {
+            "type": "text",
+            "body": "📅 *¿En qué horario te gustaría que Dante te llame?*\n\n1. 🌅 Mañana (9 a 12hs)\n2. ☀️ Mediodía (12 a 15hs)\n3. 🌇 Tarde (15 a 18hs)\n4. 🌙 Noche (18 a 20hs)\n\n💡 *Envía el número de la opción deseada*",
+            "preview": False
+        }
     
-    # Guardar el horario
     data = _get_campana_data(estado_usuario)
     data['horario_llamada'] = horario
     _set_campana_data(estado_usuario, data)
     guardar_lead_vender(user_id, data, "horario_llamada", horario)
     
-    # Finalizar el flujo
     return finalizar_vender_y_notificar(user_id, estado_usuario, data)
-
 
    
         
@@ -367,13 +363,12 @@ def manejar_vender_paso2_barrio(text, estado_usuario, user_id):
     from logic.constants import BARRIOS_VALIDOS
     
     text_stripped = text.strip()
-    platform = estado_usuario.get('platform', 'whatsapp')
-    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    es_fb_ig = es_plataforma_fb_ig(estado_usuario)
     
     barrio_seleccionado = None
     
-    # Intentar por número
-    if text_stripped.isdigit():
+    # Intentar por número (FB/IG)
+    if es_fb_ig and text_stripped.isdigit():
         idx = int(text_stripped) - 1
         if 0 <= idx < len(BARRIOS_VALIDOS):
             barrio_seleccionado = BARRIOS_VALIDOS[idx]
@@ -398,11 +393,10 @@ def manejar_vender_paso2_barrio(text, estado_usuario, user_id):
         _set_campana_data(estado_usuario, data)
         guardar_lead_vender(user_id, data, "barrio", barrio_seleccionado)
         
-        # Avanzar al paso 3: DOCUMENTACIÓN
         estado_usuario['paso'] = 'vender_paso3_documentacion'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        # Mostrar pregunta de documentación
+        # Mostrar pregunta de documentación (adaptada)
         if es_fb_ig:
             return {
                 "type": "text",
@@ -420,9 +414,7 @@ def manejar_vender_paso2_barrio(text, estado_usuario, user_id):
                 footer="Selecciona una opción 👇"
             )
     else:
-        # Barrio no reconocido, mostrar lista nuevamente
         return mostrar_lista_barrios_vender(estado_usuario, user_id)
-    
     
     
         
@@ -430,8 +422,7 @@ def mostrar_lista_barrios_vender(estado_usuario, user_id):
     """Muestra la lista de barrios para seleccionar"""
     from logic.constants import BARRIOS_VALIDOS
     
-    platform = estado_usuario.get('platform', 'whatsapp')
-    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    es_fb_ig = es_plataforma_fb_ig(estado_usuario)
     
     if es_fb_ig:
         barrios_texto = ""
@@ -445,7 +436,6 @@ def mostrar_lista_barrios_vender(estado_usuario, user_id):
         }
     else:
         rows = [{"id": barrio, "title": barrio} for barrio in BARRIOS_VALIDOS]
-        
         return WhatsAppResponse.list_menu(
             header="📍 Selección de Barrio",
             body="*¿En qué barrio se encuentra tu propiedad?*\n\nSeleccioná una opción de la lista:",
@@ -453,7 +443,8 @@ def mostrar_lista_barrios_vender(estado_usuario, user_id):
             sections=[{"title": "Barrios disponibles", "rows": rows}],
             footer="Selecciona tu barrio 👇"
         )
-
+        
+        
 def manejar_vender_paso1_horario(text, estado_usuario, user_id):
     """Paso 1b: Guarda el horario y avanza a documentación"""
     platform = estado_usuario.get('platform', 'whatsapp')
@@ -526,20 +517,51 @@ def manejar_vender_paso1_horario(text, estado_usuario, user_id):
 
 
 def manejar_vender_paso2_documentacion(text, estado_usuario, user_id):
-    opciones = {"1": "Sí, la tengo", "2": "No, todavía no", "3": "Está en trámite",
-                "doc_si": "Sí, la tengo", "doc_no": "No, todavía no", "doc_tramite": "Está en trámite"}
+    """Guarda documentación y avanza a detalles técnicos"""
+    es_fb_ig = es_plataforma_fb_ig(estado_usuario)
+    
+    # Mapeo para FB/IG
+    opciones_fb_ig = {
+        "1": "Sí, la tengo",
+        "2": "No, todavía no",
+        "3": "Está en trámite"
+    }
+    
+    if es_fb_ig:
+        text = normalizar_respuesta_fb_ig(text, opciones_fb_ig)
+    
+    opciones = {
+        "1": "Sí, la tengo",
+        "2": "No, todavía no",
+        "3": "Está en trámite",
+        "doc_si": "Sí, la tengo",
+        "doc_no": "No, todavía no",
+        "doc_tramite": "Está en trámite",
+        "Sí, la tengo": "Sí, la tengo",
+        "No, todavía no": "No, todavía no",
+        "Está en trámite": "Está en trámite"
+    }
+    
     respuesta = opciones.get(text, text)
+    
+    # Validar respuesta para FB/IG
+    if es_fb_ig and respuesta not in ["Sí, la tengo", "No, todavía no", "Está en trámite"]:
+        return {
+            "type": "text",
+            "body": "📄 *¿Contás con la escritura o título de propiedad a tu nombre?*\n\nEsto nos permite verificar la viabilidad legal inmediata de la venta.\n\n1. Sí, la tengo\n2. No, todavía no\n3. Está en trámite\n\n💡 *Envía el número de la opción deseada*",
+            "preview": False
+        }
+    
     data = _get_campana_data(estado_usuario)
     data['documentacion'] = respuesta
     _set_campana_data(estado_usuario, data)
     guardar_lead_vender(user_id, data, "documentacion", respuesta)
     
+    # Avanzar al siguiente paso (usando el nuevo nombre)
     estado_usuario['paso'] = 'vender_paso4_detalles'
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    platform = estado_usuario.get('platform', 'whatsapp')
-    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
-    
+    # Mostrar siguiente pregunta (adaptada para FB/IG)
     if es_fb_ig:
         return {
             "type": "text",
@@ -556,34 +578,54 @@ def manejar_vender_paso2_documentacion(text, estado_usuario, user_id):
             ],
             footer="Selecciona una opción 👇"
         )
+        
 
 def manejar_vender_paso3_detalles(text, estado_usuario, user_id):
-    """Paso 3: Guarda detalles técnicos y avanza a paso 4 (ocupación)"""
+    """Guarda detalles técnicos y avanza a ocupación"""
+    es_fb_ig = es_plataforma_fb_ig(estado_usuario)
+    
+    # Mapeo para FB/IG
+    opciones_fb_ig = {
+        "1": "Sí, planos aprobados",
+        "2": "No tiene planos",
+        "3": "No estoy seguro"
+    }
+    
+    if es_fb_ig:
+        text = normalizar_respuesta_fb_ig(text, opciones_fb_ig)
+    
     opciones = {
         "1": "Sí, planos aprobados",
         "2": "No tiene planos",
         "3": "No estoy seguro",
         "detalles_si": "Sí, planos aprobados",
         "detalles_no": "No tiene planos",
-        "detalles_duda": "No estoy seguro"
+        "detalles_duda": "No estoy seguro",
+        "Sí, planos aprobados": "Sí, planos aprobados",
+        "No tiene planos": "No tiene planos",
+        "No estoy seguro": "No estoy seguro"
     }
     
     respuesta = opciones.get(text, text)
+    
+    # Validar respuesta para FB/IG
+    if es_fb_ig and respuesta not in ["Sí, planos aprobados", "No tiene planos", "No estoy seguro"]:
+        return {
+            "type": "text",
+            "body": "📐 *¿La propiedad tiene planos aprobados y está apta para crédito bancario?*\n\n1. Sí, planos aprobados\n2. No tiene planos\n3. No estoy seguro\n\n💡 *Envía el número de la opción deseada*",
+            "preview": False
+        }
+    
     data = _get_campana_data(estado_usuario)
     data['detalles_tecnicos'] = respuesta
     _set_campana_data(estado_usuario, data)
-    
     guardar_lead_vender(user_id, data, "detalles_tecnicos", respuesta)
     
-    # ✅ IMPORTANTE: Avanzar al paso 4: OCUPACIÓN
-    estado_usuario['paso'] = 'vender_paso5_ocupacion'  # ← Asegurate que sea exactamente este string
+    # Avanzar al siguiente paso
+    estado_usuario['paso'] = 'vender_paso5_ocupacion'
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    log(f"🔍 [DETALLES] Avanzando a paso: {estado_usuario['paso']}")
-    
-    platform = estado_usuario.get('platform', 'whatsapp')
-    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
-    
+    # Mostrar siguiente pregunta
     if es_fb_ig:
         return {
             "type": "text",
@@ -604,20 +646,51 @@ def manejar_vender_paso3_detalles(text, estado_usuario, user_id):
         
         
 def manejar_vender_paso4_ocupacion(text, estado_usuario, user_id):
-    opciones = {"1": "Habitada", "2": "Vacía", "3": "Alquilada",
-                "ocupacion_habitada": "Habitada", "ocupacion_vacia": "Vacía", "ocupacion_alquilada": "Alquilada"}
+    """Guarda estado de ocupación y avanza a precio"""
+    es_fb_ig = es_plataforma_fb_ig(estado_usuario)
+    
+    # Mapeo para FB/IG
+    opciones_fb_ig = {
+        "1": "Habitada",
+        "2": "Vacía",
+        "3": "Alquilada"
+    }
+    
+    if es_fb_ig:
+        text = normalizar_respuesta_fb_ig(text, opciones_fb_ig)
+    
+    opciones = {
+        "1": "Habitada",
+        "2": "Vacía",
+        "3": "Alquilada",
+        "ocupacion_habitada": "Habitada",
+        "ocupacion_vacia": "Vacía",
+        "ocupacion_alquilada": "Alquilada",
+        "Habitada": "Habitada",
+        "Vacía": "Vacía",
+        "Alquilada": "Alquilada"
+    }
+    
     respuesta = opciones.get(text, text)
+    
+    # Validar respuesta para FB/IG
+    if es_fb_ig and respuesta not in ["Habitada", "Vacía", "Alquilada"]:
+        return {
+            "type": "text",
+            "body": "🚪 *¿La propiedad se encuentra habitada, vacía o alquilada actualmente?*\n\n1. Habitada\n2. Vacía\n3. Alquilada\n\n💡 *Envía el número de la opción deseada*",
+            "preview": False
+        }
+    
     data = _get_campana_data(estado_usuario)
     data['estado_ocupacion'] = respuesta
     _set_campana_data(estado_usuario, data)
     guardar_lead_vender(user_id, data, "estado_ocupacion", respuesta)
     
+    # Avanzar al siguiente paso
     estado_usuario['paso'] = 'vender_paso6_precio'
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    platform = estado_usuario.get('platform', 'whatsapp')
-    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
-    
+    # Mostrar siguiente pregunta
     if es_fb_ig:
         return {
             "type": "text",
@@ -633,15 +706,36 @@ def manejar_vender_paso4_ocupacion(text, estado_usuario, user_id):
             ],
             footer="Selecciona una opción 👇"
         )
-
+        
+        
+        
 def manejar_vender_paso5_precio(text, estado_usuario, user_id):
-    opciones = {"1": "Tengo un valor", "2": "Prefiero tasación profesional",
-                "precio_valor": "Tengo un valor", "precio_tasacion": "Prefiero tasación profesional"}
+    """Guarda precio pretendido y avanza a disponibilidad"""
+    es_fb_ig = es_plataforma_fb_ig(estado_usuario)
+    
+    # Mapeo para FB/IG
+    opciones_fb_ig = {
+        "1": "Tengo un valor",
+        "2": "Prefiero tasación profesional"
+    }
+    
+    if es_fb_ig:
+        text = normalizar_respuesta_fb_ig(text, opciones_fb_ig)
+    
+    opciones = {
+        "1": "Tengo un valor",
+        "2": "Prefiero tasación profesional",
+        "precio_valor": "Tengo un valor",
+        "precio_tasacion": "Prefiero tasación profesional",
+        "Tengo un valor": "Tengo un valor",
+        "Prefiero tasación profesional": "Prefiero tasación profesional"
+    }
+    
     respuesta = opciones.get(text, text)
     data = _get_campana_data(estado_usuario)
     
     if respuesta == "Tengo un valor":
-        estado_usuario['paso'] = 'vender_paso6_precio_valor_espera'  # ← También verificar este
+        estado_usuario['paso'] = 'vender_paso5_precio_valor_espera'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "💰 *¿Cuál es el valor de venta que tenés en mente?*\n\n_(Ej: 120.000 USD, 150.000 USD, etc.)_"
     else:
@@ -649,13 +743,11 @@ def manejar_vender_paso5_precio(text, estado_usuario, user_id):
         _set_campana_data(estado_usuario, data)
         guardar_lead_vender(user_id, data, "precio_pretendido", respuesta)
         
-        # ✅ CORREGIDO: vender_paso7_disponibilidad
+        # Avanzar al siguiente paso
         estado_usuario['paso'] = 'vender_paso7_disponibilidad'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        platform = estado_usuario.get('platform', 'whatsapp')
-        es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
-        
+        # Mostrar siguiente pregunta
         if es_fb_ig:
             return {
                 "type": "text",
@@ -675,17 +767,19 @@ def manejar_vender_paso5_precio(text, estado_usuario, user_id):
             )
             
             
+            
 def manejar_vender_paso5_precio_valor(text, estado_usuario, user_id):
+    """Guarda el valor específico del precio y avanza a disponibilidad"""
     data = _get_campana_data(estado_usuario)
     data['precio_pretendido'] = text
     _set_campana_data(estado_usuario, data)
     guardar_lead_vender(user_id, data, "precio_pretendido", text)
     
+    # Avanzar al siguiente paso
     estado_usuario['paso'] = 'vender_paso7_disponibilidad'
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    platform = estado_usuario.get('platform', 'whatsapp')
-    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    es_fb_ig = es_plataforma_fb_ig(estado_usuario)
     
     if es_fb_ig:
         return {
@@ -706,28 +800,105 @@ def manejar_vender_paso5_precio_valor(text, estado_usuario, user_id):
         )
 
 def manejar_vender_paso6_disponibilidad(text, estado_usuario, user_id):
-    opciones = {"1": "Mañana", "2": "Tarde", "3": "Fines de semana", "4": "Coordinar otro horario",
-                "disponibilidad_manana": "Mañana", "disponibilidad_tarde": "Tarde",
-                "disponibilidad_finde": "Fines de semana", "disponibilidad_otro": "Coordinar otro horario"}
+    """Guarda disponibilidad y avanza a horario de llamada"""
+    es_fb_ig = es_plataforma_fb_ig(estado_usuario)
+    
+    # Mapeo para FB/IG
+    opciones_fb_ig = {
+        "1": "Mañana",
+        "2": "Tarde",
+        "3": "Fines de semana",
+        "4": "Coordinar otro horario"
+    }
+    
+    if es_fb_ig:
+        text = normalizar_respuesta_fb_ig(text, opciones_fb_ig)
+    
+    opciones = {
+        "1": "Mañana",
+        "2": "Tarde",
+        "3": "Fines de semana",
+        "4": "Coordinar otro horario",
+        "disponibilidad_manana": "Mañana",
+        "disponibilidad_tarde": "Tarde",
+        "disponibilidad_finde": "Fines de semana",
+        "disponibilidad_otro": "Coordinar otro horario",
+        "Mañana": "Mañana",
+        "Tarde": "Tarde",
+        "Fines de semana": "Fines de semana",
+        "Coordinar otro horario": "Coordinar otro horario"
+    }
+    
     respuesta = opciones.get(text, text)
     
     if respuesta == "Coordinar otro horario":
-        estado_usuario['paso'] = 'vender_paso6_disponibilidad_otro'
+        estado_usuario['paso'] = 'vender_paso7_disponibilidad_otro'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "📅 *Contanos qué días y horarios te quedan cómodos:*\n\n_(Ej: Lunes y miércoles de 10 a 12hs, o sábados por la mañana)_"
     else:
         data = _get_campana_data(estado_usuario)
-        data['disponibilidad'] = respuesta
+        data['disponibilidad_visita'] = respuesta
         _set_campana_data(estado_usuario, data)
-        guardar_lead_vender(user_id, data, "disponibilidad", respuesta)
-        return finalizar_vender_y_notificar(user_id, estado_usuario, data)
+        guardar_lead_vender(user_id, data, "disponibilidad_visita", respuesta)
+        
+        # Avanzar al paso 8: horario de llamada
+        estado_usuario['paso'] = 'vender_paso8_horario_llamada'
+        actualizar_estado_usuario(user_id, estado_usuario)
+        
+        # Mostrar pregunta de horario de llamada
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": "📅 *¿En qué horario te gustaría que Dante te llame?*\n\n1. 🌅 Mañana (9 a 12hs)\n2. ☀️ Mediodía (12 a 15hs)\n3. 🌇 Tarde (15 a 18hs)\n4. 🌙 Noche (18 a 20hs)\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            return WhatsAppResponse.buttons(
+                body="📅 *¿En qué horario te gustaría que Dante te llame?*",
+                buttons=[
+                    {"id": "horario_manana", "title": "🌅 Mañana (9-12hs)"},
+                    {"id": "horario_mediodia", "title": "☀️ Mediodía (12-15hs)"},
+                    {"id": "horario_tarde", "title": "🌇 Tarde (15-18hs)"},
+                    {"id": "horario_noche", "title": "🌙 Noche (18-20hs)"}
+                ],
+                footer="Selecciona un horario 👇"
+            )
+
+        
 
 def manejar_vender_paso6_disponibilidad_otro(text, estado_usuario, user_id):
+    """Guarda disponibilidad personalizada y avanza a horario de llamada"""
     data = _get_campana_data(estado_usuario)
-    data['disponibilidad'] = text
+    data['disponibilidad_visita'] = text
     _set_campana_data(estado_usuario, data)
-    guardar_lead_vender(user_id, data, "disponibilidad", text)
-    return finalizar_vender_y_notificar(user_id, estado_usuario, data)
+    guardar_lead_vender(user_id, data, "disponibilidad_visita", text)
+    
+    # Avanzar al siguiente paso
+    estado_usuario['paso'] = 'vender_paso8_horario_llamada'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    es_fb_ig = es_plataforma_fb_ig(estado_usuario)
+    
+    if es_fb_ig:
+        return {
+            "type": "text",
+            "body": "📅 *¿En qué horario te gustaría que Dante te llame?*\n\n1. 🌅 Mañana (9 a 12hs)\n2. ☀️ Mediodía (12 a 15hs)\n3. 🌇 Tarde (15 a 18hs)\n4. 🌙 Noche (18 a 20hs)\n\n💡 *Envía el número de la opción deseada*",
+            "preview": False
+        }
+    else:
+        return WhatsAppResponse.buttons(
+            body="📅 *¿En qué horario te gustaría que Dante te llame?*",
+            buttons=[
+                {"id": "horario_manana", "title": "🌅 Mañana (9-12hs)"},
+                {"id": "horario_mediodia", "title": "☀️ Mediodía (12-15hs)"},
+                {"id": "horario_tarde", "title": "🌇 Tarde (15-18hs)"},
+                {"id": "horario_noche", "title": "🌙 Noche (18-20hs)"}
+            ],
+            footer="Selecciona un horario 👇"
+        )
+        
+
+        
 
 def finalizar_vender_y_notificar(user_id, estado_usuario, data):
     detalles = []
@@ -753,7 +924,7 @@ def finalizar_vender_y_notificar(user_id, estado_usuario, data):
     mensaje_final = (
         "✅ *Perfecto, ya tenemos toda la información necesaria.*\n\n"
         "En breve un asesor de Dante Propiedades se va a comunicar con vos para coordinar los próximos pasos.\n\n"
-        "¡Gracias por confiar en nosotros! 🏠🗝️"
+        "¡Gracias por confiar en nosotros!"
     )
     
     return WhatsAppResponse.buttons(
