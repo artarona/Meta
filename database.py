@@ -315,16 +315,13 @@ def guardar_en_postgresql(telefono, nombre, accion, detalles=""):
 
 
 def obtener_estado_usuario(user_id):
-    """Obtiene o crea el estado de un usuario (Cache + PostgreSQL)"""
-    # 1. Guardar referencia al caché en memoria como FALLBACK
-    cached_state = estados_usuarios.get(user_id)
-        
-    # 2. Intentar desde PostgreSQL (fuente primaria)
+    """Obtiene o crea el estado de un usuario (PostgreSQL como fuente primaria)"""
+    
+    # 1. Intentar desde PostgreSQL (fuente primaria)
     with db_session() as conn:
         if conn:
             try:
                 cursor = conn.cursor()
-                # ✅ AGREGAR 'platform' a la consulta SELECT
                 cursor.execute("""
                     SELECT paso, operacion_seleccionada, propiedades_filtradas, 
                            ultimo_indice_preguntado, nombre_cliente, email_cliente, 
@@ -337,32 +334,17 @@ def obtener_estado_usuario(user_id):
                 """, (user_id,))
                 res = cursor.fetchone()
                 if res:
-                    # Función auxiliar para parseo seguro y profundo
+                    # Función auxiliar para parseo seguro
                     def safe_json_loads(data, default):
                         if not data: return default
                         if isinstance(data, (dict, list)): return data
-                        
-                        current_data = data
-                        max_depth = 3
-                        for _ in range(max_depth):
-                            if not isinstance(current_data, str):
-                                break
-                            try:
-                                trimmed = current_data.strip()
-                                if (trimmed.startswith('{') and trimmed.endswith('}')) or (trimmed.startswith('[') and trimmed.endswith(']')):
-                                    parsed = json.loads(current_data)
-                                    if parsed is not None:
-                                        current_data = parsed
-                                    else:
-                                        break
-                                else:
-                                    break
-                            except:
-                                break
-                                
-                        if isinstance(current_data, (dict, list)):
-                            return current_data
-                        return default if isinstance(data, str) and not isinstance(current_data, (dict, list)) else current_data
+                        try:
+                            trimmed = str(data).strip()
+                            if (trimmed.startswith('{') and trimmed.endswith('}')) or (trimmed.startswith('[') and trimmed.endswith(']')):
+                                return json.loads(data)
+                        except:
+                            pass
+                        return default
 
                     row_timestamp = res[12] if len(res) > 12 else None
                     estado = {
@@ -385,10 +367,12 @@ def obtener_estado_usuario(user_id):
                         'fecha_cita_actualizacion': res[16] if len(res) > 16 else None,
                         'hora_cita_actualizacion': res[17] if len(res) > 17 else None,
                         'cita_id_a_modificar': res[18] if len(res) > 18 else None,
-                        'platform': res[19] if len(res) > 19 else None  # ✅ AGREGAR platform
+                        'platform': res[19] if len(res) > 19 else None
                     }
                     
-                    # Log para depuración
+                    # ✅ ACTUALIZAR CACHÉ CON LOS DATOS FRESCOS DE LA DB
+                    estados_usuarios[user_id] = estado
+                    
                     if estado.get('platform'):
                         log(f"📱 Platform recuperado de DB para {user_id}: {estado['platform']}")
                     
@@ -397,24 +381,17 @@ def obtener_estado_usuario(user_id):
                         log(f"🔄 [GLOBAL] Recargando propiedades desde cache", user_id=user_id)
                         estado['propiedades_filtradas'] = cargar_propiedades_cached()
 
-                    if cached_state and cached_state.get('timestamp') and row_timestamp:
-                        try:
-                            if cached_state['timestamp'] >= row_timestamp:
-                                log(f"🔄 Usando estado cacheado más reciente (DB: {row_timestamp}, Cache: {cached_state['timestamp']})", user_id=user_id)
-                                return cached_state
-                        except Exception:
-                            pass
-
-                    estados_usuarios[user_id] = estado
                     return estado
             except Exception as e:
                 log(f"⚠️ Error recuperando estado de DB: {e}", "WARNING", user_id=user_id)
-        
-    # 3. Fallback a memoria si la DB falló o no devolvió resultado
+    
+    # 2. Fallback a caché en memoria solo si la DB falló
+    cached_state = estados_usuarios.get(user_id)
     if cached_state:
+        log(f"🔄 Usando estado desde caché (DB no disponible)", user_id=user_id)
         return cached_state
             
-    # 4. Si no existe en ningún lado, crear nuevo
+    # 3. Si no existe en ningún lado, crear nuevo
     estado_nuevo = {
         'paso': 'menu_principal',
         'operacion_seleccionada': None,
@@ -423,13 +400,14 @@ def obtener_estado_usuario(user_id):
         'tipo_seleccionado': None,
         'ambientes_seleccionados': None,
         'timestamp': datetime.now().isoformat(),
-        'platform': None,  # ✅ AGREGAR platform al nuevo estado
+        'platform': None,
         'data': {
             'mensajes_recientes': []
         }
     }
     estados_usuarios[user_id] = estado_nuevo
     return estado_nuevo
+
 
 def actualizar_estado_usuario(user_id, estado):
     """Actualiza el estado de un usuario en PostgreSQL y en caché"""
