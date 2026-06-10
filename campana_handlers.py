@@ -49,7 +49,22 @@ def _clear_campana_data(estado_usuario):
 # ========== FUNCIÓN PRINCIPAL ==========
 
 def get_bot_response_campana(text, user_id):
+
     text_lower = text.lower().strip()
+    
+    # ✅ FORZAR LEER SIEMPRE DE LA BASE DE DATOS, NO USAR CACHÉ
+    from database import obtener_estado_usuario as get_fresh_state
+    estado_usuario = get_fresh_state(user_id)  # ← Usar fresh_state directamente
+    paso_actual = estado_usuario.get('paso', 'campana_inicio')
+    
+    # Obtener platform
+    platform = estado_usuario.get('platform')
+    
+    log(f"🔍 get_bot_response_campana - platform: '{platform}', paso_actual: '{paso_actual}'")
+    
+    
+    
+    
     estado_usuario = obtener_estado_usuario(user_id)
     paso_actual = estado_usuario.get('paso', 'campana_inicio')
     
@@ -109,7 +124,7 @@ def get_bot_response_campana(text, user_id):
     elif paso_actual == 'campana_pedir_nombre':
         return manejar_pedir_nombre_asesor(text, estado_usuario, user_id)
     
-    # ========== VENDER - FLUJO SECUENCIAL ==========
+        # ========== VENDER - FLUJO SECUENCIAL ==========
     elif paso_actual == 'vender_paso1_nombre':
         return manejar_vender_paso1_nombre(text, estado_usuario, user_id)
     
@@ -125,21 +140,25 @@ def get_bot_response_campana(text, user_id):
     elif paso_actual == 'vender_paso5_ocupacion':
         return manejar_vender_paso4_ocupacion(text_lower, estado_usuario, user_id)
     
+    # ✅ CORREGIDO: vender_paso6_precio → llama a manejar_vender_paso5_precio
     elif paso_actual == 'vender_paso6_precio':
         return manejar_vender_paso5_precio(text_lower, estado_usuario, user_id)
     
-    elif paso_actual == 'vender_paso6_precio_valor_espera':
+    # ✅ CORREGIDO: vender_paso6_precio_valor_espera → llama a manejar_vender_paso5_precio_valor
+    elif paso_actual == 'vender_paso5_precio_valor_espera':
         return manejar_vender_paso5_precio_valor(text, estado_usuario, user_id)
     
+    # ✅ CORREGIDO: vender_paso7_disponibilidad → llama a manejar_vender_paso6_disponibilidad
     elif paso_actual == 'vender_paso7_disponibilidad':
         return manejar_vender_paso6_disponibilidad(text_lower, estado_usuario, user_id)
     
+    # ✅ CORREGIDO: vender_paso7_disponibilidad_otro → llama a manejar_vender_paso6_disponibilidad_otro
     elif paso_actual == 'vender_paso7_disponibilidad_otro':
         return manejar_vender_paso6_disponibilidad_otro(text, estado_usuario, user_id)
     
+    # ✅ vender_paso8_horario_llamada → llama a manejar_vender_paso8_horario_llamada
     elif paso_actual == 'vender_paso8_horario_llamada':
         return manejar_vender_paso8_horario_llamada(text_lower, estado_usuario, user_id)
-    
     # ========== TASACIÓN ==========
     elif paso_actual.startswith('tasacion_'):
         from tasaciones import (
@@ -711,9 +730,11 @@ def manejar_vender_paso4_ocupacion(text, estado_usuario, user_id):
         
 def manejar_vender_paso5_precio(text, estado_usuario, user_id):
     """Guarda precio pretendido y avanza a disponibilidad"""
+    log(f"🔍 [PRECIO] Inicio - texto: '{text}'")
+    log(f"🔍 [PRECIO] Paso actual antes: {estado_usuario.get('paso')}")
+    
     es_fb_ig = es_plataforma_fb_ig(estado_usuario)
     
-    # Mapeo para FB/IG
     opciones_fb_ig = {
         "1": "Tengo un valor",
         "2": "Prefiero tasación profesional"
@@ -735,19 +756,21 @@ def manejar_vender_paso5_precio(text, estado_usuario, user_id):
     data = _get_campana_data(estado_usuario)
     
     if respuesta == "Tengo un valor":
+        log(f"🔍 [PRECIO] Usuario eligió 'Tengo un valor'")
         estado_usuario['paso'] = 'vender_paso5_precio_valor_espera'
         actualizar_estado_usuario(user_id, estado_usuario)
+        log(f"🔍 [PRECIO] Nuevo paso guardado: {estado_usuario['paso']}")
         return "💰 *¿Cuál es el valor de venta que tenés en mente?*\n\n_(Ej: 120.000 USD, 150.000 USD, etc.)_"
     else:
+        log(f"🔍 [PRECIO] Usuario eligió 'Prefiero tasación profesional'")
         data['precio_pretendido'] = respuesta
         _set_campana_data(estado_usuario, data)
         guardar_lead_vender(user_id, data, "precio_pretendido", respuesta)
         
-        # Avanzar al siguiente paso
         estado_usuario['paso'] = 'vender_paso7_disponibilidad'
         actualizar_estado_usuario(user_id, estado_usuario)
+        log(f"🔍 [PRECIO] Nuevo paso guardado: {estado_usuario['paso']}")
         
-        # Mostrar siguiente pregunta
         if es_fb_ig:
             return {
                 "type": "text",
@@ -765,7 +788,6 @@ def manejar_vender_paso5_precio(text, estado_usuario, user_id):
                 ],
                 footer="Selecciona una opción 👇"
             )
-            
             
             
 def manejar_vender_paso5_precio_valor(text, estado_usuario, user_id):
