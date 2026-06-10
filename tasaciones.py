@@ -559,25 +559,37 @@ def manejar_tasacion_m2(text, estado_usuario, user_id):
         estado_usuario['paso'] = 'tasacion_estado'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        # Mostrar pregunta de estado
-        return {
-            "type": "interactive_list",
-            "body": "🏗️ *¿En qué estado se encuentra la propiedad?*",
-            "button_text": "Estado",
-            "sections": [
-                {
-                    "title": "Condición",
-                    "rows": [
-                        {"id": "1", "title": "Excelente / A estrenar"},
-                        {"id": "2", "title": "Muy bueno"},
-                        {"id": "3", "title": "Bueno"},
-                        {"id": "4", "title": "Regular"},
-                        {"id": "5", "title": "A refaccionar"}
-                    ]
-                }
-            ],
-            "footer": "Selecciona una opción 👇"
-        }
+        # Detectar plataforma para mostrar estado
+        platform = estado_usuario.get('platform', 'whatsapp')
+        es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+        
+        if es_fb_ig:
+            # Facebook/Instagram: texto con números
+            return {
+                "type": "text",
+                "body": "🏗️ *¿En qué estado se encuentra la propiedad?*\n\n1. Excelente / A estrenar\n2. Muy bueno\n3. Bueno\n4. Regular\n5. A refaccionar\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            # WhatsApp: lista interactiva
+            return {
+                "type": "interactive_list",
+                "body": "🏗️ *¿En qué estado se encuentra la propiedad?*",
+                "button_text": "Estado",
+                "sections": [
+                    {
+                        "title": "Condición",
+                        "rows": [
+                            {"id": "1", "title": "Excelente / A estrenar"},
+                            {"id": "2", "title": "Muy bueno"},
+                            {"id": "3", "title": "Bueno"},
+                            {"id": "4", "title": "Regular"},
+                            {"id": "5", "title": "A refaccionar"}
+                        ]
+                    }
+                ],
+                "footer": "Selecciona una opción 👇"
+            }
     except ValueError:
         log(f"⚠️ Error: No se pudo convertir '{text}' a número")
         cuerpo = "⚠️ Por favor, ingresá un número válido para los metros cuadrados (usa . para decimales si es necesario).\n\nEjemplo: 65, 120.5, 200"
@@ -603,6 +615,10 @@ def manejar_tasacion_m2(text, estado_usuario, user_id):
     except Exception as e:
         log(f"🔥 Error crítico en manejar_tasacion_m2: {e}")
         return "⚠️ Por favor, ingresá un número válido para los metros cuadrados."
+    
+    
+    
+    
 
 def manejar_tasacion_ambientes(text, estado_usuario, user_id):
     """Guarda ambientes e inicia la carga de estado"""
@@ -613,7 +629,6 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
         if ambientes < 1:
             cuerpo = "⚠️ Por favor, ingresá un número válido de ambientes (mínimo 1).\n\nEjemplo: 1, 2, 3, etc."
             
-            # Detectar plataforma
             platform = estado_usuario.get('platform', 'whatsapp')
             es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
             
@@ -640,24 +655,37 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
         estado_usuario['paso'] = 'tasacion_estado'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        return {
-            "type": "interactive_list",
-            "body": "🏗️ *¿En qué estado se encuentra la propiedad?*",
-            "button_text": "Estado",
-            "sections": [
-                {
-                    "title": "Condición",
-                    "rows": [
-                        {"id": "1", "title": "Excelente / A estrenar"},
-                        {"id": "2", "title": "Muy bueno"},
-                        {"id": "3", "title": "Bueno"},
-                        {"id": "4", "title": "Regular"},
-                        {"id": "5", "title": "A refaccionar"}
-                    ]
-                }
-            ],
-            "footer": "Selecciona una opción 👇"
-        }
+        # Detectar plataforma para mostrar estado
+        platform = estado_usuario.get('platform', 'whatsapp')
+        es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+        
+        if es_fb_ig:
+            # Facebook/Instagram: texto con números
+            return {
+                "type": "text",
+                "body": "🏗️ *¿En qué estado se encuentra la propiedad?*\n\n1. Excelente / A estrenar\n2. Muy bueno\n3. Bueno\n4. Regular\n5. A refaccionar\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            # WhatsApp: lista interactiva
+            return {
+                "type": "interactive_list",
+                "body": "🏗️ *¿En qué estado se encuentra la propiedad?*",
+                "button_text": "Estado",
+                "sections": [
+                    {
+                        "title": "Condición",
+                        "rows": [
+                            {"id": "1", "title": "Excelente / A estrenar"},
+                            {"id": "2", "title": "Muy bueno"},
+                            {"id": "3", "title": "Bueno"},
+                            {"id": "4", "title": "Regular"},
+                            {"id": "5", "title": "A refaccionar"}
+                        ]
+                    }
+                ],
+                "footer": "Selecciona una opción 👇"
+            }
     except Exception as e:
         log(f"⚠️ Error en manejar_tasacion_ambientes: {e}")
         
@@ -681,7 +709,9 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
                 ],
                 footer="🏠 Dante Propiedades · Tu lugar ideal 🗝️"
             )
-
+            
+            
+            
 
 def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
     """Finaliza la recolección de datos y muestra la tasación"""
@@ -692,6 +722,10 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
         "4": "Regular",
         "5": "A refaccionar"
     }
+    
+    # Detectar plataforma
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
     
     if text_lower in estados:
         if 'datos_tasacion' not in estado_usuario['data']:
@@ -722,25 +756,35 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
         log(f"✅ Datos de tasación completos: {estado_usuario['data']['datos_tasacion']}")
         return _finalizar_tasacion_y_responder(user_id, estado_usuario, estado_usuario['data']['datos_tasacion'])
     else:
-        # Opción inválida: mostrar nuevamente la lista de estados
-        return {
-            "type": "interactive_list",
-            "body": "⚠️ Opción no válida.\n\n🏗️ *¿En qué estado se encuentra la propiedad?*",
-            "button_text": "Estado",
-            "sections": [
-                {
-                    "title": "Condición",
-                    "rows": [
-                        {"id": "1", "title": "Excelente / A estrenar"},
-                        {"id": "2", "title": "Muy bueno"},
-                        {"id": "3", "title": "Bueno"},
-                        {"id": "4", "title": "Regular"},
-                        {"id": "5", "title": "A refaccionar"}
-                    ]
-                }
-            ],
-            "footer": "Selecciona una opción 👇"
-        }
+        # Opción inválida: mostrar nuevamente la lista de estados (adaptada para FB/IG)
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": "⚠️ Opción no válida.\n\n🏗️ *¿En qué estado se encuentra la propiedad?*\n\n1. Excelente / A estrenar\n2. Muy bueno\n3. Bueno\n4. Regular\n5. A refaccionar\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            return {
+                "type": "interactive_list",
+                "body": "⚠️ Opción no válida.\n\n🏗️ *¿En qué estado se encuentra la propiedad?*",
+                "button_text": "Estado",
+                "sections": [
+                    {
+                        "title": "Condición",
+                        "rows": [
+                            {"id": "1", "title": "Excelente / A estrenar"},
+                            {"id": "2", "title": "Muy bueno"},
+                            {"id": "3", "title": "Bueno"},
+                            {"id": "4", "title": "Regular"},
+                            {"id": "5", "title": "A refaccionar"}
+                        ]
+                    }
+                ],
+                "footer": "Selecciona una opción 👇"
+            }
+            
+            
+            
 
 def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
     """Lógica compartida para calcular tasación, registrar lead y responder"""
