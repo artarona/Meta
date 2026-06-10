@@ -97,29 +97,40 @@ def get_bot_response_campana(text, user_id):
     elif paso_actual == 'vender_paso1_nombre':
         return manejar_vender_paso1_nombre(text, estado_usuario, user_id)
     
-    elif paso_actual == 'vender_paso1_horario':  # ← NUEVO PASO
-        return manejar_vender_paso1_horario(text_lower, estado_usuario, user_id)
+    elif paso_actual == 'vender_paso2_barrio':  # ← NUEVO: preguntar barrio
+        return manejar_vender_paso2_barrio(text, estado_usuario, user_id)
     
-    elif paso_actual == 'vender_paso2_documentacion':
+    elif paso_actual == 'vender_paso3_documentacion':
+        # Usamos la función EXISTENTE (antes se llamaba vender_paso2_documentacion)
         return manejar_vender_paso2_documentacion(text_lower, estado_usuario, user_id)
     
-    elif paso_actual == 'vender_paso3_detalles':
+    elif paso_actual == 'vender_paso4_detalles':
+        # Usamos la función EXISTENTE (antes se llamaba vender_paso3_detalles)
         return manejar_vender_paso3_detalles(text_lower, estado_usuario, user_id)
     
-    elif paso_actual == 'vender_paso4_ocupacion':
+    elif paso_actual == 'vender_paso5_ocupacion':
+        # Usamos la función EXISTENTE (antes se llamaba vender_paso4_ocupacion)
         return manejar_vender_paso4_ocupacion(text_lower, estado_usuario, user_id)
     
-    elif paso_actual == 'vender_paso5_precio':
+    elif paso_actual == 'vender_paso6_precio':
+        # Usamos la función EXISTENTE (antes se llamaba vender_paso5_precio)
         return manejar_vender_paso5_precio(text_lower, estado_usuario, user_id)
     
-    elif paso_actual == 'vender_paso5_precio_valor_espera':
+    elif paso_actual == 'vender_paso6_precio_valor_espera':
+        # Usamos la función EXISTENTE (antes se llamaba vender_paso5_precio_valor_espera)
         return manejar_vender_paso5_precio_valor(text, estado_usuario, user_id)
     
-    elif paso_actual == 'vender_paso6_disponibilidad':
+    elif paso_actual == 'vender_paso7_disponibilidad':
+        # Usamos la función EXISTENTE (antes se llamaba vender_paso6_disponibilidad)
         return manejar_vender_paso6_disponibilidad(text_lower, estado_usuario, user_id)
     
-    elif paso_actual == 'vender_paso6_disponibilidad_otro':
+    elif paso_actual == 'vender_paso7_disponibilidad_otro':
+        # Usamos la función EXISTENTE (antes se llamaba vender_paso6_disponibilidad_otro)
         return manejar_vender_paso6_disponibilidad_otro(text, estado_usuario, user_id)
+    
+    elif paso_actual == 'vender_paso8_horario_llamada':
+        # NUEVA FUNCIÓN - hay que crearla
+        return manejar_vender_paso8_horario_llamada(text_lower, estado_usuario, user_id)
     
     # ========== TASACIÓN ==========
     elif paso_actual.startswith('tasacion_'):
@@ -289,7 +300,67 @@ def manejar_vender_paso1_nombre(text, estado_usuario, user_id):
     return mostrar_lista_barrios_vender(estado_usuario, user_id)
 
 
-     
+def manejar_vender_paso8_horario_llamada(text, estado_usuario, user_id):
+    """Paso 8: Guarda el horario de llamada y finaliza el flujo"""
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    
+    opciones = {
+        "1": "Mañana (9 a 12hs)",
+        "2": "Mediodía (12 a 15hs)",
+        "3": "Tarde (15 a 18hs)",
+        "4": "Noche (18 a 20hs)",
+        "horario_manana": "Mañana (9 a 12hs)",
+        "horario_mediodia": "Mediodía (12 a 15hs)",
+        "horario_tarde": "Tarde (15 a 18hs)",
+        "horario_noche": "Noche (18 a 20hs)"
+    }
+    
+    # Normalizar para FB/IG
+    if es_fb_ig and text.isdigit():
+        for key, value in opciones.items():
+            if key == text:
+                text = value
+                break
+    
+    horario = opciones.get(text, text)
+    
+    # Validar que sea una opción válida
+    opciones_validas = ["Mañana (9 a 12hs)", "Mediodía (12 a 15hs)", "Tarde (15 a 18hs)", "Noche (18 a 20hs)"]
+    
+    if horario not in opciones_validas:
+        # Opción no válida, mostrar el menú nuevamente
+        cuerpo = "📅 *¿En qué horario te gustaría que Dante te llame?*\n\nSeleccioná una opción válida:"
+        
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": f"{cuerpo}\n\n1. 🌅 Mañana (9 a 12hs)\n2. ☀️ Mediodía (12 a 15hs)\n3. 🌇 Tarde (15 a 18hs)\n4. 🌙 Noche (18 a 20hs)\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            return WhatsAppResponse.buttons(
+                body=cuerpo,
+                buttons=[
+                    {"id": "horario_manana", "title": "🌅 Mañana (9-12hs)"},
+                    {"id": "horario_mediodia", "title": "☀️ Mediodía (12-15hs)"},
+                    {"id": "horario_tarde", "title": "🌇 Tarde (15-18hs)"},
+                    {"id": "horario_noche", "title": "🌙 Noche (18-20hs)"}
+                ],
+                footer="Selecciona un horario 👇"
+            )
+    
+    # Guardar el horario
+    data = _get_campana_data(estado_usuario)
+    data['horario_llamada'] = horario
+    _set_campana_data(estado_usuario, data)
+    guardar_lead_vender(user_id, data, "horario_llamada", horario)
+    
+    # Finalizar el flujo
+    return finalizar_vender_y_notificar(user_id, estado_usuario, data)
+
+
+   
         
 def manejar_vender_paso2_barrio(text, estado_usuario, user_id):
     """Paso 2: Guarda el barrio y avanza a documentación"""
@@ -307,17 +378,19 @@ def manejar_vender_paso2_barrio(text, estado_usuario, user_id):
         if 0 <= idx < len(BARRIOS_VALIDOS):
             barrio_seleccionado = BARRIOS_VALIDOS[idx]
     
-    # Intentar por nombre exacto o parcial
+    # Intentar por nombre exacto
     if not barrio_seleccionado:
         for barrio in BARRIOS_VALIDOS:
             if barrio.lower() == text_stripped.lower():
                 barrio_seleccionado = barrio
                 break
-        if not barrio_seleccionado:
-            for barrio in BARRIOS_VALIDOS:
-                if barrio.lower().startswith(text_stripped.lower()) or text_stripped.lower() in barrio.lower():
-                    barrio_seleccionado = barrio
-                    break
+    
+    # Intentar por coincidencia parcial
+    if not barrio_seleccionado:
+        for barrio in BARRIOS_VALIDOS:
+            if barrio.lower().startswith(text_stripped.lower()) or text_stripped.lower() in barrio.lower():
+                barrio_seleccionado = barrio
+                break
     
     if barrio_seleccionado:
         data = _get_campana_data(estado_usuario)
@@ -325,10 +398,11 @@ def manejar_vender_paso2_barrio(text, estado_usuario, user_id):
         _set_campana_data(estado_usuario, data)
         guardar_lead_vender(user_id, data, "barrio", barrio_seleccionado)
         
-        # Avanzar al paso 3: Documentación
+        # Avanzar al paso 3: DOCUMENTACIÓN
         estado_usuario['paso'] = 'vender_paso3_documentacion'
         actualizar_estado_usuario(user_id, estado_usuario)
         
+        # Mostrar pregunta de documentación
         if es_fb_ig:
             return {
                 "type": "text",
@@ -347,8 +421,10 @@ def manejar_vender_paso2_barrio(text, estado_usuario, user_id):
             )
     else:
         # Barrio no reconocido, mostrar lista nuevamente
-        return mostrar_lista_barrios_vender(estado_usuario, user_id)        
-        
+        return mostrar_lista_barrios_vender(estado_usuario, user_id)
+    
+    
+    
         
 def mostrar_lista_barrios_vender(estado_usuario, user_id):
     """Muestra la lista de barrios para seleccionar"""
