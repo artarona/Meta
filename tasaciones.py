@@ -911,10 +911,10 @@ def manejar_tasacion_contacto(text_lower, estado_usuario, user_id):
     elif comando == "salir":
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "¡Gracias por confiar en Dante Propiedades! 🏠🗝️"
+        return "🏠¡Gracias por confiar en Dante Propiedades! 🗝️"
     
     else:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "Entendido. Si necesitás algo más, acá estoy. 😊"
+        return "🏠 Entendido. Si necesitás algo más, acá estoy 🗝️. 😊"
         
