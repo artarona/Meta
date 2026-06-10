@@ -564,10 +564,10 @@ def manejar_tasacion_m2(text, estado_usuario, user_id):
         es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
         
         if es_fb_ig:
-            # Facebook/Instagram: texto con números
+            # Facebook/Instagram: texto con números con emoji
             return {
                 "type": "text",
-                "body": "🏗️ *¿En qué estado se encuentra la propiedad?*\n\n1. Excelente / A estrenar\n2. Muy bueno\n3. Bueno\n4. Regular\n5. A refaccionar\n\n💡 *Envía el número de la opción deseada*",
+                "body": "🏗️ *¿En qué estado se encuentra la propiedad?*\n\n1️⃣ Excelente / A estrenar\n2️⃣ Muy bueno\n3️⃣ Bueno\n4️⃣ Regular\n5️⃣ A refaccionar\n\n💡 *Envía el número de la opción deseada*",
                 "preview": False
             }
         else:
@@ -660,10 +660,10 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
         es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
         
         if es_fb_ig:
-            # Facebook/Instagram: texto con números
+            # Facebook/Instagram: texto con números con emoji
             return {
                 "type": "text",
-                "body": "🏗️ *¿En qué estado se encuentra la propiedad?*\n\n1. Excelente / A estrenar\n2. Muy bueno\n3. Bueno\n4. Regular\n5. A refaccionar\n\n💡 *Envía el número de la opción deseada*",
+                "body": "🏗️ *¿En qué estado se encuentra la propiedad?*\n\n1️⃣ Excelente / A estrenar\n2️⃣ Muy bueno\n3️⃣ Bueno\n4️⃣ Regular\n5️⃣ A refaccionar\n\n💡 *Envía el número de la opción deseada*",
                 "preview": False
             }
         else:
@@ -709,7 +709,6 @@ def manejar_tasacion_ambientes(text, estado_usuario, user_id):
                 ],
                 footer="🏠 Dante Propiedades · Tu lugar ideal 🗝️"
             )
-            
             
             
 
@@ -760,7 +759,7 @@ def manejar_tasacion_estado(text_lower, estado_usuario, user_id):
         if es_fb_ig:
             return {
                 "type": "text",
-                "body": "⚠️ Opción no válida.\n\n🏗️ *¿En qué estado se encuentra la propiedad?*\n\n1. Excelente / A estrenar\n2. Muy bueno\n3. Bueno\n4. Regular\n5. A refaccionar\n\n💡 *Envía el número de la opción deseada*",
+                "body": "⚠️ Opción no válida.\n\n🏗️ *¿En qué estado se encuentra la propiedad?*\n\n1️⃣ Excelente / A estrenar\n2️⃣ Muy bueno\n3️⃣ Bueno\n4️⃣ Regular\n5️⃣ A refaccionar\n\n💡 *Envía el número de la opción deseada*",
                 "preview": False
             }
         else:
@@ -844,31 +843,46 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
 ⚠️ *Nota:* Esta es una estimación orientativa basada en datos de mercado. Para una tasación profesional, un asesor debe visitar la propiedad.
 
 ¿Qué deseas hacer?"""
+        
         estado_usuario['paso'] = 'tasacion_esperando_contacto'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        # Retornar menú de lista interactivo con las 3 opciones
-        return WhatsAppResponse.list_menu(
-            body=mensaje_body,
-            button_text="Opciones",
-            sections=[
-                {
-                    "title": "Acciones",
-                    "rows": [
-                        {"id": "1", "title": "✅ Deseas una Tasación", "description": "Profesional con visita"},
-                        {"id": "2", "title": "⏭️ No por ahora", "description": "Continuar explorando"},
-                        {"id": "m", "title": "🔙 Menú Principal", "description": "Ir al inicio"},
-                        {"id": "s", "title": "❌ Salir", "description": "Terminar sesión"}
-                    ]
-                }
-            ],
-            footer="Selecciona una opción 👇"
-        )
+        # Detectar plataforma
+        platform = estado_usuario.get('platform', 'whatsapp')
+        es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+        
+        if es_fb_ig:
+            # Facebook/Instagram: texto con números
+            return {
+                "type": "text",
+                "body": f"{mensaje_body}\n\n1️⃣ ✅ Deseas una Tasación profesional con visita\n2️⃣ ⏭️ No por ahora\n3️⃣ 🔙 Menú Principal\n4️⃣ ❌ Salir\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            # WhatsApp: menú de lista interactivo
+            return WhatsAppResponse.list_menu(
+                body=mensaje_body,
+                button_text="Opciones",
+                sections=[
+                    {
+                        "title": "Acciones",
+                        "rows": [
+                            {"id": "1", "title": "✅ Deseas una Tasación", "description": "Profesional con visita"},
+                            {"id": "2", "title": "⏭️ No por ahora", "description": "Continuar explorando"},
+                            {"id": "m", "title": "🔙 Menú Principal", "description": "Ir al inicio"},
+                            {"id": "s", "title": "❌ Salir", "description": "Terminar sesión"}
+                        ]
+                    }
+                ],
+                footer="Selecciona una opción 👇"
+            )
     except Exception as e:
         log(f"🔥 Error en _finalizar_tasacion_y_responder: {e}")
         import traceback
         log(traceback.format_exc())
         return "❌ Ocurrió un error al procesar la tasación. Por favor contacta a un asesor enviando '5'."
+    
+    
 
 
 def manejar_tasacion_contacto(text_lower, estado_usuario, user_id):
