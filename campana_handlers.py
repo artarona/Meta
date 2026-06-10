@@ -534,7 +534,7 @@ def manejar_vender_paso2_documentacion(text, estado_usuario, user_id):
     _set_campana_data(estado_usuario, data)
     guardar_lead_vender(user_id, data, "documentacion", respuesta)
     
-    estado_usuario['paso'] = 'vender_paso3_detalles'
+    estado_usuario['paso'] = 'vender_paso4_detalles'
     actualizar_estado_usuario(user_id, estado_usuario)
     
     platform = estado_usuario.get('platform', 'whatsapp')
@@ -558,16 +558,28 @@ def manejar_vender_paso2_documentacion(text, estado_usuario, user_id):
         )
 
 def manejar_vender_paso3_detalles(text, estado_usuario, user_id):
-    opciones = {"1": "Sí, planos aprobados", "2": "No tiene planos", "3": "No estoy seguro",
-                "detalles_si": "Sí, planos aprobados", "detalles_no": "No tiene planos", "detalles_duda": "No estoy seguro"}
+    """Paso 3: Guarda detalles técnicos y avanza a paso 4 (ocupación)"""
+    opciones = {
+        "1": "Sí, planos aprobados",
+        "2": "No tiene planos",
+        "3": "No estoy seguro",
+        "detalles_si": "Sí, planos aprobados",
+        "detalles_no": "No tiene planos",
+        "detalles_duda": "No estoy seguro"
+    }
+    
     respuesta = opciones.get(text, text)
     data = _get_campana_data(estado_usuario)
     data['detalles_tecnicos'] = respuesta
     _set_campana_data(estado_usuario, data)
+    
     guardar_lead_vender(user_id, data, "detalles_tecnicos", respuesta)
     
-    estado_usuario['paso'] = 'vender_paso4_ocupacion'
+    # ✅ IMPORTANTE: Avanzar al paso 4: OCUPACIÓN
+    estado_usuario['paso'] = 'vender_paso5_ocupacion'  # ← Asegurate que sea exactamente este string
     actualizar_estado_usuario(user_id, estado_usuario)
+    
+    log(f"🔍 [DETALLES] Avanzando a paso: {estado_usuario['paso']}")
     
     platform = estado_usuario.get('platform', 'whatsapp')
     es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
@@ -588,7 +600,9 @@ def manejar_vender_paso3_detalles(text, estado_usuario, user_id):
             ],
             footer="Selecciona una opción 👇"
         )
-
+        
+        
+        
 def manejar_vender_paso4_ocupacion(text, estado_usuario, user_id):
     opciones = {"1": "Habitada", "2": "Vacía", "3": "Alquilada",
                 "ocupacion_habitada": "Habitada", "ocupacion_vacia": "Vacía", "ocupacion_alquilada": "Alquilada"}
@@ -598,7 +612,7 @@ def manejar_vender_paso4_ocupacion(text, estado_usuario, user_id):
     _set_campana_data(estado_usuario, data)
     guardar_lead_vender(user_id, data, "estado_ocupacion", respuesta)
     
-    estado_usuario['paso'] = 'vender_paso5_precio'
+    estado_usuario['paso'] = 'vender_paso6_precio'
     actualizar_estado_usuario(user_id, estado_usuario)
     
     platform = estado_usuario.get('platform', 'whatsapp')
@@ -627,14 +641,16 @@ def manejar_vender_paso5_precio(text, estado_usuario, user_id):
     data = _get_campana_data(estado_usuario)
     
     if respuesta == "Tengo un valor":
-        estado_usuario['paso'] = 'vender_paso5_precio_valor_espera'
+        estado_usuario['paso'] = 'vender_paso6_precio_valor_espera'  # ← También verificar este
         actualizar_estado_usuario(user_id, estado_usuario)
         return "💰 *¿Cuál es el valor de venta que tenés en mente?*\n\n_(Ej: 120.000 USD, 150.000 USD, etc.)_"
     else:
         data['precio_pretendido'] = respuesta
         _set_campana_data(estado_usuario, data)
         guardar_lead_vender(user_id, data, "precio_pretendido", respuesta)
-        estado_usuario['paso'] = 'vender_paso6_disponibilidad'
+        
+        # ✅ CORREGIDO: vender_paso7_disponibilidad
+        estado_usuario['paso'] = 'vender_paso7_disponibilidad'
         actualizar_estado_usuario(user_id, estado_usuario)
         
         platform = estado_usuario.get('platform', 'whatsapp')
@@ -657,14 +673,15 @@ def manejar_vender_paso5_precio(text, estado_usuario, user_id):
                 ],
                 footer="Selecciona una opción 👇"
             )
-
+            
+            
 def manejar_vender_paso5_precio_valor(text, estado_usuario, user_id):
     data = _get_campana_data(estado_usuario)
     data['precio_pretendido'] = text
     _set_campana_data(estado_usuario, data)
     guardar_lead_vender(user_id, data, "precio_pretendido", text)
     
-    estado_usuario['paso'] = 'vender_paso6_disponibilidad'
+    estado_usuario['paso'] = 'vender_paso7_disponibilidad'
     actualizar_estado_usuario(user_id, estado_usuario)
     
     platform = estado_usuario.get('platform', 'whatsapp')
