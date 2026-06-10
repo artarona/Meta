@@ -893,18 +893,28 @@ def manejar_vender_paso6_disponibilidad(text, estado_usuario, user_id):
         
         log(f"🔍 [DISPO] Avanzando a paso: {estado_usuario['paso']}")
         
-        # Mostrar botones de horario de llamada
-        return WhatsAppResponse.buttons(
-            body="📅 *¿En qué horario te gustaría que Dante te llame?*",
-            buttons=[
-                {"id": "horario_manana", "title": "🌅 Mañana (9-12hs)"},
-                {"id": "horario_mediodia", "title": "☀️ Mediodía (12-15hs)"},
-                {"id": "horario_tarde", "title": "🌇 Tarde (15-18hs)"},
-                {"id": "horario_noche", "title": "🌙 Noche (18-20hs)"}
-            ],
-            footer="Selecciona un horario 👇"
-        )
+        # ✅ VERIFICAR PLATAFORMA
+        es_fb_ig = es_plataforma_fb_ig(estado_usuario)
         
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": "📅 *¿En qué horario te gustaría que Dante te llame?*\n\n1. 🌅 Mañana (9 a 12hs)\n2. ☀️ Mediodía (12 a 15hs)\n3. 🌇 Tarde (15 a 18hs)\n4. 🌙 Noche (18 a 20hs)\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            return WhatsAppResponse.buttons(
+                body="📅 *¿En qué horario te gustaría que Dante te llame?*",
+                buttons=[
+                    {"id": "horario_manana", "title": "🌅 Mañana (9-12hs)"},
+                    {"id": "horario_mediodia", "title": "☀️ Mediodía (12-15hs)"},
+                    {"id": "horario_tarde", "title": "🌇 Tarde (15-18hs)"},
+                    {"id": "horario_noche", "title": "🌙 Noche (18-20hs)"}
+                ],
+                footer="Selecciona un horario 👇"
+            )
+            
+            
 
 def manejar_vender_paso6_disponibilidad_otro(text, estado_usuario, user_id):
     """Guarda disponibilidad personalizada y avanza a horario de llamada"""
