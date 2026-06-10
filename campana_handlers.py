@@ -781,6 +781,7 @@ def manejar_vender_paso5_precio_valor(text, estado_usuario, user_id):
     
     es_fb_ig = es_plataforma_fb_ig(estado_usuario)
     
+    # ✅ Mostrar pregunta de disponibilidad (esto estaba faltando)
     if es_fb_ig:
         return {
             "type": "text",
@@ -798,6 +799,8 @@ def manejar_vender_paso5_precio_valor(text, estado_usuario, user_id):
             ],
             footer="Selecciona una opción 👇"
         )
+        
+        
 
 def manejar_vender_paso6_disponibilidad(text, estado_usuario, user_id):
     """Guarda disponibilidad y avanza a horario de llamada"""
@@ -863,7 +866,6 @@ def manejar_vender_paso6_disponibilidad(text, estado_usuario, user_id):
                 ],
                 footer="Selecciona un horario 👇"
             )
-
         
 
 def manejar_vender_paso6_disponibilidad_otro(text, estado_usuario, user_id):
