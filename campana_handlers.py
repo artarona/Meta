@@ -255,10 +255,35 @@ def manejar_intencion_campana(text, estado_usuario, user_id):
     
     if es_fb_ig:
         opciones_numericas = {
-            "1": "c_comprar", "2": "c_alquilar", "3": "c_tasar", "4": "c_asesor", "5": "c_salir",
-            "uno": "c_comprar", "dos": "c_alquilar", "tres": "c_tasar", "cuatro": "c_asesor", "cinco": "c_salir",
-            "comprar": "c_comprar", "vender": "c_comprar", "alquilar": "c_alquilar", "tasar": "c_tasar",
-            "asesor": "c_asesor", "asesoramiento": "c_asesor", "salir": "c_salir"
+            # Números según el orden VISUAL del menú
+            "1": "c_tasar",      # 1️⃣ Tasación Virtual Inteligente
+            "2": "c_comprar",    # 2️⃣ Quiero Vender
+            "3": "c_alquilar",   # 3️⃣ Ver Propiedades Disponibles
+            "4": "c_asesor",     # 4️⃣ Asesoramiento Inmobiliario
+            "5": "c_salir",      # 5️⃣ Salir
+            
+            # Palabras clave en texto
+            "uno": "c_tasar",
+            "dos": "c_comprar",
+            "tres": "c_alquilar",
+            "cuatro": "c_asesor",
+            "cinco": "c_salir",
+            
+            # Búsqueda por nombre
+            "tasar": "c_tasar",
+            "tasacion": "c_tasar",
+            "valorar": "c_tasar",
+            "vender": "c_comprar",
+            "quiero vender": "c_comprar",
+            "comprar": "c_comprar",
+            "propiedades": "c_alquilar",
+            "ver propiedades": "c_alquilar",
+            "alquilar": "c_alquilar",
+            "asesor": "c_asesor",
+            "asesoramiento": "c_asesor",
+            "contacto": "c_asesor",
+            "salir": "c_salir",
+            "exit": "c_salir"
         }
         if text_normalized in opciones_numericas:
             text_normalized = opciones_numericas[text_normalized]
