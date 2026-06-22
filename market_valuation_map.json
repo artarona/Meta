@@ -177,5 +177,16 @@
         "currency": "USD"
       }
     }
+  },
+  "villa crespo": {
+    "venta": {
+      "departamento": {
+        "avg_m2": 2417.8,
+        "muestra": 44,
+        "last_update": "2026-06-21 21:20",
+        "source": "scraping.json",
+        "currency": "USD"
+      }
+    }
   }
 }
