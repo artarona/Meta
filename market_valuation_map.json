@@ -146,6 +146,13 @@
         "last_update": "2026-03-29 14:35",
         "source": "scraping.json",
         "currency": "USD"
+      },
+      "departamento": {
+        "avg_m2": 2339.67,
+        "muestra": 82,
+        "last_update": "2026-06-14 10:28",
+        "source": "scraping.json",
+        "currency": "USD"
       }
     }
   },
@@ -157,6 +164,17 @@
         "last_update": "2026-05-06 12:34",
         "source": "scraping.json",
         "currency": "ARS"
+      }
+    }
+  },
+  "la boca": {
+    "venta": {
+      "departamento": {
+        "avg_m2": 1547.63,
+        "muestra": 79,
+        "last_update": "2026-06-21 21:08",
+        "source": "scraping.json",
+        "currency": "USD"
       }
     }
   }
