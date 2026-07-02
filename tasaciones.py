@@ -9,20 +9,6 @@ import os
 from logic.constants import BARRIOS_VALIDOS
 from campana_handlers import DESPEDIDA, iniciar_campana
 
-# Cargar barrios válidos desde el mapa de tasación para que coincida exactamente con market_valuation_map.json
-def _cargar_barrios_tasacion():
-    try:
-        map_path = os.path.join(os.path.dirname(__file__), "market_valuation_map.json")
-        if os.path.exists(map_path):
-            with open(map_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return [k.title() for k in data.keys()]
-    except Exception as e:
-        log(f"⚠️ Error cargando market_valuation_map.json para barrios: {e}")
-    return ['Palermo', 'Balvanera', 'Microcentro', 'Parque Avellaneda', 'Villa Lugano', 'Once', 'Almagro', 'Caballito', 'Belgrano', 'San Telmo', 'La Boca']
-
-BARRIOS_VALIDOS = _cargar_barrios_tasacion()
-
 def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
     """Busca valoración en el mapa estadístico o BD local (Venta/Alquiler)"""
     try:
@@ -252,9 +238,8 @@ def mostrar_lista_barrios(estado_usuario, user_id):
     platform = estado_usuario.get('platform', 'whatsapp')
     es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
     
-    # Meta limita los List Menus de WhatsApp a un máximo de 10 elementos.
-    # Si superamos los 10 barrios, usamos una lista numerada en texto para que aparezcan todos.
-    if es_fb_ig or len(BARRIOS_VALIDOS) > 10:
+    if es_fb_ig:
+        # Facebook/Instagram: mostrar texto con numeración
         barrios_texto = ""
         for i, barrio in enumerate(BARRIOS_VALIDOS, 1):
             barrios_texto += f"{i}. {barrio}\n"
@@ -265,7 +250,7 @@ def mostrar_lista_barrios(estado_usuario, user_id):
             "preview": False
         }
     else:
-        # WhatsApp: lista interactiva (máximo 10 elementos)
+        # WhatsApp: lista interactiva
         rows_caba = [{"id": barrio, "title": barrio} for barrio in BARRIOS_VALIDOS]
         
         return WhatsAppResponse.list_menu(
