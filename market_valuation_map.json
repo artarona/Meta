@@ -188,5 +188,16 @@
         "currency": "USD"
       }
     }
+  },
+  "flores": {
+    "venta": {
+      "ph": {
+        "avg_m2": 1384.59,
+        "muestra": 90,
+        "last_update": "2026-07-02 12:06",
+        "source": "scraping.json",
+        "currency": "USD"
+      }
+    }
   }
 }
