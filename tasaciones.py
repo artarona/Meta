@@ -9,6 +9,20 @@ import os
 from logic.constants import BARRIOS_VALIDOS
 from campana_handlers import DESPEDIDA, iniciar_campana
 
+# Cargar barrios válidos desde el mapa de tasación para que coincida exactamente con market_valuation_map.json
+def _cargar_barrios_tasacion():
+    try:
+        map_path = os.path.join(os.path.dirname(__file__), "market_valuation_map.json")
+        if os.path.exists(map_path):
+            with open(map_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return [k.title() for k in data.keys()]
+    except Exception as e:
+        log(f"⚠️ Error cargando market_valuation_map.json para barrios: {e}")
+    return ['Palermo', 'Balvanera', 'Microcentro', 'Parque Avellaneda', 'Villa Lugano', 'Once', 'Almagro', 'Caballito', 'Belgrano', 'San Telmo', 'La Boca']
+
+BARRIOS_VALIDOS = _cargar_barrios_tasacion()
+
 def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
     """Busca valoración en el mapa estadístico o BD local (Venta/Alquiler)"""
     try:
