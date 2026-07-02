@@ -252,8 +252,9 @@ def mostrar_lista_barrios(estado_usuario, user_id):
     platform = estado_usuario.get('platform', 'whatsapp')
     es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
     
-    if es_fb_ig:
-        # Facebook/Instagram: mostrar texto con numeración
+    # Meta limita los List Menus de WhatsApp a un máximo de 10 elementos.
+    # Si superamos los 10 barrios, usamos una lista numerada en texto para que aparezcan todos.
+    if es_fb_ig or len(BARRIOS_VALIDOS) > 10:
         barrios_texto = ""
         for i, barrio in enumerate(BARRIOS_VALIDOS, 1):
             barrios_texto += f"{i}. {barrio}\n"
@@ -264,7 +265,7 @@ def mostrar_lista_barrios(estado_usuario, user_id):
             "preview": False
         }
     else:
-        # WhatsApp: lista interactiva
+        # WhatsApp: lista interactiva (máximo 10 elementos)
         rows_caba = [{"id": barrio, "title": barrio} for barrio in BARRIOS_VALIDOS]
         
         return WhatsAppResponse.list_menu(
