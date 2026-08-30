@@ -6,6 +6,8 @@ from utils import log, normalizar_numero_argentina
 from io import BytesIO
 from database import registrar_lead, cargar_propiedades_cached
 from config import ADMIN_NUMBER
+from logic.response_builder import WhatsAppResponse
+
 
 processed_message_ids = set()
 
@@ -190,8 +192,15 @@ def send_photos_async(user_id, propiedad_id, base_url):
         notificar_agente(f"👤 Cliente {user_id} está viendo fotos de: {propiedad.get('titulo')}")
         registrar_lead(user_id, propiedad.get('id_temporal', 'N/A'), "ver_fotos")
         
-        send_whatsapp_message(user_id, "✅ *¡Fotos enviadas!*\n\nⓂ️ *VOLVER al Menú* (Envía M)\n❌ *SALIR* (Envía S)")
-        
+        # Ahora el mensaje con botones
+        response_buttons = WhatsAppResponse.buttons(
+            body="✅ *¡Fotos enviadas!*",
+            buttons=[
+                {"id": "m", "title": "📋 Volver al menú"},
+                {"id": "s", "title": "❌ Salir"}
+            ]
+        )
+        send_message(user_id, response_buttons, platform="whatsapp")
         log(f"✅ Envío de fotos completado para {user_id}")
     except Exception as e:
         log(f"🔥 Error en hilo de fotos: {e}")
