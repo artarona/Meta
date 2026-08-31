@@ -93,19 +93,6 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
         print("[ADMIN] Solicitud de panel admin")
         return mostrar_panel_admin()
     
-    elif text_lower == "9":
-        # CONSULTAR CON IA
-        estado_usuario['paso'] = 'chat_ia'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        return WhatsAppResponse.text(
-            "🤖 *Asistente Inteligente Dante*\n\n"
-            "Ahora podés hacerme preguntas en lenguaje natural sobre propiedades, precios, zonas, requisitos, etc.\n\n"
-            "Ejemplos:\n"
-            "• ¿Qué departamentos hay en Palermo de 2 ambientes?\n"
-            "• ¿Cuál es el precio promedio de alquiler en Belgrano?\n"
-            "• ¿Qué requisitos piden para alquilar?\n\n"
-            "Escribí tu consulta y te ayudaré. Para volver al menú escribí *M*."
-    )
     
     elif text_lower == "10":
         # TASACION VIRTUAL (EN CONSTRUCCIÓN)
