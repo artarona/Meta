@@ -17,7 +17,6 @@ def get_db_connection(max_retries=5):
         log("❌ DATABASE_URL no encontrada", "ERROR")
         return None
 
-    # Sanitizar la URL
     database_url = database_url.strip()
     if database_url.upper().startswith("DATABASE_URL"):
         database_url = database_url[len("DATABASE_URL"):].lstrip().lstrip("=").lstrip()

@@ -1707,7 +1707,7 @@ def admin_panel():
 
 @app.route("/api/leads", methods=["GET"])
 def api_leads():
-    """Retorna todos los leads desde PostgreSQL"""
+    """Retorna todos los leads desde PostgreSQL (esquema crm)"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
@@ -1715,33 +1715,8 @@ def api_leads():
     try:
         conn = get_db_connection()
         if not conn:
-            log("⚠️ Fallback a JSON para leads (DB no disponible)", "WARNING")
-            try:
-                import os, json
-                import sys, os
-                sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-                from config import LEADS_FILE
-                leads_fallback = []
-                if os.path.exists(LEADS_FILE):
-                    with open(LEADS_FILE, 'r', encoding='utf-8') as f:
-                        leads_fallback = json.load(f)
-                
-                leads_formateados = []
-                # Invertir para mostrar los más recientes primero
-                for idx, lead in enumerate(reversed(leads_fallback)):
-                    leads_formateados.append({
-                        "id": f"json_{idx}",
-                        "timestamp": lead.get("timestamp"),
-                        "user_id": lead.get("user_id"),
-                        "nombre": "Sin nombre",
-                        "propiedad_id": lead.get("propiedad_id"),
-                        "propiedad_titulo": lead.get("propiedad_nombre"),
-                        "accion": lead.get("accion"),
-                        "detalle": lead.get("detalle")
-                    })
-                return jsonify({"error": "No DB, usando fallback local", "leads": leads_formateados}), 200
-            except Exception as e:
-                return jsonify({"error": "No se pudo conectar a la base de datos y falló el JSON fallback", "leads": []}), 200
+            log("❌ No hay conexión a la base de datos", "ERROR")
+            return jsonify({"error": "Base de datos no disponible", "leads": []}), 500
         
         cursor = conn.cursor()
         
@@ -1774,6 +1749,8 @@ def api_leads():
         
     except Exception as e:
         log(f"❌ Error en api_leads: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc(), "ERROR")
         return jsonify({"error": str(e), "leads": []}), 500
 
 @app.route('/api/leads/<string:lead_id>', methods=['DELETE'])
