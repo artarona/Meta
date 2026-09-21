@@ -912,6 +912,22 @@
                 aria-controls="tab-leads">
                 <span>👥</span> Todos los Leads
             </button>
+            
+            <button class="tab" onclick="mostrarTab('contactos-web')" role="tab" aria-selected="false"
+                aria-controls="tab-contactos-web">
+                <span>🌐</span> Contactos Web
+            </button>
+            <button class="tab" onclick="mostrarTab('consultas-chat')" role="tab" aria-selected="false"
+                aria-controls="tab-consultas-chat">
+                <span>💬</span> Consultas Chat
+            </button>
+            
+            
+            
+            
+            
+            
+            
             <button class="tab" onclick="mostrarTab('propiedades')" role="tab" aria-selected="false"
                 aria-controls="tab-propiedades">
                 <span>🏠</span> Propiedades
@@ -992,6 +1008,46 @@
             </div>
             <div class="pagination" id="leads-pagination"></div>
         </div>
+
+                <!-- Tab Contactos Web -->
+        <div id="tab-contactos-web" class="tab-content" role="tabpanel" aria-labelledby="contactos-web-tab">
+            <div class="tab-header">
+                <h2>🌐 Contactos Web / Formularios</h2>
+                <div class="filters">
+                    <input type="text" class="search-box" placeholder="🔍 Buscar contactos..." oninput="filtrarContactosWeb(this.value)">
+                    <select class="select-filter" onchange="filtrarContactosPorOrigen(this.value)">
+                        <option value="">Todos los orígenes</option>
+                        <option value="formulario">Formulario</option>
+                        <option value="chat">Chat IA</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="cargarContactosWeb()">🔄 Refrescar</button>
+                </div>
+            </div>
+            <div class="citas-grid" id="contactos-web-container">
+                <!-- Contactos cargados dinámicamente -->
+            </div>
+        </div>
+
+        <!-- Tab Consultas Chat -->
+        <div id="tab-consultas-chat" class="tab-content" role="tabpanel" aria-labelledby="consultas-chat-tab">
+            <div class="tab-header">
+                <h2>💬 Consultas del Chat IA</h2>
+                <div class="filters">
+                    <input type="text" class="search-box" placeholder="🔍 Buscar consultas..." oninput="filtrarConsultasChat(this.value)">
+                    <select class="select-filter" onchange="filtrarConsultasPorCanal(this.value)">
+                        <option value="">Todos los canales</option>
+                        <option value="web">Web</option>
+                        <option value="whatsapp">WhatsApp</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="cargarConsultasChat()">🔄 Refrescar</button>
+                </div>
+            </div>
+            <div id="consultas-chat-container" class="citas-grid">
+                <!-- Consultas cargadas dinámicamente -->
+            </div>
+        </div>
+
 
         <!-- Tab Propiedades -->
         <div id="tab-propiedades" class="tab-content" role="tabpanel" aria-labelledby="propiedades-tab">
@@ -1471,6 +1527,64 @@
         </div>
     </div>
 
+    
+        <!-- Modal Editar Contacto Web -->
+    <div class="modal" id="modal-editar-contacto-web">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin: 0;">🌐 Editar Contacto Web</h3>
+                <button class="modal-close" onclick="cerrarModal('modal-editar-contacto-web')">×</button>
+            </div>
+            <form id="form-editar-contacto-web" onsubmit="guardarEdicionContactoWeb(event)">
+                <input type="hidden" id="edit-contacto-id">
+                <div class="form-group">
+                    <label class="form-label">Nombre</label>
+                    <input type="text" class="form-control" id="edit-contacto-nombre" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" id="edit-contacto-email">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Teléfono</label>
+                    <input type="tel" class="form-control" id="edit-contacto-telefono">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Teléfono Alternativo</label>
+                    <input type="tel" class="form-control" id="edit-contacto-telefono-alt">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Documento</label>
+                    <input type="text" class="form-control" id="edit-contacto-documento">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notas</label>
+                    <textarea class="form-control" id="edit-contacto-notas" rows="3"></textarea>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-danger" style="flex: 1;"
+                        onclick="eliminarContactoWeb(document.getElementById('edit-contacto-id').value)">🗑️ Eliminar</button>
+                    <button type="button" class="btn btn-outline" style="flex: 1;"
+                        onclick="cerrarModal('modal-editar-contacto-web')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Ver Respuesta IA -->
+    <div class="modal" id="modal-ver-respuesta-ia">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3 style="margin: 0;">💬 Detalle de la Consulta</h3>
+                <button class="modal-close" onclick="cerrarModal('modal-ver-respuesta-ia')">×</button>
+            </div>
+            <div id="detalle-consulta-content" style="max-height: 70vh; overflow-y: auto;">
+                <!-- Contenido dinámico -->
+            </div>
+        </div>
+    </div>
+    
     <!-- Modal Mensaje Manual MEJORADO -->
     <div class="modal" id="modal-mensaje-manual">
         <div class="modal-content">
@@ -1543,6 +1657,9 @@
         let todasLasCitas = [];
         let todosLosLeads = [];
         let todasLasPropiedades = [];
+
+        let todosLosContactosWeb = [];
+        let todasLasConsultasChat = [];
         let refreshInterval = null;
         let adminKey = '';
         let currentCitaId = '';
@@ -1684,8 +1801,12 @@
                 mostrarPropiedades(todasLasPropiedades);
                 actualizarEstadisticas();
                 actualizarBannerStatusMercado();
-                cargarEstadisticasMercado(); // Cargar datos de mercado al inicio
-                cargarBarrios(); // Cargar lista de barrios
+                cargarEstadisticasMercado();
+                cargarBarrios();
+
+                // Cargar datos nuevos (contactos web + consultas chat)
+                await cargarContactosWeb();
+                await cargarConsultasChat();
 
                 initFlatpickr();
 
@@ -1694,6 +1815,300 @@
                 mostrarEmptyState('citas-container', 'Error al cargar citas', '❌');
                 mostrarEmptyState('leads-container', 'Error al cargar leads', '❌');
             }
+        }
+
+        // ============================================================
+        // 🌐 CONTACTOS WEB
+        // ============================================================
+        async function cargarContactosWeb() {
+            try {
+                const res = await fetchConClave('/api/contactos-web');
+                todosLosContactosWeb = res.contactos || [];
+                mostrarContactosWeb(todosLosContactosWeb);
+            } catch (error) {
+                console.error('Error cargando contactos web:', error);
+                mostrarEmptyState('contactos-web-container', 'Error al cargar contactos', '❌');
+            }
+        }
+
+        function mostrarContactosWeb(contactos) {
+            const container = document.getElementById('contactos-web-container');
+            if (!container) return;
+
+            if (!contactos || contactos.length === 0) {
+                mostrarEmptyState('contactos-web-container', 'No hay contactos web', '🌐');
+                return;
+            }
+
+            let html = '';
+            contactos.forEach(c => {
+                const origenBadge = c.origen ? `<span class="status-badge status-confirmada" style="font-size: 0.7rem; padding: 2px 8px;">${c.origen}</span>` : '';
+                const fechaFormateada = c.created_at ? formatearFecha(c.created_at) : 'N/A';
+                
+                html += `
+                    <div class="lead-card" data-id="${c.id}">
+                        <div class="card-header">
+                            <span class="card-id">ID: ${c.id}</span>
+                            ${origenBadge}
+                        </div>
+                        
+                        <div class="card-content">
+                            <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem;">${c.nombre || 'Sin nombre'}</h3>
+                            
+                            <div class="card-row">
+                                <span>📧</span>
+                                <span>${c.email || 'N/A'}</span>
+                            </div>
+                            
+                            <div class="card-row">
+                                <span>📞</span>
+                                <span>${c.telefono || 'N/A'}</span>
+                            </div>
+                            
+                            ${c.interes ? `
+                            <div class="card-row">
+                                <span>🎯</span>
+                                <span>Interés: ${c.interes}</span>
+                            </div>
+                            ` : ''}
+                            
+                            ${c.presupuesto ? `
+                            <div class="card-row">
+                                <span>💰</span>
+                                <span>Presupuesto: ${c.presupuesto}</span>
+                            </div>
+                            ` : ''}
+                            
+                            ${c.notas ? `
+                            <div style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 6px; font-size: 0.85rem;">
+                                <strong>📝 Notas:</strong><br>
+                                ${c.notas}
+                            </div>
+                            ` : ''}
+                            
+                            <div class="card-row" style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+                                <span>📊</span>
+                                <span>${c.total_formularios} formularios | ${c.total_consultas} consultas</span>
+                            </div>
+                            
+                            <div class="card-row" style="font-size: 0.8rem; color: var(--text-muted);">
+                                <span>📅</span>
+                                <span>${fechaFormateada}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="card-actions" style="grid-template-columns: 1fr 1fr;">
+                            <button class="btn btn-primary" onclick="abrirEditarContactoWeb(${c.id})">
+                                📝 Editar
+                            </button>
+                            <button class="btn btn-danger" onclick="eliminarContactoWeb(${c.id})">
+                                🗑️ Eliminar
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function filtrarContactosWeb(termino) {
+            const busqueda = termino.toLowerCase();
+            const filtrados = todosLosContactosWeb.filter(c =>
+                (c.nombre && c.nombre.toLowerCase().includes(busqueda)) ||
+                (c.email && c.email.toLowerCase().includes(busqueda)) ||
+                (c.telefono && c.telefono.includes(busqueda))
+            );
+            mostrarContactosWeb(filtrados);
+        }
+
+        function filtrarContactosPorOrigen(origen) {
+            if (!origen) {
+                mostrarContactosWeb(todosLosContactosWeb);
+                return;
+            }
+            const filtrados = todosLosContactosWeb.filter(c => c.origen === origen);
+            mostrarContactosWeb(filtrados);
+        }
+
+        function abrirEditarContactoWeb(id) {
+            const c = todosLosContactosWeb.find(x => x.id === id);
+            if (!c) return;
+
+            document.getElementById('edit-contacto-id').value = c.id;
+            document.getElementById('edit-contacto-nombre').value = c.nombre || '';
+            document.getElementById('edit-contacto-email').value = c.email || '';
+            document.getElementById('edit-contacto-telefono').value = c.telefono || '';
+            document.getElementById('edit-contacto-telefono-alt').value = c.telefono_alt || '';
+            document.getElementById('edit-contacto-documento').value = c.documento || '';
+            document.getElementById('edit-contacto-notas').value = c.notas || '';
+
+            document.getElementById('modal-editar-contacto-web').classList.add('active');
+        }
+
+        async function guardarEdicionContactoWeb(event) {
+            event.preventDefault();
+            const id = document.getElementById('edit-contacto-id').value;
+            const data = {
+                nombre: document.getElementById('edit-contacto-nombre').value,
+                email: document.getElementById('edit-contacto-email').value,
+                telefono: document.getElementById('edit-contacto-telefono').value,
+                telefono_alt: document.getElementById('edit-contacto-telefono-alt').value,
+                documento: document.getElementById('edit-contacto-documento').value,
+                notas: document.getElementById('edit-contacto-notas').value
+            };
+
+            try {
+                await fetchConClave(`/api/contactos-web/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                mostrarToast('✅ Contacto actualizado', 'success');
+                cerrarModal('modal-editar-contacto-web');
+                cargarContactosWeb();
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        async function eliminarContactoWeb(id) {
+            if (!confirm('¿Eliminar este contacto web? Se borrarán también sus formularios y consultas.')) return;
+            try {
+                await fetchConClave(`/api/contactos-web/${id}`, { method: 'DELETE' });
+                mostrarToast('✅ Contacto eliminado', 'success');
+                cerrarModal('modal-editar-contacto-web');
+                cargarContactosWeb();
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // ============================================================
+        // 💬 CONSULTAS CHAT
+        // ============================================================
+        async function cargarConsultasChat() {
+            try {
+                const res = await fetchConClave('/api/consultas-chat');
+                todasLasConsultasChat = res.consultas || [];
+                mostrarConsultasChat(todasLasConsultasChat);
+            } catch (error) {
+                console.error('Error cargando consultas chat:', error);
+                mostrarEmptyState('consultas-chat-container', 'Error al cargar consultas', '❌');
+            }
+        }
+
+        function mostrarConsultasChat(consultas) {
+            const container = document.getElementById('consultas-chat-container');
+            if (!container) return;
+
+            if (!consultas || consultas.length === 0) {
+                mostrarEmptyState('consultas-chat-container', 'No hay consultas de chat', '💬');
+                return;
+            }
+
+            let html = '';
+            consultas.forEach(c => {
+                const fechaFormateada = c.created_at ? formatearFecha(c.created_at) : 'N/A';
+                const hora = c.created_at ? new Date(c.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '';
+                const canalBadge = c.canal ? `<span class="status-badge status-confirmada" style="font-size: 0.7rem; padding: 2px 8px;">${c.canal}</span>` : '';
+                const searchBadge = c.search_performed ? `<span class="status-badge status-pendiente" style="font-size: 0.7rem; padding: 2px 8px;">🔍 ${c.results_count} props</span>` : '';
+
+                html += `
+                    <div class="lead-card">
+                        <div class="card-header">
+                            <span class="card-id">#${c.id}</span>
+                            ${canalBadge}
+                        </div>
+                        
+                        <div class="card-content">
+                            <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem;">${c.nombre || 'Anónimo'}</h3>
+                            ${c.email ? `<div style="font-size: 0.85rem; color: var(--text-muted);">📧 ${c.email}</div>` : ''}
+                            
+                            <div style="margin-top: 1rem; padding: 0.75rem; background: #eff6ff; border-radius: 6px; border-left: 3px solid var(--primary);">
+                                <strong style="font-size: 0.85rem;">💬 Usuario:</strong>
+                                <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;">${(c.mensaje || '').substring(0, 150)}${c.mensaje && c.mensaje.length > 150 ? '...' : ''}</p>
+                            </div>
+                            
+                            <div style="margin-top: 0.5rem; padding: 0.75rem; background: #f0fdf4; border-radius: 6px; border-left: 3px solid var(--success);">
+                                <strong style="font-size: 0.85rem;">🤖 Dante:</strong>
+                                <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem;">${(c.respuesta_ia || '').substring(0, 120)}${c.respuesta_ia && c.respuesta_ia.length > 120 ? '...' : ''}</p>
+                            </div>
+                            
+                            <div class="card-row" style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+                                <span>📅</span>
+                                <span>${fechaFormateada} ${hora}</span>
+                            </div>
+                            ${searchBadge}
+                        </div>
+                        
+                        <div class="card-actions" style="grid-template-columns: 1fr;">
+                            <button class="btn btn-primary" onclick="verDetalleConsulta(${c.id})">
+                                👁️ Ver completa
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function filtrarConsultasChat(termino) {
+            const busqueda = termino.toLowerCase();
+            const filtradas = todasLasConsultasChat.filter(c =>
+                (c.nombre && c.nombre.toLowerCase().includes(busqueda)) ||
+                (c.mensaje && c.mensaje.toLowerCase().includes(busqueda)) ||
+                (c.email && c.email.toLowerCase().includes(busqueda))
+            );
+            mostrarConsultasChat(filtradas);
+        }
+
+        function filtrarConsultasPorCanal(canal) {
+            if (!canal) {
+                mostrarConsultasChat(todasLasConsultasChat);
+                return;
+            }
+            const filtradas = todasLasConsultasChat.filter(c => c.canal === canal);
+            mostrarConsultasChat(filtradas);
+        }
+
+        function verDetalleConsulta(id) {
+            const c = todasLasConsultasChat.find(x => x.id === id);
+            if (!c) return;
+
+            const fechaFormateada = c.created_at ? new Date(c.created_at).toLocaleString('es-AR') : 'N/A';
+            
+            const html = `
+                <div style="margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <div>
+                            <strong>${c.nombre || 'Anónimo'}</strong>
+                            ${c.email ? `<div style="font-size: 0.85rem; color: var(--text-muted);">${c.email}</div>` : ''}
+                        </div>
+                        <span class="status-badge status-confirmada">${c.canal || 'web'}</span>
+                    </div>
+                    
+                    <div style="background: #eff6ff; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid var(--primary);">
+                        <strong>💬 Mensaje del usuario:</strong>
+                        <p style="margin: 0.5rem 0 0 0; white-space: pre-wrap;">${c.mensaje || ''}</p>
+                    </div>
+                    
+                    <div style="background: #f0fdf4; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--success);">
+                        <strong>🤖 Respuesta de Dante IA:</strong>
+                        <p style="margin: 0.5rem 0 0 0; white-space: pre-wrap;">${c.respuesta_ia || ''}</p>
+                    </div>
+                    
+                    <div style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted); display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <span>📅 ${fechaFormateada}</span>
+                        ${c.search_performed ? `<span>🔍 Búsqueda: ${c.results_count} propiedades</span>` : '<span>💬 Sin búsqueda</span>'}
+                        <span>📱 Persona ID: ${c.persona_id || 'Anónimo'}</span>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('detalle-consulta-content').innerHTML = html;
+            document.getElementById('modal-ver-respuesta-ia').classList.add('active');
         }
 
         // Mostrar citas
@@ -2653,7 +3068,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
 
-        function mostrarTab(tabName) {
+                function mostrarTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
             });
@@ -2669,13 +3084,16 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 tabContent.classList.add('active');
                 tabButton.classList.add('active');
                 
-                // Si es la pestaña de mercado, cargar estadísticas
                 if (tabName === 'mercado') {
                     setTimeout(() => cargarEstadisticasMercado(), 100);
                 } else if (tabName === 'barrios') {
                     cargarBarrios();
                 } else if (tabName === 'configuracion') {
                     cargarHorariosAdmin();
+                } else if (tabName === 'contactos-web') {
+                    cargarContactosWeb();
+                } else if (tabName === 'consultas-chat') {
+                    cargarConsultasChat();
                 }
             }
 
