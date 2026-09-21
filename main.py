@@ -3065,6 +3065,182 @@ def fix_db_direct():
     except Exception as e:
         return {"error": str(e)}, 500
 
+
+# ============================================================
+# ENDPOINTS DE PANEL UNIFICADO (Contactos Web + Consultas Chat)
+# ============================================================
+
+@app.route("/api/contactos-web", methods=["GET"])
+def get_contactos_web():
+    """Lee contactos web de core.personas + dante.formularios"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB no disponible", "contactos": []}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT DISTINCT ON (p.id)
+                p.id, p.nombre, p.email, p.telefono, p.telefono_alt,
+                p.documento, p.origen, p.notas, p.created_at, p.updated_at,
+                f.interes, f.presupuesto, f.pagina_origen, f.user_agent, f.ip_address,
+                (SELECT COUNT(*) FROM dante.formularios WHERE persona_id = p.id) AS total_formularios,
+                (SELECT COUNT(*) FROM dante.consultas_chat WHERE persona_id = p.id) AS total_consultas
+            FROM core.personas p
+            LEFT JOIN dante.formularios f ON f.persona_id = p.id
+            ORDER BY p.id, f.created_at DESC
+        """)
+        
+        contactos = []
+        for row in cursor.fetchall():
+            contactos.append({
+                'id': row[0],
+                'nombre': row[1] or '',
+                'email': row[2] or '',
+                'telefono': row[3] or '',
+                'telefono_alt': row[4] or '',
+                'documento': row[5] or '',
+                'origen': row[6] or '',
+                'notas': row[7] or '',
+                'created_at': row[8].isoformat() if row[8] else None,
+                'updated_at': row[9].isoformat() if row[9] else None,
+                'interes': row[10] or '',
+                'presupuesto': row[11] or '',
+                'pagina_origen': row[12] or '',
+                'user_agent': row[13] or '',
+                'ip_address': row[14] or '',
+                'total_formularios': row[15] or 0,
+                'total_consultas': row[16] or 0
+            })
+        
+        cursor.close()
+        conn.close()
+        return jsonify({"contactos": contactos, "total": len(contactos)})
+    except Exception as e:
+        log(f"❌ Error en /api/contactos-web: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc(), "ERROR")
+        return jsonify({"error": str(e), "contactos": []}), 500
+
+
+@app.route("/api/contactos-web/<int:persona_id>", methods=["PUT"])
+def update_contacto_web(persona_id):
+    """Actualiza un contacto web"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB no disponible"}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE core.personas 
+            SET nombre = %s, email = %s, telefono = %s, telefono_alt = %s,
+                documento = %s, notas = %s, updated_at = NOW()
+            WHERE id = %s
+        """, (
+            data.get('nombre'),
+            data.get('email'),
+            data.get('telefono'),
+            data.get('telefono_alt'),
+            data.get('documento'),
+            data.get('notas'),
+            persona_id
+        ))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        log(f"✅ Contacto web {persona_id} actualizado")
+        return jsonify({"status": "success", "message": "Contacto actualizado"})
+    except Exception as e:
+        log(f"❌ Error en update contacto web: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/contactos-web/<int:persona_id>", methods=["DELETE"])
+def delete_contacto_web(persona_id):
+    """Elimina un contacto web y sus datos relacionados"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB no disponible"}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM dante.formularios WHERE persona_id = %s", (persona_id,))
+        cursor.execute("DELETE FROM dante.consultas_chat WHERE persona_id = %s", (persona_id,))
+        cursor.execute("DELETE FROM core.personas WHERE id = %s", (persona_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        log(f"✅ Contacto web {persona_id} eliminado")
+        return jsonify({"status": "success", "message": "Contacto eliminado"})
+    except Exception as e:
+        log(f"❌ Error en delete contacto web: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/consultas-chat", methods=["GET"])
+def get_consultas_chat():
+    """Lee las consultas del chat IA desde dante.consultas_chat"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB no disponible", "consultas": []}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT c.id, c.persona_id, p.nombre, p.email,
+                   c.mensaje, c.respuesta_ia, c.canal,
+                   c.search_performed, c.results_count, c.created_at
+            FROM dante.consultas_chat c
+            LEFT JOIN core.personas p ON p.id = c.persona_id
+            ORDER BY c.created_at DESC
+            LIMIT 500
+        """)
+        
+        consultas = []
+        for row in cursor.fetchall():
+            consultas.append({
+                'id': row[0],
+                'persona_id': row[1],
+                'nombre': row[2] or 'Anónimo',
+                'email': row[3] or '',
+                'mensaje': row[4] or '',
+                'respuesta_ia': row[5] or '',
+                'canal': row[6] or '',
+                'search_performed': row[7],
+                'results_count': row[8] or 0,
+                'created_at': row[9].isoformat() if row[9] else None
+            })
+        
+        cursor.close()
+        conn.close()
+        return jsonify({"consultas": consultas, "total": len(consultas)})
+    except Exception as e:
+        log(f"❌ Error en /api/consultas-chat: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc(), "ERROR")
+        return jsonify({"error": str(e), "consultas": []}), 500
+
+
+
+
 if __name__ == "__main__":
 
     print("\n" + "=" * 60)
