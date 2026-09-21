@@ -3190,10 +3190,9 @@ def delete_contacto_web(persona_id):
         log(f"❌ Error en delete contacto web: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/api/consultas-chat", methods=["GET"])
 def get_consultas_chat():
-    """Lee las consultas del chat IA desde dante.consultas_chat"""
+    """Lee las consultas del chat IA desde dante.consultas_chat (con notas internas)"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
@@ -3207,7 +3206,8 @@ def get_consultas_chat():
         cursor.execute("""
             SELECT c.id, c.persona_id, p.nombre, p.email,
                    c.mensaje, c.respuesta_ia, c.canal,
-                   c.search_performed, c.results_count, c.created_at
+                   c.search_performed, c.results_count, c.created_at,
+                   c.notas_admin, c.notas_actualizadas_en
             FROM dante.consultas_chat c
             LEFT JOIN core.personas p ON p.id = c.persona_id
             ORDER BY c.created_at DESC
@@ -3226,7 +3226,9 @@ def get_consultas_chat():
                 'canal': row[6] or '',
                 'search_performed': row[7],
                 'results_count': row[8] or 0,
-                'created_at': row[9].isoformat() if row[9] else None
+                'created_at': row[9].isoformat() if row[9] else None,
+                'notas_admin': row[10] or '',
+                'notas_actualizadas_en': row[11].isoformat() if row[11] else None
             })
         
         cursor.close()
@@ -3238,6 +3240,73 @@ def get_consultas_chat():
         log(traceback.format_exc(), "ERROR")
         return jsonify({"error": str(e), "consultas": []}), 500
 
+
+
+@app.route("/api/consultas-chat/<int:consulta_id>/nota", methods=["PUT"])
+def guardar_nota_consulta(consulta_id):
+    """Guarda o actualiza una nota interna en una consulta del chat."""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        data = request.json or {}
+        nota = str(data.get('nota', '')).strip()
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB no disponible"}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE dante.consultas_chat 
+            SET notas_admin = %s, notas_actualizadas_en = NOW()
+            WHERE id = %s
+            RETURNING id
+        """, (nota, consulta_id))
+        
+        updated = cursor.fetchone()
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        if not updated:
+            return jsonify({"error": "Consulta no encontrada"}), 404
+        
+        log(f"✅ Nota guardada en consulta {consulta_id}")
+        return jsonify({"status": "success", "message": "Nota guardada correctamente"})
+    except Exception as e:
+        log(f"❌ Error guardando nota: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/consultas-chat/<int:consulta_id>", methods=["DELETE"])
+def eliminar_consulta_chat(consulta_id):
+    """Elimina una consulta del chat permanentemente."""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB no disponible"}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM dante.consultas_chat WHERE id = %s RETURNING id", (consulta_id,))
+        deleted = cursor.fetchone()
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        if not deleted:
+            return jsonify({"error": "Consulta no encontrada"}), 404
+        
+        log(f"✅ Consulta {consulta_id} eliminada")
+        return jsonify({"status": "success", "message": "Consulta eliminada"})
+    except Exception as e:
+        log(f"❌ Error eliminando consulta: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
 
 
 
