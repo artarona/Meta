@@ -1658,6 +1658,7 @@
         let todosLosLeads = [];
         let todasLasPropiedades = [];
         let todosLosBarrios = [];
+        let currentTab = 'citas';  // Pestaña activa actual
         let todosLosContactosWeb = [];
         let todasLasConsultasChat = [];
         let refreshInterval = null;
@@ -1799,7 +1800,7 @@
                 mostrarCitas(todasLasCitas);
                 mostrarLeads(todosLosLeads);
                 mostrarPropiedades(todasLasPropiedades);
-                actualizarEstadisticas('citas');
+                actualizarEstadisticas(currentTab);
                 actualizarBannerStatusMercado();
                 cargarEstadisticasMercado();
                 cargarBarrios();
@@ -2779,7 +2780,8 @@
                     todasLasCitas[index].estado = nuevoEstado;
                     todasLasCitas[index].ultima_actualizacion = new Date().toISOString();
                     mostrarCitas(todasLasCitas);
-                    actualizarEstadisticas();
+                    actualizarEstadisticas(currentTab);
+                                        
                 }
 
                 mostrarToast(`✅ Estado cambiado a ${nuevoEstado}`, 'success');
@@ -3252,6 +3254,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         }
 
         function mostrarTab(tabName) {
+            currentTab = tabName;  // ← NUEVA LÍNEA
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
             });
