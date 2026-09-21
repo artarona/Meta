@@ -3308,6 +3308,136 @@ def eliminar_consulta_chat(consulta_id):
         log(f"❌ Error eliminando consulta: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/exportar/unificado', methods=['GET'])
+def exportar_unificado_multihoja():
+    """
+    Genera un Excel con múltiples hojas:
+    - Citas, Leads, Contactos Web, Consultas Chat, Propiedades
+    """
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB no disponible"}), 500
+        
+        # Preparar todos los DataFrames primero
+        dfs = {}
+        
+        # 1. CITAS
+        try:
+            dfs['Citas'] = pd.read_sql_query("""
+                SELECT id, fecha_creacion, user_id, nombre, email, telefono,
+                       fecha_cita, hora_cita, propiedad_id, estado, notas,
+                       recordatorio_enviado, feedback_enviado, modificacion
+                FROM citas
+                ORDER BY fecha_cita DESC, hora_cita DESC
+            """, conn)
+        except Exception as e:
+            dfs['Citas'] = pd.DataFrame({'Error': [str(e)]})
+        
+        # 2. LEADS
+        try:
+            dfs['Leads WhatsApp'] = pd.read_sql_query("""
+                SELECT id, fecha, telefono, nombre, propiedad_id, propiedad_titulo, accion, detalles
+                FROM leads
+                ORDER BY fecha DESC
+            """, conn)
+        except Exception as e:
+            dfs['Leads WhatsApp'] = pd.DataFrame({'Error': [str(e)]})
+        
+        # 3. CONTACTOS WEB
+        try:
+            dfs['Contactos Web'] = pd.read_sql_query("""
+                SELECT DISTINCT ON (p.id)
+                    p.id, p.nombre, p.email, p.telefono, p.telefono_alt,
+                    p.documento, p.origen, p.notas, p.created_at, p.updated_at,
+                    f.interes, f.presupuesto, f.pagina_origen, f.ip_address,
+                    (SELECT COUNT(*) FROM dante.formularios WHERE persona_id = p.id) AS total_formularios,
+                    (SELECT COUNT(*) FROM dante.consultas_chat WHERE persona_id = p.id) AS total_consultas
+                FROM core.personas p
+                LEFT JOIN dante.formularios f ON f.persona_id = p.id
+                ORDER BY p.id, f.created_at DESC
+            """, conn)
+        except Exception as e:
+            dfs['Contactos Web'] = pd.DataFrame({'Error': [str(e)]})
+        
+        # 4. CONSULTAS CHAT
+        try:
+            dfs['Consultas Chat'] = pd.read_sql_query("""
+                SELECT c.id, c.persona_id, p.nombre AS nombre_persona, p.email AS email_persona,
+                       c.mensaje, c.respuesta_ia, c.canal, c.search_performed, 
+                       c.results_count, c.created_at, c.notas_admin, c.notas_actualizadas_en
+                FROM dante.consultas_chat c
+                LEFT JOIN core.personas p ON p.id = c.persona_id
+                ORDER BY c.created_at DESC
+            """, conn)
+        except Exception as e:
+            dfs['Consultas Chat'] = pd.DataFrame({'Error': [str(e)]})
+        
+        conn.close()
+        
+        # 5. PROPIEDADES (desde JSON)
+        try:
+            if os.path.exists("propiedades.json"):
+                with open("propiedades.json", "r", encoding="utf-8") as f:
+                    propiedades = json.load(f)
+                if propiedades:
+                    df_props = pd.DataFrame(propiedades)
+                    cols_deseadas = [
+                        "id_temporal", "titulo", "tipo", "operacion", "direccion", "barrio",
+                        "precio", "moneda_precio", "metros_cuadrados", "ambientes",
+                        "descripcion", "estado"
+                    ]
+                    cols_existentes = [c for c in cols_deseadas if c in df_props.columns]
+                    dfs['Propiedades'] = df_props[cols_existentes] if cols_existentes else df_props
+                else:
+                    dfs['Propiedades'] = pd.DataFrame()
+            else:
+                dfs['Propiedades'] = pd.DataFrame()
+        except Exception as e:
+            dfs['Propiedades'] = pd.DataFrame({'Error': [str(e)]})
+        
+        # ============ GENERAR EXCEL ============
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            for sheet_name, df in dfs.items():
+                # Limitar nombre de hoja a 31 caracteres (límite Excel)
+                df.to_excel(writer, sheet_name=sheet_name[:31], index=False)
+                
+                # Auto-ajustar ancho de columnas
+                worksheet = writer.sheets[sheet_name[:31]]
+                for column in worksheet.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if cell.value is not None:
+                                max_length = max(max_length, len(str(cell.value)))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 50)
+                    worksheet.column_dimensions[column_letter].width = adjusted_width
+        
+        output.seek(0)
+        fecha = datetime.now().strftime("%Y%m%d_%H%M")
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'dante_unificado_{fecha}.xlsx'
+        )
+        
+    except Exception as e:
+        log(f"❌ Error en exportar unificado: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc(), "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+
 
 
 if __name__ == "__main__":

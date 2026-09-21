@@ -1084,8 +1084,11 @@
                 <div class="form-group">
                     <label class="form-label">Tipo de datos:</label>
                     <select class="form-control" id="export-type">
+                        <option value="unificado">🎯 TODOS los datos (Excel multi-hoja)</option>
                         <option value="citas">Citas Agendadas</option>
                         <option value="leads">Todos los Leads</option>
+                        <option value="contactos-web">Contactos Web</option>
+                        <option value="consultas-chat">Consultas Chat</option>
                         <option value="excel">Leads.xlsx (Completo)</option>
                     </select>
                 </div>
@@ -1104,9 +1107,10 @@
                         📥 Generar y Descargar
                     </button>
                     <p style="margin-top: 1rem; color: var(--text-muted); font-size: 0.9rem;">
-                        Los datos se generarán según los filtros seleccionados
+                        💡 <strong>Recomendado:</strong> usá "TODOS los datos" para obtener un Excel con una hoja por tipo de información.
                     </p>
                 </div>
+                
             </div>
         </div>
 
@@ -3209,7 +3213,11 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             let url = '';
             let fileName = '';
 
-            if (tipo === 'citas') {
+            if (tipo === 'unificado') {
+                // Export unificado multi-hoja
+                url = `${window.location.origin}/api/exportar/unificado?key=${adminKey}`;
+                fileName = `dante_unificado_${new Date().toISOString().split('T')[0]}.xlsx`;
+            } else if (tipo === 'citas') {
                 url = `${window.location.origin}/api/exportar/citas?key=${adminKey}`;
                 if (desde) url += `&desde=${desde}`;
                 if (hasta) url += `&hasta=${hasta}`;
@@ -3219,14 +3227,16 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 if (desde) url += `&desde=${desde}`;
                 if (hasta) url += `&hasta=${hasta}`;
                 fileName = `leads_dante_${new Date().toISOString().split('T')[0]}.xlsx`;
-            } else if (tipo === 'excel' || tipo === 'unificados') {
-                url = `${window.location.origin}/api/exportar/unificados?key=${adminKey}`;
-                fileName = `datos_unificados_dante_${new Date().toISOString().split('T')[0]}.xlsx`;
+            } else if (tipo === 'excel') {
+                url = `${window.location.origin}/api/exportar/leads?key=${adminKey}`;
+                fileName = `leads_dante_${new Date().toISOString().split('T')[0]}.xlsx`;
             }
 
             if (url) {
                 mostrarToast('📥 Generando archivo Excel...', 'info');
                 window.location.href = url;
+            } else {
+                mostrarToast('⚠️ Tipo de exportación no soportado todavía', 'warning');
             }
         }
 
