@@ -1657,7 +1657,7 @@
         let todasLasCitas = [];
         let todosLosLeads = [];
         let todasLasPropiedades = [];
-
+        let todosLosBarrios = [];
         let todosLosContactosWeb = [];
         let todasLasConsultasChat = [];
         let refreshInterval = null;
@@ -1799,7 +1799,7 @@
                 mostrarCitas(todasLasCitas);
                 mostrarLeads(todosLosLeads);
                 mostrarPropiedades(todasLasPropiedades);
-                actualizarEstadisticas();
+                actualizarEstadisticas('citas');
                 actualizarBannerStatusMercado();
                 cargarEstadisticasMercado();
                 cargarBarrios();
@@ -2380,54 +2380,237 @@
             mostrarPropiedades(filtradas);
         }
 
-        // Actualizar estadísticas
-        function actualizarEstadisticas() {
+        // Actualizar estadísticas según la pestaña activa
+        function actualizarEstadisticas(tabName = 'citas') {
             const hoy = new Date().toISOString().split('T')[0];
-
-            const estadisticas = {
-                totalCitas: todasLasCitas.length,
-                citasPendientes: todasLasCitas.filter(c => c.estado === 'pendiente').length,
-                citasHoy: todasLasCitas.filter(c => c.fecha === hoy).length,
-                totalLeads: todosLosLeads.length,
-                leadsHoy: todosLosLeads.filter(l => l.timestamp && l.timestamp.startsWith(hoy)).length,
-                conversionRate: todasLasCitas.length > 0 && todosLosLeads.length > 0 ?
-                    (todasLasCitas.length / todosLosLeads.length * 100).toFixed(1) : 0
-            };
-
-            const statsHTML = `
-                <div class="stat-card">
-                    <div class="stat-number">${estadisticas.totalCitas}</div>
-                    <div>Total Citas</div>
-                    <div class="stat-trend ${estadisticas.citasHoy > 0 ? 'up' : ''}">
-                        ${estadisticas.citasHoy > 0 ? '↗' : ''} ${estadisticas.citasHoy} hoy
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">${estadisticas.citasPendientes}</div>
-                    <div>Citas Pendientes</div>
-                    <div class="stat-trend ${estadisticas.citasPendientes > 5 ? 'warning' : 'up'}">
-                        ${estadisticas.citasPendientes > 5 ? '⚠️' : ''} 
-                        ${estadisticas.citasPendientes > 5 ? 'Revisar' : 'Al día'}
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">${estadisticas.totalLeads}</div>
-                    <div>Total Leads</div>
-                    <div class="stat-trend ${estadisticas.leadsHoy > 0 ? 'up' : ''}">
-                        ${estadisticas.leadsHoy > 0 ? '↗' : ''} ${estadisticas.leadsHoy} hoy
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">${estadisticas.conversionRate}%</div>
-                    <div>Tasa Conversión</div>
-                    <div class="stat-trend ${estadisticas.conversionRate > 30 ? 'up' : 'down'}">
-                        ${estadisticas.conversionRate > 30 ? '↗ Excelente' : '↗ Mejorable'}
-                    </div>
-                </div>
-            `;
-
+            let statsHTML = '';
+            
+            switch(tabName) {
+                case 'citas': {
+                    const totalCitas = todasLasCitas.length;
+                    const citasPendientes = todasLasCitas.filter(c => c.estado === 'pendiente').length;
+                    const citasHoy = todasLasCitas.filter(c => c.fecha === hoy).length;
+                    const citasConfirmadas = todasLasCitas.filter(c => c.estado === 'confirmada').length;
+                    statsHTML = `
+                        <div class="stat-card">
+                            <div class="stat-number">${totalCitas}</div>
+                            <div>Total Citas</div>
+                            <div class="stat-trend ${citasHoy > 0 ? 'up' : ''}">${citasHoy} hoy</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${citasPendientes}</div>
+                            <div>Citas Pendientes</div>
+                            <div class="stat-trend ${citasPendientes > 5 ? 'down' : 'up'}">${citasPendientes > 5 ? '⚠️ Revisar' : '✅ Al día'}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${citasConfirmadas}</div>
+                            <div>Confirmadas</div>
+                            <div class="stat-trend up">${totalCitas > 0 ? ((citasConfirmadas/totalCitas*100).toFixed(1)) : 0}% del total</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${todasLasCitas.filter(c => c.estado === 'completada').length}</div>
+                            <div>Completadas</div>
+                            <div class="stat-trend up">🏁 Finalizadas</div>
+                        </div>
+                    `;
+                    break;
+                }
+                case 'leads': {
+                    const totalLeads = todosLosLeads.length;
+                    const leadsHoy = todosLosLeads.filter(l => l.timestamp && l.timestamp.startsWith(hoy)).length;
+                    const telefonosUnicos = new Set(todosLosLeads.map(l => l.user_id).filter(Boolean)).size;
+                    const conversion = totalLeads > 0 && todasLasCitas.length > 0
+                        ? (todasLasCitas.length / totalLeads * 100).toFixed(1) : 0;
+                    statsHTML = `
+                        <div class="stat-card">
+                            <div class="stat-number">${totalLeads}</div>
+                            <div>Total Leads</div>
+                            <div class="stat-trend ${leadsHoy > 0 ? 'up' : ''}">${leadsHoy} hoy</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${telefonosUnicos}</div>
+                            <div>Clientes Únicos</div>
+                            <div class="stat-trend up">📱 Por WhatsApp</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${todasLasCitas.length}</div>
+                            <div>Citas desde Leads</div>
+                            <div class="stat-trend">📅 Total agendadas</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${conversion}%</div>
+                            <div>Tasa Conversión</div>
+                            <div class="stat-trend ${conversion > 30 ? 'up' : 'down'}">${conversion > 30 ? '↗ Excelente' : '↗ Mejorable'}</div>
+                        </div>
+                    `;
+                    break;
+                }
+                case 'contactos-web': {
+                    const total = todosLosContactosWeb.length;
+                    const desdeFormulario = todosLosContactosWeb.filter(c => c.origen === 'formulario').length;
+                    const desdeChat = todosLosContactosWeb.filter(c => c.origen === 'chat').length;
+                    const desdeAdmin = todosLosContactosWeb.filter(c => c.origen === 'admin').length;
+                    const conEmail = todosLosContactosWeb.filter(c => c.email).length;
+                    statsHTML = `
+                        <div class="stat-card">
+                            <div class="stat-number">${total}</div>
+                            <div>Total Contactos Web</div>
+                            <div class="stat-trend up">🌐 Registrados</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${desdeFormulario}</div>
+                            <div>Desde Formulario</div>
+                            <div class="stat-trend up">📋 Formularios</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${desdeChat}</div>
+                            <div>Desde Chat IA</div>
+                            <div class="stat-trend up">💬 Chat</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${conEmail}</div>
+                            <div>Con Email</div>
+                            <div class="stat-trend up">📧 ${total > 0 ? ((conEmail/total*100).toFixed(0)) : 0}%</div>
+                        </div>
+                    `;
+                    break;
+                }
+                case 'consultas-chat': {
+                    const total = todasLasConsultasChat.length;
+                    const conBusqueda = todasLasConsultasChat.filter(c => c.search_performed).length;
+                    const anonimas = todasLasConsultasChat.filter(c => !c.persona_id).length;
+                    const conPersona = total - anonimas;
+                    statsHTML = `
+                        <div class="stat-card">
+                            <div class="stat-number">${total}</div>
+                            <div>Total Consultas</div>
+                            <div class="stat-trend up">💬 Chat IA</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${conBusqueda}</div>
+                            <div>Con Búsqueda</div>
+                            <div class="stat-trend up">🔍 ${total > 0 ? ((conBusqueda/total*100).toFixed(0)) : 0}% del total</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${anonimas}</div>
+                            <div>Anónimas</div>
+                            <div class="stat-trend">👤 Sin identificar</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${conPersona}</div>
+                            <div>Con Datos</div>
+                            <div class="stat-trend up">✅ Identificadas</div>
+                        </div>
+                    `;
+                    break;
+                }
+                case 'propiedades': {
+                    const total = todasLasPropiedades.length;
+                    const enVenta = todasLasPropiedades.filter(p => (p.operacion || '').toLowerCase() === 'venta').length;
+                    const enAlquiler = todasLasPropiedades.filter(p => (p.operacion || '').toLowerCase() === 'alquiler').length;
+                    statsHTML = `
+                        <div class="stat-card">
+                            <div class="stat-number">${total}</div>
+                            <div>Total Propiedades</div>
+                            <div class="stat-trend up">🏠 En cartera</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${enVenta}</div>
+                            <div>En Venta</div>
+                            <div class="stat-trend up">💰 Disponibles</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${enAlquiler}</div>
+                            <div>En Alquiler</div>
+                            <div class="stat-trend up">🔑 Disponibles</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${total}</div>
+                            <div>Total Cartera</div>
+                            <div class="stat-trend">📊 Activas</div>
+                        </div>
+                    `;
+                    break;
+                }
+                case 'barrios': {
+                    const total = todosLosBarrios.length;
+                    const conIA = todosLosBarrios.filter(b => b.generado_por_ia).length;
+                    statsHTML = `
+                        <div class="stat-card">
+                            <div class="stat-number">${total}</div>
+                            <div>Total Barrios</div>
+                            <div class="stat-trend up">🏙️ Analizados</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${conIA}</div>
+                            <div>Generados con IA</div>
+                            <div class="stat-trend up">🪄 Automático</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${total - conIA}</div>
+                            <div>Manuales</div>
+                            <div class="stat-trend">✏️ Editados</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${total > 0 ? '100' : '0'}%</div>
+                            <div>Cobertura</div>
+                            <div class="stat-trend up">📊 Análisis</div>
+                        </div>
+                    `;
+                    break;
+                }
+                case 'mercado': {
+                    statsHTML = `
+                        <div class="stat-card">
+                            <div class="stat-number">📈</div>
+                            <div>Análisis de Mercado</div>
+                            <div class="stat-trend up">Scraping activo</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">🔍</div>
+                            <div>Ver KPIs abajo</div>
+                            <div class="stat-trend">Datos del mercado</div>
+                        </div>
+                    `;
+                    break;
+                }
+                case 'exportar':
+                case 'configuracion':
+                default: {
+                    // Default: estadísticas globales
+                    const totalCitas = todasLasCitas.length;
+                    const totalLeads = todosLosLeads.length;
+                    statsHTML = `
+                        <div class="stat-card">
+                            <div class="stat-number">${totalCitas}</div>
+                            <div>Citas Agendadas</div>
+                            <div class="stat-trend up">📅 Total</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${totalLeads}</div>
+                            <div>Leads Totales</div>
+                            <div class="stat-trend up">👥 Total</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${todosLosContactosWeb.length}</div>
+                            <div>Contactos Web</div>
+                            <div class="stat-trend up">🌐 Total</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${todasLasConsultasChat.length}</div>
+                            <div>Consultas Chat</div>
+                            <div class="stat-trend up">💬 Total</div>
+                        </div>
+                    `;
+                    break;
+                }
+            }
+            
             document.getElementById('stats-grid').innerHTML = statsHTML;
         }
+
+
+
 
         // Inicializar Flatpickr
         async function initFlatpickr() {
@@ -3068,7 +3251,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
 
-                function mostrarTab(tabName) {
+        function mostrarTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
             });
@@ -3084,6 +3267,9 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 tabContent.classList.add('active');
                 tabButton.classList.add('active');
                 
+                // Actualizar stats según la pestaña
+                actualizarEstadisticas(tabName);
+                
                 if (tabName === 'mercado') {
                     setTimeout(() => cargarEstadisticasMercado(), 100);
                 } else if (tabName === 'barrios') {
@@ -3091,14 +3277,16 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 } else if (tabName === 'configuracion') {
                     cargarHorariosAdmin();
                 } else if (tabName === 'contactos-web') {
-                    cargarContactosWeb();
+                    cargarContactosWeb().then(() => actualizarEstadisticas('contactos-web'));
                 } else if (tabName === 'consultas-chat') {
-                    cargarConsultasChat();
+                    cargarConsultasChat().then(() => actualizarEstadisticas('consultas-chat'));
                 }
             }
 
             localStorage.setItem('ultima_tab', tabName);
         }
+
+
 
         async function mostrarModalNuevaCita() {
             await initFlatpickr();
@@ -4177,6 +4365,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             try {
                 const res = await fetchConClave('/api/barrios');
                 if (res.success) {
+                    todosLosBarrios = res.barrios || [];
                     mostrarBarrios(res.barrios);
                 }
             } catch (error) {
@@ -4184,6 +4373,8 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 mostrarEmptyState('barrios-list-container', 'Error al cargar barrios', '❌');
             }
         }
+
+
 
         function mostrarBarrios(barrios) {
             const container = document.getElementById('barrios-list-container');
