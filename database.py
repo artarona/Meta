@@ -11,26 +11,21 @@ from utils import log, _strip_media_fields, save_json_atomic
 estados_usuarios = {}
 
 def get_db_connection(max_retries=5):
-    """Obtiene conexión a PostgreSQL con reintentos para manejar errores intermitentes de SSL"""
+    """Obtiene conexión a PostgreSQL con reintentos y setea search_path"""
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         log("❌ DATABASE_URL no encontrada", "ERROR")
         return None
 
-    # Sanitizar la URL de conexión
+    # Sanitizar la URL
     database_url = database_url.strip()
-    # Algunas configuraciones incluyen el nombre de la variable en el valor
-    # Manejar: "DATABASE_URL=...", "DATABASE_URL =...", "DATABASE_URL = ..." etc.
     if database_url.upper().startswith("DATABASE_URL"):
-        # Quitar "DATABASE_URL" y luego "=" y espacios
         database_url = database_url[len("DATABASE_URL"):].lstrip().lstrip("=").lstrip()
-    # psycopg2 requiere "postgresql://" en vez de "postgres://"
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
     
     log(f"🔗 DSN formato: {database_url[:30]}...")
 
-    # Neon y Supabase suelen requerir SSL. Si no viene en la URL, lo forzamos.
     connect_params = {
         "dsn": database_url,
         "connect_timeout": 15,
@@ -41,45 +36,43 @@ def get_db_connection(max_retries=5):
         "options": '-c statement_timeout=30000'
     }
     
-    # Solo añadir sslmode='require' si no está explícito en la URL para evitar conflictos
     if "sslmode=" not in database_url.lower():
         connect_params["sslmode"] = "require"
 
     for i in range(max_retries):
         try:
             conn = psycopg2.connect(**connect_params)
-            # Verificar si la conexión es funcional
+            
+            # ✅ SET search_path: buscar primero en crm, luego core, luego public
             with conn.cursor() as cur:
+                cur.execute("SET search_path TO crm, core, public;")
                 cur.execute("SELECT 1")
+            conn.commit()
             
             if i > 0:
                 log(f"✅ Conexión establecida tras {i} reintentos")
             else:
-                log("✅ Conexión a PostgreSQL exitosa")
+                log("✅ Conexión a PostgreSQL exitosa (search_path: crm, core, public)")
             return conn
             
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
             error_str = str(e)
             if "SSL connection has been closed unexpectedly" in error_str or "connection to server at" in error_str or "Name or service not known" in error_str:
-                # Si es un error de DNS local (Render internal URL), fallar rápido
                 if "Name or service not known" in error_str:
-                     log(f"⚠️ Error de DNS: Host no alcanzable (¿Estás usando una URL interna de Render localmente?)", "WARNING")
-                     break # No reintentar si el host no existe
+                     log(f"⚠️ Error de DNS: Host no alcanzable", "WARNING")
+                     break
                 
                 log(f"⚠️ Error de conexión (Intento {i+1}/{max_retries}): {error_str}", "WARNING")
                 if i < max_retries - 1:
                     time.sleep(2)
                     continue
             log(f"❌ Error fatal conectando a PostgreSQL: {e}", "ERROR")
-            if "Name or service not known" in error_str:
-                log("💡 TIP: Si estás usando Render, asegúrate de usar la 'External Database URL' de Neon/Supabase.", "TIP")
             break
         except Exception as e:
             log(f"❌ Error inesperado conectando a PostgreSQL: {e}", "ERROR")
             break
             
     return None
-
 
 
 @contextmanager
