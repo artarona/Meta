@@ -2657,6 +2657,73 @@ def api_citas():
         log(traceback.format_exc(), "ERROR")
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
     
+
+
+@app.route("/api/panel/citas/nueva", methods=["POST"])
+def api_panel_nueva_cita():
+    """Crea una cita desde el panel admin (delegando a citas.crear_cita)"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"status": "error", "error": "Unauthorized"}), 403
+    
+    try:
+        data = request.get_json() or {}
+        
+        # El frontend manda 'propiedad' (no 'propiedad_id')
+        propiedad_id = (data.get('propiedad') or '').strip()
+        propiedad_titulo = (data.get('propiedad_titulo') or '').strip()
+        nombre = (data.get('nombre') or '').strip()
+        telefono = (data.get('telefono') or '').strip()
+        fecha = data.get('fecha')
+        hora = data.get('hora')
+        email = (data.get('email') or '').strip() or None
+        notas = (data.get('notas') or '').strip() or 'Agendado vía Panel Admin'
+        
+        # Validación mínima
+        if not (nombre and telefono and fecha and hora and propiedad_id):
+            return jsonify({
+                "status": "error",
+                "error": "Faltan campos: nombre, telefono, fecha, hora y propiedad son obligatorios"
+            }), 400
+        
+        # Normalizar teléfono para usar como user_id (mismo formato que el bot)
+        user_id = telefono.lstrip('+').replace(' ', '').replace('-', '')
+        
+        log(f"📅 [PANEL] Creando cita para {nombre} ({telefono}) - {fecha} {hora}")
+        
+        # Llamar a crear_cita (ya importado desde citas.py con `from citas import *`)
+        cita = crear_cita(
+            user_id=user_id,
+            nombre=nombre,
+            telefono=telefono,
+            fecha=fecha,
+            hora=hora,
+            propiedad_id=propiedad_id,
+            email=email,
+            notas=notas
+        )
+        
+        if not cita:
+            return jsonify({"status": "error", "error": "No se pudo crear la cita"}), 500
+        
+        # La propiedad_titulo no se guarda en crear_cita(), pero la podemos incluir
+        # en la respuesta para que el frontend la muestre
+        cita['propiedad_titulo'] = propiedad_titulo
+        
+        log(f"✅ [PANEL] Cita creada: {cita.get('id')}")
+        
+        return jsonify({
+            "status": "success",
+            "cita": cita,
+            "message": f"Cita agendada para {nombre}"
+        }), 200
+    
+    except Exception as e:
+        import traceback
+        log(f"❌ Error creando cita desde panel: {e}", "ERROR")
+        log(traceback.format_exc(), "ERROR")
+        return jsonify({"status": "error", "error": str(e)}), 500
+    
     
     
 @app.route("/api/db-status", methods=["GET"])

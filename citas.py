@@ -45,13 +45,78 @@ def get_calendar_service():
         return None
 
 
+def guardar_cita_en_google_calendar(cita):
+    """Inserta la cita en Google Calendar y devuelve el event_id o None."""
+    try:
+        service = get_calendar_service()
+        if not service:
+            log("⚠️ Google Calendar no configurado, se omite sync", "WARNING")
+            return None
+
+        TZ = os.environ.get("TZ", "America/Argentina/Buenos_Aires")
+        
+        # Formatear fecha/hora de inicio y fin (1 hora de duración)
+        fecha_str = str(cita['fecha'])
+        hora_str  = str(cita['hora'])
+        start_dt  = f"{fecha_str}T{hora_str}:00"
+        
+        hora_fin = (datetime.strptime(hora_str, "%H:%M") + timedelta(hours=1)).strftime("%H:%M")
+        end_dt   = f"{fecha_str}T{hora_fin}:00"
+
+        titulo_prop = cita.get('propiedad_titulo') or cita.get('propiedad_id', 'Propiedad')
+
+        event = {
+            'summary': f"🏠 Visita: {cita['nombre']} - {titulo_prop}",
+            'description': (
+                f"Cliente: {cita['nombre']}\n"
+                f"Teléfono: +{cita['telefono']}\n"
+                f"Email: {cita.get('email') or 'No proporcionado'}\n"
+                f"Propiedad ID: {cita['propiedad_id']}\n"
+                f"Notas: {cita.get('notas', '')}\n"
+                f"Cita ID interno: {cita['id']}"
+            ),
+            'start': {'dateTime': start_dt, 'timeZone': TZ},
+            'end':   {'dateTime': end_dt,   'timeZone': TZ},
+            'reminders': {
+                'useDefault': False,
+                'overrides': [
+                    {'method': 'popup', 'minutes': 30},
+                    {'method': 'email', 'minutes': 60},
+                ],
+            },
+        }
+
+        # ID del calendario: si el service account no es dueño, hay que compartirlo
+        # y poner su mail acá. Por defecto usamos 'primary'.
+        calendar_id = os.environ.get("GOOGLE_CALENDAR_ID", "primary")
+        
+        created = service.events().insert(
+            calendarId=calendar_id,
+            body=event
+        ).execute()
+
+        log(f"✅ Evento creado en Google Calendar: {created.get('id')}")
+        return created.get('id')
+
+    except Exception as e:
+        log(f"❌ Error guardando en Google Calendar: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc())
+        return None
+
+
+
+
 def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None, notas=""):
-    """Crea una nueva cita y la guarda en JSON y PostgreSQL"""
+    """Crea una nueva cita y la guarda en JSON, PostgreSQL y Google Calendar"""
     conn = None
     try:
+        # ─────────────────────────────────────────────────────────
+        # 1. Construir la cita
+        # ─────────────────────────────────────────────────────────
         citas = cargar_citas()
         nueva_cita = {
-            'id': f"cita_{len(citas)+1:04d}",
+            'id': f"cita_{datetime.now().strftime('%Y%m%d%H%M%S%f')}",  # ← FIX: evita IDs duplicados
             'user_id': user_id,
             'nombre': nombre,
             'email': email,
@@ -67,35 +132,41 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None,
         
         citas.append(nueva_cita)
         
-        # 1. Guardar en JSON
+        # ─────────────────────────────────────────────────────────
+        # 2. Guardar en JSON (fuente local)
+        # ─────────────────────────────────────────────────────────
         if not guardar_citas(citas):
             log("⚠️ Error guardando cita en JSON", "WARNING")
-        
         log(f"✅ Cita creada localmente: {nueva_cita['id']} para {nombre}")
         
-        # 2. Guardar en PostgreSQL (con nuevas columnas)
+        # ─────────────────────────────────────────────────────────
+        # 3. Guardar en PostgreSQL
+        # ─────────────────────────────────────────────────────────
         conn = get_db_connection()
         if conn:
-            # Asegurar esquema antes del INSERT
-            init_db(conn)
-            
+            init_db(conn)  # Asegurar esquema antes del INSERT
             cursor = conn.cursor()
+            
+            # Asegurar que exista la columna google_event_id ANTES del INSERT
+            cursor.execute("ALTER TABLE citas ADD COLUMN IF NOT EXISTS google_event_id VARCHAR(255)")
+            
             cursor.execute("""
                 INSERT INTO citas (
-                    user_id, nombre, email, telefono, fecha_cita, hora_cita, 
+                    user_id, nombre, email, telefono, fecha_cita, hora_cita,
                     propiedad_id, estado, notas,
                     recordatorio_enviado, recordatorio_horario
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             """, (
-                user_id, nombre, email, telefono, fecha, hora, 
+                user_id, nombre, email, telefono, fecha, hora,
                 propiedad_id, 'pendiente', notas,
-                False, '09:00'  # Valores por defecto para recordatorios
+                False, '09:00'
             ))
             
             db_record_id = cursor.fetchone()[0]
             conn.commit()
             log(f"✅ Cita guardada en PostgreSQL - ID DB: {db_record_id}")
+            nueva_cita['db_id'] = db_record_id
             
             # Registrar también en el log general de leads
             guardar_en_postgresql(
@@ -106,12 +177,37 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None,
             )
         else:
             log("⚠️ No se pudo conectar a PostgreSQL para guardar la cita", "WARNING")
-
-        # 3. Notificar al admin
-        notificar_cita_admin(nueva_cita)
+        
+        # ─────────────────────────────────────────────────────────
+        # 4. Guardar en Google Calendar  ← NUEVO
+        # ─────────────────────────────────────────────────────────
+        event_id = guardar_cita_en_google_calendar(nueva_cita)
+        if event_id:
+            nueva_cita['google_event_id'] = event_id
+            # Persistir el event_id en PostgreSQL
+            if conn:
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "UPDATE citas SET google_event_id = %s WHERE id = %s",
+                        (event_id, nueva_cita.get('db_id'))
+                    )
+                    conn.commit()
+                    log(f"✅ google_event_id guardado en DB: {event_id}")
+                except Exception as e:
+                    log(f"⚠️ No se pudo guardar event_id en DB: {e}", "WARNING")
+                    conn.rollback()
+        
+        # ─────────────────────────────────────────────────────────
+        # 5. Notificar al admin (UNA SOLA VEZ, al final)
+        # ─────────────────────────────────────────────────────────
+        try:
+            notificar_cita_admin(nueva_cita)
+        except Exception as e:
+            log(f"⚠️ Error notificando al admin: {e}", "WARNING")
         
         return nueva_cita
-        
+    
     except Exception as e:
         log(f"❌ Error creando cita: {e}", "ERROR")
         if conn:
@@ -933,6 +1029,67 @@ def obtener_texto_dias_habiles(propiedad_id=None):
     except Exception as e:
         log(f"❌ Error obteniendo texto días hábiles: {e}")
         return "Lunes a Viernes"
+
+
+def guardar_cita_en_google_calendar(cita):
+    """Inserta la cita en Google Calendar y devuelve el event_id o None."""
+    try:
+        service = get_calendar_service()
+        if not service:
+            log("⚠️ Google Calendar no configurado, se omite sync", "WARNING")
+            return None
+
+        # Fecha y hora en formato RFC3339 (zona horaria Argentina)
+        # Si tenés zona configurada en config.py, usala
+        TZ = "America/Argentina/Buenos_Aires"
+        start_dt = f"{cita['fecha']}T{cita['hora']}:00"
+        # Asumimos 1 hora de duración
+        hora_fin = (datetime.strptime(cita['hora'], "%H:%M") + timedelta(hours=1)).strftime("%H:%M")
+        end_dt = f"{cita['fecha']}T{hora_fin}:00"
+
+        # Traer título de propiedad (si tenés helper, mejor)
+        titulo_prop = cita.get('propiedad_titulo') or cita.get('propiedad_id', 'Propiedad')
+
+        event = {
+            'summary': f"🏠 Visita: {cita['nombre']} - {titulo_prop}",
+            'description': (
+                f"Cliente: {cita['nombre']}\n"
+                f"Teléfono: +{cita['telefono']}\n"
+                f"Email: {cita.get('email') or 'No proporcionado'}\n"
+                f"Propiedad ID: {cita['propiedad_id']}\n"
+                f"Notas: {cita.get('notas', '')}\n"
+                f"Cita ID interno: {cita['id']}"
+            ),
+            'start': {
+                'dateTime': start_dt,
+                'timeZone': TZ,
+            },
+            'end': {
+                'dateTime': end_dt,
+                'timeZone': TZ,
+            },
+            'reminders': {
+                'useDefault': False,
+                'overrides': [
+                    {'method': 'popup', 'minutes': 30},
+                    {'method': 'email', 'minutes': 60},
+                ],
+            },
+        }
+
+        # IMPORTANTE: si el calendario NO es el primario del service account,
+        # tenés que pasar calendarId="<email-del-calendario>"
+        calendar_id = os.environ.get("GOOGLE_CALENDAR_ID", "primary")
+        created = service.events().insert(calendarId=calendar_id, body=event).execute()
+
+        log(f"✅ Evento creado en Google Calendar: {created.get('id')}")
+        return created.get('id')
+
+    except Exception as e:
+        log(f"❌ Error guardando en Google Calendar: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc())
+        return None
 
 
 def son_numeros_identicos(num1, num2):
