@@ -5212,10 +5212,10 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 r.operacion === operacion && r.tipo === 'departamento'
             );
             
-            // Si no hay datos suficientes, mostrar mensaje
-            if (!deptosFiltrados || deptosFiltrados.length < 2) {
+            // Si no hay datos, mostrar mensaje (solo si está vacío)
+            if (!deptosFiltrados || deptosFiltrados.length === 0) {
                 container.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 3rem;">
-                    📊 Seleccioná al menos 2 barrios para ver la comparación de ${operacion}s
+                    📊 No hay datos de ${operacion}s para los filtros seleccionados
                 </p>`;
                 return;
             }
