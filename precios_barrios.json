@@ -1,0 +1,442 @@
+{
+  "balvanera_venta_departamento": {
+    "zona": "balvanera",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T14:48:36.897591",
+    "precio_usado_m2": 1524.3902439024391,
+    "precio_nuevo_m2": 2714.285714285714,
+    "cantidad_usados": 71,
+    "cantidad_nuevos": 18
+  },
+  "microcentro_venta_departamento": {
+    "zona": "microcentro",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T20:26:10.905249",
+    "precio_usado_m2": 1600.0,
+    "precio_nuevo_m2": 2580.6451612903224,
+    "cantidad_usados": 36,
+    "cantidad_nuevos": 9
+  },
+  "chacarita_venta_departamento": {
+    "zona": "chacarita",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T11:52:34.743824",
+    "precio_usado_m2": 2636.3636363636365,
+    "precio_nuevo_m2": 4097.222222222223,
+    "cantidad_usados": 71,
+    "cantidad_nuevos": 16
+  },
+  "liniers_venta_departamento": {
+    "zona": "liniers",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T12:00:26.983912",
+    "precio_usado_m2": 2280.8174027686223,
+    "precio_nuevo_m2": 3645.8333333333335,
+    "cantidad_usados": 30,
+    "cantidad_nuevos": 9
+  },
+  "barracas_venta_departamento": {
+    "zona": "barracas",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T16:23:36.007645",
+    "precio_usado_m2": 1948.051948051948,
+    "precio_nuevo_m2": 3315.625,
+    "cantidad_usados": 69,
+    "cantidad_nuevos": 21
+  },
+  "villa luro_venta_departamento": {
+    "zona": "villa luro",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T12:06:50.673615",
+    "precio_usado_m2": 2270.4545454545455,
+    "precio_nuevo_m2": 3238.095238095238,
+    "cantidad_usados": 73,
+    "cantidad_nuevos": 9
+  },
+  "belgrano_venta_departamento": {
+    "zona": "belgrano",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T20:19:03.012166",
+    "precio_usado_m2": 2282.716049382716,
+    "precio_nuevo_m2": 4085.9375,
+    "cantidad_usados": 67,
+    "cantidad_nuevos": 22
+  },
+  "palermo_venta_departamento": {
+    "zona": "palermo",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-21T14:14:42.388416",
+    "precio_usado_m2": 2407.4074074074074,
+    "precio_nuevo_m2": 4242.424242424242,
+    "cantidad_usados": 61,
+    "cantidad_nuevos": 21
+  },
+  "villa urquiza_venta_departamento": {
+    "zona": "villa urquiza",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T20:04:27.297202",
+    "precio_usado_m2": 2639.705882352941,
+    "precio_nuevo_m2": 3750.0,
+    "cantidad_usados": 41,
+    "cantidad_nuevos": 2
+  },
+  "recoleta_venta_departamento": {
+    "zona": "recoleta",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T14:41:56.187252",
+    "precio_usado_m2": 2611.1111111111113,
+    "precio_nuevo_m2": 4032.2580645161293,
+    "cantidad_usados": 68,
+    "cantidad_nuevos": 17
+  },
+  "pompeya_venta_departamento": {
+    "zona": "pompeya",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T15:28:36.509646",
+    "precio_usado_m2": 1122.8070175438597,
+    "precio_nuevo_m2": 1900.0,
+    "cantidad_usados": 67,
+    "cantidad_nuevos": 13
+  },
+  "villa del parque_venta_departamento": {
+    "zona": "villa del parque",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T15:38:18.003498",
+    "precio_usado_m2": 2341.4634146341464,
+    "precio_nuevo_m2": 3382.3529411764707,
+    "cantidad_usados": 77,
+    "cantidad_nuevos": 13
+  },
+  "nuñez_venta_departamento": {
+    "zona": "nuñez",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-21T14:19:38.731927",
+    "precio_usado_m2": 2560.4444444444443,
+    "precio_nuevo_m2": 4370.37037037037,
+    "cantidad_usados": 32,
+    "cantidad_nuevos": 12
+  },
+  "colegiales_venta_departamento": {
+    "zona": "colegiales",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T16:41:02.159939",
+    "precio_usado_m2": 2730.756097560976,
+    "precio_nuevo_m2": 4378.368421052632,
+    "cantidad_usados": 68,
+    "cantidad_nuevos": 19
+  },
+  "congreso_venta_departamento": {
+    "zona": "congreso",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T16:51:33.901220",
+    "precio_usado_m2": 1521.7391304347825,
+    "precio_nuevo_m2": 2236.842105263158,
+    "cantidad_usados": 36,
+    "cantidad_nuevos": 8
+  },
+  "boedo_venta_departamento": {
+    "zona": "boedo",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T17:05:07.180151",
+    "precio_usado_m2": 1964.2857142857142,
+    "precio_nuevo_m2": 3214.285714285714,
+    "cantidad_usados": 75,
+    "cantidad_nuevos": 12
+  },
+  "saavedra_venta_departamento": {
+    "zona": "saavedra",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T17:19:40.658050",
+    "precio_usado_m2": 2807.0175438596493,
+    "precio_nuevo_m2": 4225.0,
+    "cantidad_usados": 40,
+    "cantidad_nuevos": 4
+  },
+  "la boca_venta_departamento": {
+    "zona": "la boca",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-21T21:08:19.098941",
+    "precio_usado_m2": 1350.0,
+    "precio_nuevo_m2": 3193.548387096774,
+    "cantidad_usados": 62,
+    "cantidad_nuevos": 22
+  },
+  "villa crespo_venta_departamento": {
+    "zona": "villa crespo",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-21T21:20:02.470946",
+    "precio_usado_m2": 2272.7272727272725,
+    "precio_nuevo_m2": 3333.3333333333335,
+    "cantidad_usados": 38,
+    "cantidad_nuevos": 7
+  },
+  "almagro_venta_departamento": {
+    "zona": "almagro",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T20:12:57.507830",
+    "precio_usado_m2": 1849.3150684931506,
+    "precio_nuevo_m2": 3066.6666666666665,
+    "cantidad_usados": 80,
+    "cantidad_nuevos": 13
+  },
+  "retiro_venta_departamento": {
+    "zona": "retiro",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T20:21:35.649363",
+    "precio_usado_m2": 2392.0,
+    "precio_nuevo_m2": 4017.8571428571427,
+    "cantidad_usados": 66,
+    "cantidad_nuevos": 19
+  },
+  "caballito_venta_departamento": {
+    "zona": "caballito",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T20:31:35.465097",
+    "precio_usado_m2": 1752.9411764705883,
+    "precio_nuevo_m2": 3602.0408163265306,
+    "cantidad_usados": 64,
+    "cantidad_nuevos": 21
+  },
+  "flores_alquiler_departamento": {
+    "zona": "flores",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T20:43:30.475863",
+    "precio_usado_m2": 16363.636363636364,
+    "precio_nuevo_m2": 23913.043478260868,
+    "cantidad_usados": 82,
+    "cantidad_nuevos": 7
+  },
+  "congreso_alquiler_departamento": {
+    "zona": "congreso",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T20:44:34.544816",
+    "precio_usado_m2": 14000.0,
+    "precio_nuevo_m2": 19642.85714285714,
+    "cantidad_usados": 37,
+    "cantidad_nuevos": 3
+  },
+  "colegiales_alquiler_departamento": {
+    "zona": "colegiales",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-09-18T21:57:07.052403",
+    "precio_usado_m2": 20588.235294117647,
+    "precio_nuevo_m2": 31481.48148148148,
+    "cantidad_usados": 62,
+    "cantidad_nuevos": 7
+  },
+  "chacarita_alquiler_departamento": {
+    "zona": "chacarita",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T21:18:07.778051",
+    "precio_usado_m2": 20606.060606060608,
+    "precio_nuevo_m2": 29687.5,
+    "cantidad_usados": 64,
+    "cantidad_nuevos": 4
+  },
+  "caballito_alquiler_departamento": {
+    "zona": "caballito",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T21:26:52.963184",
+    "precio_usado_m2": 17777.777777777777,
+    "precio_nuevo_m2": 28260.869565217392,
+    "cantidad_usados": 77,
+    "cantidad_nuevos": 3
+  },
+  "boedo_alquiler_departamento": {
+    "zona": "boedo",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T21:33:40.587279",
+    "precio_usado_m2": 16666.666666666668,
+    "precio_nuevo_m2": 23170.731707317074,
+    "cantidad_usados": 73,
+    "cantidad_nuevos": 4
+  },
+  "belgrano_alquiler_departamento": {
+    "zona": "belgrano",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T21:38:14.172753",
+    "precio_usado_m2": 19230.76923076923,
+    "precio_nuevo_m2": 27272.727272727272,
+    "cantidad_usados": 55,
+    "cantidad_nuevos": 5
+  },
+  "barracas_alquiler_departamento": {
+    "zona": "barracas",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T21:47:06.442753",
+    "precio_usado_m2": 16091.954022988506,
+    "precio_nuevo_m2": 24000.0,
+    "cantidad_usados": 61,
+    "cantidad_nuevos": 7
+  },
+  "balvanera_alquiler_departamento": {
+    "zona": "balvanera",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T21:49:54.787835",
+    "precio_usado_m2": 16000.0,
+    "precio_nuevo_m2": 24000.0,
+    "cantidad_usados": 76,
+    "cantidad_nuevos": 8
+  },
+  "almagro_alquiler_departamento": {
+    "zona": "almagro",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T21:58:58.979026",
+    "precio_usado_m2": 17441.86046511628,
+    "precio_nuevo_m2": 26000.0,
+    "cantidad_usados": 81,
+    "cantidad_nuevos": 6
+  },
+  "villa urquiza_alquiler_departamento": {
+    "zona": "villa urquiza",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T22:02:47.875065",
+    "precio_usado_m2": 19555.555555555555,
+    "precio_nuevo_m2": 27500.0,
+    "cantidad_usados": 35,
+    "cantidad_nuevos": 4
+  },
+  "villa crespo_alquiler_departamento": {
+    "zona": "villa crespo",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T22:05:27.304571",
+    "precio_usado_m2": 17750.0,
+    "precio_nuevo_m2": 28125.0,
+    "cantidad_usados": 33,
+    "cantidad_nuevos": 6
+  },
+  "microcentro_alquiler_departamento": {
+    "zona": "microcentro",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-08-21T21:16:06.276079",
+    "precio_usado_m2": 16129.032258064517,
+    "precio_nuevo_m2": 26388.88888888889,
+    "cantidad_usados": 13,
+    "cantidad_nuevos": 1
+  },
+  "villa pueyrredon_venta_departamento": {
+    "zona": "villa pueyrredon",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T23:34:24.227200",
+    "precio_usado_m2": 2419.3548387096776,
+    "precio_nuevo_m2": 4085.3658536585367,
+    "cantidad_usados": 81,
+    "cantidad_nuevos": 5
+  },
+  "villa lugano_venta_departamento": {
+    "zona": "villa lugano",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-15T23:39:23.177519",
+    "precio_usado_m2": 905.6603773584906,
+    "precio_nuevo_m2": 2345.4545454545455,
+    "cantidad_usados": 60,
+    "cantidad_nuevos": 26
+  },
+  "nuñez_alquiler_departamento": {
+    "zona": "nuñez",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-06-21T19:39:48.910205",
+    "precio_usado_m2": 19642.85714285714,
+    "precio_nuevo_m2": 27536.231884057972,
+    "cantidad_usados": 28,
+    "cantidad_nuevos": 2
+  },
+  "palermo_alquiler_departamento": {
+    "zona": "palermo",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-06-21T19:43:37.589944",
+    "precio_usado_m2": 19692.30769230769,
+    "precio_nuevo_m2": 31250.0,
+    "cantidad_usados": 45,
+    "cantidad_nuevos": 5
+  },
+  "parque patricios_alquiler_departamento": {
+    "zona": "parque patricios",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-06-21T19:48:40.064313",
+    "precio_usado_m2": 15625.0,
+    "precio_nuevo_m2": 32000.0,
+    "cantidad_usados": 45,
+    "cantidad_nuevos": 3
+  },
+  "villa soldati_venta_departamento": {
+    "zona": "villa soldati",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-06-21T20:43:45.703278",
+    "precio_usado_m2": 633.8028169014085,
+    "precio_nuevo_m2": 1598.888888888889,
+    "cantidad_usados": 50,
+    "cantidad_nuevos": 23
+  },
+  "mataderos_alquiler_departamento": {
+    "zona": "mataderos",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-06-21T20:56:54.468864",
+    "precio_usado_m2": 14666.666666666666,
+    "precio_nuevo_m2": 20967.74193548387,
+    "cantidad_usados": 65,
+    "cantidad_nuevos": 13
+  },
+  "flores_venta_ph": {
+    "zona": "flores",
+    "operacion": "venta",
+    "tipo": "ph",
+    "fecha": "2026-09-18T19:57:25.412987",
+    "precio_usado_m2": 1243.75,
+    "precio_nuevo_m2": 2112.5,
+    "cantidad_usados": 75,
+    "cantidad_nuevos": 15
+  },
+  "la boca_alquiler_departamento": {
+    "zona": "la boca",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-09-18T21:55:25.238015",
+    "precio_usado_m2": 15555.555555555555,
+    "precio_nuevo_m2": 24074.074074074073,
+    "cantidad_usados": 69,
+    "cantidad_nuevos": 11
+  }
+}
