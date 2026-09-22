@@ -56,6 +56,10 @@ def is_render_environment():
 
 # Variable global para controlar Selenium
 USE_SELENIUM = not is_render_environment()
+# Flag para activar/desactivar MercadoLibre (requiere Playwright, no funciona en Render)
+USE_MERCADOLIBRE = False
+
+
 
 logger.info(f"🌍 Entorno: {'Render' if is_render_environment() else 'Local'}")
 logger.info(f"🕷️ Selenium: {'ACTIVADO' if USE_SELENIUM else 'DESACTIVADO (solo requests)'}")
@@ -1536,22 +1540,26 @@ class ScrapingManager:
         except Exception as e:
             errors.append(f"Zonaprop: {str(e)}")
         
-        # 3. MercadoLibre
-        try:
-            self.mercadolibre.target_zone = search_zone
-            mercadolibre_url = self.mercadolibre.build_url(search_zone, operation, property_type)
-            logger.info(f"[MercadoLibre] URL: {mercadolibre_url}")
-            
-            html = self.mercadolibre._make_request(mercadolibre_url)
-            
-            if html:
-                properties = self.mercadolibre.parse_properties(html, operation, property_type)
-                all_properties.extend(properties)
-                logger.info(f"[MercadoLibre] Extraídas {len(properties)} propiedades")
-            else:
-                errors.append("MercadoLibre: No se pudo obtener respuesta")
-        except Exception as e:
-            errors.append(f"MercadoLibre: {str(e)}")
+        # 3. MercadoLibre (DESACTIVADO - requiere Playwright para renderizar JS)
+        # Para activarlo, cambiar USE_MERCADOLIBRE = True al inicio del archivo
+        if USE_MERCADOLIBRE:
+            try:
+                self.mercadolibre.target_zone = search_zone
+                mercadolibre_url = self.mercadolibre.build_url(search_zone, operation, property_type)
+                logger.info(f"[MercadoLibre] URL: {mercadolibre_url}")
+                
+                html = self.mercadolibre._make_request(mercadolibre_url)
+                
+                if html:
+                    properties = self.mercadolibre.parse_properties(html, operation, property_type)
+                    all_properties.extend(properties)
+                    logger.info(f"[MercadoLibre] Extraídas {len(properties)} propiedades")
+                else:
+                    errors.append("MercadoLibre: No se pudo obtener respuesta")
+            except Exception as e:
+                errors.append(f"MercadoLibre: {str(e)}")
+        else:
+            logger.info("[MercadoLibre] DESACTIVADO (requiere Playwright, no soportado en Render)")
         
         # Calcular estadísticas
         stats = self.analyzer.calculate_stats(all_properties, search_zone, operation, property_type)
