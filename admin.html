@@ -5178,58 +5178,59 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         }
 
         function renderizarGraficoPrecios(registros, operacionFiltro) {
+            // ⚠️ DEBUG: ver qué llega
+            console.log('🚨 renderizarGraficoPrecios INICIO');
+            console.log('   - operacionFiltro (param):', JSON.stringify(operacionFiltro));
+            console.log('   - total registros:', registros.length);
+            console.log('   - select existe:', !!document.getElementById('precios-operacion'));
+            console.log('   - select value:', document.getElementById('precios-operacion')?.value);
+            
             const canvas = document.getElementById('precios-comparison-chart');
             const container = canvas ? canvas.parentNode : null;
-            if (!canvas || !container) return;
+            if (!canvas || !container) {
+                console.warn('❌ Canvas o container no encontrado');
+                return;
+            }
             
             if (preciosChart) {
                 preciosChart.destroy();
                 preciosChart = null;
             }
             
-            // 👇 FIX: Leer el select directamente en vez de confiar en el parámetro
+            // 🔑 FORZAR la lectura del select
             const selectOperacion = document.getElementById('precios-operacion');
-            let operacionSeleccionada = selectOperacion ? selectOperacion.value : '';
-            
-            // Normalizar a minúsculas y limpiar espacios
-            operacionSeleccionada = (operacionSeleccionada || '').toLowerCase().trim();
-            
-            // Si viene por parámetro y no está vacío, usarlo como fallback
-            if (!operacionSeleccionada && operacionFiltro) {
-                operacionSeleccionada = (operacionFiltro || '').toLowerCase().trim();
+            let operacionSeleccionada = '';
+            if (selectOperacion && selectOperacion.value) {
+                operacionSeleccionada = String(selectOperacion.value).trim().toLowerCase();
             }
             
-            // 🔍 DEBUG
-            console.log('📈 renderizarGraficoPrecios:', {
-                operacionFiltro,
-                operacionSeleccionada,
-                totalRegistros: registros.length,
-                registrosAlquiler: registros.filter(r => r.operacion === 'alquiler').length,
-                registrosVenta: registros.filter(r => r.operacion === 'venta').length
-            });
+            console.log('   - operacionSeleccionada (procesada):', JSON.stringify(operacionSeleccionada));
             
-            // Determinar qué moneda y qué operación mostrar
+            // Determinar operación a mostrar
             let operacion, simbolo;
             
             if (operacionSeleccionada === 'alquiler') {
                 operacion = 'alquiler';
                 simbolo = 'AR$';
+                console.log('   ✅ Modo: ALQUILER (AR$)');
             } else if (operacionSeleccionada === 'venta') {
                 operacion = 'venta';
                 simbolo = 'US$';
+                console.log('   ✅ Modo: VENTA (US$)');
             } else {
-                // "Todas las operaciones" → mostrar VENTA (más relevante)
                 operacion = 'venta';
                 simbolo = 'US$';
+                console.log('   ⚠️ Modo default: VENTA (US$) - valor no reconocido:', operacionSeleccionada);
             }
             
-            // Filtrar por operación y tipo departamento
+            // Filtrar
             const deptosFiltrados = registros.filter(r => 
                 (r.operacion || '').toLowerCase() === operacion && 
                 (r.tipo || '').toLowerCase() === 'departamento'
             );
             
-            // Si no hay datos, mostrar mensaje
+            console.log('   - deptosFiltrados:', deptosFiltrados.length);
+            
             if (!deptosFiltrados || deptosFiltrados.length === 0) {
                 container.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 3rem;">
                     📊 No hay datos de ${operacion}s para los filtros seleccionados
@@ -5237,12 +5238,11 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 return;
             }
             
-            // Reemplazar el canvas si fue borrado
+            // Reemplazar canvas si fue borrado
             if (!document.getElementById('precios-comparison-chart')) {
                 container.innerHTML = '<canvas id="precios-comparison-chart"></canvas>';
             }
             
-            // Tomar los top 15 por precio usado
             const top15 = deptosFiltrados
                 .sort((a, b) => (b.precio_usado_m2 || 0) - (a.precio_usado_m2 || 0))
                 .slice(0, 15);
@@ -5251,14 +5251,13 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             const dataUsado = top15.map(r => Math.round(r.precio_usado_m2 || 0));
             const dataNuevo = top15.map(r => Math.round(r.precio_nuevo_m2 || 0));
             
-            // Actualizar título del gráfico dinámicamente
+            // Título
             const tituloEl = container.previousElementSibling;
             if (tituloEl && tituloEl.tagName === 'H3') {
                 const emoji = operacion === 'venta' ? '💰' : '🔑';
                 tituloEl.innerHTML = `📈 Comparación USADO vs NUEVO - ${operacion.charAt(0).toUpperCase() + operacion.slice(1)}s (${simbolo}) ${emoji}`;
             }
             
-            // Colores según operación
             const colorUsado = 'rgba(245, 158, 11, 0.8)';
             const colorNuevo = operacion === 'alquiler'
                 ? 'rgba(16, 185, 129, 0.8)'
@@ -5310,7 +5309,12 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                     }
                 }
             });
+            
+            console.log('   ✅ Gráfico renderizado con', labels.length, 'zonas');
         }
+
+
+
         function renderizarTablaPrecios(registros) {
             // Ya vienen filtrados desde filtrarPreciosBarrios()
             const container = document.getElementById('precios-tabla-container');
