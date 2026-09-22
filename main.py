@@ -1966,6 +1966,91 @@ def obtener_market_stats():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/market/run-scrape', methods=['GET', 'POST'])
+def run_market_scrape_endpoint():
+    """Ejecuta el scraper de mercado en segundo plano."""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        # Leer parámetros (GET o POST JSON)
+        if request.method == 'POST':
+            data = request.json or {}
+        else:
+            data = request.args.to_dict()
+        
+        zona = data.get('zona', 'palermo').strip().lower()
+        operacion = data.get('operacion', 'venta').strip().lower()
+        tipo = data.get('tipo', 'departamento').strip().lower()
+        
+        log(f"🕷️ Iniciando scraping: {zona} | {operacion} | {tipo}")
+        
+        # Ejecutar el scraper en un hilo separado (para no bloquear)
+        import subprocess
+        import sys
+        
+        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scrape_market.py")
+        output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scraping.json")
+        
+        if not os.path.exists(script_path):
+            return jsonify({
+                "success": False,
+                "error": f"Script no encontrado: {script_path}"
+            }), 500
+        
+        # Ejecutar el script
+        cmd = [sys.executable, script_path, "--zona", zona, "--operacion", operacion, "--tipo", tipo, "--output", output_path]
+        
+        log(f"🔧 Ejecutando: {' '.join(cmd)}")
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=280  # 4:40 minutos
+        )
+        
+        if result.returncode == 0:
+            log(f"✅ Scraping completado para {zona}")
+            
+            # Leer el scraping.json generado
+            if os.path.exists(output_path):
+                with open(output_path, 'r', encoding='utf-8') as f:
+                    scraped_data = json.load(f)
+                
+                sample_size = scraped_data.get('data', {}).get('sample_size', 0)
+                
+                return jsonify({
+                    "success": True,
+                    "message": f"Scraping completado: {sample_size} propiedades analizadas",
+                    "zone": zona,
+                    "sample_size": sample_size,
+                    "data": scraped_data
+                })
+            else:
+                return jsonify({
+                    "success": False,
+                    "error": "El scraping.json no se generó"
+                }), 500
+        else:
+            log(f"❌ Error en scraper: {result.stderr}")
+            return jsonify({
+                "success": False,
+                "error": "Error en el scraping",
+                "details": result.stderr[:500]
+            }), 500
+    
+    except subprocess.TimeoutExpired:
+        log("⏰ Timeout en scraping")
+        return jsonify({"success": False, "error": "Timeout: el scraping tardó más de 4 minutos"}), 500
+    except Exception as e:
+        log(f"❌ Excepción en scraping: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc(), "ERROR")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 def debug_postgresql():
     """Debug detallado de PostgreSQL"""
     try:

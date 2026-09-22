@@ -1110,7 +1110,7 @@
                         💡 <strong>Recomendado:</strong> usá "TODOS los datos" para obtener un Excel con una hoja por tipo de información.
                     </p>
                 </div>
-                
+
             </div>
         </div>
 
@@ -1806,7 +1806,12 @@
                 mostrarPropiedades(todasLasPropiedades);
                 actualizarEstadisticas(currentTab);
                 actualizarBannerStatusMercado();
-                cargarEstadisticasMercado();
+                
+                // Cargar mercado solo si estamos en esa pestaña
+                if (currentTab === 'mercado') {
+                    cargarEstadisticasMercado();
+                }
+                
                 cargarBarrios();
 
                 // Cargar datos nuevos (contactos web + consultas chat)
@@ -1821,6 +1826,8 @@
                 mostrarEmptyState('leads-container', 'Error al cargar leads', '❌');
             }
         }
+
+
 
         // ============================================================
         // 🌐 CONTACTOS WEB
@@ -3284,7 +3291,11 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 actualizarEstadisticas(tabName);
                 
                 if (tabName === 'mercado') {
-                    setTimeout(() => cargarEstadisticasMercado(), 100);
+                    // Cargar mercado solo una vez al entrar a la pestaña
+                    if (!window._mercadoCargado) {
+                        window._mercadoCargado = true;
+                        setTimeout(() => cargarEstadisticasMercado(), 300);
+                    }
                 } else if (tabName === 'barrios') {
                     cargarBarrios();
                 } else if (tabName === 'configuracion') {
@@ -4616,24 +4627,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
 
-
-        // Al cargar la página, cargar datos de mercado si es la pestaña activa
-        // Escuchar cuando se cambie a la pestaña de mercado
-        document.addEventListener('DOMContentLoaded', function() {
-            const mercadoTab = document.getElementById('tab-mercado');
-            if (mercadoTab && mercadoTab.classList.contains('active')) {
-                setTimeout(cargarEstadisticasMercado, 500);
-            }
-            
-            const btnMercado = document.querySelector('.tab[onclick*="mercado"]');
-            if (btnMercado) {
-                const originalClick = btnMercado.onclick;
-                btnMercado.onclick = function(e) {
-                    if (originalClick) originalClick.call(this, e);
-                    setTimeout(cargarEstadisticasMercado, 300);
-                };
-            }
-        });
+        
         // --- GESTIÓN DE HORARIOS ADMIN ---
         let configHorariosActual = {
             configuracion_global: {
