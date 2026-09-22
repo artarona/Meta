@@ -1966,6 +1966,91 @@ def obtener_market_stats():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/market/run-scrape', methods=['GET', 'POST'])
+def run_market_scrape_endpoint():
+    """Ejecuta el scraper de mercado en segundo plano."""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        # Leer parámetros (GET o POST JSON)
+        if request.method == 'POST':
+            data = request.json or {}
+        else:
+            data = request.args.to_dict()
+        
+        zona = data.get('zona', 'palermo').strip().lower()
+        operacion = data.get('operacion', 'venta').strip().lower()
+        tipo = data.get('tipo', 'departamento').strip().lower()
+        
+        log(f"🕷️ Iniciando scraping: {zona} | {operacion} | {tipo}")
+        
+        # Ejecutar el scraper en un hilo separado (para no bloquear)
+        import subprocess
+        import sys
+        
+        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scrape_market.py")
+        output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scraping.json")
+        
+        if not os.path.exists(script_path):
+            return jsonify({
+                "success": False,
+                "error": f"Script no encontrado: {script_path}"
+            }), 500
+        
+        # Ejecutar el script
+        cmd = [sys.executable, script_path, "--zona", zona, "--operacion", operacion, "--tipo", tipo, "--output", output_path]
+        
+        log(f"🔧 Ejecutando: {' '.join(cmd)}")
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=280  # 4:40 minutos
+        )
+        
+        if result.returncode == 0:
+            log(f"✅ Scraping completado para {zona}")
+            
+            # Leer el scraping.json generado
+            if os.path.exists(output_path):
+                with open(output_path, 'r', encoding='utf-8') as f:
+                    scraped_data = json.load(f)
+                
+                sample_size = scraped_data.get('data', {}).get('sample_size', 0)
+                
+                return jsonify({
+                    "success": True,
+                    "message": f"Scraping completado: {sample_size} propiedades analizadas",
+                    "zone": zona,
+                    "sample_size": sample_size,
+                    "data": scraped_data
+                })
+            else:
+                return jsonify({
+                    "success": False,
+                    "error": "El scraping.json no se generó"
+                }), 500
+        else:
+            log(f"❌ Error en scraper: {result.stderr}")
+            return jsonify({
+                "success": False,
+                "error": "Error en el scraping",
+                "details": result.stderr[:500]
+            }), 500
+    
+    except subprocess.TimeoutExpired:
+        log("⏰ Timeout en scraping")
+        return jsonify({"success": False, "error": "Timeout: el scraping tardó más de 4 minutos"}), 500
+    except Exception as e:
+        log(f"❌ Excepción en scraping: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc(), "ERROR")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 def debug_postgresql():
     """Debug detallado de PostgreSQL"""
     try:
@@ -3064,6 +3149,432 @@ def fix_db_direct():
         
     except Exception as e:
         return {"error": str(e)}, 500
+
+
+# ============================================================
+# ENDPOINTS DE PANEL UNIFICADO (Contactos Web + Consultas Chat)
+# ============================================================
+
+@app.route("/api/contactos-web", methods=["GET"])
+def get_contactos_web():
+    """Lee contactos web de core.personas + dante.formularios"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB no disponible", "contactos": []}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT DISTINCT ON (p.id)
+                p.id, p.nombre, p.email, p.telefono, p.telefono_alt,
+                p.documento, p.origen, p.notas, p.created_at, p.updated_at,
+                f.interes, f.presupuesto, f.pagina_origen, f.user_agent, f.ip_address,
+                (SELECT COUNT(*) FROM dante.formularios WHERE persona_id = p.id) AS total_formularios,
+                (SELECT COUNT(*) FROM dante.consultas_chat WHERE persona_id = p.id) AS total_consultas
+            FROM core.personas p
+            LEFT JOIN dante.formularios f ON f.persona_id = p.id
+            ORDER BY p.id, f.created_at DESC
+        """)
+        
+        contactos = []
+        for row in cursor.fetchall():
+            contactos.append({
+                'id': row[0],
+                'nombre': row[1] or '',
+                'email': row[2] or '',
+                'telefono': row[3] or '',
+                'telefono_alt': row[4] or '',
+                'documento': row[5] or '',
+                'origen': row[6] or '',
+                'notas': row[7] or '',
+                'created_at': row[8].isoformat() if row[8] else None,
+                'updated_at': row[9].isoformat() if row[9] else None,
+                'interes': row[10] or '',
+                'presupuesto': row[11] or '',
+                'pagina_origen': row[12] or '',
+                'user_agent': row[13] or '',
+                'ip_address': row[14] or '',
+                'total_formularios': row[15] or 0,
+                'total_consultas': row[16] or 0
+            })
+        
+        cursor.close()
+        conn.close()
+        return jsonify({"contactos": contactos, "total": len(contactos)})
+    except Exception as e:
+        log(f"❌ Error en /api/contactos-web: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc(), "ERROR")
+        return jsonify({"error": str(e), "contactos": []}), 500
+
+
+@app.route("/api/contactos-web/<int:persona_id>", methods=["PUT"])
+def update_contacto_web(persona_id):
+    """Actualiza un contacto web"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        data = request.json
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB no disponible"}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE core.personas 
+            SET nombre = %s, email = %s, telefono = %s, telefono_alt = %s,
+                documento = %s, notas = %s, updated_at = NOW()
+            WHERE id = %s
+        """, (
+            data.get('nombre'),
+            data.get('email'),
+            data.get('telefono'),
+            data.get('telefono_alt'),
+            data.get('documento'),
+            data.get('notas'),
+            persona_id
+        ))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        log(f"✅ Contacto web {persona_id} actualizado")
+        return jsonify({"status": "success", "message": "Contacto actualizado"})
+    except Exception as e:
+        log(f"❌ Error en update contacto web: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/contactos-web/<int:persona_id>", methods=["DELETE"])
+def delete_contacto_web(persona_id):
+    """Elimina un contacto web y sus datos relacionados"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB no disponible"}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM dante.formularios WHERE persona_id = %s", (persona_id,))
+        cursor.execute("DELETE FROM dante.consultas_chat WHERE persona_id = %s", (persona_id,))
+        cursor.execute("DELETE FROM core.personas WHERE id = %s", (persona_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        log(f"✅ Contacto web {persona_id} eliminado")
+        return jsonify({"status": "success", "message": "Contacto eliminado"})
+    except Exception as e:
+        log(f"❌ Error en delete contacto web: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/consultas-chat", methods=["GET"])
+def get_consultas_chat():
+    """Lee las consultas del chat IA desde dante.consultas_chat (con notas internas)"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB no disponible", "consultas": []}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT c.id, c.persona_id, p.nombre, p.email,
+                   c.mensaje, c.respuesta_ia, c.canal,
+                   c.search_performed, c.results_count, c.created_at,
+                   c.notas_admin, c.notas_actualizadas_en
+            FROM dante.consultas_chat c
+            LEFT JOIN core.personas p ON p.id = c.persona_id
+            ORDER BY c.created_at DESC
+            LIMIT 500
+        """)
+        
+        consultas = []
+        for row in cursor.fetchall():
+            consultas.append({
+                'id': row[0],
+                'persona_id': row[1],
+                'nombre': row[2] or 'Anónimo',
+                'email': row[3] or '',
+                'mensaje': row[4] or '',
+                'respuesta_ia': row[5] or '',
+                'canal': row[6] or '',
+                'search_performed': row[7],
+                'results_count': row[8] or 0,
+                'created_at': row[9].isoformat() if row[9] else None,
+                'notas_admin': row[10] or '',
+                'notas_actualizadas_en': row[11].isoformat() if row[11] else None
+            })
+        
+        cursor.close()
+        conn.close()
+        return jsonify({"consultas": consultas, "total": len(consultas)})
+    except Exception as e:
+        log(f"❌ Error en /api/consultas-chat: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc(), "ERROR")
+        return jsonify({"error": str(e), "consultas": []}), 500
+
+
+
+@app.route("/api/consultas-chat/<int:consulta_id>/nota", methods=["PUT"])
+def guardar_nota_consulta(consulta_id):
+    """Guarda o actualiza una nota interna en una consulta del chat."""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        data = request.json or {}
+        nota = str(data.get('nota', '')).strip()
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB no disponible"}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE dante.consultas_chat 
+            SET notas_admin = %s, notas_actualizadas_en = NOW()
+            WHERE id = %s
+            RETURNING id
+        """, (nota, consulta_id))
+        
+        updated = cursor.fetchone()
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        if not updated:
+            return jsonify({"error": "Consulta no encontrada"}), 404
+        
+        log(f"✅ Nota guardada en consulta {consulta_id}")
+        return jsonify({"status": "success", "message": "Nota guardada correctamente"})
+    except Exception as e:
+        log(f"❌ Error guardando nota: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/consultas-chat/<int:consulta_id>", methods=["DELETE"])
+def eliminar_consulta_chat(consulta_id):
+    """Elimina una consulta del chat permanentemente."""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB no disponible"}), 500
+        
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM dante.consultas_chat WHERE id = %s RETURNING id", (consulta_id,))
+        deleted = cursor.fetchone()
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        if not deleted:
+            return jsonify({"error": "Consulta no encontrada"}), 404
+        
+        log(f"✅ Consulta {consulta_id} eliminada")
+        return jsonify({"status": "success", "message": "Consulta eliminada"})
+    except Exception as e:
+        log(f"❌ Error eliminando consulta: {e}", "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/exportar/unificado', methods=['GET'])
+def exportar_unificado_multihoja():
+    """
+    Genera un Excel con múltiples hojas:
+    - Citas, Leads, Contactos Web, Consultas Chat, Propiedades
+    """
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "DB no disponible"}), 500
+        
+        # Preparar todos los DataFrames primero
+        dfs = {}
+        
+        # 1. CITAS
+        try:
+            dfs['Citas'] = pd.read_sql_query("""
+                SELECT id, fecha_creacion, user_id, nombre, email, telefono,
+                       fecha_cita, hora_cita, propiedad_id, estado, notas,
+                       recordatorio_enviado, feedback_enviado, modificacion
+                FROM citas
+                ORDER BY fecha_cita DESC, hora_cita DESC
+            """, conn)
+        except Exception as e:
+            dfs['Citas'] = pd.DataFrame({'Error': [str(e)]})
+        
+        # 2. LEADS
+        try:
+            dfs['Leads WhatsApp'] = pd.read_sql_query("""
+                SELECT id, fecha, telefono, nombre, propiedad_id, propiedad_titulo, accion, detalles
+                FROM leads
+                ORDER BY fecha DESC
+            """, conn)
+        except Exception as e:
+            dfs['Leads WhatsApp'] = pd.DataFrame({'Error': [str(e)]})
+        
+        # 3. CONTACTOS WEB
+        try:
+            dfs['Contactos Web'] = pd.read_sql_query("""
+                SELECT DISTINCT ON (p.id)
+                    p.id, p.nombre, p.email, p.telefono, p.telefono_alt,
+                    p.documento, p.origen, p.notas, p.created_at, p.updated_at,
+                    f.interes, f.presupuesto, f.pagina_origen, f.ip_address,
+                    (SELECT COUNT(*) FROM dante.formularios WHERE persona_id = p.id) AS total_formularios,
+                    (SELECT COUNT(*) FROM dante.consultas_chat WHERE persona_id = p.id) AS total_consultas
+                FROM core.personas p
+                LEFT JOIN dante.formularios f ON f.persona_id = p.id
+                ORDER BY p.id, f.created_at DESC
+            """, conn)
+        except Exception as e:
+            dfs['Contactos Web'] = pd.DataFrame({'Error': [str(e)]})
+        
+        # 4. CONSULTAS CHAT
+        try:
+            dfs['Consultas Chat'] = pd.read_sql_query("""
+                SELECT c.id, c.persona_id, p.nombre AS nombre_persona, p.email AS email_persona,
+                       c.mensaje, c.respuesta_ia, c.canal, c.search_performed, 
+                       c.results_count, c.created_at, c.notas_admin, c.notas_actualizadas_en
+                FROM dante.consultas_chat c
+                LEFT JOIN core.personas p ON p.id = c.persona_id
+                ORDER BY c.created_at DESC
+            """, conn)
+        except Exception as e:
+            dfs['Consultas Chat'] = pd.DataFrame({'Error': [str(e)]})
+        
+        conn.close()
+        
+        # 5. PROPIEDADES (desde JSON)
+        try:
+            if os.path.exists("propiedades.json"):
+                with open("propiedades.json", "r", encoding="utf-8") as f:
+                    propiedades = json.load(f)
+                if propiedades:
+                    df_props = pd.DataFrame(propiedades)
+                    cols_deseadas = [
+                        "id_temporal", "titulo", "tipo", "operacion", "direccion", "barrio",
+                        "precio", "moneda_precio", "metros_cuadrados", "ambientes",
+                        "descripcion", "estado"
+                    ]
+                    cols_existentes = [c for c in cols_deseadas if c in df_props.columns]
+                    dfs['Propiedades'] = df_props[cols_existentes] if cols_existentes else df_props
+                else:
+                    dfs['Propiedades'] = pd.DataFrame()
+            else:
+                dfs['Propiedades'] = pd.DataFrame()
+        except Exception as e:
+            dfs['Propiedades'] = pd.DataFrame({'Error': [str(e)]})
+        
+        # ============ GENERAR EXCEL ============
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            for sheet_name, df in dfs.items():
+                # Limitar nombre de hoja a 31 caracteres (límite Excel)
+                df.to_excel(writer, sheet_name=sheet_name[:31], index=False)
+                
+                # Auto-ajustar ancho de columnas
+                worksheet = writer.sheets[sheet_name[:31]]
+                for column in worksheet.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if cell.value is not None:
+                                max_length = max(max_length, len(str(cell.value)))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 50)
+                    worksheet.column_dimensions[column_letter].width = adjusted_width
+        
+        output.seek(0)
+        fecha = datetime.now().strftime("%Y%m%d_%H%M")
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'dante_unificado_{fecha}.xlsx'
+        )
+        
+    except Exception as e:
+        log(f"❌ Error en exportar unificado: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc(), "ERROR")
+        return jsonify({"error": str(e)}), 500
+
+# ============================================================
+# ENDPOINT: PRECIOS DE BARRIOS (precios_barrios.json)
+# ============================================================
+
+@app.route("/api/market/precios-barrios", methods=["GET"])
+def get_precios_barrios():
+    """
+    Devuelve el precios_barrios.json con precios separados en USADO y NUEVO
+    para cada zona/operación/tipo. Elimina valores extremos.
+    """
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "precios_barrios.json")
+    
+    if not os.path.exists(file_path):
+        log(f"⚠️ precios_barrios.json no encontrado en {file_path}", "WARNING")
+        return jsonify({"success": False, "error": "Archivo no encontrado", "data": {}}), 404
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        total_registros = len(data)
+        
+        # Estadísticas: cuántas zonas, operaciones y tipos únicos
+        zonas = set()
+        operaciones = set()
+        tipos = set()
+        for key_item, item in data.items():
+            if isinstance(item, dict):
+                zonas.add(item.get('zona', ''))
+                operaciones.add(item.get('operacion', ''))
+                tipos.add(item.get('tipo', ''))
+        
+        log(f"✅ precios_barrios.json leído: {total_registros} registros | {len(zonas)} zonas | {len(operaciones)} operaciones | {len(tipos)} tipos")
+        
+        return jsonify({
+            "success": True,
+            "total_registros": total_registros,
+            "total_zonas": len(zonas),
+            "total_operaciones": len(operaciones),
+            "total_tipos": len(tipos),
+            "data": data,
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        log(f"❌ Error leyendo precios_barrios.json: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc(), "ERROR")
+        return jsonify({"success": False, "error": str(e), "data": {}}), 500
+
 
 if __name__ == "__main__":
 
