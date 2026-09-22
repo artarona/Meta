@@ -5187,32 +5187,49 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 preciosChart = null;
             }
             
-            // Determinar qué moneda y qué operación mostrar
-            let operacion, moneda, simbolo;
+            // 👇 FIX: Leer el select directamente en vez de confiar en el parámetro
+            const selectOperacion = document.getElementById('precios-operacion');
+            let operacionSeleccionada = selectOperacion ? selectOperacion.value : '';
             
-            if (operacionFiltro === 'alquiler') {
-                // Filtro específico de alquiler → mostrar alquileres en ARS
+            // Normalizar a minúsculas y limpiar espacios
+            operacionSeleccionada = (operacionSeleccionada || '').toLowerCase().trim();
+            
+            // Si viene por parámetro y no está vacío, usarlo como fallback
+            if (!operacionSeleccionada && operacionFiltro) {
+                operacionSeleccionada = (operacionFiltro || '').toLowerCase().trim();
+            }
+            
+            // 🔍 DEBUG
+            console.log('📈 renderizarGraficoPrecios:', {
+                operacionFiltro,
+                operacionSeleccionada,
+                totalRegistros: registros.length,
+                registrosAlquiler: registros.filter(r => r.operacion === 'alquiler').length,
+                registrosVenta: registros.filter(r => r.operacion === 'venta').length
+            });
+            
+            // Determinar qué moneda y qué operación mostrar
+            let operacion, simbolo;
+            
+            if (operacionSeleccionada === 'alquiler') {
                 operacion = 'alquiler';
-                moneda = 'ARS';
                 simbolo = 'AR$';
-            } else if (operacionFiltro === 'venta') {
-                // Filtro específico de venta → mostrar ventas en USD
+            } else if (operacionSeleccionada === 'venta') {
                 operacion = 'venta';
-                moneda = 'USD';
                 simbolo = 'US$';
             } else {
-                // "Todas las operaciones" → mostrar VENTA (más relevante para comparar barrios)
+                // "Todas las operaciones" → mostrar VENTA (más relevante)
                 operacion = 'venta';
-                moneda = 'USD';
                 simbolo = 'US$';
             }
             
             // Filtrar por operación y tipo departamento
             const deptosFiltrados = registros.filter(r => 
-                r.operacion === operacion && r.tipo === 'departamento'
+                (r.operacion || '').toLowerCase() === operacion && 
+                (r.tipo || '').toLowerCase() === 'departamento'
             );
             
-            // Si no hay datos, mostrar mensaje (solo si está vacío)
+            // Si no hay datos, mostrar mensaje
             if (!deptosFiltrados || deptosFiltrados.length === 0) {
                 container.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 3rem;">
                     📊 No hay datos de ${operacion}s para los filtros seleccionados
@@ -5242,9 +5259,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
             
             // Colores según operación
-            const colorUsado = operacion === 'alquiler' 
-                ? 'rgba(245, 158, 11, 0.8)' 
-                : 'rgba(245, 158, 11, 0.8)';
+            const colorUsado = 'rgba(245, 158, 11, 0.8)';
             const colorNuevo = operacion === 'alquiler'
                 ? 'rgba(16, 185, 129, 0.8)'
                 : 'rgba(35, 45, 235, 0.8)';
@@ -5260,7 +5275,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                             label: '🏠 USADO',
                             data: dataUsado,
                             backgroundColor: colorUsado,
-                            borderColor: colorUsado.replace('0.8', '1'),
+                            borderColor: 'rgba(245, 158, 11, 1)',
                             borderWidth: 1,
                             borderRadius: 4
                         },
@@ -5268,7 +5283,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                             label: '🆕 NUEVO',
                             data: dataNuevo,
                             backgroundColor: colorNuevo,
-                            borderColor: colorNuevo.replace('0.8', '1'),
+                            borderColor: operacion === 'alquiler' ? 'rgba(16, 185, 129, 1)' : 'rgba(35, 45, 235, 1)',
                             borderWidth: 1,
                             borderRadius: 4
                         }
@@ -5296,7 +5311,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 }
             });
         }
-
         function renderizarTablaPrecios(registros) {
             // Ya vienen filtrados desde filtrarPreciosBarrios()
             const container = document.getElementById('precios-tabla-container');
