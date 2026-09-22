@@ -5185,77 +5185,70 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         }
 
         function renderizarGraficoPrecios(registros, operacionFiltro) {
-            const canvas = document.getElementById('precios-comparison-chart');
-            const container = canvas ? canvas.parentNode : null;
-            if (!canvas || !container) return;
+            // Buscamos el contenedor padre (el div con height:300px) por su estructura, no por el canvas
+            const statCard = document.querySelector('#tab-precios-barrios .stat-card');
+            if (!statCard) return;
             
+            let container = statCard.querySelector('div[style*="height: 300px"]');
+            if (!container) {
+                // Si por algún motivo no existe, lo creamos
+                container = document.createElement('div');
+                container.style.cssText = 'height: 300px; position: relative;';
+                statCard.appendChild(container);
+            }
+            
+            // Destruir gráfico previo
             if (preciosChart) {
                 preciosChart.destroy();
                 preciosChart = null;
             }
             
-            // Leer el select de operación
+            // Leer filtros (igual que antes)
             const selectOperacion = document.getElementById('precios-operacion');
-            let operacionSeleccionada = '';
-            if (selectOperacion && selectOperacion.value) {
-                operacionSeleccionada = String(selectOperacion.value).trim().toLowerCase();
-            }
+            let operacionSeleccionada = selectOperacion?.value 
+                ? String(selectOperacion.value).trim().toLowerCase() : '';
             
-            // Leer el select de tipo (¡NUEVO!)
             const selectTipo = document.getElementById('precios-tipo');
-            let tipoSeleccionado = '';
-            if (selectTipo && selectTipo.value) {
-                tipoSeleccionado = String(selectTipo.value).trim().toLowerCase();
-            }
+            let tipoSeleccionado = selectTipo?.value 
+                ? String(selectTipo.value).trim().toLowerCase() : '';
             
-            console.log('📈 Gráfico:', {
-                operacionSeleccionada,
-                tipoSeleccionado,
-                totalRegistros: registros.length
-            });
-            
-            // Determinar operación
             let operacion, simbolo;
-            
             if (operacionSeleccionada === 'alquiler') {
-                operacion = 'alquiler';
-                simbolo = 'AR$';
-            } else if (operacionSeleccionada === 'venta') {
-                operacion = 'venta';
-                simbolo = 'US$';
+                operacion = 'alquiler'; simbolo = 'AR$';
             } else {
-                operacion = 'venta';
-                simbolo = 'US$';
+                operacion = 'venta'; simbolo = 'US$';
             }
-            
-            // 👇 FIX: usar el tipo seleccionado o departamento por defecto
             const tipoAMostrar = tipoSeleccionado || 'departamento';
             
-            // Filtrar por operación Y tipo
             const filtrados = registros.filter(r => 
                 (r.operacion || '').toLowerCase() === operacion && 
                 (r.tipo || '').toLowerCase() === tipoAMostrar
             );
             
-            // Nombre para mostrar
             const pluralOperacion = pluralizarOperacion(operacion);
-            const tipoDisplay = tipoAMostrar.charAt(0).toUpperCase() + tipoAMostrar.slice(1);
             
-            // Si no hay datos
+            // Título siempre actualizado
+            const tituloEl = statCard.querySelector('h3');
+            if (tituloEl) {
+                const emoji = operacion === 'venta' ? '💰' : '🔑';
+                tituloEl.innerHTML = `📈 Comparación USADO vs NUEVO - ${pluralOperacion} (${simbolo}) ${emoji}`;
+            }
+            
+            // Si NO hay datos → mostramos mensaje PERO SIN BORRAR EL CANVAS
             if (!filtrados || filtrados.length === 0) {
-                container.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 3rem;">
-                    📊 No hay datos de ${pluralOperacion.toLowerCase()} de ${tipoAMostrar}s para los filtros seleccionados.<br>
-                    <small>Probá seleccionando otro tipo o quitando filtros.</small>
-                </p>`;
+                container.innerHTML = ''; // limpiamos
+                const msg = document.createElement('p');
+                msg.style.cssText = 'text-align:center; color:var(--text-muted); padding:3rem;';
+                msg.innerHTML = `📊 No hay datos de ${pluralOperacion.toLowerCase()} de ${tipoAMostrar}s.<br>
+                                <small>Probá seleccionando otro tipo u operación.</small>`;
+                container.appendChild(msg);
                 return;
             }
             
-            // Reemplazar canvas si fue borrado
-            if (!document.getElementById('precios-comparison-chart')) {
-                container.innerHTML = '<canvas id="precios-comparison-chart"></canvas>';
-            }
+            // SIEMPRE recreamos el canvas (por si quedó un mensaje anterior)
+            container.innerHTML = '<canvas id="precios-comparison-chart"></canvas>';
             
-            const top15 = filtrados
+            const top15 = [...filtrados]
                 .sort((a, b) => (b.precio_usado_m2 || 0) - (a.precio_usado_m2 || 0))
                 .slice(0, 15);
             
@@ -5263,68 +5256,62 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             const dataUsado = top15.map(r => Math.round(r.precio_usado_m2 || 0));
             const dataNuevo = top15.map(r => Math.round(r.precio_nuevo_m2 || 0));
             
-            // 👇 FIX: título con pluralización correcta
-            const tituloEl = container.previousElementSibling;
-            if (tituloEl && tituloEl.tagName === 'H3') {
-                const emoji = operacion === 'venta' ? '💰' : '🔑';
-                tituloEl.innerHTML = `📈 Comparación USADO vs NUEVO - ${pluralOperacion} (${simbolo}) ${emoji}`;
-            }
-            
             const colorUsado = 'rgba(245, 158, 11, 0.8)';
-            const colorNuevo = operacion === 'alquiler'
-                ? 'rgba(16, 185, 129, 0.8)'
+            const colorNuevo = operacion === 'alquiler' 
+                ? 'rgba(16, 185, 129, 0.8)' 
                 : 'rgba(35, 45, 235, 0.8)';
             
-            const nuevoCanvas = document.getElementById('precios-comparison-chart');
-            
-            preciosChart = new Chart(nuevoCanvas, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: '🏠 USADO',
-                            data: dataUsado,
-                            backgroundColor: colorUsado,
-                            borderColor: 'rgba(245, 158, 11, 1)',
-                            borderWidth: 1,
-                            borderRadius: 4
-                        },
-                        {
-                            label: '🆕 NUEVO',
-                            data: dataNuevo,
-                            backgroundColor: colorNuevo,
-                            borderColor: operacion === 'alquiler' ? 'rgba(16, 185, 129, 1)' : 'rgba(35, 45, 235, 1)',
-                            borderWidth: 1,
-                            borderRadius: 4
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'top' },
-                        tooltip: {
-                            callbacks: {
-                                label: (ctx) => `${ctx.dataset.label}: ${simbolo} ${ctx.parsed.y.toLocaleString('es-AR')}/m²`
+            preciosChart = new Chart(
+                document.getElementById('precios-comparison-chart'),
+                {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: '🏠 USADO',
+                                data: dataUsado,
+                                backgroundColor: colorUsado,
+                                borderColor: 'rgba(245, 158, 11, 1)',
+                                borderWidth: 1,
+                                borderRadius: 4
+                            },
+                            {
+                                label: '🆕 NUEVO',
+                                data: dataNuevo,
+                                backgroundColor: colorNuevo,
+                                borderColor: operacion === 'alquiler' ? 'rgba(16,185,129,1)' : 'rgba(35,45,235,1)',
+                                borderWidth: 1,
+                                borderRadius: 4
                             }
-                        }
+                        ]
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { 
-                                callback: (v) => simbolo + ' ' + v.toLocaleString('es-AR')
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top' },
+                            tooltip: {
+                                callbacks: {
+                                    label: (ctx) => `${ctx.dataset.label}: ${simbolo} ${ctx.parsed.y.toLocaleString('es-AR')}/m²`
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { callback: (v) => simbolo + ' ' + v.toLocaleString('es-AR') }
                             }
                         }
                     }
                 }
-            });
-            
-            console.log('✅ Gráfico renderizado con', labels.length, 'zonas de', tipoAMostrar);
+            );
         }
 
+
+
+
+        
         function renderizarTablaPrecios(registros) {
             // Ya vienen filtrados desde filtrarPreciosBarrios()
             const container = document.getElementById('precios-tabla-container');
