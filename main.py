@@ -3522,7 +3522,58 @@ def exportar_unificado_multihoja():
         log(traceback.format_exc(), "ERROR")
         return jsonify({"error": str(e)}), 500
 
+# ============================================================
+# ENDPOINT: PRECIOS DE BARRIOS (precios_barrios.json)
+# ============================================================
 
+@app.route("/api/market/precios-barrios", methods=["GET"])
+def get_precios_barrios():
+    """
+    Devuelve el precios_barrios.json con precios separados en USADO y NUEVO
+    para cada zona/operación/tipo. Elimina valores extremos.
+    """
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "precios_barrios.json")
+    
+    if not os.path.exists(file_path):
+        log(f"⚠️ precios_barrios.json no encontrado en {file_path}", "WARNING")
+        return jsonify({"success": False, "error": "Archivo no encontrado", "data": {}}), 404
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        total_registros = len(data)
+        
+        # Estadísticas: cuántas zonas, operaciones y tipos únicos
+        zonas = set()
+        operaciones = set()
+        tipos = set()
+        for key_item, item in data.items():
+            if isinstance(item, dict):
+                zonas.add(item.get('zona', ''))
+                operaciones.add(item.get('operacion', ''))
+                tipos.add(item.get('tipo', ''))
+        
+        log(f"✅ precios_barrios.json leído: {total_registros} registros | {len(zonas)} zonas | {len(operaciones)} operaciones | {len(tipos)} tipos")
+        
+        return jsonify({
+            "success": True,
+            "total_registros": total_registros,
+            "total_zonas": len(zonas),
+            "total_operaciones": len(operaciones),
+            "total_tipos": len(tipos),
+            "data": data,
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        log(f"❌ Error leyendo precios_barrios.json: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc(), "ERROR")
+        return jsonify({"success": False, "error": str(e), "data": {}}), 500
 
 
 if __name__ == "__main__":
