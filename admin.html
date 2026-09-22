@@ -780,6 +780,194 @@
             }
         }
 
+        /* ======================================== */
+        /* PRECIOS POR BARRIO                       */
+        /* ======================================== */
+        
+        .precios-filtros {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr auto auto;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            align-items: center;
+        }
+        
+        .precios-kpis {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .precios-kpi-card {
+            background: white;
+            padding: 1.25rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--primary);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .precios-kpi-value {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 0.25rem;
+            line-height: 1.2;
+        }
+        
+        .precios-kpi-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        
+        .precios-tabla {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        
+        .precios-tabla th {
+            background: var(--bg);
+            padding: 0.75rem 0.5rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            border-bottom: 2px solid var(--border);
+            position: sticky;
+            top: 0;
+            white-space: nowrap;
+        }
+        
+        .precios-tabla td {
+            padding: 0.75rem 0.5rem;
+            border-bottom: 1px solid var(--border-light);
+            vertical-align: middle;
+        }
+        
+        .precios-tabla tbody tr:hover {
+            background: var(--bg);
+        }
+        
+        .precios-usado {
+            color: var(--warning);
+            font-weight: 700;
+        }
+        
+        .precios-nuevo {
+            color: var(--primary);
+            font-weight: 700;
+        }
+        
+        .precios-premium {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        
+        .precios-premium.positivo {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .precios-premium.negativo {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .precios-muestra {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: block;
+            margin-top: 2px;
+        }
+        
+        /* ======================================== */
+        /* RESPONSIVE - MÓVIL                       */
+        /* ======================================== */
+        @media (max-width: 768px) {
+            .precios-filtros {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+            
+            .precios-filtros .search-box,
+            .precios-filtros .select-filter,
+            .precios-filtros .btn {
+                width: 100%;
+            }
+            
+            .precios-kpis {
+                grid-template-columns: 1fr 1fr;
+                gap: 0.75rem;
+            }
+            
+            .precios-kpi-value {
+                font-size: 1.4rem;
+            }
+            
+            .precios-kpi-label {
+                font-size: 0.75rem;
+            }
+            
+            /* Tabla responsive: convertir a cards */
+            .precios-tabla thead {
+                display: none;
+            }
+            
+            .precios-tabla,
+            .precios-tabla tbody,
+            .precios-tabla tr,
+            .precios-tabla td {
+                display: block;
+                width: 100%;
+            }
+            
+            .precios-tabla tr {
+                background: white;
+                border-radius: var(--radius-md);
+                box-shadow: var(--shadow-sm);
+                margin-bottom: 0.75rem;
+                padding: 0.75rem;
+                border-left: 4px solid var(--primary);
+            }
+            
+            .precios-tabla td {
+                border: none;
+                padding: 0.4rem 0;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 0.9rem;
+            }
+            
+            .precios-tabla td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: var(--text-muted);
+                font-size: 0.8rem;
+                text-transform: uppercase;
+                margin-right: 0.5rem;
+            }
+            
+            #precios-comparison-chart {
+                max-height: 250px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .precios-kpis {
+                grid-template-columns: 1fr;
+            }
+        }
+
+
         /* Estilos Calendario */
         #calendar-container {
             display: none;
@@ -921,6 +1109,10 @@
                 aria-controls="tab-consultas-chat">
                 <span>💬</span> Consultas Chat
             </button>
+            <button class="tab" onclick="mostrarTab('precios-barrios')" role="tab" aria-selected="false"
+                aria-controls="tab-precios-barrios">
+                <span>📊</span> Precios por Barrio
+            </button>
             
             
             
@@ -1045,6 +1237,54 @@
             </div>
             <div id="consultas-chat-container" class="citas-grid">
                 <!-- Consultas cargadas dinámicamente -->
+            </div>
+        </div>
+
+        <!-- Tab Precios por Barrio -->
+        <div id="tab-precios-barrios" class="tab-content" role="tabpanel" aria-labelledby="precios-barrios-tab">
+            <div class="tab-header">
+                <h2>📊 Precios por Barrio</h2>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: -0.5rem;">
+                    Precios por m² separados en <strong style="color: var(--warning);">🏠 USADO</strong> y <strong style="color: var(--primary);">🆕 NUEVO</strong> · Datos depurados de valores extremos
+                </p>
+            </div>
+
+            <!-- Filtros -->
+            <div class="precios-filtros">
+                <input type="text" class="search-box" placeholder="🔍 Buscar barrio..." id="precios-search" oninput="filtrarPreciosBarrios()">
+                <select class="select-filter" id="precios-operacion" onchange="filtrarPreciosBarrios()">
+                    <option value="">Todas las operaciones</option>
+                    <option value="venta">💰 Venta</option>
+                    <option value="alquiler">🔑 Alquiler</option>
+                </select>
+                <select class="select-filter" id="precios-tipo" onchange="filtrarPreciosBarrios()">
+                    <option value="">Todos los tipos</option>
+                    <option value="departamento">Departamento</option>
+                    <option value="ph">PH</option>
+                    <option value="casa">Casa</option>
+                </select>
+                <button class="btn btn-primary" onclick="cargarPreciosBarrios()">🔄 Refrescar</button>
+                <button class="btn btn-success" onclick="exportarPreciosBarriosExcel()">📥 Excel</button>
+            </div>
+
+            <!-- KPIs -->
+            <div class="precios-kpis" id="precios-kpis">
+                <!-- KPIs cargados dinámicamente -->
+            </div>
+
+            <!-- Gráfico -->
+            <div class="stat-card" style="margin-top: 1.5rem; border: 1px solid var(--border);">
+                <h3 style="margin: 0 0 1rem 0; font-size: 1rem;">📈 Comparación USADO vs NUEVO por Barrio</h3>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="precios-comparison-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Tabla -->
+            <div class="stat-card" style="margin-top: 1.5rem; border: 1px solid var(--border); overflow-x: auto;">
+                <div id="precios-tabla-container">
+                    <p class="loading"><i class="fas fa-sync fa-spin"></i> Cargando precios...</p>
+                </div>
             </div>
         </div>
 
@@ -1665,6 +1905,8 @@
         let currentTab = 'citas';  // Pestaña activa actual
         let todosLosContactosWeb = [];
         let todasLasConsultasChat = [];
+        let todosLosPreciosBarrios = {};
+        let preciosChart = null;
         let refreshInterval = null;
         let adminKey = '';
         let currentCitaId = '';
@@ -3304,6 +3546,8 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                     cargarContactosWeb().then(() => actualizarEstadisticas('contactos-web'));
                 } else if (tabName === 'consultas-chat') {
                     cargarConsultasChat().then(() => actualizarEstadisticas('consultas-chat'));
+                } else if (tabName === 'precios-barrios') {
+                    cargarPreciosBarrios();
                 }
             }
 
@@ -4829,6 +5073,273 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 mostrarToast('❌ Error al guardar', 'danger');
             }
         }
+    
+        // ============================================================
+        // 📊 PRECIOS POR BARRIO
+        // ============================================================
+
+        async function cargarPreciosBarrios() {
+            const container = document.getElementById('precios-tabla-container');
+            if (container) {
+                container.innerHTML = '<p class="loading"><i class="fas fa-sync fa-spin"></i> Cargando precios...</p>';
+            }
+            
+            try {
+                const res = await fetchConClave('/api/market/precios-barrios');
+                
+                if (res.success && res.data) {
+                    todosLosPreciosBarrios = res.data;
+                    renderizarPreciosBarrios();
+                } else {
+                    if (container) {
+                        container.innerHTML = '<p class="empty-state">⚠️ No hay datos de precios disponibles</p>';
+                    }
+                }
+            } catch (error) {
+                console.error('Error cargando precios:', error);
+                if (container) {
+                    container.innerHTML = '<p class="empty-state">❌ Error al cargar los precios</p>';
+                }
+            }
+        }
+
+        function renderizarPreciosBarrios() {
+            // Convertir objeto a array
+            let registros = Object.entries(todosLosPreciosBarrios).map(([key, item]) => ({
+                key,
+                ...item
+            }));
+            
+            if (registros.length === 0) {
+                document.getElementById('precios-tabla-container').innerHTML = 
+                    '<p class="empty-state">📭 No hay datos de precios</p>';
+                document.getElementById('precios-kpis').innerHTML = '';
+                return;
+            }
+            
+            // KPIs generales
+            const totalZonas = new Set(registros.map(r => r.zona)).size;
+            const totalRegistros = registros.length;
+            
+            // Precio promedio (solo venta departamento para el KPI general)
+            const deptosVenta = registros.filter(r => r.operacion === 'venta' && r.tipo === 'departamento');
+            const promUsado = deptosVenta.length > 0 
+                ? deptosVenta.reduce((sum, r) => sum + (r.precio_usado_m2 || 0), 0) / deptosVenta.length 
+                : 0;
+            const promNuevo = deptosVenta.length > 0 
+                ? deptosVenta.reduce((sum, r) => sum + (r.precio_nuevo_m2 || 0), 0) / deptosVenta.length 
+                : 0;
+            
+            document.getElementById('precios-kpis').innerHTML = `
+                <div class="precios-kpi-card">
+                    <div class="precios-kpi-value">${totalZonas}</div>
+                    <div class="precios-kpi-label">📍 Zonas analizadas</div>
+                </div>
+                <div class="precios-kpi-card" style="border-left-color: var(--warning);">
+                    <div class="precios-kpi-value" style="color: var(--warning);">
+                        US$ ${Math.round(promUsado).toLocaleString('es-AR')}
+                    </div>
+                    <div class="precios-kpi-label">🏠 Precio USADO prom/m² (deptos venta)</div>
+                </div>
+                <div class="precios-kpi-card">
+                    <div class="precios-kpi-value">
+                        US$ ${Math.round(promNuevo).toLocaleString('es-AR')}
+                    </div>
+                    <div class="precios-kpi-label">🆕 Precio NUEVO prom/m² (deptos venta)</div>
+                </div>
+                <div class="precios-kpi-card" style="border-left-color: var(--success);">
+                    <div class="precios-kpi-value" style="color: var(--success);">
+                        ${totalRegistros}
+                    </div>
+                    <div class="precios-kpi-label">📊 Registros totales</div>
+                </div>
+            `;
+            
+            // Gráfico de barras (top 10 zonas por precio usado depto venta)
+            renderizarGraficoPrecios(deptosVenta);
+            
+            // Tabla
+            renderizarTablaPrecios(registros);
+        }
+
+        function renderizarGraficoPrecios(registros) {
+            const canvas = document.getElementById('precios-comparison-chart');
+            if (!canvas) return;
+            
+            if (preciosChart) {
+                preciosChart.destroy();
+                preciosChart = null;
+            }
+            
+            // Top 10 por precio usado
+            const top10 = registros
+                .sort((a, b) => (b.precio_usado_m2 || 0) - (a.precio_usado_m2 || 0))
+                .slice(0, 10);
+            
+            const labels = top10.map(r => (r.zona || '').charAt(0).toUpperCase() + (r.zona || '').slice(1));
+            const dataUsado = top10.map(r => Math.round(r.precio_usado_m2 || 0));
+            const dataNuevo = top10.map(r => Math.round(r.precio_nuevo_m2 || 0));
+            
+            preciosChart = new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '🏠 USADO',
+                            data: dataUsado,
+                            backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                            borderColor: 'rgba(245, 158, 11, 1)',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        },
+                        {
+                            label: '🆕 NUEVO',
+                            data: dataNuevo,
+                            backgroundColor: 'rgba(35, 45, 235, 0.8)',
+                            borderColor: 'rgba(35, 45, 235, 1)',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.dataset.label}: US$ ${ctx.parsed.y.toLocaleString('es-AR')}/m²`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { callback: (v) => 'US$ ' + v.toLocaleString('es-AR') }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderizarTablaPrecios(registros) {
+            const filtroZona = (document.getElementById('precios-search')?.value || '').toLowerCase();
+            const filtroOperacion = document.getElementById('precios-operacion')?.value || '';
+            const filtroTipo = document.getElementById('precios-tipo')?.value || '';
+            
+            // Aplicar filtros
+            let filtrados = registros.filter(r => {
+                if (filtroZona && !(r.zona || '').toLowerCase().includes(filtroZona)) return false;
+                if (filtroOperacion && r.operacion !== filtroOperacion) return false;
+                if (filtroTipo && r.tipo !== filtroTipo) return false;
+                return true;
+            });
+            
+            // Ordenar alfabéticamente por zona
+            filtrados.sort((a, b) => (a.zona || '').localeCompare(b.zona || ''));
+            
+            const container = document.getElementById('precios-tabla-container');
+            
+            if (filtrados.length === 0) {
+                container.innerHTML = '<p class="empty-state">📭 No hay registros que coincidan con los filtros</p>';
+                return;
+            }
+            
+            let html = `
+                <table class="precios-tabla">
+                    <thead>
+                        <tr>
+                            <th>Barrio</th>
+                            <th>Operación</th>
+                            <th>Tipo</th>
+                            <th>🏠 USADO /m²</th>
+                            <th>🆕 NUEVO /m²</th>
+                            <th>📈 Premium</th>
+                            <th>Muestra</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            filtrados.forEach(r => {
+                const usado = r.precio_usado_m2 || 0;
+                const nuevo = r.precio_nuevo_m2 || 0;
+                const premium = usado > 0 && nuevo > 0 
+                    ? ((nuevo / usado - 1) * 100) 
+                    : 0;
+                const premiumClass = premium >= 0 ? 'positivo' : 'negativo';
+                const moneda = r.operacion === 'alquiler' ? 'AR$' : 'US$';
+                
+                html += `
+                    <tr>
+                        <td data-label="Barrio"><strong>${(r.zona || '').charAt(0).toUpperCase() + (r.zona || '').slice(1)}</strong></td>
+                        <td data-label="Operación">
+                            <span class="status-badge ${r.operacion === 'venta' ? 'status-confirmada' : 'status-completada'}" style="font-size: 0.7rem; padding: 2px 8px;">
+                                ${r.operacion === 'venta' ? '💰 Venta' : '🔑 Alquiler'}
+                            </span>
+                        </td>
+                        <td data-label="Tipo">${(r.tipo || '').toUpperCase()}</td>
+                        <td data-label="USADO/m²"><span class="precios-usado">${moneda} ${Math.round(usado).toLocaleString('es-AR')}</span></td>
+                        <td data-label="NUEVO/m²"><span class="precios-nuevo">${moneda} ${Math.round(nuevo).toLocaleString('es-AR')}</span></td>
+                        <td data-label="Premium"><span class="precios-premium ${premiumClass}">${premium > 0 ? '+' : ''}${premium.toFixed(0)}%</span></td>
+                        <td data-label="Muestra">
+                            <span>🏠 ${r.cantidad_usados || 0}</span>
+                            <span class="precios-muestra">🆕 ${r.cantidad_nuevos || 0}</span>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function filtrarPreciosBarrios() {
+            // Re-renderizar con los filtros aplicados
+            const registros = Object.entries(todosLosPreciosBarrios).map(([key, item]) => ({
+                key,
+                ...item
+            }));
+            renderizarTablaPrecios(registros);
+        }
+
+        function exportarPreciosBarriosExcel() {
+            const registros = Object.entries(todosLosPreciosBarrios).map(([key, item]) => ({
+                'Barrio': item.zona || '',
+                'Operación': item.operacion || '',
+                'Tipo': item.tipo || '',
+                'Precio USADO m²': Math.round(item.precio_usado_m2 || 0),
+                'Precio NUEVO m²': Math.round(item.precio_nuevo_m2 || 0),
+                'Premium %': item.precio_usado_m2 > 0 
+                    ? (((item.precio_nuevo_m2 / item.precio_usado_m2) - 1) * 100).toFixed(1)
+                    : 0,
+                'Cant. Usados': item.cantidad_usados || 0,
+                'Cant. Nuevos': item.cantidad_nuevos || 0,
+                'Fecha': item.fecha || ''
+            }));
+            
+            if (registros.length === 0) {
+                mostrarToast('⚠️ No hay datos para exportar', 'warning');
+                return;
+            }
+            
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(registros);
+            ws['!cols'] = [
+                { wch: 20 }, { wch: 12 }, { wch: 15 },
+                { wch: 18 }, { wch: 18 }, { wch: 12 },
+                { wch: 12 }, { wch: 12 }, { wch: 22 }
+            ];
+            XLSX.utils.book_append_sheet(wb, ws, 'Precios por Barrio');
+            
+            const fecha = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(wb, `precios_barrios_${fecha}.xlsx`);
+            mostrarToast('✅ Excel descargado', 'success');
+        }
+    
+    
     </script>
 </body>
 </html>
