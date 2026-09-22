@@ -438,5 +438,15 @@
     "precio_nuevo_m2": 24074.074074074073,
     "cantidad_usados": 69,
     "cantidad_nuevos": 11
+  },
+  "mataderos_alquiler_ph": {
+    "zona": "mataderos",
+    "operacion": "alquiler",
+    "tipo": "ph",
+    "fecha": "2026-09-21T23:45:07.603198",
+    "precio_usado_m2": 15744.68085106383,
+    "precio_nuevo_m2": 24000.0,
+    "cantidad_usados": 46,
+    "cantidad_nuevos": 9
   }
 }
