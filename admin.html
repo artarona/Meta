@@ -1294,7 +1294,7 @@ R    <div class="container">
 
             <!-- Gráfico -->
             <div class="stat-card" style="margin-top: 1.5rem; border: 1px solid var(--border);">
-                <h3 style="margin: 0 0 1rem 0; font-size: 1rem;">📈 Comparación USADO vs NUEVO por Barrio</h3>
+                <h3 style="margin: 0 0 1rem 0; font-size: 1rem;">📈 Comparación USADO vs NUEVO - Ventas (US$)</h3>
                 <div style="height: 300px; position: relative;">
                     <canvas id="precios-comparison-chart"></canvas>
                 </div>
@@ -5177,25 +5177,81 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             console.log(`📋 ${barriosUnicos.length} barrios cargados en el selector`);
         }
 
-        function renderizarGraficoPrecios(registros) {
+        function renderizarGraficoPrecios(registros, operacionFiltro) {
             const canvas = document.getElementById('precios-comparison-chart');
-            if (!canvas) return;
+            const container = canvas ? canvas.parentNode : null;
+            if (!canvas || !container) return;
             
             if (preciosChart) {
                 preciosChart.destroy();
                 preciosChart = null;
             }
             
-            // Top 10 por precio usado
-            const top10 = registros
+            // Determinar qué moneda y qué operación mostrar
+            let operacion, moneda, simbolo;
+            
+            if (operacionFiltro === 'alquiler') {
+                // Filtro específico de alquiler → mostrar alquileres en ARS
+                operacion = 'alquiler';
+                moneda = 'ARS';
+                simbolo = 'AR$';
+            } else if (operacionFiltro === 'venta') {
+                // Filtro específico de venta → mostrar ventas en USD
+                operacion = 'venta';
+                moneda = 'USD';
+                simbolo = 'US$';
+            } else {
+                // "Todas las operaciones" → mostrar VENTA (más relevante para comparar barrios)
+                operacion = 'venta';
+                moneda = 'USD';
+                simbolo = 'US$';
+            }
+            
+            // Filtrar por operación y tipo departamento
+            const deptosFiltrados = registros.filter(r => 
+                r.operacion === operacion && r.tipo === 'departamento'
+            );
+            
+            // Si no hay datos suficientes, mostrar mensaje
+            if (!deptosFiltrados || deptosFiltrados.length < 2) {
+                container.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 3rem;">
+                    📊 Seleccioná al menos 2 barrios para ver la comparación de ${operacion}s
+                </p>`;
+                return;
+            }
+            
+            // Reemplazar el canvas si fue borrado
+            if (!document.getElementById('precios-comparison-chart')) {
+                container.innerHTML = '<canvas id="precios-comparison-chart"></canvas>';
+            }
+            
+            // Tomar los top 15 por precio usado
+            const top15 = deptosFiltrados
                 .sort((a, b) => (b.precio_usado_m2 || 0) - (a.precio_usado_m2 || 0))
-                .slice(0, 10);
+                .slice(0, 15);
             
-            const labels = top10.map(r => (r.zona || '').charAt(0).toUpperCase() + (r.zona || '').slice(1));
-            const dataUsado = top10.map(r => Math.round(r.precio_usado_m2 || 0));
-            const dataNuevo = top10.map(r => Math.round(r.precio_nuevo_m2 || 0));
+            const labels = top15.map(r => (r.zona || '').charAt(0).toUpperCase() + (r.zona || '').slice(1));
+            const dataUsado = top15.map(r => Math.round(r.precio_usado_m2 || 0));
+            const dataNuevo = top15.map(r => Math.round(r.precio_nuevo_m2 || 0));
             
-            preciosChart = new Chart(canvas, {
+            // Actualizar título del gráfico dinámicamente
+            const tituloEl = container.previousElementSibling;
+            if (tituloEl && tituloEl.tagName === 'H3') {
+                const emoji = operacion === 'venta' ? '💰' : '🔑';
+                tituloEl.innerHTML = `📈 Comparación USADO vs NUEVO - ${operacion.charAt(0).toUpperCase() + operacion.slice(1)}s (${simbolo}) ${emoji}`;
+            }
+            
+            // Colores según operación
+            const colorUsado = operacion === 'alquiler' 
+                ? 'rgba(245, 158, 11, 0.8)' 
+                : 'rgba(245, 158, 11, 0.8)';
+            const colorNuevo = operacion === 'alquiler'
+                ? 'rgba(16, 185, 129, 0.8)'
+                : 'rgba(35, 45, 235, 0.8)';
+            
+            const nuevoCanvas = document.getElementById('precios-comparison-chart');
+            
+            preciosChart = new Chart(nuevoCanvas, {
                 type: 'bar',
                 data: {
                     labels: labels,
@@ -5203,16 +5259,16 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                         {
                             label: '🏠 USADO',
                             data: dataUsado,
-                            backgroundColor: 'rgba(245, 158, 11, 0.8)',
-                            borderColor: 'rgba(245, 158, 11, 1)',
+                            backgroundColor: colorUsado,
+                            borderColor: colorUsado.replace('0.8', '1'),
                             borderWidth: 1,
                             borderRadius: 4
                         },
                         {
                             label: '🆕 NUEVO',
                             data: dataNuevo,
-                            backgroundColor: 'rgba(35, 45, 235, 0.8)',
-                            borderColor: 'rgba(35, 45, 235, 1)',
+                            backgroundColor: colorNuevo,
+                            borderColor: colorNuevo.replace('0.8', '1'),
                             borderWidth: 1,
                             borderRadius: 4
                         }
@@ -5225,14 +5281,16 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                         legend: { position: 'top' },
                         tooltip: {
                             callbacks: {
-                                label: (ctx) => `${ctx.dataset.label}: US$ ${ctx.parsed.y.toLocaleString('es-AR')}/m²`
+                                label: (ctx) => `${ctx.dataset.label}: ${simbolo} ${ctx.parsed.y.toLocaleString('es-AR')}/m²`
                             }
                         }
                     },
                     scales: {
                         y: {
                             beginAtZero: true,
-                            ticks: { callback: (v) => 'US$ ' + v.toLocaleString('es-AR') }
+                            ticks: { 
+                                callback: (v) => simbolo + ' ' + v.toLocaleString('es-AR')
+                            }
                         }
                     }
                 }
@@ -5327,14 +5385,12 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             // Actualizar KPIs
             renderizarKPIsPrecios(filtrados);
             
-            // Actualizar gráfico
-            const deptosVenta = filtrados.filter(r => r.operacion === 'venta' && r.tipo === 'departamento');
-            renderizarGraficoPrecios(deptosVenta);
+            // Actualizar gráfico (según operación)
+            renderizarGraficoPrecios(filtrados, filtroOperacion);
             
             // Actualizar tabla
             renderizarTablaPrecios(filtrados);
         }
-
         function renderizarKPIsPrecios(registros) {
             if (!registros || registros.length === 0) {
                 document.getElementById('precios-kpis').innerHTML = `
