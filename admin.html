@@ -5124,55 +5124,14 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 return;
             }
             
-            // 👇 NUEVO: Poblar el select de barrios con las opciones del JSON
+            // Poblar el select de barrios
             poblarSelectBarrios(registros);
             
-            // KPIs generales
-            const totalZonas = new Set(registros.map(r => r.zona)).size;
-            const totalRegistros = registros.length;
-            
-            // Precio promedio (solo venta departamento para el KPI general)
-            const deptosVenta = registros.filter(r => r.operacion === 'venta' && r.tipo === 'departamento');
-            const promUsado = deptosVenta.length > 0 
-                ? deptosVenta.reduce((sum, r) => sum + (r.precio_usado_m2 || 0), 0) / deptosVenta.length 
-                : 0;
-            const promNuevo = deptosVenta.length > 0 
-                ? deptosVenta.reduce((sum, r) => sum + (r.precio_nuevo_m2 || 0), 0) / deptosVenta.length 
-                : 0;
-            
-            document.getElementById('precios-kpis').innerHTML = `
-                <div class="precios-kpi-card">
-                    <div class="precios-kpi-value">${totalZonas}</div>
-                    <div class="precios-kpi-label">📍 Zonas analizadas</div>
-                </div>
-                <div class="precios-kpi-card" style="border-left-color: var(--warning);">
-                    <div class="precios-kpi-value" style="color: var(--warning);">
-                        US$ ${Math.round(promUsado).toLocaleString('es-AR')}
-                    </div>
-                    <div class="precios-kpi-label">🏠 Precio USADO prom/m² (deptos venta)</div>
-                </div>
-                <div class="precios-kpi-card">
-                    <div class="precios-kpi-value">
-                        US$ ${Math.round(promNuevo).toLocaleString('es-AR')}
-                    </div>
-                    <div class="precios-kpi-label">🆕 Precio NUEVO prom/m² (deptos venta)</div>
-                </div>
-                <div class="precios-kpi-card" style="border-left-color: var(--success);">
-                    <div class="precios-kpi-value" style="color: var(--success);">
-                        ${totalRegistros}
-                    </div>
-                    <div class="precios-kpi-label">📊 Registros totales</div>
-                </div>
-            `;
-            
-            // Gráfico de barras (top 10 zonas por precio usado depto venta)
-            renderizarGraficoPrecios(deptosVenta);
-            
-            // Tabla
-            renderizarTablaPrecios(registros);
+            // Renderizar todo (KPIs, gráfico, tabla)
+            filtrarPreciosBarrios();  // ← Aplica filtros y renderiza todo
         }
 
-                function poblarSelectBarrios(registros) {
+        function poblarSelectBarrios(registros) {
             const select = document.getElementById('precios-search');
             if (!select) return;
             
@@ -5266,29 +5225,21 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         }
 
         function renderizarTablaPrecios(registros) {
-            const filtroZona = (document.getElementById('precios-search')?.value || '').toLowerCase();
-            const filtroOperacion = document.getElementById('precios-operacion')?.value || '';
-            const filtroTipo = document.getElementById('precios-tipo')?.value || '';
-            
-            // Aplicar filtros
-            let filtrados = registros.filter(r => {
-                if (filtroZona && !(r.zona || '').toLowerCase().includes(filtroZona)) return false;
-                if (filtroOperacion && r.operacion !== filtroOperacion) return false;
-                if (filtroTipo && r.tipo !== filtroTipo) return false;
-                return true;
-            });
-            
-            // Ordenar alfabéticamente por zona
-            filtrados.sort((a, b) => (a.zona || '').localeCompare(b.zona || ''));
-            
+            // Ya vienen filtrados desde filtrarPreciosBarrios()
             const container = document.getElementById('precios-tabla-container');
             
-            if (filtrados.length === 0) {
+            if (!registros || registros.length === 0) {
                 container.innerHTML = '<p class="empty-state">📭 No hay registros que coincidan con los filtros</p>';
                 return;
             }
             
+            // Ordenar alfabéticamente por zona
+            const ordenados = [...registros].sort((a, b) => (a.zona || '').localeCompare(b.zona || ''));
+            
             let html = `
+                <div style="margin-bottom: 0.75rem; color: var(--text-muted); font-size: 0.85rem;">
+                    Mostrando <strong>${ordenados.length}</strong> registro${ordenados.length !== 1 ? 's' : ''}
+                </div>
                 <table class="precios-tabla">
                     <thead>
                         <tr>
@@ -5304,7 +5255,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                     <tbody>
             `;
             
-            filtrados.forEach(r => {
+            ordenados.forEach(r => {
                 const usado = r.precio_usado_m2 || 0;
                 const nuevo = r.precio_nuevo_m2 || 0;
                 const premium = usado > 0 && nuevo > 0 
@@ -5338,12 +5289,84 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         }
 
         function filtrarPreciosBarrios() {
-            // Re-renderizar con los filtros aplicados
-            const registros = Object.entries(todosLosPreciosBarrios).map(([key, item]) => ({
+            // Obtener TODOS los registros
+            const todosLosRegistros = Object.entries(todosLosPreciosBarrios).map(([key, item]) => ({
                 key,
                 ...item
             }));
-            renderizarTablaPrecios(registros);
+            
+            // Aplicar filtros
+            const filtroZona = (document.getElementById('precios-search')?.value || '').toLowerCase();
+            const filtroOperacion = document.getElementById('precios-operacion')?.value || '';
+            const filtroTipo = document.getElementById('precios-tipo')?.value || '';
+            
+            const filtrados = todosLosRegistros.filter(r => {
+                if (filtroZona && (r.zona || '').toLowerCase() !== filtroZona) return false;
+                if (filtroOperacion && r.operacion !== filtroOperacion) return false;
+                if (filtroTipo && r.tipo !== filtroTipo) return false;
+                return true;
+            });
+            
+            console.log(`🔍 Filtros: zona="${filtroZona}" op="${filtroOperacion}" tipo="${filtroTipo}" → ${filtrados.length}/${todosLosRegistros.length} registros`);
+            
+            // Actualizar KPIs
+            renderizarKPIsPrecios(filtrados);
+            
+            // Actualizar gráfico
+            const deptosVenta = filtrados.filter(r => r.operacion === 'venta' && r.tipo === 'departamento');
+            renderizarGraficoPrecios(deptosVenta);
+            
+            // Actualizar tabla
+            renderizarTablaPrecios(filtrados);
+        }
+
+        function renderizarKPIsPrecios(registros) {
+            if (!registros || registros.length === 0) {
+                document.getElementById('precios-kpis').innerHTML = `
+                    <div class="precios-kpi-card" style="grid-column: 1 / -1;">
+                        <div class="precios-kpi-value" style="font-size: 1.2rem;">📭 Sin resultados</div>
+                        <div class="precios-kpi-label">No hay datos para los filtros seleccionados</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            const totalZonas = new Set(registros.map(r => r.zona)).size;
+            const totalRegistros = registros.length;
+            
+            // Precio promedio (solo venta departamento)
+            const deptosVenta = registros.filter(r => r.operacion === 'venta' && r.tipo === 'departamento');
+            const promUsado = deptosVenta.length > 0 
+                ? deptosVenta.reduce((sum, r) => sum + (r.precio_usado_m2 || 0), 0) / deptosVenta.length 
+                : 0;
+            const promNuevo = deptosVenta.length > 0 
+                ? deptosVenta.reduce((sum, r) => sum + (r.precio_nuevo_m2 || 0), 0) / deptosVenta.length 
+                : 0;
+            
+            document.getElementById('precios-kpis').innerHTML = `
+                <div class="precios-kpi-card">
+                    <div class="precios-kpi-value">${totalZonas}</div>
+                    <div class="precios-kpi-label">📍 Zonas ${totalZonas === 1 ? 'mostrada' : 'mostradas'}</div>
+                </div>
+                <div class="precios-kpi-card" style="border-left-color: var(--warning);">
+                    <div class="precios-kpi-value" style="color: var(--warning);">
+                        US$ ${Math.round(promUsado).toLocaleString('es-AR')}
+                    </div>
+                    <div class="precios-kpi-label">🏠 Precio USADO prom/m² (deptos venta)</div>
+                </div>
+                <div class="precios-kpi-card">
+                    <div class="precios-kpi-value">
+                        US$ ${Math.round(promNuevo).toLocaleString('es-AR')}
+                    </div>
+                    <div class="precios-kpi-label">🆕 Precio NUEVO prom/m² (deptos venta)</div>
+                </div>
+                <div class="precios-kpi-card" style="border-left-color: var(--success);">
+                    <div class="precios-kpi-value" style="color: var(--success);">
+                        ${totalRegistros}
+                    </div>
+                    <div class="precios-kpi-label">📊 Registros ${totalRegistros === 1 ? 'mostrado' : 'mostrados'}</div>
+                </div>
+            `;
         }
 
         function exportarPreciosBarriosExcel() {
