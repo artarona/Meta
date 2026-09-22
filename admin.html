@@ -893,6 +893,19 @@
             margin-top: 2px;
         }
         
+        .precios-tabla-wrapper {
+            margin-top: 1.5rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            background: white;
+            padding: 1rem;
+            overflow: visible;
+            /* Para scroll horizontal solo en móvil si la tabla es ancha */
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+
         /* ======================================== */
         /* RESPONSIVE - MÓVIL                       */
         /* ======================================== */
@@ -1068,7 +1081,7 @@
 </head>
 
 <body>
-    <div class="container">
+R    <div class="container">
         <div class="header">
             <h1 style="display: flex; align-items: center; gap: 1rem;">
                 <img src="imgs/llave.png" alt="Logo"
@@ -1287,13 +1300,15 @@
                 </div>
             </div>
 
+
             <!-- Tabla -->
-            <div class="stat-card" style="margin-top: 1.5rem; border: 1px solid var(--border); overflow-x: auto;">
+            <div class="precios-tabla-wrapper">
                 <div id="precios-tabla-container">
                     <p class="loading"><i class="fas fa-sync fa-spin"></i> Cargando precios...</p>
                 </div>
             </div>
         </div>
+
 
 
         <!-- Tab Propiedades -->
