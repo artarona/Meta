@@ -1872,36 +1872,94 @@ def health_check():
 
 # ========== RUTAS DE API PARA ADMIN ==========
 
+# ========== CRUD DE BARRIOS (admin.html) ==========
+
+BARRIOS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "barrios_editados.json")
+
+
+def _cargar_barrios_editados():
+    if os.path.exists(BARRIOS_FILE):
+        try:
+            with open(BARRIOS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            log(f"⚠️ Error leyendo {BARRIOS_FILE}: {e}", "WARNING")
+    return {}
+
+
+def _guardar_barrios_editados(data):
+    with open(BARRIOS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def _merge_barrios():
+    """Combina GASTRONOMY_DATA + FINANCIAL_DATA + barrios_editados.json"""
+    merged = {}
+    for barrio, data in GASTRONOMY_DATA.items():
+        merged.setdefault(barrio.lower(), {})["gastronomy"] = data
+    for barrio, data in FINANCIAL_DATA.items():
+        merged.setdefault(barrio.lower(), {})["financial"] = data
+    
+    editados = _cargar_barrios_editados()
+    for nombre, override in editados.items():
+        merged[nombre.lower()] = {**merged.get(nombre.lower(), {}), **override}
+    
+    return merged
+
+
+def _parsear_json_gemini(texto):
+    """Limpia markdown ```json ... ``` y parsea"""
+    texto = texto.strip()
+    if texto.startswith("```"):
+        texto = texto.split("```")[1]
+        if texto.lower().startswith("json"):
+            texto = texto[4:]
+    texto = texto.strip()
+    if texto.endswith("```"):
+        texto = texto[:-3].strip()
+    return json.loads(texto)
+
+
+def _prompt_barrio(nombre):
+    return f"""Generá un análisis inmobiliario profesional del barrio {nombre.title()}, CABA, Argentina.
+Devolvé SOLO un JSON válido (sin markdown, sin explicaciones) con esta estructura exacta:
+{{
+  "resumen_general": "2-3 oraciones describiendo el barrio",
+  "conclusion": "1-2 oraciones para inversores",
+  "categorias": {{
+    "transporte": {{"puntuacion": 0-100, "descripcion": "..."}},
+    "seguridad": {{"puntuacion": 0-100, "descripcion": "..."}},
+    "gastronomia": {{"puntuacion": 0-100, "descripcion": "..."}},
+    "comercio": {{"puntuacion": 0-100, "descripcion": "..."}},
+    "espacios_verdes": {{"puntuacion": 0-100, "descripcion": "..."}},
+    "educacion": {{"puntuacion": 0-100, "descripcion": "..."}},
+    "salud": {{"puntuacion": 0-100, "descripcion": "..."}},
+    "vida_barrio": {{"puntuacion": 0-100, "descripcion": "..."}},
+    "finanzas": {{"puntuacion": 0-100, "descripcion": "..."}},
+    "contaminacion": {{"puntuacion": 0-100, "descripcion": "..."}}
+  }}
+}}"""
+
+
 @app.route('/api/barrios', methods=['GET'])
 def obtener_barrios():
-    """Obtener datos de barrios (gastronomía, servicios financieros, etc.)"""
+    """Lista todos los barrios (datos base + editados)"""
     key = request.args.get('key')
-    
     try:
-        # Combinar datos de gastronomía y servicios financieros
-        barrios = {}
-        
-        # Agregar datos de gastronomía
-        for barrio, data in GASTRONOMY_DATA.items():
-            if barrio not in barrios:
-                barrios[barrio] = {}
-            barrios[barrio]['gastronomy'] = data
-        
-        # Agregar datos de servicios financieros
-        for barrio, data in FINANCIAL_DATA.items():
-            if barrio not in barrios:
-                barrios[barrio] = {}
-            barrios[barrio]['financial'] = data
+        merged = _merge_barrios()
+        editados = _cargar_barrios_editados()
         
         barrios_list = []
-        for barrio, data in barrios.items():
+        for nombre, data in merged.items():
+            edit = editados.get(nombre, {})
             barrios_list.append({
-                "nombre": barrio,
-                "fecha_actualizacion": datetime.now().isoformat(),
-                "actualizado_por": "sistema",
+                "nombre": nombre,
+                "fecha_actualizacion": edit.get("fecha_actualizacion", datetime.now().isoformat()),
+                "actualizado_por": edit.get("actualizado_por", "sistema"),
+                "generado_por_ia": edit.get("generado_por_ia", False),
                 "datos": data
             })
-            
+        
         return jsonify({
             "success": True,
             "barrios": barrios_list,
@@ -1912,6 +1970,181 @@ def obtener_barrios():
         logger.error(f"Error obteniendo barrios: {e}")
         return jsonify({"error": str(e)}), 500
 
+
+# ⚠️ Esta ruta debe ir ANTES de /api/barrios/<nombre> para que no la capture
+@app.route('/api/barrios/generate-json', methods=['GET'])
+def generar_entorno_json():
+    """Exporta el entorno.json combinado"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    try:
+        merged = _merge_barrios()
+        return jsonify({"success": True, "data": merged})
+    except Exception as e:
+        log(f"❌ Error generando entorno.json: {e}", "ERROR")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/barrios', methods=['POST'])
+def crear_barrio():
+    """Crea un barrio nuevo (opcionalmente con IA)"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        payload = request.json or {}
+        nombre = (payload.get('nombre') or '').strip().lower()
+        generar_ia = bool(payload.get('generar_ia', False))
+        
+        if not nombre:
+            return jsonify({"success": False, "error": "Nombre requerido"}), 400
+        
+        barrios = _cargar_barrios_editados()
+        
+        if generar_ia:
+            log(f"🪄 Generando barrio {nombre} con Gemini...")
+            try:
+                respuesta = call_gemini_with_rotation(_prompt_barrio(nombre))
+                analisis = _parsear_json_gemini(respuesta)
+            except Exception as ia_e:
+                log(f"⚠️ Error con IA: {ia_e}", "WARNING")
+                analisis = {"resumen_general": "", "conclusion": "", "categorias": {}}
+            
+            barrios[nombre] = {
+                **analisis,
+                "generado_por_ia": True,
+                "fecha_actualizacion": datetime.now().isoformat(),
+                "actualizado_por": "ia"
+            }
+        else:
+            barrios[nombre] = {
+                "resumen_general": "",
+                "conclusion": "",
+                "categorias": {},
+                "generado_por_ia": False,
+                "fecha_actualizacion": datetime.now().isoformat(),
+                "actualizado_por": "admin"
+            }
+        
+        _guardar_barrios_editados(barrios)
+        log(f"✅ Barrio creado: {nombre}")
+        return jsonify({"success": True, "nombre": nombre})
+    
+    except Exception as e:
+        log(f"❌ Error creando barrio: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc(), "ERROR")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/barrios/<nombre>', methods=['GET'])
+def obtener_barrio_detalle(nombre):
+    """Devuelve el detalle de un barrio"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        nombre = nombre.strip().lower()
+        merged = _merge_barrios()
+        
+        if nombre not in merged:
+            return jsonify({"success": False, "error": "Barrio no encontrado"}), 404
+        
+        data = merged[nombre]
+        respuesta = {
+            "resumen_general": data.get("resumen_general", ""),
+            "conclusion": data.get("conclusion", ""),
+            "categorias": data.get("categorias", {})
+        }
+        return jsonify({"success": True, "data": respuesta})
+    except Exception as e:
+        log(f"❌ Error obteniendo barrio {nombre}: {e}", "ERROR")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/barrios/<nombre>', methods=['PUT'])
+def actualizar_barrio(nombre):
+    """Guarda cambios manuales de un barrio"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        nombre = nombre.strip().lower()
+        payload = request.json or {}
+        data = payload.get('data', {})
+        
+        barrios = _cargar_barrios_editados()
+        barrios[nombre] = {
+            **data,
+            "generado_por_ia": barrios.get(nombre, {}).get("generado_por_ia", False),
+            "fecha_actualizacion": datetime.now().isoformat(),
+            "actualizado_por": payload.get('actualizado_por', 'admin')
+        }
+        _guardar_barrios_editados(barrios)
+        
+        log(f"✅ Barrio actualizado: {nombre}")
+        return jsonify({"success": True})
+    except Exception as e:
+        log(f"❌ Error actualizando barrio {nombre}: {e}", "ERROR")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/barrios/<nombre>', methods=['DELETE'])
+def eliminar_barrio(nombre):
+    """Elimina un barrio de los editados (los base quedan)"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        nombre = nombre.strip().lower()
+        barrios = _cargar_barrios_editados()
+        
+        if nombre in barrios:
+            del barrios[nombre]
+            _guardar_barrios_editados(barrios)
+        
+        log(f"✅ Barrio eliminado: {nombre}")
+        return jsonify({"success": True})
+    except Exception as e:
+        log(f"❌ Error eliminando barrio {nombre}: {e}", "ERROR")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/barrios/<nombre>/regenerate', methods=['POST'])
+def regenerar_barrio(nombre):
+    """Regenera un barrio con IA"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        nombre = nombre.strip().lower()
+        log(f"🪄 Regenerando barrio {nombre} con Gemini...")
+        
+        respuesta = call_gemini_with_rotation(_prompt_barrio(nombre))
+        analisis = _parsear_json_gemini(respuesta)
+        
+        barrios = _cargar_barrios_editados()
+        barrios[nombre] = {
+            **analisis,
+            "generado_por_ia": True,
+            "fecha_actualizacion": datetime.now().isoformat(),
+            "actualizado_por": "ia"
+        }
+        _guardar_barrios_editados(barrios)
+        
+        log(f"✅ Barrio regenerado: {nombre}")
+        return jsonify({"success": True})
+    except Exception as e:
+        log(f"❌ Error regenerando barrio {nombre}: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc(), "ERROR")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/market/status', methods=['GET'])
 def obtener_market_status():
@@ -1964,91 +2197,6 @@ def obtener_market_stats():
     except Exception as e:
         logger.error(f"Error leyendo datos de mercado: {e}")
         return jsonify({"error": str(e)}), 500
-
-
-@app.route('/api/market/run-scrape', methods=['GET', 'POST'])
-def run_market_scrape_endpoint():
-    """Ejecuta el scraper de mercado en segundo plano."""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    try:
-        # Leer parámetros (GET o POST JSON)
-        if request.method == 'POST':
-            data = request.json or {}
-        else:
-            data = request.args.to_dict()
-        
-        zona = data.get('zona', 'palermo').strip().lower()
-        operacion = data.get('operacion', 'venta').strip().lower()
-        tipo = data.get('tipo', 'departamento').strip().lower()
-        
-        log(f"🕷️ Iniciando scraping: {zona} | {operacion} | {tipo}")
-        
-        # Ejecutar el scraper en un hilo separado (para no bloquear)
-        import subprocess
-        import sys
-        
-        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scrape_market.py")
-        output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scraping.json")
-        
-        if not os.path.exists(script_path):
-            return jsonify({
-                "success": False,
-                "error": f"Script no encontrado: {script_path}"
-            }), 500
-        
-        # Ejecutar el script
-        cmd = [sys.executable, script_path, "--zona", zona, "--operacion", operacion, "--tipo", tipo, "--output", output_path]
-        
-        log(f"🔧 Ejecutando: {' '.join(cmd)}")
-        
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=280  # 4:40 minutos
-        )
-        
-        if result.returncode == 0:
-            log(f"✅ Scraping completado para {zona}")
-            
-            # Leer el scraping.json generado
-            if os.path.exists(output_path):
-                with open(output_path, 'r', encoding='utf-8') as f:
-                    scraped_data = json.load(f)
-                
-                sample_size = scraped_data.get('data', {}).get('sample_size', 0)
-                
-                return jsonify({
-                    "success": True,
-                    "message": f"Scraping completado: {sample_size} propiedades analizadas",
-                    "zone": zona,
-                    "sample_size": sample_size,
-                    "data": scraped_data
-                })
-            else:
-                return jsonify({
-                    "success": False,
-                    "error": "El scraping.json no se generó"
-                }), 500
-        else:
-            log(f"❌ Error en scraper: {result.stderr}")
-            return jsonify({
-                "success": False,
-                "error": "Error en el scraping",
-                "details": result.stderr[:500]
-            }), 500
-    
-    except subprocess.TimeoutExpired:
-        log("⏰ Timeout en scraping")
-        return jsonify({"success": False, "error": "Timeout: el scraping tardó más de 4 minutos"}), 500
-    except Exception as e:
-        log(f"❌ Excepción en scraping: {e}", "ERROR")
-        import traceback
-        log(traceback.format_exc(), "ERROR")
-        return jsonify({"success": False, "error": str(e)}), 500
 
 
 def debug_postgresql():
@@ -2656,73 +2804,6 @@ def api_citas():
         import traceback
         log(traceback.format_exc(), "ERROR")
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
-    
-
-
-@app.route("/api/panel/citas/nueva", methods=["POST"])
-def api_panel_nueva_cita():
-    """Crea una cita desde el panel admin (delegando a citas.crear_cita)"""
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"status": "error", "error": "Unauthorized"}), 403
-    
-    try:
-        data = request.get_json() or {}
-        
-        # El frontend manda 'propiedad' (no 'propiedad_id')
-        propiedad_id = (data.get('propiedad') or '').strip()
-        propiedad_titulo = (data.get('propiedad_titulo') or '').strip()
-        nombre = (data.get('nombre') or '').strip()
-        telefono = (data.get('telefono') or '').strip()
-        fecha = data.get('fecha')
-        hora = data.get('hora')
-        email = (data.get('email') or '').strip() or None
-        notas = (data.get('notas') or '').strip() or 'Agendado vía Panel Admin'
-        
-        # Validación mínima
-        if not (nombre and telefono and fecha and hora and propiedad_id):
-            return jsonify({
-                "status": "error",
-                "error": "Faltan campos: nombre, telefono, fecha, hora y propiedad son obligatorios"
-            }), 400
-        
-        # Normalizar teléfono para usar como user_id (mismo formato que el bot)
-        user_id = telefono.lstrip('+').replace(' ', '').replace('-', '')
-        
-        log(f"📅 [PANEL] Creando cita para {nombre} ({telefono}) - {fecha} {hora}")
-        
-        # Llamar a crear_cita (ya importado desde citas.py con `from citas import *`)
-        cita = crear_cita(
-            user_id=user_id,
-            nombre=nombre,
-            telefono=telefono,
-            fecha=fecha,
-            hora=hora,
-            propiedad_id=propiedad_id,
-            email=email,
-            notas=notas
-        )
-        
-        if not cita:
-            return jsonify({"status": "error", "error": "No se pudo crear la cita"}), 500
-        
-        # La propiedad_titulo no se guarda en crear_cita(), pero la podemos incluir
-        # en la respuesta para que el frontend la muestre
-        cita['propiedad_titulo'] = propiedad_titulo
-        
-        log(f"✅ [PANEL] Cita creada: {cita.get('id')}")
-        
-        return jsonify({
-            "status": "success",
-            "cita": cita,
-            "message": f"Cita agendada para {nombre}"
-        }), 200
-    
-    except Exception as e:
-        import traceback
-        log(f"❌ Error creando cita desde panel: {e}", "ERROR")
-        log(traceback.format_exc(), "ERROR")
-        return jsonify({"status": "error", "error": str(e)}), 500
     
     
     
@@ -3460,187 +3541,6 @@ def eliminar_consulta_chat(consulta_id):
         log(f"❌ Error eliminando consulta: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/exportar/unificado', methods=['GET'])
-def exportar_unificado_multihoja():
-    """
-    Genera un Excel con múltiples hojas:
-    - Citas, Leads, Contactos Web, Consultas Chat, Propiedades
-    """
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    try:
-        conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "DB no disponible"}), 500
-        
-        # Preparar todos los DataFrames primero
-        dfs = {}
-        
-        # 1. CITAS
-        try:
-            dfs['Citas'] = pd.read_sql_query("""
-                SELECT id, fecha_creacion, user_id, nombre, email, telefono,
-                       fecha_cita, hora_cita, propiedad_id, estado, notas,
-                       recordatorio_enviado, feedback_enviado, modificacion
-                FROM citas
-                ORDER BY fecha_cita DESC, hora_cita DESC
-            """, conn)
-        except Exception as e:
-            dfs['Citas'] = pd.DataFrame({'Error': [str(e)]})
-        
-        # 2. LEADS
-        try:
-            dfs['Leads WhatsApp'] = pd.read_sql_query("""
-                SELECT id, fecha, telefono, nombre, propiedad_id, propiedad_titulo, accion, detalles
-                FROM leads
-                ORDER BY fecha DESC
-            """, conn)
-        except Exception as e:
-            dfs['Leads WhatsApp'] = pd.DataFrame({'Error': [str(e)]})
-        
-        # 3. CONTACTOS WEB
-        try:
-            dfs['Contactos Web'] = pd.read_sql_query("""
-                SELECT DISTINCT ON (p.id)
-                    p.id, p.nombre, p.email, p.telefono, p.telefono_alt,
-                    p.documento, p.origen, p.notas, p.created_at, p.updated_at,
-                    f.interes, f.presupuesto, f.pagina_origen, f.ip_address,
-                    (SELECT COUNT(*) FROM dante.formularios WHERE persona_id = p.id) AS total_formularios,
-                    (SELECT COUNT(*) FROM dante.consultas_chat WHERE persona_id = p.id) AS total_consultas
-                FROM core.personas p
-                LEFT JOIN dante.formularios f ON f.persona_id = p.id
-                ORDER BY p.id, f.created_at DESC
-            """, conn)
-        except Exception as e:
-            dfs['Contactos Web'] = pd.DataFrame({'Error': [str(e)]})
-        
-        # 4. CONSULTAS CHAT
-        try:
-            dfs['Consultas Chat'] = pd.read_sql_query("""
-                SELECT c.id, c.persona_id, p.nombre AS nombre_persona, p.email AS email_persona,
-                       c.mensaje, c.respuesta_ia, c.canal, c.search_performed, 
-                       c.results_count, c.created_at, c.notas_admin, c.notas_actualizadas_en
-                FROM dante.consultas_chat c
-                LEFT JOIN core.personas p ON p.id = c.persona_id
-                ORDER BY c.created_at DESC
-            """, conn)
-        except Exception as e:
-            dfs['Consultas Chat'] = pd.DataFrame({'Error': [str(e)]})
-        
-        conn.close()
-        
-        # 5. PROPIEDADES (desde JSON)
-        try:
-            if os.path.exists("propiedades.json"):
-                with open("propiedades.json", "r", encoding="utf-8") as f:
-                    propiedades = json.load(f)
-                if propiedades:
-                    df_props = pd.DataFrame(propiedades)
-                    cols_deseadas = [
-                        "id_temporal", "titulo", "tipo", "operacion", "direccion", "barrio",
-                        "precio", "moneda_precio", "metros_cuadrados", "ambientes",
-                        "descripcion", "estado"
-                    ]
-                    cols_existentes = [c for c in cols_deseadas if c in df_props.columns]
-                    dfs['Propiedades'] = df_props[cols_existentes] if cols_existentes else df_props
-                else:
-                    dfs['Propiedades'] = pd.DataFrame()
-            else:
-                dfs['Propiedades'] = pd.DataFrame()
-        except Exception as e:
-            dfs['Propiedades'] = pd.DataFrame({'Error': [str(e)]})
-        
-        # ============ GENERAR EXCEL ============
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            for sheet_name, df in dfs.items():
-                # Limitar nombre de hoja a 31 caracteres (límite Excel)
-                df.to_excel(writer, sheet_name=sheet_name[:31], index=False)
-                
-                # Auto-ajustar ancho de columnas
-                worksheet = writer.sheets[sheet_name[:31]]
-                for column in worksheet.columns:
-                    max_length = 0
-                    column_letter = column[0].column_letter
-                    for cell in column:
-                        try:
-                            if cell.value is not None:
-                                max_length = max(max_length, len(str(cell.value)))
-                        except:
-                            pass
-                    adjusted_width = min(max_length + 2, 50)
-                    worksheet.column_dimensions[column_letter].width = adjusted_width
-        
-        output.seek(0)
-        fecha = datetime.now().strftime("%Y%m%d_%H%M")
-        
-        return send_file(
-            output,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            as_attachment=True,
-            download_name=f'dante_unificado_{fecha}.xlsx'
-        )
-        
-    except Exception as e:
-        log(f"❌ Error en exportar unificado: {e}", "ERROR")
-        import traceback
-        log(traceback.format_exc(), "ERROR")
-        return jsonify({"error": str(e)}), 500
-
-# ============================================================
-# ENDPOINT: PRECIOS DE BARRIOS (precios_barrios.json)
-# ============================================================
-
-@app.route("/api/market/precios-barrios", methods=["GET"])
-def get_precios_barrios():
-    """
-    Devuelve el precios_barrios.json con precios separados en USADO y NUEVO
-    para cada zona/operación/tipo. Elimina valores extremos.
-    """
-    key = request.args.get('key')
-    if key != ADMIN_ACCESS_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-    
-    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "precios_barrios.json")
-    
-    if not os.path.exists(file_path):
-        log(f"⚠️ precios_barrios.json no encontrado en {file_path}", "WARNING")
-        return jsonify({"success": False, "error": "Archivo no encontrado", "data": {}}), 404
-    
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        total_registros = len(data)
-        
-        # Estadísticas: cuántas zonas, operaciones y tipos únicos
-        zonas = set()
-        operaciones = set()
-        tipos = set()
-        for key_item, item in data.items():
-            if isinstance(item, dict):
-                zonas.add(item.get('zona', ''))
-                operaciones.add(item.get('operacion', ''))
-                tipos.add(item.get('tipo', ''))
-        
-        log(f"✅ precios_barrios.json leído: {total_registros} registros | {len(zonas)} zonas | {len(operaciones)} operaciones | {len(tipos)} tipos")
-        
-        return jsonify({
-            "success": True,
-            "total_registros": total_registros,
-            "total_zonas": len(zonas),
-            "total_operaciones": len(operaciones),
-            "total_tipos": len(tipos),
-            "data": data,
-            "timestamp": datetime.now().isoformat()
-        })
-    except Exception as e:
-        log(f"❌ Error leyendo precios_barrios.json: {e}", "ERROR")
-        import traceback
-        log(traceback.format_exc(), "ERROR")
-        return jsonify({"success": False, "error": str(e), "data": {}}), 500
 
 
 if __name__ == "__main__":
