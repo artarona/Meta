@@ -113,8 +113,16 @@ def get_db_connection(max_retries=5):
                 keepalives_idle=30,
                 keepalives_interval=10,
                 keepalives_count=5,
-                options='-c statement_timeout=30000'
             )
+
+            # statement_timeout se setea DESPUÉS de conectar (el pooler lo acepta así)
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("SET statement_timeout = 30000")
+                conn.commit()
+            except Exception as e_st:
+                print(f"[WARN] No se pudo setear statement_timeout: {e_st}")
+
             return conn
             
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
