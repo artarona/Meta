@@ -1651,7 +1651,7 @@ def run_daily_tasks():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/admin/@app.route('/api/admin/sync-calendar-all', methods=['POST'])
+@app.route('/api/admin/sync-calendar-all', methods=['POST'])
 def sync_calendar_all():
     """Ejecutar la sincronización masiva de citas con Google Calendar"""
     key = request.args.get('key')
