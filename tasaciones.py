@@ -219,19 +219,34 @@ def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado, operacion='venta'):
 
 
 def manejar_menu_tasacion(text_lower, estado_usuario, user_id):
-    """Inicia el flujo de tasación directamente con selección de barrio"""
+    """Inicia el flujo de tasación preguntando Venta o Alquiler primero"""
     if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
         estado_usuario['data'] = {}
     
-    estado_usuario['data']['datos_tasacion'] = {
-        "operacion": "venta"  # Forzar venta
-    }
-    estado_usuario['paso'] = 'tasacion_barrio_seleccion'
+    # Inicializar datos vacíos, sin forzar operación
+    estado_usuario['data']['datos_tasacion'] = {}
+    estado_usuario['paso'] = 'tasacion_operacion'
     actualizar_estado_usuario(user_id, estado_usuario)
     
-    # Mostrar la lista de barrios (NO llamar a la función de manejo)
-    return mostrar_lista_barrios(estado_usuario, user_id)
-
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+    
+    if es_fb_ig:
+        return {
+            "type": "text",
+            "body": "📈 *TASACIÓN VIRTUAL*\n\n¿Qué querés hacer con la propiedad?\n\n1️⃣ Vender\n2️⃣ Alquilar\n\n💡 *Envía el número de la opción deseada*",
+            "preview": False
+        }
+    else:
+        return WhatsAppResponse.buttons(
+            header="📈 Tasación Virtual",
+            body="¿Qué querés hacer con la propiedad?",
+            buttons=[
+                {"id": "1", "title": "💰 Vender"},
+                {"id": "2", "title": "🔑 Alquilar"}
+            ],
+            footer="Selecciona una opción 👇"
+        )
 
 def mostrar_lista_barrios(estado_usuario, user_id):
     """Muestra la lista de barrios disponibles para seleccionar"""
@@ -268,18 +283,47 @@ def mostrar_lista_barrios(estado_usuario, user_id):
 
 
 def manejar_tasacion_operacion(text_lower, estado_usuario, user_id):
-    """Guarda la operación e inicia la carga del barrio"""
+    """Guarda la operación y muestra la lista de barrios"""
     ops = {"1": "venta", "2": "alquiler"}
-    if text_lower in ops:
+    
+    # Aceptar también variantes textuales
+    text_norm = text_lower.strip().lower()
+    if text_norm in ["venta", "vender"]:
+        text_norm = "1"
+    elif text_norm in ["alquiler", "alquilar"]:
+        text_norm = "2"
+    
+    if text_norm in ops:
+        if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
+            estado_usuario['data'] = {}
         if 'datos_tasacion' not in estado_usuario['data']:
             estado_usuario['data']['datos_tasacion'] = {}
-            
-        estado_usuario['data']['datos_tasacion']['operacion'] = ops[text_lower]
-        estado_usuario['paso'] = 'tasacion_barrio'
+        
+        estado_usuario['data']['datos_tasacion']['operacion'] = ops[text_norm]
+        estado_usuario['paso'] = 'tasacion_barrio_seleccion'
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "📍 *¿En qué barrio se encuentra la propiedad?* (ej: Palermo, Belgrano, Tigre...)"
+        
+        # Mostrar lista interactiva de barrios
+        return mostrar_lista_barrios(estado_usuario, user_id)
     else:
-        return "⚠️ Por favor, elegí 1 para Venta o 2 para Alquiler."
+        platform = estado_usuario.get('platform', 'whatsapp')
+        es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+        
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": "⚠️ Opción no válida.\n\n📈 *¿Qué querés hacer con la propiedad?*\n\n1️⃣ Vender\n2️⃣ Alquilar\n\n💡 *Envía el número de la opción deseada*",
+                "preview": False
+            }
+        else:
+            return WhatsAppResponse.buttons(
+                body="⚠️ Por favor, elegí una opción válida:",
+                buttons=[
+                    {"id": "1", "title": "💰 Vender"},
+                    {"id": "2", "title": "🔑 Alquilar"}
+                ],
+                footer="Selecciona una opción 👇"
+            )
 
 
 # def manejar_tasacion_barrio(text, estado_usuario, user_id):

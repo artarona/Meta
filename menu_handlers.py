@@ -95,8 +95,8 @@ def manejar_menu_principal(text_lower, estado_usuario, user_id):
     
     
     elif text_lower == "10":
-        # TASACION VIRTUAL (EN CONSTRUCCIÓN)
-        return "🔧 *TASACIÓN VIRTUAL*\n\nEsta función está actualmente en construcción. Pronto estará disponible. 😊"
+        # TASACIÓN VIRTUAL
+        return manejar_menu_tasacion(text_lower, estado_usuario, user_id)
 
     else:
         return WhatsAppResponse.buttons(
