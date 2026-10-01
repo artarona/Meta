@@ -1651,7 +1651,7 @@ def run_daily_tasks():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/admin/sync-calendar-all', methods=['POST'])
+@app.route('/api/admin/@app.route('/api/admin/sync-calendar-all', methods=['POST'])
 def sync_calendar_all():
     """Ejecutar la sincronización masiva de citas con Google Calendar"""
     key = request.args.get('key')
@@ -1672,20 +1672,15 @@ def sync_calendar_all():
 
         log("👨‍💻 Administrador inició sincronización masiva con Google Calendar")
 
-        # sys.executable garantiza el mismo intérprete (python vs python3)
-        kwargs = {
-            'cwd': base_dir,
-            'stdout': subprocess.PIPE,
-            'stderr': subprocess.STDOUT,
-            'text': True,
-        }
-        if os.name == 'nt':
-            kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
-        else:
-            kwargs['preexec_fn'] = os.setpgrp
-
-        # Lanzar en background (no bloquea la respuesta)
-        subprocess.Popen([sys.executable, script_path], **kwargs)
+        # Heredamos stdout/stderr del padre para que los print() del script
+        # aparezcan en los logs de Render.
+        # NO usar stdout=PIPE porque nadie lee el pipe y los logs se pierden.
+        subprocess.Popen(
+            [sys.executable, script_path],
+            cwd=base_dir,
+            # stdout/stderr por defecto → heredan del padre
+            # Sin preexec_fn → los FDs se heredan correctamente en Linux
+        )
 
         return jsonify({
             "status": "success",
