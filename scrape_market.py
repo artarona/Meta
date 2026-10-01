@@ -140,10 +140,15 @@ def run_scraper(zone: str, operation: str = DEFAULT_OPERATION,
     
     if final_result["success"]:
         stats = result.get('statistics', {})
+        # Usar `or 0` para manejar None (que viene del JSON cuando no hay datos)
+        avg_m2 = stats.get('average_price_per_m2') or 0
+        med_m2 = stats.get('median_price_per_m2') or 0
+        price_range = stats.get('price_range_total') or 'N/A'
+        
         print(f"[OK] Muestra analizada: {result.get('sample_size', 0)} propiedades")
-        print(f"[SUBE] Precio m2 promedio: ${stats.get('average_price_per_m2', 0):,.2f}")
-        print(f"[BAJA] Precio m2 mediano: ${stats.get('median_price_per_m2', 0):,.2f}")
-        print(f"[RANGO] Rango de precios: {stats.get('price_range_total', 'N/A')}")
+        print(f"[SUBE] Precio m2 promedio: ${avg_m2:,.2f}")
+        print(f"[BAJA] Precio m2 mediano: ${med_m2:,.2f}")
+        print(f"[RANGO] Rango de precios: {price_range}")
         print(f"\n[SOURCES] Fuentes consultadas:")
         for source, count in result.get('source_breakdown', {}).items():
             print(f"   - {source}: {count} propiedades")
