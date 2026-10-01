@@ -1,6 +1,7 @@
 # app_dante.py
 import os
 import json
+import sys  
 import psycopg2
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, send_file
@@ -43,14 +44,96 @@ DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://dantepropiedadesdb_user:w
 # Clave de administrador
 ADMIN_KEY = os.getenv('ADMIN_KEY', 'dante_admin_2024')
 
-def get_db_connection():
-    """Obtener conexión a PostgreSQL en Render"""
+import urllib.parse as urlparse
+from urllib.parse import parse_qs, urlencode, urlunparse
+
+
+def _limpiar_dsn(dsn: str) -> str:
+    """
+    Neon pooler rechaza 'statement_timeout' y otros parámetros en el startup packet.
+    Los sacamos del DSN para que psycopg2 no los envíe al servidor.
+    """
     try:
-        conn = psycopg2.connect(DATABASE_URL)
-        return conn
-    except Exception as e:
-        logger.error(f"Error conectando a DB Render: {e}")
-        raise
+        parsed = urlparse.urlparse(dsn)
+        qs = parse_qs(parsed.query, keep_blank_values=True)
+
+        # 1) Si 'options' contiene statement_timeout, lo quitamos
+        if 'options' in qs:
+            opt = qs['options'][0]
+            partes = [p for p in opt.split() if 'statement_timeout' not in p and p != '-c']
+            if partes:
+                qs['options'] = [' '.join(partes)]
+            else:
+                del qs['options']
+
+        # 2) Por si vino como query param suelto
+        for k in list(qs.keys()):
+            if k.lower() == 'statement_timeout':
+                del qs[k]
+
+        nuevo_query = urlencode(qs, doseq=True)
+        return urlunparse(parsed._replace(query=nuevo_query))
+    except Exception:
+        return dsn
+
+
+def get_db_connection(max_retries=5):
+    """Obtiene conexión a PostgreSQL con reintentos y sanitización de URL"""
+    import re
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        print("[ERROR] DATABASE_URL no encontrada en .env")
+        sys.exit(1)
+
+    # Extraer estrictamente la URL
+    match = re.search(r'(postgres|postgresql)://\S+', database_url)
+    if match:
+        database_url = match.group(0).strip()
+    else:
+        print(f"[ERROR] No se pudo encontrar una URL de DB en: {database_url}")
+        sys.exit(1)
+
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+    for i in range(max_retries):
+        try:
+            # ❌ ANTES: options='-c statement_timeout=30000' rompía el pooler de Neon
+            # ✅ AHORA: no pasamos options en el startup, se setea después
+            conn = psycopg2.connect(
+                database_url,
+                sslmode='require',
+                connect_timeout=15,
+                keepalives=1,
+                keepalives_idle=30,
+                keepalives_interval=10,
+                keepalives_count=5,
+            )
+
+            # statement_timeout se setea DESPUÉS de conectar (el pooler lo acepta así)
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("SET statement_timeout = 30000")
+                conn.commit()
+            except Exception as e_st:
+                print(f"[WARN] No se pudo setear statement_timeout: {e_st}")
+
+            return conn
+
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            error_str = str(e)
+            if "SSL connection has been closed unexpectedly" in error_str or "connection to server at" in error_str:
+                print(f"[WARN] Error de conexión (Intento {i+1}/{max_retries}): {error_str}")
+                if i < max_retries - 1:
+                    time.sleep(2)
+                    continue
+            print(f"[ERROR] Error fatal conectando a PostgreSQL: {e}")
+            break
+        except Exception as e:
+            print(f"[ERROR] Error inesperado conectando a PostgreSQL: {e}")
+            break
+
+    sys.exit(1)
 
 def validar_admin_key(key):
     """Validar clave de administrador"""

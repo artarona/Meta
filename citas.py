@@ -3,6 +3,7 @@ from googleapiclient.discovery import build
 from google.oauth2 import service_account
 import json
 import os
+
 from config import *
 from database import *
 from utils import log, analizar_hora, analizar_fecha
@@ -45,13 +46,139 @@ def get_calendar_service():
         return None
 
 
-def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None, notas=""):
-    """Crea una nueva cita y la guarda en JSON y PostgreSQL"""
-    conn = None
+def guardar_cita_en_google_calendar(cita):
+    """Inserta la cita en Google Calendar y devuelve el event_id o None."""
+    from googleapiclient.errors import HttpError
+
     try:
+        service = get_calendar_service()
+        if not service:
+            log("⚠️ Google Calendar no configurado, se omite sync", "WARNING")
+            return None
+
+        # ─────────────────────────────────────────────────────────
+        # 1. Normalizar fecha/hora (defensivo: por si vienen con time/segundos)
+        # ─────────────────────────────────────────────────────────
+        fecha_str = str(cita['fecha']).strip()[:10]   # "YYYY-MM-DD"
+        hora_str  = str(cita['hora']).strip()[:5]     # "HH:MM"
+
+        if not fecha_str or not hora_str:
+            log(f"❌ Cita sin fecha/hora válida: fecha={fecha_str!r} hora={hora_str!r}", "ERROR")
+            return None
+
+        try:
+            datetime.strptime(fecha_str, "%Y-%m-%d")
+            dt_inicio = datetime.strptime(hora_str, "%H:%M")
+        except ValueError as ve:
+            log(f"❌ Formato inválido fecha/hora: {ve} (fecha={fecha_str!r} hora={hora_str!r})", "ERROR")
+            return None
+
+        TZ = os.environ.get("TZ", "America/Argentina/Buenos_Aires")
+
+        start_dt = f"{fecha_str}T{hora_str}:00"
+        hora_fin = (dt_inicio + timedelta(hours=1)).strftime("%H:%M")
+        end_dt   = f"{fecha_str}T{hora_fin}:00"
+
+        titulo_prop = cita.get('propiedad_titulo') or cita.get('propiedad_id') or 'Propiedad'
+
+        # ─────────────────────────────────────────────────────────
+        # 2. Construir el evento
+        # ─────────────────────────────────────────────────────────
+        event = {
+            'summary': f"🏠 Visita: {cita['nombre']} - {titulo_prop}",
+            'description': (
+                f"Cliente: {cita['nombre']}\n"
+                f"Teléfono: +{cita.get('telefono', '')}\n"
+                f"Email: {cita.get('email') or 'No proporcionado'}\n"
+                f"Propiedad ID: {cita.get('propiedad_id', 'N/A')}\n"
+                f"Notas: {cita.get('notas', '')}\n"
+                f"Cita ID interno: {cita.get('id', 'N/A')}"
+            ),
+            'start': {'dateTime': start_dt, 'timeZone': TZ},
+            'end':   {'dateTime': end_dt,   'timeZone': TZ},
+            'reminders': {
+                'useDefault': False,
+                'overrides': [
+                    {'method': 'popup', 'minutes': 30},
+                    {'method': 'email', 'minutes': 60},
+                ],
+            },
+        }
+
+        # ─────────────────────────────────────────────────────────
+        # 3. Determinar el calendario destino
+        #    Si no está seteado, avisamos FUERTE porque 'primary' es
+        #    el calendario del service account, NO el del negocio.
+        # ─────────────────────────────────────────────────────────
+        calendar_id = os.environ.get("GOOGLE_CALENDAR_ID", "").strip() or "primary"
+        if calendar_id == "primary":
+            log("⚠️ GOOGLE_CALENDAR_ID no está seteado. Se usará el 'primary' del "
+                "service account, que probablemente NO sea el calendario del negocio. "
+                "Setealo en las env vars (ej: rentaloficinas@gmail.com)", "WARNING")
+        else:
+            log(f"📅 Insertando evento en calendario: {calendar_id}")
+
+        # ─────────────────────────────────────────────────────────
+        # 4. Insertar con manejo explícito de errores HTTP
+        # ─────────────────────────────────────────────────────────
+        try:
+            created = service.events().insert(
+                calendarId=calendar_id,
+                body=event
+            ).execute()
+        except HttpError as he:
+            log(f"❌ HttpError {he.status_code} al crear evento en Calendar: {he.reason}", "ERROR")
+            # Errores típicos:
+            #  404 notFound  → no compartiste el calendario con el service account
+            #  403 forbidden → API deshabilitada o scope faltante
+            #  400 badRequest → formato de dateTime inválido
+            try:
+                log(f"   Detalle: {he.error_details}", "ERROR")
+            except Exception:
+                pass
+            return None
+
+        log(f"✅ Evento creado en Google Calendar: {created.get('id')} | Link: {created.get('htmlLink')}")
+        return created.get('id')
+
+    except Exception as e:
+        log(f"❌ Error inesperado guardando en Google Calendar: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc(), "ERROR")
+        return None
+
+
+
+
+def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None, notas=""):
+    """Crea una nueva cita y la guarda en JSON, PostgreSQL y Google Calendar"""
+    conn = None
+    cursor = None
+    try:
+        # ─────────────────────────────────────────────────────────
+        # 0. Normalizar y validar fecha/hora ANTES de todo
+        #    (evita filas con fecha/hora vacías → evento inválido en Calendar)
+        # ─────────────────────────────────────────────────────────
+        fecha = str(fecha).strip()[:10] if fecha else ""     # "YYYY-MM-DD"
+        hora  = str(hora).strip()[:5]   if hora  else ""     # "HH:MM"
+
+        if not fecha or not hora:
+            log(f"❌ fecha/hora vacías al crear cita: fecha={fecha!r} hora={hora!r}", "ERROR")
+            return None
+
+        try:
+            datetime.strptime(fecha, "%Y-%m-%d")
+            datetime.strptime(hora, "%H:%M")
+        except ValueError as ve:
+            log(f"❌ formato inválido de fecha/hora: {ve}", "ERROR")
+            return None
+
+        # ─────────────────────────────────────────────────────────
+        # 1. Construir la cita (JSON local)
+        # ─────────────────────────────────────────────────────────
         citas = cargar_citas()
         nueva_cita = {
-            'id': f"cita_{len(citas)+1:04d}",
+            'id': f"cita_{datetime.now().strftime('%Y%m%d%H%M%S%f')}",
             'user_id': user_id,
             'nombre': nombre,
             'email': email,
@@ -64,54 +191,85 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None,
             'creacion': datetime.now().isoformat(),
             'ultima_actualizacion': datetime.now().isoformat()
         }
-        
+
         citas.append(nueva_cita)
-        
-        # 1. Guardar en JSON
+
+        # ─────────────────────────────────────────────────────────
+        # 2. Guardar en JSON
+        # ─────────────────────────────────────────────────────────
         if not guardar_citas(citas):
             log("⚠️ Error guardando cita en JSON", "WARNING")
-        
         log(f"✅ Cita creada localmente: {nueva_cita['id']} para {nombre}")
-        
-        # 2. Guardar en PostgreSQL (con nuevas columnas)
+
+        # ─────────────────────────────────────────────────────────
+        # 3. Guardar en PostgreSQL (con el esquema REAL de la tabla)
+        # ─────────────────────────────────────────────────────────
         conn = get_db_connection()
         if conn:
-            # Asegurar esquema antes del INSERT
-            init_db(conn)
-            
             cursor = conn.cursor()
+
+            # Asegurar columna opcional para el event_id (idempotente)
+            cursor.execute("ALTER TABLE citas ADD COLUMN IF NOT EXISTS google_event_id VARCHAR(255)")
+
             cursor.execute("""
                 INSERT INTO citas (
-                    user_id, nombre, email, telefono, fecha_cita, hora_cita, 
-                    propiedad_id, estado, notas,
-                    recordatorio_enviado, recordatorio_horario
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    nombre, email, telefono, fecha, hora,
+                    propiedad_id, notas
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             """, (
-                user_id, nombre, email, telefono, fecha, hora, 
-                propiedad_id, 'pendiente', notas,
-                False, '09:00'  # Valores por defecto para recordatorios
+                nombre, email, telefono, fecha, hora,
+                propiedad_id, notas
             ))
-            
+
             db_record_id = cursor.fetchone()[0]
             conn.commit()
             log(f"✅ Cita guardada en PostgreSQL - ID DB: {db_record_id}")
-            
-            # Registrar también en el log general de leads
-            guardar_en_postgresql(
-                telefono=telefono,
-                nombre=nombre,
-                accion="cita_agendada",
-                detalles=f"Cita agendada para {fecha} {hora} - Propiedad ID: {propiedad_id} - Email: {email}"
-            )
+            nueva_cita['db_id'] = db_record_id
+
+            # Log de leads (asumo que esta función ya existe y funciona)
+            try:
+                guardar_en_postgresql(
+                    telefono=telefono,
+                    nombre=nombre,
+                    accion="cita_agendada",
+                    detalles=f"Cita agendada para {fecha} {hora} - Propiedad ID: {propiedad_id} - Email: {email}"
+                )
+            except Exception as e:
+                log(f"⚠️ Error registrando lead: {e}", "WARNING")
         else:
             log("⚠️ No se pudo conectar a PostgreSQL para guardar la cita", "WARNING")
 
-        # 3. Notificar al admin
-        notificar_cita_admin(nueva_cita)
-        
+        # ─────────────────────────────────────────────────────────
+        # 4. Sincronizar con Google Calendar
+        # ─────────────────────────────────────────────────────────
+        event_id = guardar_cita_en_google_calendar(nueva_cita)
+        if event_id:
+            nueva_cita['google_event_id'] = event_id
+            if conn:
+                try:
+                    cursor.execute(
+                        "UPDATE citas SET google_event_id = %s WHERE id = %s",
+                        (event_id, nueva_cita.get('db_id'))
+                    )
+                    conn.commit()
+                    log(f"✅ google_event_id guardado en DB: {event_id}")
+                except Exception as e:
+                    log(f"⚠️ No se pudo guardar event_id en DB: {e}", "WARNING")
+                    conn.rollback()
+        else:
+            log("⚠️ La cita se guardó pero NO se sincronizó con Google Calendar", "WARNING")
+
+        # ─────────────────────────────────────────────────────────
+        # 5. Notificar al admin
+        # ─────────────────────────────────────────────────────────
+        try:
+            notificar_cita_admin(nueva_cita)
+        except Exception as e:
+            log(f"⚠️ Error notificando al admin: {e}", "WARNING")
+
         return nueva_cita
-        
+
     except Exception as e:
         log(f"❌ Error creando cita: {e}", "ERROR")
         if conn:
@@ -120,6 +278,8 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None,
         log(f"🔍 Detalles error: {traceback.format_exc()}")
         return None
     finally:
+        if cursor:
+            cursor.close()
         if conn:
             conn.close()
 
