@@ -436,6 +436,8 @@ def get_bot_response(text, user_id):
         # Tasación
         elif paso == 'tasacion_operacion':
             return manejar_tasacion_operacion(text_lower, estado_usuario, user_id)
+        elif paso == 'tasacion_barrio_seleccion':
+            return manejar_tasacion_barrio_seleccion(text, estado_usuario, user_id)        
         elif paso == 'tasacion_barrio':
             return manejar_tasacion_barrio(text, estado_usuario, user_id)
         elif paso == 'tasacion_tipo':
@@ -1067,17 +1069,20 @@ def webhook():
                     continue
                 
                 # Flujo para WhatsApp (changes -> value -> messages)
+                # Flujo para WhatsApp (changes -> value -> messages)
                 for change in entry.get("changes", []):
                     value = change.get("value", {})
                     if "messages" in value:
                         for message in value["messages"]:
                             m_id = message.get("id")
                             if m_id in processed_message_ids:
+                                log(f"⚠️ Mensaje {m_id} ya en memoria, ignorando", "WARNING")
                                 continue
                             processed_message_ids.append(m_id)
                             
                             from database import registrar_mensaje_procesado
                             if not registrar_mensaje_procesado(m_id):
+                                log(f"⚠️ Mensaje {m_id} IGNORADO por registrar_mensaje_procesado=False", "WARNING")
                                 continue
                             
                             from_num = message.get("from")
@@ -1115,6 +1120,7 @@ def webhook():
                             log(f"📊 Estado: {status.get('status')} - ID: {status.get('id')}")
             
             return jsonify({"status": "processed", "count": mensajes_procesados}), 200
+        
         
         except Exception as e:
             import traceback
@@ -1651,20 +1657,41 @@ def sync_calendar_all():
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
-    
+
     try:
         import subprocess
+        import sys
+
+        # Directorio del propio archivo (donde vive sincronizar_calendar.py)
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        script_path = os.path.join(base_dir, 'sincronizar_calendar.py')
+
+        if not os.path.exists(script_path):
+            log(f"❌ No se encontró {script_path}", "ERROR")
+            return jsonify({"error": f"Script no encontrado en {script_path}"}), 500
+
         log("👨‍💻 Administrador inició sincronización masiva con Google Calendar")
-        
+
+        # sys.executable garantiza el mismo intérprete (python vs python3)
+        kwargs = {
+            'cwd': base_dir,
+            'stdout': subprocess.PIPE,
+            'stderr': subprocess.STDOUT,
+            'text': True,
+        }
         if os.name == 'nt':
-            subprocess.Popen(['python', 'sincronizar_calendar.py'], creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+            kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
         else:
-            subprocess.Popen(['python', 'sincronizar_calendar.py'], preexec_fn=os.setpgrp)
-            
+            kwargs['preexec_fn'] = os.setpgrp
+
+        # Lanzar en background (no bloquea la respuesta)
+        subprocess.Popen([sys.executable, script_path], **kwargs)
+
         return jsonify({
-            "status": "success", 
+            "status": "success",
             "message": "La sincronización masiva con Google Calendar ha comenzado en segundo plano."
         })
+
     except Exception as e:
         log(f"Error ejecutando sincronización de calendario: {e}", "ERROR")
         return jsonify({"error": str(e)}), 500
@@ -1871,6 +1898,33 @@ def health_check():
 
 
 # ========== RUTAS DE API PARA ADMIN ==========
+@app.route('/api/barrios-disponibles', methods=['GET'])
+def get_barrios_disponibles():
+    """Devuelve la lista de barrios válidos para el selector de scraping"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        from logic.constants import BARRIOS_DISPLAY
+        
+        barrios = [
+            {"valor": k, "display": v}
+            for k, v in BARRIOS_DISPLAY.items()
+        ]
+        # Ordenar alfabéticamente por display
+        barrios.sort(key=lambda x: x['display'])
+        
+        return jsonify({
+            "success": True,
+            "barrios": barrios,
+            "total": len(barrios)
+        })
+    except Exception as e:
+        log(f"❌ Error en /api/barrios-disponibles: {e}", "ERROR")
+        return jsonify({"success": False, "error": str(e), "barrios": []}), 500
+
+
 
 @app.route('/api/barrios', methods=['GET'])
 def obtener_barrios():
@@ -1960,10 +2014,14 @@ def obtener_market_stats():
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
+            data['success'] = True
         return jsonify(data)
     except Exception as e:
         logger.error(f"Error leyendo datos de mercado: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+
 
 
 @app.route('/api/market/run-scrape', methods=['GET', 'POST'])
@@ -2012,35 +2070,44 @@ def run_market_scrape_endpoint():
         )
         
         if result.returncode == 0:
-            log(f"✅ Scraping completado para {zona}")
-            
-            # Leer el scraping.json generado
-            if os.path.exists(output_path):
-                with open(output_path, 'r', encoding='utf-8') as f:
-                    scraped_data = json.load(f)
-                
-                sample_size = scraped_data.get('data', {}).get('sample_size', 0)
-                
-                return jsonify({
-                    "success": True,
-                    "message": f"Scraping completado: {sample_size} propiedades analizadas",
-                    "zone": zona,
-                    "sample_size": sample_size,
-                    "data": scraped_data
-                })
-            else:
-                return jsonify({
-                    "success": False,
-                    "error": "El scraping.json no se generó"
-                }), 500
+            log(f"✅ Scraper terminó OK para {zona}")
         else:
-            log(f"❌ Error en scraper: {result.stderr}")
+            log(f"⚠️ Scraper terminó con código {result.returncode} (puede ser 0 props)", "WARNING")
+            if result.stderr:
+                log(f"   stderr: {result.stderr[:300]}", "WARNING")
+        
+        # Leer el scraping.json (exista o no haya encontrado props)
+        if not os.path.exists(output_path):
             return jsonify({
                 "success": False,
-                "error": "Error en el scraping",
-                "details": result.stderr[:500]
+                "error": "El scraping.json no se generó. Revisá los logs."
             }), 500
-    
+        
+        with open(output_path, 'r', encoding='utf-8') as f:
+            scraped_data = json.load(f)
+        
+        sample_size = scraped_data.get('data', {}).get('sample_size', 0)
+        
+        if sample_size > 0:
+            log(f"✅ Scraping exitoso: {sample_size} propiedades")
+            return jsonify({
+                "success": True,
+                "message": f"Scraping completado: {sample_size} propiedades analizadas",
+                "zone": zona,
+                "sample_size": sample_size,
+                "data": scraped_data
+            })
+        
+        log(f"⚠️ Scraping terminó con 0 propiedades", "WARNING")
+        return jsonify({
+            "success": True,
+            "message": "⚠️ Los sitios bloquearon el scraping (0 propiedades). Revisá los logs.",
+            "zone": zona,
+            "sample_size": 0,
+            "data": scraped_data
+        })
+        
+        
     except subprocess.TimeoutExpired:
         log("⏰ Timeout en scraping")
         return jsonify({"success": False, "error": "Timeout: el scraping tardó más de 4 minutos"}), 500
@@ -2656,6 +2723,73 @@ def api_citas():
         import traceback
         log(traceback.format_exc(), "ERROR")
         return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+    
+
+
+@app.route("/api/panel/citas/nueva", methods=["POST"])
+def api_panel_nueva_cita():
+    """Crea una cita desde el panel admin (delegando a citas.crear_cita)"""
+    key = request.args.get('key')
+    if key != ADMIN_ACCESS_KEY:
+        return jsonify({"status": "error", "error": "Unauthorized"}), 403
+    
+    try:
+        data = request.get_json() or {}
+        
+        # El frontend manda 'propiedad' (no 'propiedad_id')
+        propiedad_id = (data.get('propiedad') or '').strip()
+        propiedad_titulo = (data.get('propiedad_titulo') or '').strip()
+        nombre = (data.get('nombre') or '').strip()
+        telefono = (data.get('telefono') or '').strip()
+        fecha = data.get('fecha')
+        hora = data.get('hora')
+        email = (data.get('email') or '').strip() or None
+        notas = (data.get('notas') or '').strip() or 'Agendado vía Panel Admin'
+        
+        # Validación mínima
+        if not (nombre and telefono and fecha and hora and propiedad_id):
+            return jsonify({
+                "status": "error",
+                "error": "Faltan campos: nombre, telefono, fecha, hora y propiedad son obligatorios"
+            }), 400
+        
+        # Normalizar teléfono para usar como user_id (mismo formato que el bot)
+        user_id = telefono.lstrip('+').replace(' ', '').replace('-', '')
+        
+        log(f"📅 [PANEL] Creando cita para {nombre} ({telefono}) - {fecha} {hora}")
+        
+        # Llamar a crear_cita (ya importado desde citas.py con `from citas import *`)
+        cita = crear_cita(
+            user_id=user_id,
+            nombre=nombre,
+            telefono=telefono,
+            fecha=fecha,
+            hora=hora,
+            propiedad_id=propiedad_id,
+            email=email,
+            notas=notas
+        )
+        
+        if not cita:
+            return jsonify({"status": "error", "error": "No se pudo crear la cita"}), 500
+        
+        # La propiedad_titulo no se guarda en crear_cita(), pero la podemos incluir
+        # en la respuesta para que el frontend la muestre
+        cita['propiedad_titulo'] = propiedad_titulo
+        
+        log(f"✅ [PANEL] Cita creada: {cita.get('id')}")
+        
+        return jsonify({
+            "status": "success",
+            "cita": cita,
+            "message": f"Cita agendada para {nombre}"
+        }), 200
+    
+    except Exception as e:
+        import traceback
+        log(f"❌ Error creando cita desde panel: {e}", "ERROR")
+        log(traceback.format_exc(), "ERROR")
+        return jsonify({"status": "error", "error": str(e)}), 500
     
     
     
