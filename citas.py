@@ -213,7 +213,7 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None,
 
             cursor.execute("""
                 INSERT INTO citas (
-                    nombre, email, telefono, fecha, hora,
+                    nombre, email, telefono, fecha_cita, hora_cita,
                     propiedad_id, notas
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                 RETURNING id

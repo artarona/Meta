@@ -33,7 +33,7 @@ from googleapiclient.discovery import build
 from google.oauth2 import service_account
 
 SCOPES               = ["https://www.googleapis.com/auth/calendar"]
-SERVICE_ACCOUNT_FILE = "google_calendar_key.json"
+SERVICE_ACCOUNT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "google_calendar_key.json")
 CALENDAR_ID          = "rentaloficinas@gmail.com"
 TIMEZONE             = "America/Argentina/Buenos_Aires"
 

@@ -272,15 +272,14 @@ def crear_cita():
                 id,
                 nombre,
                 telefono,
-                fecha,
-                hora,
+                fecha_cita,
+                hora_cita,
                 propiedad_id,
-                propiedad_titulo,
                 estado,
                 notas,
-                creacion,
+                fecha_creacion,
                 modificacion
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
             RETURNING id
         """, (
             cita_id,
@@ -288,7 +287,6 @@ def crear_cita():
             data['telefono'],
             data['fecha'],
             data['hora'],
-            data.get('propiedad'),
             data.get('propiedad'),
             'pendiente',
             data.get('notas', '')
