@@ -131,12 +131,131 @@ def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
         log(f"⚠️ Error en tasación local: {e}")
         return None
 
+def obtener_tasacion_precios_barrios(barrio, tipo, estado, operacion='venta'):
+    """
+    Lee precios_barrios.json y devuelve el precio/m2 YA ajustado por estado.
+    
+    Reglas:
+    - Excelente / A estrenar → precio_nuevo_m2
+    - Muy bueno             → precio_nuevo_m2 * 0.80
+    - Bueno                 → precio_usado_m2
+    - Regular               → precio_usado_m2 * 0.80
+    - A refaccionar         → precio_usado_m2 * 0.60
+    """
+    try:
+        path = os.path.join(os.path.dirname(__file__), "precios_barrios.json")
+        if not os.path.exists(path):
+            log(f"🚫 precios_barrios.json no encontrado en {path}")
+            return None
+        
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Normalizar claves de búsqueda
+        barrio_key = barrio.lower().strip()
+        op_key = operacion.lower().strip()
+        tipo_key = tipo.lower().strip()
+        
+        # Mapeo de tipo: el código usa "Departamento", "Casa", "PH", "Oficina", "Terreno"
+        # en el JSON probablemente "departamento", "casa", "ph", "oficina", "terreno"
+        tipo_variantes = {
+            'departamento': ['departamento', 'departamentos', 'depto'],
+            'casa': ['casa', 'casas'],
+            'ph': ['ph'],
+            'oficina': ['oficina', 'oficinas', 'local', 'locales'],
+            'terreno': ['terreno', 'terrenos', 'lote', 'lotes']
+        }
+        
+        # Intentar con cada variante de tipo
+        candidatos = []
+        for variante in tipo_variantes.get(tipo_key, [tipo_key]):
+            clave = f"{barrio_key}_{op_key}_{variante}"
+            if clave in data:
+                candidatos.append((variante, data[clave]))
+        
+        if not candidatos:
+            log(f"❌ No hay entrada en precios_barrios para: {barrio_key}_{op_key}_{tipo_key}")
+            return None
+        
+        # Usar el primer candidato encontrado
+        variante_usada, entry = candidatos[0]
+        precio_usado = entry.get('precio_usado_m2', 0)
+        precio_nuevo = entry.get('precio_nuevo_m2', 0)
+        
+        if precio_usado <= 0 and precio_nuevo <= 0:
+            log(f"⚠️ Entrada sin precios válidos: {entry}")
+            return None
+        
+        # Aplicar factor según estado elegido
+        estado_norm = estado.strip() if estado else "Bueno"
+        
+        ajustes = {
+            "Excelente": ("nuevo", 1.00),
+            "A estrenar": ("nuevo", 1.00),
+            "Muy bueno": ("nuevo", 0.80),
+            "Bueno": ("usado", 1.00),
+            "Regular": ("usado", 0.80),
+            "A refaccionar": ("usado", 0.60),
+        }
+        
+        base, factor = ajustes.get(estado_norm, ("usado", 1.00))
+        precio_base = precio_nuevo if base == "nuevo" else precio_usado
+        precio_final_m2 = precio_base * factor
+        
+        log(f"✅ precios_barrios: {barrio_key}/{op_key}/{tipo_key} → "
+            f"nuevo={precio_nuevo:.2f}, usado={precio_usado:.2f}, "
+            f"estado='{estado_norm}' ({base} × {factor}) = {precio_final_m2:.2f}")
+        
+        return {
+            "precio_m2": precio_final_m2,
+            "precio_usado_m2": precio_usado,
+            "precio_nuevo_m2": precio_nuevo,
+            "moneda": "USD" if op_key == 'venta' else "ARS",
+            "is_fallback": False,
+            "estado_aplicado": True,   # ← CLAVE: evita doble multiplicación
+            "estado": estado_norm,
+            "fuentes": [f"Análisis de Mercado (Precios {base.capitalize()})"],
+            "muestra": entry.get('cantidad_usados', 0) + entry.get('cantidad_nuevos', 0),
+            "fecha_datos": entry.get('fecha', 'Sin fecha')
+        }
+    except Exception as e:
+        log(f"⚠️ Error leyendo precios_barrios.json: {e}")
+        import traceback
+        log(traceback.format_exc())
+        return None
+
+
+
 
 def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado, operacion='venta'):
-    """Obtiene una valoración estimada usando el backend de IA con fallback local"""
+    """Obtiene una valoración estimada usando la cascada:
+    1. precios_barrios.json (con factor de estado aplicado)
+    2. Backend IA externo
+    3. market_valuation_map.json
+    4. propiedades.json
+    5. Valores hardcoded
+    """
     try:
+        # ===== 1. PRIORIDAD MÁXIMA: precios_barrios.json =====
+        resultado_barrios = obtener_tasacion_precios_barrios(barrio, tipo, estado, operacion)
+        if resultado_barrios and not resultado_barrios.get("is_fallback"):
+            valor = resultado_barrios['precio_m2'] * float(m2)
+            return {
+                "valor_estimado": round(valor, -2),
+                "precio_m2": resultado_barrios['precio_m2'],
+                "precio_usado_m2": resultado_barrios.get('precio_usado_m2'),
+                "precio_nuevo_m2": resultado_barrios.get('precio_nuevo_m2'),
+                "moneda": resultado_barrios.get('moneda', 'USD'),
+                "is_fallback": False,
+                "estado_aplicado": True,
+                "fuentes": resultado_barrios.get("fuentes", []),
+                "muestra": resultado_barrios.get("muestra", 0),
+                "fuente": "Precios de Barrios (Análisis de Mercado)",
+                "estado": resultado_barrios.get('estado')
+            }
+        
+        # ===== 2. Backend IA externo =====
         data_ia = None
-        # 1. Intentar con el backend de IA
         url = f"{BASE_URL_AI}/api/valoracion"
         payload = {
             "barrio": barrio,
@@ -155,28 +274,27 @@ def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado, operacion='venta'):
                 if data.get("success"):
                     data_ia = data
         except Exception as conn_err:
-            log(f"📡 Backend IA no alcanzable, intentando fallback local: {conn_err}")
-
-        # 2. Obtener datos locales de market_valuation_map.json (siempre es bueno tenerlos listos)
-        local_data = obtener_tasacion_local(barrio, tipo, estado, operacion)
-
-        # 3. Decidir cuál usar: si IA tuvo éxito y no es fallback, la usamos.
+            log(f"📡 Backend IA no alcanzable, usando fallback local: {conn_err}")
+        
         if data_ia and not data_ia.get("is_fallback"):
             return {
                 "valor_estimado": data_ia.get("valor_estimado"),
                 "precio_m2": data_ia.get("precio_m2_referencia"),
                 "moneda": data_ia.get("moneda", "USD"),
                 "is_fallback": False,
+                "estado_aplicado": True,  # IA ya aplicó ajustes
                 "fuentes": data_ia.get("fuentes", []),
                 "muestra": data_ia.get("muestra_size", 0),
                 "fuente": "Dante AI Valuation",
                 "detalles": data_ia.get("detalles", {})
             }
-            
-        # 4. Si la IA devolvió fallback o falló, usamos los datos locales si existen y son reales
+        
+        # ===== 3. Fallback: market_valuation_map.json o propiedades.json =====
+        local_data = obtener_tasacion_local(barrio, tipo, estado, operacion)
+        
         if local_data and not local_data.get("is_fallback"):
-            # Aplicar ajustes de estado
-            ajustes = {"Excelente": 1.10, "Muy bueno": 1.05, "Bueno": 1.00, "Regular": 0.85, "A refaccionar": 0.70}
+            ajustes = {"Excelente": 1.10, "Muy bueno": 1.05, "Bueno": 1.00, 
+                       "Regular": 0.85, "A refaccionar": 0.70}
             factor = ajustes.get(estado, 1.0)
             valor = local_data['precio_m2'] * float(m2) * factor
             return {
@@ -184,12 +302,13 @@ def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado, operacion='venta'):
                 "precio_m2": local_data['precio_m2'],
                 "moneda": local_data.get('moneda', 'USD'),
                 "is_fallback": False,
+                "estado_aplicado": True,
                 "fuentes": local_data.get("fuentes", []),
                 "muestra": local_data.get("muestra", 0),
                 "fuente": "Mapa de Valoración Local"
             }
-
-        # 5. Si todo falló (IA en fallback/error y Local no encontrado), usamos el fallback final referencial
+        
+        # ===== 4. Último recurso: valor por defecto =====
         if not local_data:
             local_data = {
                 "precio_m2": 2150.0 if operacion == 'venta' else 8500.0,
@@ -198,9 +317,9 @@ def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado, operacion='venta'):
                 "fuentes": [f"Promedio General CABA ({operacion.upper()})"],
                 "muestra": 0
             }
-            
-        # Aplicar factor sobre el fallback final o el fallback de DB local
-        ajustes = {"Excelente": 1.10, "Muy bueno": 1.05, "Bueno": 1.00, "Regular": 0.85, "A refaccionar": 0.70}
+        
+        ajustes = {"Excelente": 1.10, "Muy bueno": 1.05, "Bueno": 1.00, 
+                   "Regular": 0.85, "A refaccionar": 0.70}
         factor = ajustes.get(estado, 1.0)
         valor = local_data['precio_m2'] * float(m2) * factor
         
@@ -209,12 +328,15 @@ def obtener_tasacion_ia(barrio, tipo, m2, ambientes, estado, operacion='venta'):
             "precio_m2": local_data['precio_m2'],
             "moneda": local_data.get('moneda', 'USD'),
             "is_fallback": local_data.get("is_fallback", True),
+            "estado_aplicado": True,
             "fuentes": local_data.get("fuentes", []),
             "muestra": local_data.get("muestra", 0),
             "fuente": local_data.get("fuente", "Statistical Fallback")
         }
     except Exception as e:
         log(f"⚠️ Error crítico en obtención de tasación: {e}")
+        import traceback
+        log(traceback.format_exc())
         return None
 
 
@@ -845,7 +967,6 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
         # Validar que tasacion no sea None
         if not tasacion:
             log(f"⚠️ tasacion_ia retornó None para los datos: {datos}")
-            # Retornar un mensaje de error más descriptivo
             return WhatsAppResponse.buttons(
                 header="⚠️ ERROR EN LA TASACIÓN",
                 body="Ocurrió un error al procesar tu solicitud. Por favor, intenta de nuevo o contacta a un asesor.",
@@ -857,34 +978,64 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
             )
         
         # 2. Registrar Lead
-        detalles = f"Tasación solicitada: {datos['tipo']} en {datos['barrio']}, {datos['m2']}m2, {datos['ambientes']} amb, estado {datos['estado']}."
+        detalles = f"Tasación solicitada: {datos['tipo']} en {datos['barrio']}, {datos['m2']}m2, {datos['ambientes']} amb, estado {datos['estado']}, operación {datos.get('operacion', 'venta')}."
         if tasacion:
-            detalles += f" Resultado IA: {tasacion['valor_estimado']:,.0f} {tasacion['moneda']}"
+            detalles += f" Resultado: {tasacion['valor_estimado']:,.0f} {tasacion['moneda']}"
             
         registrar_lead(user_id, "TASACION_VIRTUAL", "tasacion", detalles)
         notificar_agente(f"📈 *NUEVO LEAD DE TASACIÓN*\n📞 Tel: +{user_id}\n📝 {detalles}")
         
-        # 3. Respuesta al usuario - Preparar variables
+        # 3. Preparar intro
+        operacion = datos.get('operacion', 'venta')
+        verbo_operacion = "venta" if operacion == 'venta' else "alquiler"
+        
         intro_mercado = f"Basado en el análisis estadístico de mercado para *{datos['barrio']}*:"
         if tasacion.get("is_fallback") and tasacion.get("muestra", 0) <= 1:
             intro_mercado = "Basado en el promedio general del mercado inmobiliario (estamos recolectando más datos específicos de tu zona):"
-            
-        # 4. Info de Fuentes
+        
+        # 4. Info de fuentes y muestra
         fuentes_str = ", ".join(tasacion.get("fuentes", ["Mercado Local"]))
         muestra = tasacion.get("muestra", 0)
-        info_fuentes = f"\n🔍 *Análisis:* basado en {muestra} propiedades de {fuentes_str}."
-
+        info_fuentes = f"🔍 *Análisis:* {muestra} propiedades en {fuentes_str}"
+        
+        # 5. Moneda y símbolo
+        moneda = tasacion.get('moneda', 'USD')
+        simbolo = "USD$" if moneda == 'USD' else "$"
+        
+        # 6. Formatear valores
+        valor_estimado = tasacion.get('valor_estimado', 0)
+        precio_m2_aplicado = tasacion.get('precio_m2', 0)
+        precio_usado = tasacion.get('precio_usado_m2')
+        precio_nuevo = tasacion.get('precio_nuevo_m2')
+        
+        # 7. Construir mensaje principal
         mensaje_body = f"""📊 *RESULTADO DE TU TASACIÓN VIRTUAL*
 
 {intro_mercado}
 
-🏠 *Propiedad:* {datos['tipo']}
+🏠 *Propiedad:* {datos['tipo']} en {datos['barrio']}
 📏 *Superficie:* {datos['m2']} m²
-💰 *Valor estimado:* {tasacion['moneda']} ${tasacion['valor_estimado']:,.0f}
-📈 *Precio promedio m²:* {tasacion['moneda']} ${tasacion['precio_m2']:,.0f}
+🏗️ *Estado:* {datos['estado']}
+🎯 *Operación:* {verbo_operacion.title()}
+
+━━━━━━━━━━━━━━━━━━━━
+💰 *VALOR ESTIMADO:* {simbolo} {valor_estimado:,.0f}
+📈 *Precio aplicado:* {simbolo} {precio_m2_aplicado:,.0f} / m²
+━━━━━━━━━━━━━━━━━━━━"""
+        
+        # 8. Agregar referencia de precios usados/nuevos si están disponibles
+        if precio_usado and precio_nuevo and precio_usado > 0 and precio_nuevo > 0:
+            mensaje_body += f"""
+
+📌 *Referencias del mercado:*
+• Propiedades usadas: {simbolo} {precio_usado:,.0f} / m²
+• Propiedades a estrenar: {simbolo} {precio_nuevo:,.0f} / m²"""
+        
+        mensaje_body += f"""
+
 {info_fuentes}
 
-⚠️ *Nota:* Esta es una estimación orientativa basada en datos de mercado. Para una tasación profesional, un asesor debe visitar la propiedad.
+⚠️ *Nota:* Esta es una estimación orientativa. Para una tasación profesional, un asesor debe visitar la propiedad.
 
 ¿Qué deseas hacer?"""
         
@@ -896,14 +1047,12 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
         es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
         
         if es_fb_ig:
-            # Facebook/Instagram: texto con números
             return {
                 "type": "text",
                 "body": f"{mensaje_body}\n\n1️⃣ ✅ Deseas una Tasación profesional con visita\n2️⃣ ⏭️ No por ahora\n3️⃣ 🔙 Menú Principal\n4️⃣ ❌ Salir\n\n💡 *Envía el número de la opción deseada*",
                 "preview": False
             }
         else:
-            # WhatsApp: menú de lista interactivo
             return WhatsAppResponse.list_menu(
                 body=mensaje_body,
                 button_text="Opciones",
@@ -911,7 +1060,7 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
                     {
                         "title": "Acciones",
                         "rows": [
-                            {"id": "1", "title": "✅ Deseas una Tasación", "description": "Profesional con visita"},
+                            {"id": "1", "title": "✅ Tasación profesional", "description": "Coordinar visita con asesor"},
                             {"id": "2", "title": "⏭️ No por ahora", "description": "Continuar explorando"},
                             {"id": "m", "title": "🔙 Menú Principal", "description": "Ir al inicio"},
                             {"id": "s", "title": "❌ Salir", "description": "Terminar sesión"}
@@ -925,8 +1074,6 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
         import traceback
         log(traceback.format_exc())
         return "❌ Ocurrió un error al procesar la tasación. Por favor contacta a un asesor enviando '5'."
-    
-    
 
 
 def manejar_tasacion_contacto(text_lower, estado_usuario, user_id):
