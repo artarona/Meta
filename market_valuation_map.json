@@ -33,9 +33,16 @@
     },
     "alquiler": {
       "departamento": {
-        "avg_m2": 13777.58,
-        "muestra": 159,
-        "last_update": "2026-03-14 22:33",
+        "avg_m2": 14803.62,
+        "muestra": 40,
+        "last_update": "2026-09-26 02:11",
+        "source": "scraping.json",
+        "currency": "ARS"
+      },
+      "oficina": {
+        "avg_m2": 9776.81,
+        "muestra": 22,
+        "last_update": "2026-09-26 15:07",
         "source": "scraping.json",
         "currency": "ARS"
       }
@@ -148,9 +155,9 @@
         "currency": "USD"
       },
       "departamento": {
-        "avg_m2": 2339.67,
-        "muestra": 82,
-        "last_update": "2026-06-14 10:28",
+        "avg_m2": 2434.28,
+        "muestra": 87,
+        "last_update": "2026-09-26 01:51",
         "source": "scraping.json",
         "currency": "USD"
       }
@@ -159,9 +166,9 @@
   "san telmo": {
     "alquiler": {
       "departamento": {
-        "avg_m2": 17252.24,
-        "muestra": 62,
-        "last_update": "2026-05-06 12:34",
+        "avg_m2": 17230.64,
+        "muestra": 68,
+        "last_update": "2026-09-26 15:13",
         "source": "scraping.json",
         "currency": "ARS"
       }
@@ -175,6 +182,15 @@
         "last_update": "2026-06-21 21:08",
         "source": "scraping.json",
         "currency": "USD"
+      }
+    },
+    "alquiler": {
+      "departamento": {
+        "avg_m2": 16086.92,
+        "muestra": 76,
+        "last_update": "2026-09-18 21:55",
+        "source": "scraping.json",
+        "currency": "ARS"
       }
     }
   },
@@ -192,11 +208,167 @@
   "flores": {
     "venta": {
       "ph": {
-        "avg_m2": 1384.59,
-        "muestra": 90,
-        "last_update": "2026-07-02 12:06",
+        "avg_m2": 1402.67,
+        "muestra": 92,
+        "last_update": "2026-09-18 19:57",
         "source": "scraping.json",
         "currency": "USD"
+      }
+    }
+  },
+  "colegiales": {
+    "alquiler": {
+      "departamento": {
+        "avg_m2": 21200.99,
+        "muestra": 66,
+        "last_update": "2026-09-18 21:57",
+        "source": "scraping.json",
+        "currency": "ARS"
+      }
+    }
+  },
+  "mataderos": {
+    "alquiler": {
+      "ph": {
+        "avg_m2": 16243.6,
+        "muestra": 56,
+        "last_update": "2026-09-22 11:27",
+        "source": "scraping.json",
+        "currency": "ARS"
+      }
+    }
+  },
+  "congreso": {
+    "alquiler": {
+      "departamento": {
+        "avg_m2": 15606.92,
+        "muestra": 64,
+        "last_update": "2026-09-29 19:22",
+        "source": "scraping.json",
+        "currency": "ARS"
+      }
+    }
+  },
+  "villa urquiza": {
+    "venta": {
+      "departamento": {
+        "avg_m2": 2996.19,
+        "muestra": 41,
+        "last_update": "2026-09-22 09:42",
+        "source": "scraping.json",
+        "currency": "USD"
+      }
+    },
+    "alquiler": {
+      "casa": {
+        "avg_m2": 18031.74,
+        "muestra": 22,
+        "last_update": "2026-09-24 21:17",
+        "source": "scraping.json",
+        "currency": "ARS"
+      }
+    }
+  },
+  "nuñez": {
+    "alquiler": {
+      "ph": {
+        "avg_m2": 21140.24,
+        "muestra": 30,
+        "last_update": "2026-09-22 20:05",
+        "source": "scraping.json",
+        "currency": "ARS"
+      },
+      "departamento": {
+        "avg_m2": 21929.5,
+        "muestra": 58,
+        "last_update": "2026-09-22 20:03",
+        "source": "scraping.json",
+        "currency": "ARS"
+      }
+    },
+    "venta": {
+      "casa": {
+        "avg_m2": 2515.51,
+        "muestra": 95,
+        "last_update": "2026-09-22 21:02",
+        "source": "scraping.json",
+        "currency": "USD"
+      },
+      "departamento": {
+        "avg_m2": 2972.75,
+        "muestra": 85,
+        "last_update": "2026-09-23 00:21",
+        "source": "scraping.json",
+        "currency": "USD"
+      }
+    }
+  },
+  "villa soldati": {
+    "alquiler": {
+      "ph": {
+        "avg_m2": 9385.59,
+        "muestra": 6,
+        "last_update": "2026-09-23 20:38",
+        "source": "scraping.json",
+        "currency": "ARS"
+      }
+    }
+  },
+  "villa santa rita": {
+    "venta": {
+      "departamento": {
+        "avg_m2": 1949.65,
+        "muestra": 28,
+        "last_update": "2026-09-23 21:12",
+        "source": "scraping.json",
+        "currency": "USD"
+      }
+    },
+    "alquiler": {
+      "departamento": {
+        "avg_m2": 15330.27,
+        "muestra": 25,
+        "last_update": "2026-09-24 22:01",
+        "source": "scraping.json",
+        "currency": "ARS"
+      }
+    }
+  },
+  "parque patricios": {
+    "alquiler": {
+      "casa": {
+        "avg_m2": 14960.47,
+        "muestra": 6,
+        "last_update": "2026-09-23 21:37",
+        "source": "scraping.json",
+        "currency": "ARS"
+      },
+      "departamento": {
+        "avg_m2": 17109.7,
+        "muestra": 57,
+        "last_update": "2026-09-23 22:12",
+        "source": "scraping.json",
+        "currency": "ARS"
+      }
+    },
+    "venta": {
+      "departamento": {
+        "avg_m2": 1817.52,
+        "muestra": 66,
+        "last_update": "2026-09-23 22:17",
+        "source": "scraping.json",
+        "currency": "USD"
+      }
+    }
+  },
+  "pompeya": {
+    "alquiler": {
+      "departamento": {
+        "avg_m2": 17133.49,
+        "muestra": 28,
+        "last_update": "2026-09-23 21:55",
+        "source": "scraping.json",
+        "currency": "ARS"
       }
     }
   }
