@@ -32,7 +32,7 @@ def get_db_connection(max_retries=5):
         "keepalives_idle": 30,
         "keepalives_interval": 10,
         "keepalives_count": 5,
-        "options": '-c statement_timeout=30000'
+        # "options" eliminado: PgBouncer de Neon no soporta statement_timeout como startup parameter
     }
     
     if "sslmode=" not in database_url.lower():
@@ -44,14 +44,13 @@ def get_db_connection(max_retries=5):
             
             # ✅ SET search_path: buscar primero en crm, luego core, luego public
             with conn.cursor() as cur:
-                cur.execute("SET search_path TO crm, core, public;")
                 cur.execute("SELECT 1")
             conn.commit()
             
             if i > 0:
                 log(f"✅ Conexión establecida tras {i} reintentos")
             else:
-                log("✅ Conexión a PostgreSQL exitosa (search_path: crm, core, public)")
+                log("✅ Conexión a PostgreSQL exitosa (search_path: crm, public, core, dante)")
             return conn
             
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
@@ -885,33 +884,26 @@ def cargar_propiedades():
 
 
 def registrar_mensaje_procesado(message_id):
-    """
-    Registra un ID de mensaje en la base de datos para evitar procesarlo dos veces.
-    Retorna True si es nuevo y se pudo registrar, False si ya existía (duplicado).
-    """
-    if not message_id:
-        return True
-    
-    with db_session() as conn:
+    """Devuelve True si es nuevo (procesar), False si ya existía (ignorar)."""
+    try:
+        conn = get_db_connection()
         if not conn:
-            # Fallback si no hay conexión a base de datos (e.g. modo local sin DB)
-            return True
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO processed_messages (message_id)
-                VALUES (%s)
-            """, (message_id,))
-            conn.commit()
-            return True
-        except psycopg2.IntegrityError:
-            conn.rollback()
-            log(f"🛑 [DB] Mensaje duplicado detectado (IntegrityError): {message_id}")
-            return False
-        except Exception as e:
-            if conn:
-                conn.rollback()
-            log(f"⚠️ Error registrando mensaje en processed_messages: {e}", "WARNING")
-            return True
+            log(f"⚠️ Sin DB, no puedo verificar duplicado {message_id}. Procesando igual.")
+            return True   # ← IMPORTANTE: procesar aunque no haya DB
+        
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO mensajes_procesados (message_id) VALUES (%s)
+            ON CONFLICT (message_id) DO NOTHING
+            RETURNING id
+        """, (message_id,))
+        inserted = cursor.fetchone()
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return inserted is not None   # True = nuevo, False = duplicado
+    except Exception as e:
+        log(f"❌ Error en registrar_mensaje_procesado({message_id}): {e}", "ERROR")
+        return True   # ← Si falla la DB, mejor procesar que perder el mensaje
 
 
