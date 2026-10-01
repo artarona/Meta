@@ -151,7 +151,7 @@ class BaseScraper(ABC):
         
         # Eliminar 's' final de error común (luganos -> lugano)
         # pero NO para barrios que terminan en s (flores, mataderos, etc)
-        barrios_con_s = ["flores", "mataderos", "lomas", "pompeya", "chacrita"] # pompeya no, mataderos sí
+        barrios_con_s = ["flores", "mataderos", "lomas", "pompeya", "chacrita", "liniers", "versalles"] # pompeya no, mataderos sí
         if z.endswith('s') and z not in barrios_con_s and not z.endswith('es'):
              z = z[:-1]
 
@@ -165,7 +165,17 @@ class BaseScraper(ABC):
             "once": "balvanera",
             "microcentro": "san-nicolas",
             "abasto": "almagro",
-            "congreso": "balvanera"
+            "congreso": "balvanera",            
+            "nunez": "nunez",
+            "núñez": "nunez",
+            "güemes": "guemes",
+            "parque patricios": "parque-patricios",
+            "villa del parque": "villa-del-parque",
+            "villa luro": "villa-luro",
+            "velez sarsfield": "velez-sarsfield",
+            "versalles": "versalles",
+            "agronomia": "agronomia",
+            
         }
         
         if z in mapping:
@@ -296,22 +306,46 @@ class BaseScraper(ABC):
     
     def _clean_surface(self, surface_text: str) -> float:
         """
-        Limpia texto de superficie y devuelve metros cuadrados
-        Ej: "85 m²" -> 85.0
+        Limpia texto de superficie y devuelve metros cuadrados.
+        Maneja: 'm²', 'm2', 'has', 'hectáreas', 'lote de X'.
         """
         if not surface_text:
             return 0.0
         
-        # Extraer números
-        numbers = re.findall(r'[\d.,]+', surface_text)
-        if not numbers:
-            return 0.0
+        # 1. Detectar hectáreas → convertir a m²
+        has_match = re.search(r'(\d+(?:[.,]\d+)?)\s*(?:has?|hect[aá]reas?)', 
+                            surface_text, re.IGNORECASE)
+        if has_match:
+            try:
+                has_value = float(has_match.group(1).replace(',', '.'))
+                return has_value * 10000  # 1 ha = 10.000 m²
+            except ValueError:
+                pass
         
-        try:
-            surface = float(numbers[0].replace(',', '.'))
-            return surface
-        except ValueError:
-            return 0.0
+        # 2. Buscar "N m²" o similar
+        match = re.search(r'(\d+(?:[.,]\d+)?)\s*(?:m²|m2|mts2|mts²|metros?\s*cuadrados?)', 
+                        surface_text, re.IGNORECASE)
+        if match:
+            try:
+                return float(match.group(1).replace(',', '.'))
+            except ValueError:
+                pass
+        
+        # 3. Fallback: número más grande ≥ 5
+        numbers = re.findall(r'\d+(?:[.,]\d+)?', surface_text)
+        candidates = []
+        for n in numbers:
+            try:
+                candidates.append(float(n.replace(',', '.')))
+            except ValueError:
+                continue
+        
+        if candidates:
+            valid = [c for c in candidates if c >= 5]
+            if valid:
+                return max(valid)
+        
+        return 0.0
     
     def _calculate_price_per_m2(self, price: float, surface: float, currency: str) -> float:
         """Calcula precio por metro cuadrado"""
@@ -666,10 +700,6 @@ class ArgenpropScraper(BaseScraper):
             
             # Ubicación y Dirección
             location = address.split(',')[-1].strip() if ',' in address else address
-            
-            # Enriquecer ubicación con el barrio buscado si no está presente
-            if self.target_zone and self.target_zone.lower() not in location.lower():
-                location = f"{location}, {self.target_zone}"
 
             return PropertyData(
                 source=self.source_name,
@@ -901,10 +931,6 @@ class ZonapropScraper(BaseScraper):
             
             if not location and address:
                 location = address
-                
-            # Enriquecer ubicación con el barrio buscado si no está presente
-            if self.target_zone and self.target_zone.lower() not in location.lower():
-                location = f"{location}, {self.target_zone}"
             
             # Extraer título / descripción
             title_elem = card.select_one('[data-qa="POSTING_CARD_DESCRIPTION"], .postingCard-module__posting-description, h2')
@@ -1270,29 +1296,29 @@ class MarketAnalyzer:
     """Analiza datos del mercado inmobiliario"""
     
     # Umbral mínimo de superficie (en m²) para estadísticas válidas
-    MIN_SURFACE_THRESHOLD = 10
+    MIN_SURFACE_THRESHOLD = 5
     
     @staticmethod
     def _is_in_zone(prop_location: str, prop_address: str, zone: str) -> bool:
-        """Verifica si la propiedad está realmente en la zona solicitada"""
-        # Caso especial: Si no hay información de ubicación, confiamos en la URL 
-        # (pero marcamos para revisión si fuera necesario)
-        if not prop_location and not prop_address:
-            return True
-            
+        """
+        Verifica si la propiedad está en la zona solicitada.
+        Si el sitio ya filtró por URL, ser tolerante.
+        """
         zone_clean = zone.lower().replace("villa ", "").strip()
         loc_text = f"{prop_location} {prop_address}".lower()
         
-        # Lugano / Villa Lugano special case
+        # Caso especial: Lugano / Villa Lugano
         if "lugano" in zone_clean and "lugano" in loc_text:
             return True
-            
-        # Caso general: que el nombre del barrio esté en la ubicación o dirección
+        
+        # Coincidencia directa con el nombre del barrio
         if zone.lower() in loc_text or zone_clean in loc_text:
             return True
-            
-        # Si no hay coincidencia directa, rechazar (Zonaprop suele meter Belgrano en Villa Lugano)
-        return False
+        
+        # Si el sitio devolvió la propiedad desde una URL filtrada por zona,
+        # es razonable confiar. NO descartar.
+        # (Si querés ser más estricto, cambiá esto a `return False`)
+        return True
 
     @staticmethod
     def calculate_stats(properties: List[PropertyData], zone: str, operation: str, prop_type: str) -> MarketStats:
@@ -1301,8 +1327,9 @@ class MarketAnalyzer:
         source_breakdown = {}
         currency_dist = {}
         properties_list = []
-        neighborhood_dict = {}  # Para neighborhood_stats
-        low_surface_count = 0  # Contador de propiedades con superficie muy baja
+        neighborhood_dict = {}
+        low_surface_count = 0
+        filtered_count = 0  # ← NUEVO: cuenta solo las que pasan el filtro
         
         if not properties:
             return MarketStats(
@@ -1330,7 +1357,9 @@ class MarketAnalyzer:
             # FILTRO DE BARRIO: Evitar que Zonaprop meta Belgrano en Villa Lugano
             if not MarketAnalyzer._is_in_zone(prop.location, prop.address, zone):
                 continue
-                
+            
+            filtered_count += 1  # ← NUEVO: solo cuenta si pasa el filtro
+            
             # Verificar si tiene superficie muy baja (menor a 10m²)
             has_low_surface = prop.surface_total < MarketAnalyzer.MIN_SURFACE_THRESHOLD
             
@@ -1340,15 +1369,14 @@ class MarketAnalyzer:
             # Contabilizar por fuente
             source_breakdown[prop.source] = source_breakdown.get(prop.source, 0) + 1
             
-            # Contabilizar por barrio (si existe en prop.location)
-            # Extraer barrio de la locación (Zonaprop/Argenprop suelen ponerlo al final o en un formato similar)
-            nh_name = zone.title() # Default al barrio de búsqueda
+            # Contabilizar por barrio
+            nh_name = zone.title()
             if prop.location:
-                # Intento simple de extraer barrio si es distinto
                 parts = [p.strip() for p in prop.location.split(',')]
                 if len(parts) > 0:
                     nh_candidate = parts[0]
-                    if len(nh_candidate) < 30: nh_name = nh_candidate
+                    if len(nh_candidate) < 30:
+                        nh_name = nh_candidate
             
             if nh_name not in neighborhood_dict:
                 neighborhood_dict[nh_name] = {"count": 0, "total_price_m2": 0, "avg_price_m2": 0}
@@ -1361,15 +1389,13 @@ class MarketAnalyzer:
             currency_dist[prop.price_currency] = currency_dist.get(prop.price_currency, 0) + 1
             
             # Solo calcular estadísticas para propiedades con superficie válida
-            # Esto evita que departamentos de 1-9m² alteren los promedios
             if not has_low_surface and prop.price_per_m2 > 0:
                 prices_per_m2.append(prop.price_per_m2)
             
             if not has_low_surface and prop.price_amount > 0:
                 total_prices.append(prop.price_amount)
             
-            # Agregar a lista de propiedades (todas, incluyendo las con superficie baja)
-            # Las que tienen superficie baja tendrán surface_warning: true
+            # Agregar a lista de propiedades
             properties_list.append({
                 "source": prop.source,
                 "title": prop.title,
@@ -1381,16 +1407,18 @@ class MarketAnalyzer:
                 "url": prop.url,
                 "operation_type": prop.operation_type,
                 "property_type": prop.property_type,
-                "surface_warning": has_low_surface  # Marcar propiedades con superficie irreal
+                "surface_warning": has_low_surface
             })
-
+        
         # Calcular promedios por barrio
         for nh in neighborhood_dict:
             if neighborhood_dict[nh]["count"] > 0:
-                neighborhood_dict[nh]["avg_price_m2"] = round(neighborhood_dict[nh]["total_price_m2"] / neighborhood_dict[nh]["count"], 2)
+                neighborhood_dict[nh]["avg_price_m2"] = round(
+                    neighborhood_dict[nh]["total_price_m2"] / neighborhood_dict[nh]["count"], 2
+                )
         
         # Calcular estadísticas
-        from statistics import mean, median, stdev
+        from statistics import mean, median
         
         avg_price_m2 = None
         median_price_m2 = None
@@ -1398,10 +1426,22 @@ class MarketAnalyzer:
         max_price_m2 = None
         
         if prices_per_m2:
-            avg_price_m2 = mean(prices_per_m2)
-            median_price_m2 = median(prices_per_m2)
-            min_price_m2 = min(prices_per_m2)
-            max_price_m2 = max(prices_per_m2)
+            # Calcular cuartiles
+            import statistics
+            sorted_prices = sorted(prices_per_m2)
+            n = len(sorted_prices)
+            q1 = sorted_prices[n // 4]
+            q3 = sorted_prices[(3 * n) // 4]
+            iqr = q3 - q1
+            
+            # Filtro IQR: mantener solo Q1 - 1.5*IQR a Q3 + 1.5*IQR
+            min_valid = max(0, q1 - 1.5 * iqr)
+            max_valid = q3 + 1.5 * iqr
+            prices_filtered = [p for p in prices_per_m2 if min_valid <= p <= max_valid]
+            
+            # Usar prices_filtered en vez de prices_per_m2
+            avg_price_m2 = mean(prices_filtered)
+            median_price_m2 = median(prices_filtered)
         
         avg_total = None
         if total_prices:
@@ -1414,16 +1454,24 @@ class MarketAnalyzer:
             max_p = max(total_prices)
             price_range = f"{min_p:,.0f} - {max_p:,.0f}"
         
-        # Agregar advertencia si hay propiedades con superficie baja
+        # Advertencias
         warnings = []
         if low_surface_count > 0:
-            warnings.append(f"{low_surface_count} propiedades con superficie < {MarketAnalyzer.MIN_SURFACE_THRESHOLD}m² excluidas del promedio")
+            warnings.append(
+                f"{low_surface_count} propiedades con superficie < "
+                f"{MarketAnalyzer.MIN_SURFACE_THRESHOLD}m² excluidas del promedio"
+            )
+        
+        # Si el filtro descartó propiedades, avisar
+        descartadas = len(properties) - filtered_count
+        if descartadas > 0:
+            warnings.append(f"{descartadas} propiedades descartadas por no coincidir con la zona")
         
         return MarketStats(
             zone=zone,
             operation_type=operation,
             property_type=prop_type,
-            sample_size=len(properties),
+            sample_size=filtered_count,  # ← CAMBIADO: antes era len(properties)
             average_price_per_m2=avg_price_m2,
             average_total_price=avg_total,
             median_price_per_m2=median_price_m2,
