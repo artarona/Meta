@@ -192,6 +192,45 @@ def init_db(conn):
                 message_id VARCHAR(100) PRIMARY KEY,
                 fecha TIMESTAMP DEFAULT NOW()
             );
+
+            CREATE SCHEMA IF NOT EXISTS core;
+            CREATE TABLE IF NOT EXISTS core.personas (
+                id SERIAL PRIMARY KEY,
+                nombre VARCHAR(100),
+                email VARCHAR(100),
+                telefono VARCHAR(100),
+                telefono_alt VARCHAR(100),
+                documento VARCHAR(50),
+                origen VARCHAR(50),
+                notas TEXT,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            );
+
+            CREATE SCHEMA IF NOT EXISTS dante;
+            CREATE TABLE IF NOT EXISTS dante.formularios (
+                id SERIAL PRIMARY KEY,
+                persona_id INTEGER REFERENCES core.personas(id) ON DELETE CASCADE,
+                interes VARCHAR(255),
+                presupuesto VARCHAR(100),
+                pagina_origen VARCHAR(255),
+                user_agent TEXT,
+                ip_address VARCHAR(50),
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS dante.consultas_chat (
+                id SERIAL PRIMARY KEY,
+                persona_id INTEGER REFERENCES core.personas(id) ON DELETE CASCADE,
+                mensaje TEXT,
+                respuesta_ia TEXT,
+                canal VARCHAR(50),
+                search_performed BOOLEAN,
+                results_count INTEGER,
+                notas_admin TEXT,
+                notas_actualizadas_en TIMESTAMP,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
         """)
         
         # 2. Asegurar columnas adicionales
