@@ -3297,6 +3297,29 @@ def get_contactos_web():
             return jsonify({"error": "DB no disponible", "contactos": []}), 500
         
         cursor = conn.cursor()
+        
+        # ✅ 1. Verificar si las tablas existen
+        cursor.execute("""
+            SELECT 
+                EXISTS (SELECT FROM information_schema.tables 
+                        WHERE table_schema = 'core' AND table_name = 'personas')
+                AND
+                EXISTS (SELECT FROM information_schema.tables 
+                        WHERE table_schema = 'dante' AND table_name = 'formularios')
+        """)
+        tablas_existen = cursor.fetchone()[0]
+        
+        if not tablas_existen:
+            cursor.close()
+            conn.close()
+            log("⚠️ core.personas o dante.formularios no existen → lista vacía", "WARNING")
+            return jsonify({
+                "contactos": [],
+                "total": 0,
+                "message": "Tablas core.personas / dante.formularios no creadas aún"
+            }), 200
+        
+        # ✅ 2. Consulta original
         cursor.execute("""
             SELECT DISTINCT ON (p.id)
                 p.id, p.nombre, p.email, p.telefono, p.telefono_alt,
@@ -3417,6 +3440,27 @@ def get_consultas_chat():
             return jsonify({"error": "DB no disponible", "consultas": []}), 500
         
         cursor = conn.cursor()
+        
+        # ✅ 1. Verificar si la tabla existe antes de consultarla
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'dante' AND table_name = 'consultas_chat'
+            )
+        """)
+        tabla_existe = cursor.fetchone()[0]
+        
+        if not tabla_existe:
+            cursor.close()
+            conn.close()
+            log("⚠️ dante.consultas_chat no existe → devolviendo lista vacía", "WARNING")
+            return jsonify({
+                "consultas": [],
+                "total": 0,
+                "message": "Tabla dante.consultas_chat no creada aún"
+            }), 200
+        
+        # ✅ 2. Tabla existe → consultar normal
         cursor.execute("""
             SELECT c.id, c.persona_id, p.nombre, p.email,
                    c.mensaje, c.respuesta_ia, c.canal,
@@ -3453,7 +3497,6 @@ def get_consultas_chat():
         import traceback
         log(traceback.format_exc(), "ERROR")
         return jsonify({"error": str(e), "consultas": []}), 500
-
 
 
 @app.route("/api/consultas-chat/<int:consulta_id>/nota", methods=["PUT"])
@@ -3704,6 +3747,27 @@ def get_precios_barrios():
         log(traceback.format_exc(), "ERROR")
         return jsonify({"success": False, "error": str(e), "data": {}}), 500
 
+
+
+@app.route("/debug-db-verbose", methods=["GET"])
+def debug_db_verbose():
+    """Muestra el host y DB sin ocultar (para verificar que apunta al proyecto correcto)"""
+    import os, re
+    url = os.environ.get("DATABASE_URL", "")
+    # Extraer partes sin contraseña
+    match = re.match(r'postgresql://([^:]+):([^@]+)@([^/]+)/([^?]+)', url)
+    if match:
+        user, pwd, host, dbname = match.groups()
+        return {
+            "user": user,
+            "password_length": len(pwd),
+            "password_preview": pwd[:4] + "..." + pwd[-4:] if len(pwd) > 8 else "corto",
+            "host": host,       # ← ESTO es lo que necesito ver
+            "db_name": dbname,
+            "host_contiene_aged_meadow": "aged-meadow" in host,
+            "host_contiene_plain_dawn": "plain-dawn" in host,
+        }
+    return {"error": "No se pudo parsear DATABASE_URL", "url_prefix": url[:50]}
 
 if __name__ == "__main__":
 
