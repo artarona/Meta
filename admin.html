@@ -4069,7 +4069,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         }
         
         
-        async function cargarEstadisticasMercado() {
+                async function cargarEstadisticasMercado() {
             // Si hay un scraping en curso, no pisar la vista
             if (isScrapingInProgress) {
                 console.log('⏸️ Scraping en progreso — saltando carga de mercado');
@@ -4083,11 +4083,33 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 
                 console.log('📊 Datos completos:', data);
                 
-                // CORRECCIÓN: Los datos están en data.data (NO data.data.data)
                 if (data && data.success) {
                     const statsData = data.data;
-                    const properties = statsData?.properties || [];
                     
+                    // ✅ Deduplicar por título + dirección
+                    const seen = new Set();
+                    const deduped = (statsData?.properties || []).filter(p => {
+                        const key = `${(p.title || '').substring(0, 30)}|${p.address || ''}`.toLowerCase().trim();
+                        if (seen.has(key)) return false;
+                        seen.add(key);
+                        return true;
+                    });
+                    
+                    // ✅ Filtrar filas con datos incompletos (0 m², $0)
+                    const properties = deduped.filter(p => {
+                        const surface = parseFloat(p.surface) || 0;
+                        const price = parseFloat(p.price) || 0;
+                        return surface >= 10 && price > 0;
+                    });
+                    
+                    // Info para mostrar en el banner
+                    const statsDedupeInfo = {
+                        totalOriginal: statsData?.properties?.length || 0,
+                        totalFiltrado: properties.length,
+                        duplicadosEliminados: (statsData?.properties?.length || 0) - properties.length
+                    };
+                    
+                    console.log(`📊 Dedupe: ${statsDedupeInfo.totalOriginal} → ${statsDedupeInfo.totalFiltrado} (${statsDedupeInfo.duplicadosEliminados} eliminados)`);
                     console.log(`📊 Propiedades encontradas: ${properties.length}`);
                     
                     // === TABLA ===
@@ -4204,17 +4226,39 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                     const banner = document.getElementById('market-status-banner');
                     if (banner) {
                         const fecha = new Date().toLocaleString();
+                        const operacionReal = statsData.operation_type || statsData.operacion || 'N/A';
+                        const tipoReal = statsData.property_type || statsData.tipo || 'N/A';
+                        const zonaReal = statsData.zone || statsData.zona || 'N/A';
+                        
                         banner.style.display = 'block';
                         banner.innerHTML = `
                             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                                 <div>
-                                    <strong>📊 Último Análisis:</strong> 
-                                    ${statsData.zone || 'Zona'} (${properties.length} propiedades) 
-                                    | <strong>Fecha:</strong> ${fecha}
+                                    <strong>📊 Mostrando ÚLTIMO scraping:</strong><br>
+                                    📍 <strong>${zonaReal.toUpperCase()}</strong> · 
+                                    ${operacionReal === 'venta' ? '💰 Venta' : operacionReal === 'alquiler' ? '🔑 Alquiler' : operacionReal} · 
+                                    ${tipoReal}
+                                    (${properties.length} propiedades)
+                                    <br>
+                                    <small style="color: var(--text-muted);">
+                                        ⚠️ Los filtros de arriba solo definen el PRÓXIMO scraping. 
+                                        Para ver otros datos, seleccioná filtros y clic en "🕷️ Scraping".
+                                    </small>
+                                    <br>
+                                    <small style="color: var(--text-muted);">
+                                        📊 ${statsDedupeInfo.duplicadosEliminados} duplicadas/sin datos filtradas de ${statsDedupeInfo.totalOriginal} originales
+                                    </small>
+                                    <br>
+                                    <small style="color: var(--text-muted);">Fecha: ${fecha}</small>
                                 </div>
-                                <button class="btn btn-outline" style="padding: 4px 12px;" onclick="cargarEstadisticasMercado()">
-                                    🔄 Recargar
-                                </button>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button class="btn btn-outline" style="padding: 4px 12px; font-size: 0.8rem;" onclick="cargarEstadisticasMercado()">
+                                        🔄 Recargar
+                                    </button>
+                                    <button class="btn btn-primary" style="padding: 4px 12px; font-size: 0.8rem;" onclick="ejecutarScrapingMercado()">
+                                        🕷️ Nuevo Scraping
+                                    </button>
+                                </div>
                             </div>
                         `;
                     }
