@@ -5583,32 +5583,96 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             const totalZonas = new Set(registros.map(r => r.zona)).size;
             const totalRegistros = registros.length;
             
-            // Precio promedio (solo venta departamento)
-            const deptosVenta = registros.filter(r => r.operacion === 'venta' && r.tipo === 'departamento');
-            const promUsado = deptosVenta.length > 0 
-                ? deptosVenta.reduce((sum, r) => sum + (r.precio_usado_m2 || 0), 0) / deptosVenta.length 
-                : 0;
-            const promNuevo = deptosVenta.length > 0 
-                ? deptosVenta.reduce((sum, r) => sum + (r.precio_nuevo_m2 || 0), 0) / deptosVenta.length 
-                : 0;
+            // Separar por operación
+            const ventas = registros.filter(r => (r.operacion || '').toLowerCase() === 'venta');
+            const alquileres = registros.filter(r => (r.operacion || '').toLowerCase() === 'alquiler');
             
-            document.getElementById('precios-kpis').innerHTML = `
+            const esMixto = ventas.length > 0 && alquileres.length > 0;
+            const soloAlquileres = alquileres.length > 0 && ventas.length === 0;
+            
+            // Helper: calcula promedios priorizando departamentos
+            function calcularPromedios(arr) {
+                const deptos = arr.filter(r => (r.tipo || '').toLowerCase() === 'departamento');
+                const base = deptos.length > 0 ? deptos : arr;
+                
+                const conUsado = base.filter(r => (r.precio_usado_m2 || 0) > 0);
+                const conNuevo = base.filter(r => (r.precio_nuevo_m2 || 0) > 0);
+                
+                const usadoProm = conUsado.length > 0
+                    ? conUsado.reduce((sum, r) => sum + r.precio_usado_m2, 0) / conUsado.length
+                    : 0;
+                const nuevoProm = conNuevo.length > 0
+                    ? conNuevo.reduce((sum, r) => sum + r.precio_nuevo_m2, 0) / conNuevo.length
+                    : 0;
+                
+                return { usado: usadoProm, nuevo: nuevoProm, cantidad: base.length };
+            }
+            
+            let html = '';
+            
+            // KPI 1: Zonas mostradas (siempre)
+            html += `
                 <div class="precios-kpi-card">
                     <div class="precios-kpi-value">${totalZonas}</div>
                     <div class="precios-kpi-label">📍 Zonas ${totalZonas === 1 ? 'mostrada' : 'mostradas'}</div>
                 </div>
-                <div class="precios-kpi-card" style="border-left-color: var(--warning);">
-                    <div class="precios-kpi-value" style="color: var(--warning);">
-                        US$ ${Math.round(promUsado).toLocaleString('es-AR')}
+            `;
+            
+            if (esMixto) {
+                // ===== FILTRO MIXTO → Mostrar 4 KPIs separados por moneda =====
+                const statsVenta = calcularPromedios(ventas);
+                const statsAlq = calcularPromedios(alquileres);
+                
+                html += `
+                    <div class="precios-kpi-card" style="border-left-color: var(--warning);">
+                        <div class="precios-kpi-value" style="color: var(--warning); font-size: 1.3rem;">
+                            US$ ${Math.round(statsVenta.usado).toLocaleString('es-AR')}
+                        </div>
+                        <div class="precios-kpi-label">🏠 USADO venta (US$/m²)</div>
                     </div>
-                    <div class="precios-kpi-label">🏠 Precio USADO prom/m² (deptos venta)</div>
-                </div>
-                <div class="precios-kpi-card">
-                    <div class="precios-kpi-value">
-                        US$ ${Math.round(promNuevo).toLocaleString('es-AR')}
+                    <div class="precios-kpi-card">
+                        <div class="precios-kpi-value" style="font-size: 1.3rem;">
+                            US$ ${Math.round(statsVenta.nuevo).toLocaleString('es-AR')}
+                        </div>
+                        <div class="precios-kpi-label">🆕 NUEVO venta (US$/m²)</div>
                     </div>
-                    <div class="precios-kpi-label">🆕 Precio NUEVO prom/m² (deptos venta)</div>
-                </div>
+                    <div class="precios-kpi-card" style="border-left-color: var(--warning);">
+                        <div class="precios-kpi-value" style="color: var(--warning); font-size: 1.3rem;">
+                            AR$ ${Math.round(statsAlq.usado).toLocaleString('es-AR')}
+                        </div>
+                        <div class="precios-kpi-label">🏠 USADO alquiler (AR$/m²)</div>
+                    </div>
+                    <div class="precios-kpi-card">
+                        <div class="precios-kpi-value" style="font-size: 1.3rem;">
+                            AR$ ${Math.round(statsAlq.nuevo).toLocaleString('es-AR')}
+                        </div>
+                        <div class="precios-kpi-label">🆕 NUEVO alquiler (AR$/m²)</div>
+                    </div>
+                `;
+            } else {
+                // ===== FILTRO ÚNICO (venta o alquiler) → 2 KPIs =====
+                const simbolo = soloAlquileres ? 'AR$' : 'US$';
+                const operacionLabel = soloAlquileres ? 'alquiler' : 'venta';
+                const stats = calcularPromedios(registros);
+                
+                html += `
+                    <div class="precios-kpi-card" style="border-left-color: var(--warning);">
+                        <div class="precios-kpi-value" style="color: var(--warning);">
+                            ${simbolo} ${Math.round(stats.usado).toLocaleString('es-AR')}
+                        </div>
+                        <div class="precios-kpi-label">🏠 Precio USADO prom/m² (deptos ${operacionLabel})</div>
+                    </div>
+                    <div class="precios-kpi-card">
+                        <div class="precios-kpi-value">
+                            ${simbolo} ${Math.round(stats.nuevo).toLocaleString('es-AR')}
+                        </div>
+                        <div class="precios-kpi-label">🆕 Precio NUEVO prom/m² (deptos ${operacionLabel})</div>
+                    </div>
+                `;
+            }
+            
+            // KPI final: Registros mostrados
+            html += `
                 <div class="precios-kpi-card" style="border-left-color: var(--success);">
                     <div class="precios-kpi-value" style="color: var(--success);">
                         ${totalRegistros}
@@ -5616,6 +5680,8 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                     <div class="precios-kpi-label">📊 Registros ${totalRegistros === 1 ? 'mostrado' : 'mostrados'}</div>
                 </div>
             `;
+            
+            document.getElementById('precios-kpis').innerHTML = html;
         }
 
         function exportarPreciosBarriosExcel() {
