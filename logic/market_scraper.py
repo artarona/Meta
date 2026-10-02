@@ -353,6 +353,63 @@ class BaseScraper(ABC):
             return 0.0
         return price / surface
     
+    def _clean_title(self, raw_title: str, address: str = "", operation: str = "", property_type: str = "") -> str:
+        """
+        Limpia y valida el título. Devuelve '' si el candidato parece precio,
+        descripción o basura.
+        """
+        import re
+        if not raw_title:
+            return ""
+        
+        t = raw_title.strip()
+        
+        # 1. Descartar si empieza con moneda/precio
+        if re.match(r'^(USD|ARS|U\$S|\$|US\$)\s*[\d.,]+', t, re.IGNORECASE):
+            return ""
+        
+        # 2. Descartar si es SOLO un número (con separadores)
+        if re.match(r'^[\d.,\s]+$', t):
+            return ""
+        
+        # 3. Descartar si es solo un rango tipo "USD 1.200 - 1.500"
+        if re.match(r'^(USD|ARS|\$)?\s*[\d.,]+\s*[-–]\s*[\d.,]+', t):
+            return ""
+        
+        # 4. Descartar si es muy largo (> 120 chars, es una descripción)
+        if len(t) > 120:
+            return ""
+        
+        # 5. Descartar si tiene demasiadas comas (frase descriptiva)
+        if t.count(',') >= 3:
+            return ""
+        
+        # 6. Descartar si tiene más de 4 números (parece features tipo "2 amb, 50m2, 1 baño")
+        if len(re.findall(r'\d+', t)) > 4:
+            return ""
+        
+        # 7. Descartar si es una URL
+        if t.startswith('http') or t.startswith('www.'):
+            return ""
+        
+        return t
+    
+    def _synthesize_title(self, address: str, operation: str, property_type: str) -> str:
+        """Genera un título razonable si no hay uno válido"""
+        parts = []
+        if property_type:
+            parts.append(property_type.capitalize())
+        if operation:
+            parts.append(f"en {operation}")
+        if address:
+            # Tomar solo el barrio/calle, sin número
+            short_addr = address.split(',')[0].strip()
+            parts.append(f"en {short_addr}")
+        
+        return " ".join(parts) if parts else "Propiedad"    
+    
+    
+    
     def _make_request(self, url: str, max_retries: int = 3) -> Optional[str]:
         """Realiza request con reintentos y delay - optimizado para Render"""
         for attempt in range(max_retries):
@@ -673,12 +730,35 @@ class ArgenpropScraper(BaseScraper):
             addr_elem = card.select_one('.card__address, [data-qa="card-address"], .address')
             address = addr_elem.get_text(strip=True) if addr_elem else ""
             
-            # Extraer título
-            title_elem = card.select_one('.card__title, h2, h3, [data-qa="card-title"]')
-            title = title_elem.get_text(strip=True) if title_elem else address
+            # Extraer título (selectores específicos de Argenprop, con validación anti-precio/descripción)
+            title_candidates = []
+            for sel in [
+                '.card__title',
+                '[data-qa="card-title"]',
+                '.listing__title',
+                '.card-title',
+                'h3',
+                'h4',
+            ]:
+                elem = card.select_one(sel)
+                if elem:
+                    candidate = self._clean_title(
+                        elem.get_text(strip=True),
+                        address=address,
+                        operation=operation,
+                        property_type=property_type
+                    )
+                    if candidate:
+                        title_candidates.append(candidate)
+            
+            if title_candidates:
+                title = title_candidates[0]
+            else:
+                # Sintetizar título si no hay uno válido: "Departamento en alquiler en Belgrano"
+                title = self._synthesize_title(address, operation, property_type)
             
             # Extraer superficie
-            surface_elem = card.select_one('.card__main-features, [data-qa="card-features"]')
+            surface_elem = card.select_one('.card__main-features, [data-qa="card-features"], .card__features')
             surface_text = surface_elem.get_text(strip=True) if surface_elem else ""
             surface = self._clean_surface(surface_text)
             
@@ -697,13 +777,15 @@ class ArgenpropScraper(BaseScraper):
                 prop_id = card['data-id']
             elif card.has_attr('id'):
                 prop_id = card['id']
+            elif card.has_attr('data-posting-id'):
+                prop_id = card['data-posting-id']
             
             # Ubicación y Dirección
             location = address.split(',')[-1].strip() if ',' in address else address
-
+            
             return PropertyData(
                 source=self.source_name,
-                external_id=prop_id or url.split('/')[-1] if url else "",
+                external_id=prop_id or (url.split('/')[-1] if url else ""),
                 title=title,
                 price_amount=price,
                 price_currency=currency,
@@ -933,8 +1015,31 @@ class ZonapropScraper(BaseScraper):
                 location = address
             
             # Extraer título / descripción
-            title_elem = card.select_one('[data-qa="POSTING_CARD_DESCRIPTION"], .postingCard-module__posting-description, h2')
-            title = title_elem.get_text(strip=True) if title_elem else address
+            # Extraer título / descripción (con validación anti-precio)
+            title_candidates = []
+            for sel in [
+                '[data-qa="POSTING_CARD_DESCRIPTION"]',
+                '.postingCardTitle',
+                '.postingCard-module__posting-title',
+                '.postingCard-module__posting-description',
+                'h3',  # ⚠️ NO usar h2 (en Zonaprop h2 = precio)
+            ]:
+                elem = card.select_one(sel)
+                if elem:
+                    candidate = self._clean_title(
+                        elem.get_text(strip=True),
+                        address=address,
+                        operation=operation,
+                        property_type=property_type
+                    )
+                    if candidate:
+                        title_candidates.append(candidate)
+            
+            if title_candidates:
+                title = title_candidates[0]
+            else:
+                # Sintetizar título si ningún selector encontró algo válido
+                title = self._synthesize_title(address, operation, property_type)
             
             # Extraer superficie y características
             features_elem = card.select_one('[data-qa="POSTING_CARD_FEATURES"], .postingMainFeatures-module__posting-main-features-block')
