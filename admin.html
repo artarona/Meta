@@ -2402,7 +2402,7 @@ R    <div class="container">
             try {
                 mostrarToast('Eliminando consulta...', 'info');
                 
-                const response = await fetchConLeClave(`/api/consultas-chat/${id}`, {
+                const response = await fetchConClave(`/api/consultas-chat/${id}`, {
                     method: 'DELETE'
                 });
                 
