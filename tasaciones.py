@@ -9,6 +9,79 @@ import os
 from logic.constants import BARRIOS_VALIDOS
 from campana_handlers import DESPEDIDA, iniciar_campana
 
+
+# ============================================================
+# HELPERS: Lectura dinámica de precios_barrios.json
+# ============================================================
+
+def cargar_precios_barrios():
+    """Carga precios_barrios.json completo. Devuelve {} si falla."""
+    try:
+        path = os.path.join(os.path.dirname(__file__), "precios_barrios.json")
+        if not os.path.exists(path):
+            log(f"⚠️ precios_barrios.json no encontrado en {path}")
+            return {}
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        log(f"⚠️ Error cargando precios_barrios.json: {e}")
+        return {}
+
+
+def obtener_barrios_disponibles(operacion='venta'):
+    """
+    Devuelve lista de barrios (lowercase) que tienen datos para esa operación.
+    Ejemplo: ['balvanera', 'belgrano', 'palermo', 'recoleta']
+    """
+    data = cargar_precios_barrios()
+    barrios = set()
+    op = operacion.lower().strip()
+    for entry in data.values():
+        if entry.get('operacion', '').lower().strip() == op:
+            zona = entry.get('zona', '').lower().strip()
+            if zona:
+                barrios.add(zona)
+    return sorted(barrios)
+
+
+def obtener_tipos_disponibles(barrio, operacion='venta'):
+    """
+    Devuelve lista de tipos (lowercase) disponibles para ese barrio+operación.
+    Ejemplo: ['casa', 'departamento', 'ph']
+    """
+    data = cargar_precios_barrios()
+    b = barrio.lower().strip()
+    op = operacion.lower().strip()
+    tipos = set()
+    for entry in data.values():
+        if (entry.get('zona', '').lower().strip() == b and
+            entry.get('operacion', '').lower().strip() == op):
+            tipo = entry.get('tipo', '').lower().strip()
+            if tipo:
+                tipos.add(tipo)
+    return sorted(tipos)
+
+
+def capitalizar_barrio(barrio_lower):
+    """Convierte 'balvanera' → 'Balvanera' (para mostrar bonito)."""
+    return barrio_lower.replace('_', ' ').title()
+
+
+def capitalizar_tipo(tipo_lower):
+    """Mapea tipos internos a etiquetas amigables."""
+    mapa = {
+        'departamento': 'Departamento',
+        'casa': 'Casa',
+        'ph': 'PH',
+        'oficina': 'Oficina / Local',
+        'local': 'Oficina / Local',
+        'terreno': 'Terreno',
+        'lote': 'Terreno',
+        'monoambiente': 'Monoambiente',
+    }
+    return mapa.get(tipo_lower, tipo_lower.title())
+
+
 def obtener_tasacion_local(barrio, tipo, estado, operacion='venta'):
     """Busca valoración en el mapa estadístico o BD local (Venta/Alquiler)"""
     try:
@@ -371,44 +444,75 @@ def manejar_menu_tasacion(text_lower, estado_usuario, user_id):
         )
 
 def mostrar_lista_barrios(estado_usuario, user_id):
-    """Muestra la lista de barrios disponibles para seleccionar"""
+    """Muestra la lista de barrios con datos reales según la operación elegida"""
     platform = estado_usuario.get('platform', 'whatsapp')
     es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
     
+    # Obtener la operación elegida
+    operacion = estado_usuario.get('data', {}).get('datos_tasacion', {}).get('operacion', 'venta')
+    
+    # 🔑 Barrios DINÁMICOS desde precios_barrios.json
+    barrios_lower = obtener_barrios_disponibles(operacion)
+    
+    if not barrios_lower:
+        log(f"⚠️ No hay barrios en precios_barrios.json para operación '{operacion}'")
+        if es_fb_ig:
+            return {
+                "type": "text",
+                "body": f"⚠️ No hay datos de tasación disponibles para *{operacion}* en este momento.\n\n1️⃣ Volver al menú\n2️⃣ Salir",
+                "preview": False
+            }
+        else:
+            return WhatsAppResponse.buttons(
+                header="⚠️ Sin datos",
+                body=f"No hay datos de tasación disponibles para *{operacion}* en este momento.",
+                buttons=[
+                    {"id": "m", "title": "Volver al menú"},
+                    {"id": "s", "title": "Salir"}
+                ]
+            )
+    
+    # Convertir a display
+    barrios_display = [capitalizar_barrio(b) for b in barrios_lower]
+    
     if es_fb_ig:
-        # Facebook/Instagram: mostrar texto con numeración
         barrios_texto = ""
-        for i, barrio in enumerate(BARRIOS_VALIDOS, 1):
+        for i, barrio in enumerate(barrios_display, 1):
             barrios_texto += f"{i}. {barrio}\n"
-        
         return {
             "type": "text",
             "body": f"📍 *Seleccioná el barrio de tu propiedad:*\n\n{barrios_texto}\n💡 *Envía el número o el nombre del barrio*\n\n1️⃣ Volver al menú\n2️⃣ Salir",
             "preview": False
         }
     else:
-        # WhatsApp: lista interactiva
-        rows_caba = [{"id": barrio, "title": barrio} for barrio in BARRIOS_VALIDOS]
+        # WhatsApp: lista interactiva (máx 10 filas por sección)
+        rows = [{"id": b, "title": capitalizar_barrio(b)} for b in barrios_lower[:10]]
+        
+        sections = [{
+            "title": f"Barrios con datos ({len(barrios_lower)})",
+            "rows": rows
+        }]
+        
+        # Si hay más de 10, agregar una segunda sección
+        if len(barrios_lower) > 10:
+            sections.append({
+                "title": "Más barrios",
+                "rows": [{"id": b, "title": capitalizar_barrio(b)} for b in barrios_lower[10:20]]
+            })
         
         return WhatsAppResponse.list_menu(
             header="📍 Selección de Barrio",
-            body="*¿En qué barrio se encuentra tu propiedad?*\n\nSeleccioná una opción de la lista:",
+            body=f"*¿En qué barrio se encuentra tu propiedad?*\n\n_{len(barrios_lower)} barrios con datos disponibles para {operacion}_",
             button_text="Ver barrios",
-            sections=[
-                {
-                    "title": "Barrios disponibles",
-                    "rows": rows_caba
-                }
-            ],
+            sections=sections,
             footer="Selecciona tu barrio 👇"
         )
 
-
 def manejar_tasacion_operacion(text_lower, estado_usuario, user_id):
-    """Guarda la operación y muestra la lista de barrios"""
+    """Guarda la operación y muestra la lista de barrios (con validación dinámica)"""
     ops = {"1": "venta", "2": "alquiler"}
     
-    # Aceptar también variantes textuales
+    # Normalizar texto: aceptar "venta", "vender", "1", etc.
     text_norm = text_lower.strip().lower()
     if text_norm in ["venta", "vender"]:
         text_norm = "1"
@@ -416,18 +520,64 @@ def manejar_tasacion_operacion(text_lower, estado_usuario, user_id):
         text_norm = "2"
     
     if text_norm in ops:
+        operacion = ops[text_norm]
+        
+        # 🔑 VALIDACIÓN: ¿hay barrios con datos para esta operación?
+        barrios = obtener_barrios_disponibles(operacion)
+        
+        if not barrios:
+            # No hay datos → avisar al usuario y ofrecer la otra opción
+            platform = estado_usuario.get('platform', 'whatsapp')
+            es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
+            
+            otra_op = "alquiler" if operacion == "venta" else "venta"
+            otra_barrios = obtener_barrios_disponibles(otra_op)
+            
+            if otra_barrios:
+                msg = (
+                    f"⚠️ *Sin datos de {operacion}*\n\n"
+                    f"No tenemos datos de tasación para *{operacion}* en este momento.\n"
+                    f"Pero sí tenemos para *{otra_op}*. ¿Qué querés hacer?"
+                )
+            else:
+                msg = (
+                    f"⚠️ *Sin datos disponibles*\n\n"
+                    f"No tenemos datos de tasación cargados en este momento. "
+                    f"Por favor intentá más tarde o contactá a un asesor."
+                )
+            
+            if es_fb_ig:
+                return {
+                    "type": "text",
+                    "body": f"{msg}\n\n1️⃣ Vender\n2️⃣ Alquilar\n\n💡 *Envía el número de la opción deseada*",
+                    "preview": False
+                }
+            else:
+                return WhatsAppResponse.buttons(
+                    header="📈 Tasación Virtual",
+                    body=msg,
+                    buttons=[
+                        {"id": "1", "title": "💰 Vender"},
+                        {"id": "2", "title": "🔑 Alquilar"}
+                    ],
+                    footer="Selecciona una opción 👇"
+                )
+        
+        # Guardar la operación elegida
         if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
             estado_usuario['data'] = {}
         if 'datos_tasacion' not in estado_usuario['data']:
             estado_usuario['data']['datos_tasacion'] = {}
         
-        estado_usuario['data']['datos_tasacion']['operacion'] = ops[text_norm]
+        estado_usuario['data']['datos_tasacion']['operacion'] = operacion
         estado_usuario['paso'] = 'tasacion_barrio_seleccion'
         actualizar_estado_usuario(user_id, estado_usuario)
         
-        # Mostrar lista interactiva de barrios
+        # Mostrar lista dinámica de barrios (solo los que tienen datos)
         return mostrar_lista_barrios(estado_usuario, user_id)
+    
     else:
+        # Opción inválida → mostrar botones Vender/Alquilar de nuevo
         platform = estado_usuario.get('platform', 'whatsapp')
         es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
         
@@ -448,98 +598,12 @@ def manejar_tasacion_operacion(text_lower, estado_usuario, user_id):
             )
 
 
-# def manejar_tasacion_barrio(text, estado_usuario, user_id):
-#     """Muestra lista de barrios para seleccionar"""
-#     # Detectar plataforma
-#     platform = estado_usuario.get('platform', 'whatsapp')
-#     es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
-    
-#     # Si ya hay un barrio guardado (viene de la selección), procesarlo
-#     if 'datos_tasacion' in estado_usuario['data'] and 'barrio_temp' in estado_usuario['data']['datos_tasacion']:
-#         barrio_seleccionado = estado_usuario['data']['datos_tasacion'].get('barrio_temp')
-#         if barrio_seleccionado:
-#             # Guardar el barrio definitivo
-#             estado_usuario['data']['datos_tasacion']['barrio'] = barrio_seleccionado
-#             estado_usuario['data']['datos_tasacion'].pop('barrio_temp', None)
-#             estado_usuario['paso'] = 'tasacion_tipo'
-#             actualizar_estado_usuario(user_id, estado_usuario)
-            
-#             if es_fb_ig:
-#                 return {
-#                     "type": "text",
-#                     "body": f"📍 Barrio seleccionado: *{barrio_seleccionado}* ✅\n\n🏠 *¿Qué tipo de propiedad es?*\n\n1️⃣ Departamento\n2️⃣ Casa\n3️⃣ PH\n4️⃣ Oficina / Local\n5️⃣ Terreno\n\n1️⃣ Volver al menú\n2️⃣ Salir\n\n💡 *Envía el número de la opción deseada*",
-#                     "preview": False
-#                 }
-#             else:
-#                 return {
-#                     "type": "interactive_list",
-#                     "body": f"📍 Barrio seleccionado: *{barrio_seleccionado}* ✅\n\n🏠 *¿Qué tipo de propiedad es?*",
-#                     "button_text": "Ver tipos",
-#                     "sections": [
-#                         {
-#                             "title": "Tipo de Propiedad",
-#                             "rows": [
-#                                 {"id": "1", "title": "Departamento"},
-#                                 {"id": "2", "title": "Casa"},
-#                                 {"id": "3", "title": "PH"},
-#                                 {"id": "4", "title": "Oficina / Local"},
-#                                 {"id": "5", "title": "Terreno"}
-#                             ]
-#                         }
-#                     ],
-#                     "footer": "Selecciona una opción 👇"
-#                 }
-    
-#     # Primera vez: mostrar lista de barrios
-#     if 'datos_tasacion' not in estado_usuario['data']:
-#         estado_usuario['data']['datos_tasacion'] = {}
-    
-#     estado_usuario['paso'] = 'tasacion_barrio_seleccion'
-#     actualizar_estado_usuario(user_id, estado_usuario)
-    
-#     # Crear rows para la lista de barrios (agrupados por zona)
-#     rows_caba = []
-#     rows_gba = []
-    
-#     for barrio in BARRIOS_VALIDOS:
-#         rows_caba.append({"id": barrio, "title": barrio})
-    
-#     if es_fb_ig:
-#         # Facebook/Instagram: mostrar texto con numeración
-#         barrios_texto = ""
-#         for i, barrio in enumerate(BARRIOS_VALIDOS, 1):
-#             barrios_texto += f"{i}. {barrio}\n"
-        
-#         return {
-#             "type": "text",
-#             "body": f"📍 *Seleccioná el barrio de tu propiedad:*\n\n{barrios_texto}\n💡 *Envía el número o el nombre del barrio*\n\n1️⃣ Volver al menú\n2️⃣ Salir",
-#             "preview": False
-#         }
-#     else:
-#         # WhatsApp: lista interactiva
-#         return WhatsAppResponse.list_menu(
-#             header="📍 Selección de Barrio",
-#             body="*¿En qué barrio se encuentra tu propiedad?*\n\nSeleccioná una opción de la lista:",
-#             button_text="Ver barrios",
-#             sections=[
-#                 {
-#                     "title": "Barrios disponibles",
-#                     "rows": rows_caba
-#                 }
-#             ],
-#             footer="Selecciona tu barrio 👇"
-#         )
-
-
-
-
 def manejar_tasacion_barrio_seleccion(text, estado_usuario, user_id):
-    """Maneja la selección de barrio desde la lista"""
+    """Maneja la selección de barrio desde la lista — solo barrios con datos"""
     text_stripped = text.strip()
     platform = estado_usuario.get('platform', 'whatsapp')
     es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
     
-    # Si no hay texto (caso inicial), mostrar la lista
     if not text_stripped:
         return mostrar_lista_barrios(estado_usuario, user_id)
     
@@ -554,135 +618,163 @@ def manejar_tasacion_barrio_seleccion(text, estado_usuario, user_id):
         actualizar_estado_usuario(user_id, estado_usuario)
         return DESPEDIDA
     
-    # Buscar el barrio seleccionado (por nombre o por número)
+    operacion = estado_usuario.get('data', {}).get('datos_tasacion', {}).get('operacion', 'venta')
+    barrios_lower = obtener_barrios_disponibles(operacion)
+    
+    # Buscar barrio por número o nombre
     barrio_seleccionado = None
     
-    # Intentar por número (para FB/IG)
     if text_stripped.isdigit():
         idx = int(text_stripped) - 1
-        if 0 <= idx < len(BARRIOS_VALIDOS):
-            barrio_seleccionado = BARRIOS_VALIDOS[idx]
+        if 0 <= idx < len(barrios_lower):
+            barrio_seleccionado = barrios_lower[idx]
     
-    # Intentar por nombre exacto
     if not barrio_seleccionado:
-        for barrio in BARRIOS_VALIDOS:
-            if barrio.lower() == text_stripped.lower():
-                barrio_seleccionado = barrio
+        for b in barrios_lower:
+            if b.lower() == text_stripped.lower():
+                barrio_seleccionado = b
                 break
     
-    # Intentar por coincidencia parcial (ej: "pale" -> "Palermo")
     if not barrio_seleccionado:
-        for barrio in BARRIOS_VALIDOS:
-            if barrio.lower().startswith(text_stripped.lower()) or text_stripped.lower() in barrio.lower():
-                barrio_seleccionado = barrio
+        for b in barrios_lower:
+            if b.lower().startswith(text_stripped.lower()) or text_stripped.lower() in b.lower():
+                barrio_seleccionado = b
                 break
     
-    if barrio_seleccionado:
-        # Guardar el barrio definitivamente
-        if 'datos_tasacion' not in estado_usuario['data']:
-            estado_usuario['data']['datos_tasacion'] = {}
-        
-        estado_usuario['data']['datos_tasacion']['barrio'] = barrio_seleccionado
-        estado_usuario['paso'] = 'tasacion_tipo'
-        actualizar_estado_usuario(user_id, estado_usuario)
-        
-        # Mostrar siguiente paso (selección de tipo de propiedad)
-        if es_fb_ig:
-            return {
-                "type": "text",
-                "body": f"📍 Barrio seleccionado: *{barrio_seleccionado}* ✅\n\n🏠 *¿Qué tipo de propiedad es?*\n\n1️⃣ Departamento\n2️⃣ Casa\n3️⃣ PH\n4️⃣ Oficina / Local\n5️⃣ Terreno\n\n1️⃣ Volver al menú\n2️⃣ Salir\n\n💡 *Envía el número de la opción deseada*",
-                "preview": False
-            }
-        else:
-            return {
-                "type": "interactive_list",
-                "body": f"📍 Barrio seleccionado: *{barrio_seleccionado}* ✅\n\n🏠 *¿Qué tipo de propiedad es?*",
-                "button_text": "Ver tipos",
-                "sections": [
-                    {
-                        "title": "Tipo de Propiedad",
-                        "rows": [
-                            {"id": "1", "title": "Departamento"},
-                            {"id": "2", "title": "Casa"},
-                            {"id": "3", "title": "PH"},
-                            {"id": "4", "title": "Oficina / Local"},
-                            {"id": "5", "title": "Terreno"}
-                        ]
-                    }
-                ],
-                "footer": "Selecciona una opción 👇"
-            }
+    if not barrio_seleccionado:
+        # Barrio no válido o sin datos
+        return WhatsAppResponse.buttons(
+            body=f"⚠️ *{text_stripped}* no está entre los barrios con datos disponibles.\n\nPor favor, elegí uno de la lista o envía *'M'* para volver al menú.",
+            buttons=botones_navegacion(),
+            footer="Selecciona una opción 👇"
+        )
+    
+    # 🔑 Tipos DINÁMICOS desde precios_barrios.json
+    tipos_disponibles = obtener_tipos_disponibles(barrio_seleccionado, operacion)
+    
+    if not tipos_disponibles:
+        # No debería pasar porque el barrio salió de la lista, pero por las dudas
+        return WhatsAppResponse.buttons(
+            body=f"⚠️ No hay tipos de propiedad con datos para *{capitalizar_barrio(barrio_seleccionado)}*.",
+            buttons=botones_navegacion(),
+            footer="Selecciona una opción 👇"
+        )
+    
+    # Guardar barrio
+    if 'datos_tasacion' not in estado_usuario['data']:
+        estado_usuario['data']['datos_tasacion'] = {}
+    estado_usuario['data']['datos_tasacion']['barrio'] = capitalizar_barrio(barrio_seleccionado)
+    estado_usuario['data']['datos_tasacion']['tipos_disponibles'] = tipos_disponibles
+    estado_usuario['paso'] = 'tasacion_tipo'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    # Mostrar tipos dinámicos
+    if es_fb_ig:
+        tipos_texto = ""
+        for i, t in enumerate(tipos_disponibles, 1):
+            tipos_texto += f"{i}. {capitalizar_tipo(t)}\n"
+        return {
+            "type": "text",
+            "body": f"📍 Barrio seleccionado: *{capitalizar_barrio(barrio_seleccionado)}* ✅\n\n🏠 *¿Qué tipo de propiedad es?*\n\n{tipos_texto}\n💡 *Envía el número de la opción deseada*",
+            "preview": False
+        }
     else:
-        # Barrio no válido, mostrar la lista nuevamente
-        return mostrar_lista_barrios(estado_usuario, user_id)
+        rows = [
+            {"id": t, "title": capitalizar_tipo(t)} 
+            for t in tipos_disponibles
+        ]
+        return WhatsAppResponse.list_menu(
+            body=f"📍 Barrio: *{capitalizar_barrio(barrio_seleccionado)}* ✅\n\n🏠 *¿Qué tipo de propiedad es?*",
+            button_text="Ver tipos",
+            sections=[{
+                "title": "Tipos con datos disponibles",
+                "rows": rows
+            }],
+            footer="Selecciona una opción 👇"
+        )
 
 def manejar_tasacion_tipo(text_lower, estado_usuario, user_id):
-    """Guarda el tipo e inicia la carga de m2"""
-    tipos = {
-        "1": "Departamento",
-        "2": "Casa",
-        "3": "PH",
-        "4": "Oficina",
-        "5": "Terreno"
-    }
-    
-    # Detectar plataforma
+    """Guarda el tipo (validado contra precios_barrios.json) e inicia carga de m2"""
     platform = estado_usuario.get('platform', 'whatsapp')
     es_fb_ig = platform in ("messenger", "facebook", "instagram") if platform else False
     
-    if text_lower in tipos:
-        if 'datos_tasacion' not in estado_usuario['data']:
-            estado_usuario['data']['datos_tasacion'] = {}
-            
-        estado_usuario['data']['datos_tasacion']['tipo'] = tipos[text_lower]
-        estado_usuario['paso'] = 'tasacion_m2'
+    # Tipos disponibles guardados en el paso anterior
+    tipos_disponibles = estado_usuario.get('data', {}).get('datos_tasacion', {}).get('tipos_disponibles', [])
+    
+    if not tipos_disponibles:
+        log(f"⚠️ No hay tipos_disponibles en el estado — volviendo a barrio")
+        estado_usuario['paso'] = 'tasacion_barrio_seleccion'
         actualizar_estado_usuario(user_id, estado_usuario)
-        
-        cuerpo = "📏 *¿Cuántos m² cubiertos tiene la propiedad?*\n_(Ingresá solo el número, ej: 65)_"
-        
+        return mostrar_lista_barrios(estado_usuario, user_id)
+    
+    # Mapeo textual para aceptar "departamento" o "Departamento"
+    text_norm = text_lower.strip().lower()
+    
+    tipo_seleccionado = None
+    
+    # 1. Por número (1, 2, 3, ...)
+    if text_norm.isdigit():
+        idx = int(text_norm) - 1
+        if 0 <= idx < len(tipos_disponibles):
+            tipo_seleccionado = tipos_disponibles[idx]
+    
+    # 2. Por nombre
+    if not tipo_seleccionado:
+        for t in tipos_disponibles:
+            if t.lower() == text_norm:
+                tipo_seleccionado = t
+                break
+    
+    # 3. Coincidencia parcial
+    if not tipo_seleccionado:
+        for t in tipos_disponibles:
+            if t.lower().startswith(text_norm) or text_norm in t.lower():
+                tipo_seleccionado = t
+                break
+    
+    if not tipo_seleccionado:
+        # Tipo no válido
         if es_fb_ig:
+            tipos_texto = "\n".join([f"{i}. {capitalizar_tipo(t)}" for i, t in enumerate(tipos_disponibles, 1)])
             return {
                 "type": "text",
-                "body": f"{cuerpo}\n\n1️⃣ Volver al menú\n2️⃣ Salir\n\n💡 *Envía el número de la opción deseada*",
+                "body": f"⚠️ Opción no válida.\n\n🏠 *¿Qué tipo de propiedad es?*\n\n{tipos_texto}\n\n💡 *Envía el número de la opción deseada*",
                 "preview": False
             }
         else:
-            return WhatsAppResponse.buttons(
-                body=cuerpo,
-                buttons=[
-                    {"id": "c_menu", "title": "📋 Volver al menú"},
-                    {"id": "c_salir", "title": "❌ Salir"}
-                ],
-                footer="🏠 Dante Propiedades · Tu lugar ideal 🗝️"
+            rows = [{"id": t, "title": capitalizar_tipo(t)} for t in tipos_disponibles]
+            return WhatsAppResponse.list_menu(
+                body="⚠️ Opción no válida.\n\n🏠 *¿Qué tipo de propiedad es?*",
+                button_text="Ver tipos",
+                sections=[{
+                    "title": "Tipos con datos disponibles",
+                    "rows": rows
+                }],
+                footer="Selecciona una opción 👇"
             )
+    
+    # Guardar tipo
+    estado_usuario['data']['datos_tasacion']['tipo'] = capitalizar_tipo(tipo_seleccionado)
+    estado_usuario['paso'] = 'tasacion_m2'
+    actualizar_estado_usuario(user_id, estado_usuario)
+    
+    cuerpo = "📏 *¿Cuántos m² cubiertos tiene la propiedad?*\n_(Ingresá solo el número, ej: 65)_"
+    
+    if es_fb_ig:
+        return {
+            "type": "text",
+            "body": f"{cuerpo}\n\n1️⃣ Volver al menú\n2️⃣ Salir",
+            "preview": False
+        }
     else:
-        # Si no es una opción válida, mostrar el menú de tipos nuevamente con botones (sin hint)
-        if es_fb_ig:
-            return {
-                "type": "text",
-                "body": "⚠️ Opción no válida.\n\n🏠 *¿Qué tipo de propiedad es?*\n\n1️⃣ Departamento\n2️⃣ Casa\n3️⃣ PH\n4️⃣ Oficina / Local\n5️⃣ Terreno\n\n1️⃣ Volver al menú\n2️⃣ Salir\n\n💡 *Envía el número de la opción deseada*",
-                "preview": False
-            }
-        else:
-            # WhatsApp: lista interactiva SIN el hint en el footer
-            return {
-                "type": "interactive_list",
-                "body": "⚠️ Opción no válida.\n\n🏠 *¿Qué tipo de propiedad es?*",
-                "button_text": "Ver tipos",
-                "sections": [
-                    {
-                        "title": "Tipo de Propiedad",
-                        "rows": [
-                            {"id": "1", "title": "Departamento"},
-                            {"id": "2", "title": "Casa"},
-                            {"id": "3", "title": "PH"},
-                            {"id": "4", "title": "Oficina / Local"},
-                            {"id": "5", "title": "Terreno"}
-                        ]
-                    }
-                ],
-                "footer": "Selecciona una opción 👇"  # ← Footer limpio
-            }
+        return WhatsAppResponse.buttons(
+            body=cuerpo,
+            buttons=[
+                {"id": "c_menu", "title": "📋 Volver al menú"},
+                {"id": "c_salir", "title": "❌ Salir"}
+            ],
+            footer="🏠 Dante Propiedades · Tu lugar ideal 🗝️"
+        )
 
 def manejar_tasacion_m2(text, estado_usuario, user_id):
     """Guarda los m2 e inicia la carga de estado (saltando ambientes)"""
