@@ -1482,26 +1482,28 @@ R    <div class="container">
             <div class="tab-header">
                 <h2>📈 Análisis de Mercado - Dante CRM</h2>
                 <div class="filters" style="flex-wrap: wrap; gap: 10px;">
-                    <input type="text" class="search-box" style="width: 180px;" id="market-zona" list="barrios-list"
-                        placeholder="📍 Barrio/Zona...">
-                    <datalist id="barrios-list">
-                        <option value="palermo">Palermo</option>
-                        <option value="belgrano">Belgrano</option>
-                        <option value="recoleta">Recoleta</option>
-                        <option value="microcentro">Microcentro</option>
-                        <option value="caballito">Caballito</option>
-                        <option value="san telmo">San Telmo</option>
-                    </datalist>
+                    <select class="select-filter" id="market-zona" style="width: 220px;">
+                        <option value="">📍 Cargando barrios...</option>
+                    </select>
                     <select class="select-filter" id="market-operacion" style="width: 100px;">
                         <option value="venta">Venta</option>
                         <option value="alquiler">Alquiler</option>
                     </select>
+                    <select class="select-filter" id="market-tipo" style="width: 140px;">
+                        <option value="departamento">🏢 Departamento</option>
+                        <option value="ph">🏘️ PH</option>
+                        <option value="casa">🏠 Casa</option>
+                        <option value="terreno">🌱 Terreno</option>
+                        <option value="oficina">💼 Oficina</option>
+                        <option value="local">🏪 Local</option>
+                        <option value="cochera">🚗 Cochera</option>
+                    </select>
                     <button class="btn btn-primary" onclick="ejecutarScrapingMercado()" style="padding: 8px 12px; white-space: nowrap;">
                         🕷️ Scraping
                     </button>
-                    <button class="btn btn-success" onclick="forzarCargaMercado()" style="background: #10b981; padding: 8px 12px; white-space: nowrap;">
+                    <!-- <button class="btn btn-success" onclick="forzarCargaMercado()" style="background: #10b981; padding: 8px 12px; white-space: nowrap;">
                         🔄 Forzar Carga
-                    </button>
+                    </button> -->
                     <button class="btn btn-outline" onclick="cargarEstadisticasMercado()" style="padding: 8px 12px; white-space: nowrap;">
                         📊 Recargar
                     </button>
@@ -1937,6 +1939,7 @@ R    <div class="container">
         let flatpickrEditFecha = null;
         let listaHorariosGlobales = [];
         let currentMsgDest = '';
+        let isScrapingInProgress = false;
 
         // Configuración por defecto
         let configuracion = {
@@ -2071,8 +2074,9 @@ R    <div class="container">
                 actualizarEstadisticas(currentTab);
                 actualizarBannerStatusMercado();
                 
-                // Cargar mercado solo si estamos en esa pestaña
-                if (currentTab === 'mercado') {
+
+                // Cargar mercado solo si estamos en esa pestaña Y NO hay scraping en curso
+                if (currentTab === 'mercado' && !isScrapingInProgress) {
                     cargarEstadisticasMercado();
                 }
                 
@@ -2318,9 +2322,12 @@ R    <div class="container">
                             ${searchBadge}
                         </div>
                         
-                        <div class="card-actions" style="grid-template-columns: 1fr;">
+                        <div class="card-actions" style="grid-template-columns: 1fr 1fr;">
                             <button class="btn btn-primary" onclick="verDetalleConsulta(${c.id})">
                                 👁️ Ver completa
+                            </button>
+                            <button class="btn btn-danger" onclick="eliminarConsulta(${c.id})">
+                                🗑️ Eliminar
                             </button>
                         </div>
                     </div>
@@ -2386,6 +2393,37 @@ R    <div class="container">
             document.getElementById('detalle-consulta-content').innerHTML = html;
             document.getElementById('modal-ver-respuesta-ia').classList.add('active');
         }
+
+        async function eliminarConsulta(id) {
+            if (!confirm(`¿Eliminar la consulta #${id}? Esta acción no se puede deshacer.`)) {
+                return;
+            }
+            
+            try {
+                mostrarToast('Eliminando consulta...', 'info');
+                
+                const response = await fetchConLeClave(`/api/consultas-chat/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response && response.status === 'success') {
+                    mostrarToast('✅ Consulta eliminada', 'success');
+                    // Recargar la lista
+                    await cargarConsultasChat();
+                    // Actualizar stats si estamos en esa tab
+                    if (currentTab === 'consultas-chat') {
+                        actualizarEstadisticas('consultas-chat');
+                    }
+                } else {
+                    mostrarToast(`❌ Error: ${response?.error || 'No se pudo eliminar'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error eliminando consulta:', error);
+                mostrarToast('❌ Error de conexión al eliminar', 'error');
+            }
+        }
+
+
 
         // Mostrar citas
         function mostrarCitas(citas) {
@@ -3535,7 +3573,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         }
 
         function mostrarTab(tabName) {
-            currentTab = tabName;  // ← NUEVA LÍNEA
+            currentTab = tabName;
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
             });
@@ -3555,11 +3593,18 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 actualizarEstadisticas(tabName);
                 
                 if (tabName === 'mercado') {
-                    // Cargar mercado solo una vez al entrar a la pestaña
-                    if (!window._mercadoCargado) {
-                        window._mercadoCargado = true;
-                        setTimeout(() => cargarEstadisticasMercado(), 300);
-                    }
+                    limpiarVistaMercado();
+                    setTimeout(() => {
+                        // Solo cargar si NO hay scraping en curso
+                        if (!isScrapingInProgress) {
+                            cargarEstadisticasMercado();
+                        }
+                        // Fallback: si el select de barrios quedó vacío, repoblarlo
+                        const select = document.getElementById('market-zona');
+                        if (select && select.options.length <= 1) {
+                            cargarBarriosDisponibles();
+                        }
+                    }, 300);
                 } else if (tabName === 'barrios') {
                     cargarBarrios();
                 } else if (tabName === 'configuracion') {
@@ -3575,7 +3620,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
 
             localStorage.setItem('ultima_tab', tabName);
         }
-
 
 
         async function mostrarModalNuevaCita() {
@@ -3889,6 +3933,8 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 cargarDatos();
                 actualizarRefreshInterval();
 
+                cargarBarriosDisponibles();
+
                 const ultimaTab = localStorage.getItem('ultima_tab') || 'resumen';
                 mostrarTab(ultimaTab);
 
@@ -3971,7 +4017,64 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         // FUNCIONES PARA ESTADÍSTICAS DE MERCADO
         // ============================================
 
+        function limpiarVistaMercado() {
+            console.log('🧹 Limpiando vista de mercado...');
+            
+            // 1. Destruir gráficos previos
+            if (window.barChart)     { window.barChart.destroy();     window.barChart = null; }
+            if (window.scatterChart) { window.scatterChart.destroy(); window.scatterChart = null; }
+            
+            // 2. Resetear KPIs
+            const kpiContainer = document.getElementById('market-kpi-grid');
+            if (kpiContainer) {
+                kpiContainer.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-number">—</div>
+                        <div>Esperando datos...</div>
+                        <div class="stat-trend">Ejecutá un scraping</div>
+                    </div>
+                `;
+            }
+            
+            // 3. Resetear tabla
+            const tableBody = document.getElementById('market-properties-table');
+            if (tableBody) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 60px;">
+                            <div style="font-size: 3rem;">🏠</div>
+                            <h3 style="margin: 10px 0;">Sin datos para mostrar</h3>
+                            <p style="color: var(--text-muted);">Ejecutá un scraping para obtener datos del mercado</p>
+                        </td>
+                    </tr>
+                `;
+            }
+            
+            // 4. Ocultar banner de status
+            const banner = document.getElementById('market-status-banner');
+            if (banner) banner.style.display = 'none';
+            
+            // 5. Regenerar canvas (por si Chart.js dejó referencias colgadas)
+            ['market-bar-chart', 'market-scatter-chart'].forEach(id => {
+                const canvas = document.getElementById(id);
+                if (canvas) {
+                    const parent = canvas.parentNode;
+                    const newCanvas = document.createElement('canvas');
+                    newCanvas.id = id;
+                    newCanvas.style.height = '350px';
+                    newCanvas.style.width = '100%';
+                    parent.replaceChild(newCanvas, canvas);
+                }
+            });
+        }
+        
+        
         async function cargarEstadisticasMercado() {
+            // Si hay un scraping en curso, no pisar la vista
+            if (isScrapingInProgress) {
+                console.log('⏸️ Scraping en progreso — saltando carga de mercado');
+                return;
+            }
             try {
                 console.log('📊 Cargando datos de mercado...');
                 
@@ -4129,6 +4232,34 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 console.error('❌ Error cargando mercado:', error);
             }
         }
+
+        async function cargarBarriosDisponibles() {
+            const select = document.getElementById('market-zona');
+            if (!select) return;
+            
+            try {
+                const res = await fetchConClave('/api/barrios-disponibles');
+                
+                if (res && res.success && res.barrios) {
+                    let html = '<option value="">📍 Seleccionar barrio...</option>';
+                    
+                    res.barrios.forEach(b => {
+                        html += `<option value="${b.valor}">${b.display}</option>`;
+                    });
+                    
+                    select.innerHTML = html;
+                    console.log(`✅ ${res.barrios.length} barrios cargados en el selector`);
+                } else {
+                    select.innerHTML = '<option value="">❌ Error cargando barrios</option>';
+                    console.error('Respuesta inválida:', res);
+                }
+            } catch (error) {
+                console.error('Error cargando barrios disponibles:', error);
+                select.innerHTML = '<option value="">❌ Error de conexión</option>';
+            }
+        }
+
+
         function renderizarGraficosMercado(data) {
             console.log('📊 Renderizando gráficos...');
             
@@ -4593,46 +4724,78 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         async function ejecutarScrapingMercado() {
             const zona = document.getElementById('market-zona').value;
             const operacion = document.getElementById('market-operacion').value;
+            const tipo = document.getElementById('market-tipo')?.value || 'departamento';
             
             if (!zona) {
-                mostrarToast('⚠️ Por favor ingresa un barrio o zona', 'warning');
+                mostrarToast('⚠️ Por favor seleccioná un barrio', 'warning');
                 return;
             }
 
-            if (!confirm(`¿Iniciar scraping de ${operacion} en ${zona}? Esto tomará unos minutos.`)) return;
+            if (!confirm(`¿Iniciar scraping de "${tipo}s" en ${operacion} para ${zona}?`)) return;
 
+            // 🔒 Marcar scraping en curso ANTES de limpiar
+            isScrapingInProgress = true;
+            
+            // Limpiar todo
+            limpiarVistaMercado();
+            
             try {
-                mostrarToast('🕷️ Iniciando scraping... puede tardar 1-2 minutos.', 'info');
+                mostrarToast(`🕷️ Iniciando scraping de ${tipo}s en ${zona}...`, 'info');
                 
-                // Mostrar loading
+                // Mostrar loading en la tabla
                 const tableBody = document.getElementById('market-properties-table');
                 if (tableBody) {
-                    tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:60px;">⏳ Ejecutando scraping, por favor espera...</td></tr>';
+                    tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:60px;">
+                        ⏳ Ejecutando scraping de <strong>${tipo}s</strong> en <strong>${zona}</strong>...
+                        <br><small style="color: var(--text-muted);">Esto puede tardar 1-2 minutos</small>
+                    </td></tr>`;
+                }
+                
+                // También mostrar loading en KPIs
+                const kpiContainer = document.getElementById('market-kpi-grid');
+                if (kpiContainer) {
+                    kpiContainer.innerHTML = `
+                        <div class="stat-card">
+                            <div class="stat-number">⏳</div>
+                            <div>Scraping en curso...</div>
+                            <div class="stat-trend">${zona} / ${tipo}s / ${operacion}</div>
+                        </div>
+                    `;
                 }
 
                 const response = await fetchConClave('/api/market/run-scrape', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ zona, operacion, tipo: 'departamento' })
+                    body: JSON.stringify({ zona, operacion, tipo })
                 });
                 
                 if (response && response.success === true) {
                     mostrarToast(`✅ ${response.message}`, 'success');
-                    // Esperar un poco y forzar la carga
-                    setTimeout(() => forzarCargaMercado(), 2000);
+                    
+                    // 🔓 Desmarcar scraping ANTES de cargar (para que cargarEstadisticas funcione)
+                    isScrapingInProgress = false;
+                    
+                    // Cargar datos frescos
+                    await cargarEstadisticasMercado();
                 } else {
-                    const errorMsg = response?.message || response?.error || 'Error desconocido';
-                    mostrarToast('⚠️ ' + errorMsg, 'warning');
+                    mostrarToast(`⚠️ ${response?.message || response?.error || 'Error desconocido'}`, 'warning');
+                    isScrapingInProgress = false;
+                    
+                    // Mostrar mensaje claro en la tabla
+                    if (tableBody) {
+                        tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:40px; color: var(--text-muted);">
+                            No se obtuvieron resultados para <strong>${zona} / ${tipo}s / ${operacion}</strong>.<br>
+                            <small>Probá con otro filtro o revisá los logs del servidor.</small>
+                        </td></tr>`;
+                    }
                 }
                 
             } catch (error) {
                 console.error('Error en scraping:', error);
                 mostrarToast('❌ Error de conexión al ejecutar scraping', 'error');
+                isScrapingInProgress = false;
             }
         }
-
-
-
 
         function descargarExcelMercado() {
             const table = document.getElementById('market-properties-table');
@@ -5185,77 +5348,70 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         }
 
         function renderizarGraficoPrecios(registros, operacionFiltro) {
-            const canvas = document.getElementById('precios-comparison-chart');
-            const container = canvas ? canvas.parentNode : null;
-            if (!canvas || !container) return;
+            // Buscamos el contenedor padre (el div con height:300px) por su estructura, no por el canvas
+            const statCard = document.querySelector('#tab-precios-barrios .stat-card');
+            if (!statCard) return;
             
+            let container = statCard.querySelector('div[style*="height: 300px"]');
+            if (!container) {
+                // Si por algún motivo no existe, lo creamos
+                container = document.createElement('div');
+                container.style.cssText = 'height: 300px; position: relative;';
+                statCard.appendChild(container);
+            }
+            
+            // Destruir gráfico previo
             if (preciosChart) {
                 preciosChart.destroy();
                 preciosChart = null;
             }
             
-            // Leer el select de operación
+            // Leer filtros (igual que antes)
             const selectOperacion = document.getElementById('precios-operacion');
-            let operacionSeleccionada = '';
-            if (selectOperacion && selectOperacion.value) {
-                operacionSeleccionada = String(selectOperacion.value).trim().toLowerCase();
-            }
+            let operacionSeleccionada = selectOperacion?.value 
+                ? String(selectOperacion.value).trim().toLowerCase() : '';
             
-            // Leer el select de tipo (¡NUEVO!)
             const selectTipo = document.getElementById('precios-tipo');
-            let tipoSeleccionado = '';
-            if (selectTipo && selectTipo.value) {
-                tipoSeleccionado = String(selectTipo.value).trim().toLowerCase();
-            }
+            let tipoSeleccionado = selectTipo?.value 
+                ? String(selectTipo.value).trim().toLowerCase() : '';
             
-            console.log('📈 Gráfico:', {
-                operacionSeleccionada,
-                tipoSeleccionado,
-                totalRegistros: registros.length
-            });
-            
-            // Determinar operación
             let operacion, simbolo;
-            
             if (operacionSeleccionada === 'alquiler') {
-                operacion = 'alquiler';
-                simbolo = 'AR$';
-            } else if (operacionSeleccionada === 'venta') {
-                operacion = 'venta';
-                simbolo = 'US$';
+                operacion = 'alquiler'; simbolo = 'AR$';
             } else {
-                operacion = 'venta';
-                simbolo = 'US$';
+                operacion = 'venta'; simbolo = 'US$';
             }
-            
-            // 👇 FIX: usar el tipo seleccionado o departamento por defecto
             const tipoAMostrar = tipoSeleccionado || 'departamento';
             
-            // Filtrar por operación Y tipo
             const filtrados = registros.filter(r => 
                 (r.operacion || '').toLowerCase() === operacion && 
                 (r.tipo || '').toLowerCase() === tipoAMostrar
             );
             
-            // Nombre para mostrar
             const pluralOperacion = pluralizarOperacion(operacion);
-            const tipoDisplay = tipoAMostrar.charAt(0).toUpperCase() + tipoAMostrar.slice(1);
             
-            // Si no hay datos
+            // Título siempre actualizado
+            const tituloEl = statCard.querySelector('h3');
+            if (tituloEl) {
+                const emoji = operacion === 'venta' ? '💰' : '🔑';
+                tituloEl.innerHTML = `📈 Comparación USADO vs NUEVO - ${pluralOperacion} (${simbolo}) ${emoji}`;
+            }
+            
+            // Si NO hay datos → mostramos mensaje PERO SIN BORRAR EL CANVAS
             if (!filtrados || filtrados.length === 0) {
-                container.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 3rem;">
-                    📊 No hay datos de ${pluralOperacion.toLowerCase()} de ${tipoAMostrar}s para los filtros seleccionados.<br>
-                    <small>Probá seleccionando otro tipo o quitando filtros.</small>
-                </p>`;
+                container.innerHTML = ''; // limpiamos
+                const msg = document.createElement('p');
+                msg.style.cssText = 'text-align:center; color:var(--text-muted); padding:3rem;';
+                msg.innerHTML = `📊 No hay datos de ${pluralOperacion.toLowerCase()} de ${tipoAMostrar}s.<br>
+                                <small>Probá seleccionando otro tipo u operación.</small>`;
+                container.appendChild(msg);
                 return;
             }
             
-            // Reemplazar canvas si fue borrado
-            if (!document.getElementById('precios-comparison-chart')) {
-                container.innerHTML = '<canvas id="precios-comparison-chart"></canvas>';
-            }
+            // SIEMPRE recreamos el canvas (por si quedó un mensaje anterior)
+            container.innerHTML = '<canvas id="precios-comparison-chart"></canvas>';
             
-            const top15 = filtrados
+            const top15 = [...filtrados]
                 .sort((a, b) => (b.precio_usado_m2 || 0) - (a.precio_usado_m2 || 0))
                 .slice(0, 15);
             
@@ -5263,68 +5419,62 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             const dataUsado = top15.map(r => Math.round(r.precio_usado_m2 || 0));
             const dataNuevo = top15.map(r => Math.round(r.precio_nuevo_m2 || 0));
             
-            // 👇 FIX: título con pluralización correcta
-            const tituloEl = container.previousElementSibling;
-            if (tituloEl && tituloEl.tagName === 'H3') {
-                const emoji = operacion === 'venta' ? '💰' : '🔑';
-                tituloEl.innerHTML = `📈 Comparación USADO vs NUEVO - ${pluralOperacion} (${simbolo}) ${emoji}`;
-            }
-            
             const colorUsado = 'rgba(245, 158, 11, 0.8)';
-            const colorNuevo = operacion === 'alquiler'
-                ? 'rgba(16, 185, 129, 0.8)'
+            const colorNuevo = operacion === 'alquiler' 
+                ? 'rgba(16, 185, 129, 0.8)' 
                 : 'rgba(35, 45, 235, 0.8)';
             
-            const nuevoCanvas = document.getElementById('precios-comparison-chart');
-            
-            preciosChart = new Chart(nuevoCanvas, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: '🏠 USADO',
-                            data: dataUsado,
-                            backgroundColor: colorUsado,
-                            borderColor: 'rgba(245, 158, 11, 1)',
-                            borderWidth: 1,
-                            borderRadius: 4
-                        },
-                        {
-                            label: '🆕 NUEVO',
-                            data: dataNuevo,
-                            backgroundColor: colorNuevo,
-                            borderColor: operacion === 'alquiler' ? 'rgba(16, 185, 129, 1)' : 'rgba(35, 45, 235, 1)',
-                            borderWidth: 1,
-                            borderRadius: 4
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'top' },
-                        tooltip: {
-                            callbacks: {
-                                label: (ctx) => `${ctx.dataset.label}: ${simbolo} ${ctx.parsed.y.toLocaleString('es-AR')}/m²`
+            preciosChart = new Chart(
+                document.getElementById('precios-comparison-chart'),
+                {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: '🏠 USADO',
+                                data: dataUsado,
+                                backgroundColor: colorUsado,
+                                borderColor: 'rgba(245, 158, 11, 1)',
+                                borderWidth: 1,
+                                borderRadius: 4
+                            },
+                            {
+                                label: '🆕 NUEVO',
+                                data: dataNuevo,
+                                backgroundColor: colorNuevo,
+                                borderColor: operacion === 'alquiler' ? 'rgba(16,185,129,1)' : 'rgba(35,45,235,1)',
+                                borderWidth: 1,
+                                borderRadius: 4
                             }
-                        }
+                        ]
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { 
-                                callback: (v) => simbolo + ' ' + v.toLocaleString('es-AR')
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top' },
+                            tooltip: {
+                                callbacks: {
+                                    label: (ctx) => `${ctx.dataset.label}: ${simbolo} ${ctx.parsed.y.toLocaleString('es-AR')}/m²`
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { callback: (v) => simbolo + ' ' + v.toLocaleString('es-AR') }
                             }
                         }
                     }
                 }
-            });
-            
-            console.log('✅ Gráfico renderizado con', labels.length, 'zonas de', tipoAMostrar);
+            );
         }
 
+
+
+
+        
         function renderizarTablaPrecios(registros) {
             // Ya vienen filtrados desde filtrarPreciosBarrios()
             const container = document.getElementById('precios-tabla-container');
