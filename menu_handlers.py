@@ -443,32 +443,18 @@ def responder_listado_propiedades(propiedades, titulo, user_id, estado_usuario):
     # Siempre usar listado tradicional
     texto = f"📋 *{titulo.upper()}*\n\n" + generar_listado_propiedades(propiedades)
 
-    # return [
-    #     texto,
-    #     WhatsAppResponse.buttons(
-    #         header=" o selecciona ",
-    #         body="     👇    ",
-    #         buttons=[
-    #             {"id": "m", "title": "Volver al menú"},
-    #             {"id": "s", "title": "Salir"}
-    #         ]
-    #     )
-    # ]
-    return {
-        "type": "interactive_list",
-        "body": "Seleccioná una opción 👇",
-        "button_text": "Opciones",
-        "sections": [
-            {
-                "title": "Acciones disponibles",
-                "rows": [
-                    {"id": "m", "title": "Volver al menú"},
-                    {"id": "s", "title": "Salir"},
-                    {"id": "emoji", "title": "👇"}
-                ]
-            }
-        ]
-    }
+    return [
+        texto,
+        WhatsAppResponse.buttons(
+            header=" o selecciona ",
+            body="     👇    ",
+            buttons=[
+                {"id": "m", "title": "Volver al menú"},
+                {"id": "s", "title": "Salir"}
+            ]
+        )
+    ]
+
 
 
 
