@@ -456,8 +456,6 @@ def responder_listado_propiedades(propiedades, titulo, user_id, estado_usuario):
     ]
 
 
-
-
 def procesar_opcion_venta(estado_usuario, user_id):
     """Procesa la opción de venta listando todas directamente"""
     todas = cargar_propiedades_cached()
