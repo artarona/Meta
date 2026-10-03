@@ -3603,7 +3603,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                             cargarBarriosDisponibles();
                         }
                     }, 300);
-                }
                 } else if (tabName === 'barrios') {
                     cargarBarrios();
                 } else if (tabName === 'configuracion') {
@@ -3619,7 +3618,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
 
             localStorage.setItem('ultima_tab', tabName);
         
-
+        }
 
         async function mostrarModalNuevaCita() {
             await initFlatpickr();
