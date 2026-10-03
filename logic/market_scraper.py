@@ -392,7 +392,24 @@ class BaseScraper(ABC):
         if t.startswith('http') or t.startswith('www.'):
             return ""
         
+        # 8. Descartar títulos que son "features" técnicas (Zonaprop)
+        #    Ej: "140 m² tot.4 amb.3 dorm.1 baño"
+        if re.match(r'^\d+\s*m[²2]', t, re.IGNORECASE):
+            return ""
+        
+        # 9. Descartar si contiene "tot.", "amb.", "dorm.", "baño" (features)
+        if re.search(r'\b(tot|amb|dorm|baño|baños|ambientes)\b', t, re.IGNORECASE):
+            # Solo descartar si ADEMÁS tiene números (probablemente sea una feature técnica)
+            if re.search(r'\d', t):
+                return ""
+        
+        # 10. Descartar direcciones que son pisos ("Piso 2°a/frente")
+        if re.match(r'^piso\s+\d', t, re.IGNORECASE):
+            return ""
+        
         return t
+        
+
     
     def _synthesize_title(self, address: str, operation: str, property_type: str) -> str:
         """Genera un título razonable si no hay uno válido"""
