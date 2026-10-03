@@ -2072,13 +2072,13 @@ R    <div class="container">
                 mostrarLeads(todosLosLeads);
                 mostrarPropiedades(todasLasPropiedades);
                 actualizarEstadisticas(currentTab);
-                actualizarBannerStatusMercado();
+                // actualizarBannerStatusMercado();
                 
 
                 // Cargar mercado solo si estamos en esa pestaña Y NO hay scraping en curso
-                if (currentTab === 'mercado' && !isScrapingInProgress) {
-                    cargarEstadisticasMercado();
-                }
+                // if (currentTab === 'mercado' && !isScrapingInProgress) {
+                //     cargarEstadisticasMercado();
+                // }
                 
                 cargarBarrios();
 
@@ -3594,17 +3594,16 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 
                 if (tabName === 'mercado') {
                     limpiarVistaMercado();
+                    mostrarEmptyStateMercado();
+                    
+                    // Fallback: si el select de barrios quedó vacío, repoblarlo
                     setTimeout(() => {
-                        // Solo cargar si NO hay scraping en curso
-                        if (!isScrapingInProgress) {
-                            cargarEstadisticasMercado();
-                        }
-                        // Fallback: si el select de barrios quedó vacío, repoblarlo
                         const select = document.getElementById('market-zona');
                         if (select && select.options.length <= 1) {
                             cargarBarriosDisponibles();
                         }
                     }, 300);
+                }
                 } else if (tabName === 'barrios') {
                     cargarBarrios();
                 } else if (tabName === 'configuracion') {
@@ -4069,7 +4068,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
         }
         
         
-                async function cargarEstadisticasMercado() {
+        async function cargarEstadisticasMercado() {
             // Si hay un scraping en curso, no pisar la vista
             if (isScrapingInProgress) {
                 console.log('⏸️ Scraping en progreso — saltando carga de mercado');
@@ -4277,6 +4276,52 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             }
         }
 
+        function mostrarEmptyStateMercado() {
+            // KPIs vacíos
+            const kpiContainer = document.getElementById('market-kpi-grid');
+            if (kpiContainer) {
+                kpiContainer.innerHTML = `
+                    <div class="stat-card" style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
+                        <h3 style="margin: 0 0 0.5rem 0;">Sin datos cargados</h3>
+                        <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+                            Seleccioná un barrio, operación y tipo, y ejecutá un scraping para ver los datos del mercado.
+                        </p>
+                        <button class="btn btn-primary" onclick="ejecutarScrapingMercado()" 
+                                style="padding: 0.75rem 1.5rem; font-size: 1rem;">
+                            🕷️ Ejecutar Scraping
+                        </button>
+                    </div>
+                `;
+            }
+            
+            // Tabla vacía
+            const tableContainer = document.getElementById('market-properties-table');
+            if (tableContainer) {
+                tableContainer.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 60px 20px; color: var(--text-muted);">
+                            <div style="font-size: 2rem; margin-bottom: 1rem;">🏠</div>
+                            <p style="margin: 0;">No hay propiedades cargadas aún.</p>
+                            <p style="font-size: 0.85rem; margin-top: 0.5rem;">
+                                Configurá los filtros de arriba y clic en <strong>🕷️ Scraping</strong>.
+                            </p>
+                        </td>
+                    </tr>
+                `;
+            }
+            
+            // Banner limpio
+            const banner = document.getElementById('market-status-banner');
+            if (banner) {
+                banner.style.display = 'none';
+            }
+            
+            console.log('🧹 Empty state de mercado mostrado');
+        }
+        
+        
+        
         async function cargarBarriosDisponibles() {
             const select = document.getElementById('market-zona');
             if (!select) return;
