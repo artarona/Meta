@@ -69,7 +69,14 @@ TIPO_MENU = int(os.environ.get("TIPO_MENU", "0"))
 
 # ========== CONFIGURACIÓN DE IA (GEMINI) ==========
 GEMINI_KEYS = [
-    os.environ.get("GEMINI_KEY_1", "AIzaSyCf_UBys6b4_uceLlN3HtVVy64W_MLkpcw"),
-    os.environ.get("GEMINI_KEY_2", "AIzaSyBIRmNG2iJVWieK5Z4qY5xWpJWzQwlrkow")
+    os.environ.get("GEMINI_KEY_1"),
+    os.environ.get("GEMINI_KEY_2")
 ]
+GEMINI_KEYS = [k for k in GEMINI_KEYS if k]
+
+if not GEMINI_KEYS:
+    raise RuntimeError(
+        "❌ No hay GEMINI_KEY configuradas. "
+        "Configurá GEMINI_KEY_1 y GEMINI_KEY_2 como env vars en Render."
+    )
 WORKING_MODEL = os.environ.get("WORKING_MODEL", "gemini-2.0-flash-001")
