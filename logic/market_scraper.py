@@ -301,6 +301,56 @@ class BaseScraper(ABC):
         return 0.0, currency
     
     
+    def _parse_number_ar(self, numero_str: str) -> float:
+        """
+        Parsea un número en formato argentino/europeo.
+        
+        Casos:
+        - "10.000"     → 10000  (punto = miles)
+        - "10,5"       → 10.5   (coma = decimal)
+        - "1.234,56"   → 1234.56 (punto miles + coma decimal)
+        - "10.5"       → 10.5   (decimal normal, sin ambigüedad)
+        - "100"        → 100
+        """
+        if not numero_str:
+            return 0.0
+        
+        s = str(numero_str).strip()
+        
+        # Caso 1: tiene AMBOS → formato "1.234,56"
+        if '.' in s and ',' in s:
+            s = s.replace('.', '').replace(',', '.')
+            return float(s)
+        
+        # Caso 2: solo coma → decimal "10,5"
+        if ',' in s and '.' not in s:
+            return float(s.replace(',', '.'))
+        
+        # Caso 3: solo punto → ambiguo
+        if '.' in s and ',' not in s:
+            partes = s.split('.')
+            
+            # Si hay MÁS de 1 punto → son miles ("1.234.567")
+            if len(partes) > 2:
+                return float(s.replace('.', ''))
+            
+            # Si hay 2 partes:
+            # Si después del punto hay 3 dígitos Y antes ≤ 3 → probable separador de miles
+            parte_entera, parte_decimal = partes
+            
+            if len(parte_decimal) == 3 and len(parte_entera) <= 3:
+                try:
+                    valor_entero = int(parte_entera) if parte_entera else 0
+                    if valor_entero >= 1:
+                        return float(s.replace('.', ''))
+                except ValueError:
+                    pass
+            
+            # Sino → decimal normal
+            return float(s)
+        
+        # Caso 4: sin separadores → entero
+        return float(s)
     
     
     
@@ -308,6 +358,7 @@ class BaseScraper(ABC):
         """
         Limpia texto de superficie y devuelve metros cuadrados.
         Maneja: 'm²', 'm2', 'has', 'hectáreas', 'lote de X'.
+        Ahora soporta separadores de miles argentinos ("10.000 m²" → 10000).
         """
         if not surface_text:
             return 0.0
@@ -317,26 +368,26 @@ class BaseScraper(ABC):
                             surface_text, re.IGNORECASE)
         if has_match:
             try:
-                has_value = float(has_match.group(1).replace(',', '.'))
+                has_value = self._parse_number_ar(has_match.group(1))
                 return has_value * 10000  # 1 ha = 10.000 m²
             except ValueError:
                 pass
         
         # 2. Buscar "N m²" o similar
-        match = re.search(r'(\d+(?:[.,]\d+)?)\s*(?:m²|m2|mts2|mts²|metros?\s*cuadrados?)', 
+        match = re.search(r'(\d+(?:[.,]\d+)*)\s*(?:m²|m2|mts2|mts²|metros?\s*cuadrados?)', 
                         surface_text, re.IGNORECASE)
         if match:
             try:
-                return float(match.group(1).replace(',', '.'))
+                return self._parse_number_ar(match.group(1))
             except ValueError:
                 pass
         
         # 3. Fallback: número más grande ≥ 5
-        numbers = re.findall(r'\d+(?:[.,]\d+)?', surface_text)
+        numbers = re.findall(r'\d+(?:[.,]\d+)*', surface_text)
         candidates = []
         for n in numbers:
             try:
-                candidates.append(float(n.replace(',', '.')))
+                candidates.append(self._parse_number_ar(n))
             except ValueError:
                 continue
         
