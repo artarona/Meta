@@ -398,10 +398,8 @@ class BaseScraper(ABC):
             return ""
         
         # 9. Descartar si contiene "tot.", "amb.", "dorm.", "baño" (features)
-        if re.search(r'\b(tot|amb|dorm|baño|baños|ambientes)\b', t, re.IGNORECASE):
-            # Solo descartar si ADEMÁS tiene números (probablemente sea una feature técnica)
-            if re.search(r'\d', t):
-                return ""
+        if re.search(r'(?:tot\.|amb\.|dorm\.|baños?)', t, re.IGNORECASE) and re.search(r'\d', t):
+            return ""
         
         # 10. Descartar direcciones que son pisos ("Piso 2°a/frente")
         if re.match(r'^piso\s+\d', t, re.IGNORECASE):
@@ -411,19 +409,30 @@ class BaseScraper(ABC):
         
 
     
-    def _synthesize_title(self, address: str, operation: str, property_type: str) -> str:
+    def _synthesize_title(self, address: str, operation: str, property_type: str, zone: str = "") -> str:
         """Genera un título razonable si no hay uno válido"""
         parts = []
+        
         if property_type:
             parts.append(property_type.capitalize())
         if operation:
             parts.append(f"en {operation}")
-        if address:
-            # Tomar solo el barrio/calle, sin número
-            short_addr = address.split(',')[0].strip()
-            parts.append(f"en {short_addr}")
         
-        return " ".join(parts) if parts else "Propiedad"    
+        # Intentar primero address, después zone
+        ubicacion = ""
+        if address:
+            # Tomar solo la calle, sin número ni piso
+            short_addr = address.split(',')[0].strip()
+            # Descartar direcciones basura
+            if short_addr and not short_addr.lower().startswith(('piso', 'sin ')):
+                ubicacion = short_addr
+        elif zone:
+            ubicacion = zone.capitalize()
+        
+        if ubicacion:
+            parts.append(f"en {ubicacion}")
+        
+        return " ".join(parts) if parts else "Propiedad"
     
     
     
@@ -772,7 +781,7 @@ class ArgenpropScraper(BaseScraper):
                 title = title_candidates[0]
             else:
                 # Sintetizar título si no hay uno válido: "Departamento en alquiler en Belgrano"
-                title = self._synthesize_title(address, operation, property_type)
+                title = self._synthesize_title(address, operation, property_type, zone=zone)
             
             # Extraer superficie
             surface_elem = card.select_one('.card__main-features, [data-qa="card-features"], .card__features')
@@ -1056,7 +1065,7 @@ class ZonapropScraper(BaseScraper):
                 title = title_candidates[0]
             else:
                 # Sintetizar título si ningún selector encontró algo válido
-                title = self._synthesize_title(address, operation, property_type)
+                title = self._synthesize_title(address, operation, property_type, zone=zone)
             
             # Extraer superficie y características
             features_elem = card.select_one('[data-qa="POSTING_CARD_FEATURES"], .postingMainFeatures-module__posting-main-features-block')
