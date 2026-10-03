@@ -4067,7 +4067,36 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
             });
         }
         
+                // ============================================================
+        // HELPERS DE FORMATO DE PRECIOS
+        // ============================================================
         
+        function obtenerSimboloMoneda(moneda) {
+            const m = (moneda || 'USD').toString().toUpperCase().trim();
+            if (m === 'USD') return 'US$';
+            if (m === 'ARS') return 'AR$';
+            if (m === 'EUR') return '€';
+            return m + ' ';
+        }
+        
+        function formatearPrecio(precio, moneda) {
+            const n = parseFloat(precio) || 0;
+            if (n === 0) return '—';
+            
+            const simbolo = obtenerSimboloMoneda(moneda);
+            
+            // Si es chico → 2 decimales, sino → entero con separador de miles
+            if (n < 100) {
+                return `${simbolo} ${n.toFixed(2)}`;
+            }
+            return `${simbolo} ${Math.round(n).toLocaleString('es-AR')}`;
+        }
+        
+        function formatearPrecioM2(precioM2, moneda) {
+            return formatearPrecio(precioM2, moneda) + '/m²';
+        }
+
+
         async function cargarEstadisticasMercado() {
             // Si hay un scraping en curso, no pisar la vista
             if (isScrapingInProgress) {
@@ -4133,8 +4162,10 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                                         </span>
                                         </td>
                                     <td style="padding: 12px;">${p.surface || 0} m²</td>
-                                    <td style="padding: 12px; font-weight: bold;">${p.currency || 'USD'} ${(p.price || 0).toLocaleString()}</td>
-                                    <td style="padding: 12px; color: #10b981; font-weight: bold;">$${Math.round(p.price_m2 || 0).toLocaleString()}</td>
+                                    
+                                    <td style="padding: 12px; font-weight: bold;">${formatearPrecio(p.price, p.currency)}</td>
+                                    <td style="padding: 12px; color: #10b981; font-weight: bold;">${formatearPrecioM2(p.price_m2, p.currency)}</td>
+                                    
                                     </tr>`;
                             });
                             tableContainer.innerHTML = html;
@@ -4550,8 +4581,8 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 const source = p.source || 'desconocido';
                 const hasWarning = p.surface_warning === true;
                 
-                const formattedPrice = typeof price === 'number' ? price.toLocaleString() : price;
-                const formattedPriceM2 = typeof priceM2 === 'number' ? Math.round(priceM2).toLocaleString() : priceM2;
+                const formattedPrice = formatearPrecio(price, currency);
+                const formattedPriceM2 = formatearPrecioM2(priceM2, currency);
                 
                 html += `
                     <tr style="border-bottom: 1px solid var(--border-light); ${hasWarning ? 'background: #fffbeb;' : ''}">
@@ -4576,11 +4607,11 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                             ${surface} m²
                             ${hasWarning ? '<div style="font-size: 0.7rem; color: #F59E0B; margin-top: 4px;">⚠️ Superficie irreal</div>' : ''}
                         </td>
-                        <td style="padding: 12px; font-size: 0.85rem; font-weight:bold;">
-                            ${currency} ${formattedPrice}
+                            <td style="padding: 12px; font-size: 0.85rem; font-weight:bold;">
+                            ${formattedPrice}
                         </td>
                         <td style="padding: 12px; font-size: 0.85rem; color: var(--success); font-weight:bold;">
-                            $${formattedPriceM2}
+                            ${formattedPriceM2}
                         </td>
                     </tr>
                 `;
