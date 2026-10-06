@@ -214,6 +214,53 @@
             color: var(--text-main);
         }
 
+                /* Sub-tabs para la sección Análisis Estadísticos */
+        .subtabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            background: var(--bg);
+            border-radius: var(--radius-md);
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .subtab {
+            padding: 0.6rem 1rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: white;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .subtab:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .subtab.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .subtab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .subtab-content.active {
+            display: block;
+        }
+
         .tab-content {
             display: none;
             background: white;
@@ -1109,7 +1156,7 @@ R    <div class="container">
             <!-- Estadísticas cargadas dinámicamente -->
         </div>
 
-        <div class="tabs" role="tablist">
+                <div class="tabs" role="tablist">
             <button class="tab active" onclick="mostrarTab('citas')" role="tab" aria-selected="true"
                 aria-controls="tab-citas">
                 <span>📅</span> Citas Agendadas
@@ -1118,7 +1165,6 @@ R    <div class="container">
                 aria-controls="tab-leads">
                 <span>👥</span> Todos los Leads
             </button>
-            
             <button class="tab" onclick="mostrarTab('contactos-web')" role="tab" aria-selected="false"
                 aria-controls="tab-contactos-web">
                 <span>🌐</span> Contactos Web
@@ -1127,32 +1173,9 @@ R    <div class="container">
                 aria-controls="tab-consultas-chat">
                 <span>💬</span> Consultas Chat
             </button>
-            <button class="tab" onclick="mostrarTab('precios-barrios')" role="tab" aria-selected="false"
-                aria-controls="tab-precios-barrios">
-                <span>📊</span> Precios por Barrio
-            </button>
-            
-            
-            
-            
-            
-            
-            
-            <button class="tab" onclick="mostrarTab('propiedades')" role="tab" aria-selected="false"
-                aria-controls="tab-propiedades">
-                <span>🏠</span> Propiedades
-            </button>
-            <button class="tab" onclick="mostrarTab('exportar')" role="tab" aria-selected="false"
-                aria-controls="tab-exportar">
-                <span>📤</span> Exportar Datos
-            </button>
-            <button class="tab" onclick="mostrarTab('mercado')" role="tab" aria-selected="false"
-                aria-controls="tab-mercado">
-                <span>📈</span> Análisis de Mercado
-            </button>
-            <button class="tab" onclick="mostrarTab('barrios')" role="tab" aria-selected="false"
-                aria-controls="tab-barrios">
-                <span>🏙️</span> Entorno / Barrios
+            <button class="tab" onclick="mostrarTab('analisis')" role="tab" aria-selected="false"
+                aria-controls="tab-analisis">
+                <span>📊</span> Análisis Estadísticos
             </button>
             <button class="tab" onclick="mostrarTab('configuracion')" role="tab" aria-selected="false"
                 aria-controls="tab-configuracion">
@@ -1259,60 +1282,84 @@ R    <div class="container">
         </div>
 
         <!-- Tab Precios por Barrio -->
-        <div id="tab-precios-barrios" class="tab-content" role="tabpanel" aria-labelledby="precios-barrios-tab">
-            <div class="tab-header">
-                <h2>📊 Precios por Barrio</h2>
+                <!-- Tab Análisis Estadísticos (con sub-tabs internos) -->
+        <div id="tab-analisis" class="tab-content" role="tabpanel" aria-labelledby="analisis-tab">
+            
+            <div class="tab-header" style="margin-bottom: 1rem;">
+                <h2>📊 Análisis Estadísticos</h2>
                 <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: -0.5rem;">
-                    Precios por m² separados en <strong style="color: var(--warning);">🏠 USADO</strong> y <strong style="color: var(--primary);">🆕 NUEVO</strong> · Datos depurados de valores extremos
+                    Datos de mercado, precios, propiedades y entorno
                 </p>
             </div>
 
-            <!-- Filtros -->
-            <div class="precios-filtros">
-                <select class="select-filter" id="precios-search" onchange="filtrarPreciosBarrios()">
-                    <option value="">🏙️ Todos los barrios</option>
-                </select>
-                <select class="select-filter" id="precios-operacion" onchange="filtrarPreciosBarrios()">
-                    <option value="">Todas las operaciones</option>
-                    <option value="venta">💰 Venta</option>
-                    <option value="alquiler">🔑 Alquiler</option>
-                </select>
-                <select class="select-filter" id="precios-tipo" onchange="filtrarPreciosBarrios()">
-                    <option value="">Todos los tipos</option>
-                    <option value="departamento">Departamento</option>
-                    <option value="ph">PH</option>
-                    <option value="casa">Casa</option>
-                </select>
-                <button class="btn btn-primary" onclick="cargarPreciosBarrios()">🔄 Refrescar</button>
-                <button class="btn btn-success" onclick="exportarPreciosBarriosExcel()">📥 Excel</button>
+            <div class="subtabs">
+                <button class="subtab active" onclick="mostrarSubTab('precios-barrios')">
+                    <span>📊</span> Precios por Barrio
+                </button>
+                <button class="subtab" onclick="mostrarSubTab('propiedades')">
+                    <span>🏠</span> Propiedades
+                </button>
+                <button class="subtab" onclick="mostrarSubTab('exportar')">
+                    <span>📤</span> Exportar Datos
+                </button>
+                <button class="subtab" onclick="mostrarSubTab('mercado')">
+                    <span>📈</span> Análisis de Mercado
+                </button>
+                <button class="subtab" onclick="mostrarSubTab('barrios')">
+                    <span>🏙️</span> Entorno / Barrios
+                </button>
             </div>
 
-            <!-- KPIs -->
-            <div class="precios-kpis" id="precios-kpis">
-                <!-- KPIs cargados dinámicamente -->
-            </div>
 
-            <!-- Gráfico -->
-            <div class="stat-card" style="margin-top: 1.5rem; border: 1px solid var(--border);">
-                <h3 style="margin: 0 0 1rem 0; font-size: 1rem;">📈 Comparación USADO vs NUEVO - Ventas (US$)</h3>
-                <div style="height: 300px; position: relative;">
-                    <canvas id="precios-comparison-chart"></canvas>
+            <!-- Subt-tab: Precios por Barrio -->
+            <div id="subtab-precios-barrios" class="subtab-content active" role="tabpanel">
+                <div class="tab-header">
+                    <h2>📊 Precios por Barrio</h2>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: -0.5rem;">
+                        Precios por m² separados en <strong style="color: var(--warning);">🏠 USADO</strong> y <strong style="color: var(--primary);">🆕 NUEVO</strong> · Datos depurados de valores extremos
+                    </p>
+                </div>
+
+                <div class="precios-filtros">
+                    <select class="select-filter" id="precios-search" onchange="filtrarPreciosBarrios()">
+                        <option value="">🏙️ Todos los barrios</option>
+                    </select>
+                    <select class="select-filter" id="precios-operacion" onchange="filtrarPreciosBarrios()">
+                        <option value="">Todas las operaciones</option>
+                        <option value="venta">💰 Venta</option>
+                        <option value="alquiler">🔑 Alquiler</option>
+                    </select>
+                    <select class="select-filter" id="precios-tipo" onchange="filtrarPreciosBarrios()">
+                        <option value="">Todos los tipos</option>
+                        <option value="departamento">Departamento</option>
+                        <option value="ph">PH</option>
+                        <option value="casa">Casa</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="cargarPreciosBarrios()">🔄 Refrescar</button>
+                    <button class="btn btn-success" onclick="exportarPreciosBarriosExcel()">📥 Excel</button>
+                </div>
+
+                <div class="precios-kpis" id="precios-kpis">
+                </div>
+
+                <div class="stat-card" style="margin-top: 1.5rem; border: 1px solid var(--border);">
+                    <h3 style="margin: 0 0 1rem 0; font-size: 1rem;">📈 Comparación USADO vs NUEVO - Ventas (US$)</h3>
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="precios-comparison-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="precios-tabla-wrapper">
+                    <div id="precios-tabla-container">
+                        <p class="loading">Cargando precios...</p>
+                    </div>
                 </div>
             </div>
-
-
-            <!-- Tabla -->
-            <div class="precios-tabla-wrapper">
-                <div id="precios-tabla-container">
-                    <p class="loading"><i class="fas fa-sync fa-spin"></i> Cargando precios...</p>
-                </div>
-            </div>
-        </div>
 
 
 
         <!-- Tab Propiedades -->
-        <div id="tab-propiedades" class="tab-content" role="tabpanel" aria-labelledby="propiedades-tab">
+        <div id="subtab-propiedades" class="subtab-content" role="tabpanel">
             <div class="tab-header">
                 <h2>🏠 Inventario de Propiedades</h2>
                 <div class="filters">
@@ -1340,7 +1387,7 @@ R    <div class="container">
         </div>
 
         <!-- Tab Exportar -->
-        <div id="tab-exportar" class="tab-content" role="tabpanel" aria-labelledby="exportar-tab">
+        <div id="subtab-exportar" class="subtab-content" role="tabpanel">
             <h2>📤 Exportar Datos</h2>
             <div style="max-width: 600px; margin: 0 auto;">
                 <div class="form-group">
@@ -1478,7 +1525,7 @@ R    <div class="container">
 
         <!-- Tab Mercado -->
         <!-- Tab Mercado -->
-        <div id="tab-mercado" class="tab-content" role="tabpanel" aria-labelledby="mercado-tab">
+        <div id="subtab-mercado" class="subtab-content" role="tabpanel">
             <div class="tab-header">
                 <h2>📈 Análisis de Mercado - Dante CRM</h2>
                 <div class="filters" style="flex-wrap: wrap; gap: 10px;">
@@ -1564,7 +1611,7 @@ R    <div class="container">
         </div>
 
         <!-- Tab Barrios (Entorno) -->
-        <div id="tab-barrios" class="tab-content" role="tabpanel" aria-labelledby="barrios-tab">
+        <div id="subtab-barrios" class="subtab-content" role="tabpanel">
             <div class="tab-header">
                 <h2>🏙️ Gestión de Entorno y Barrios (IA)</h2>
                 <div class="filters">
@@ -3620,32 +3667,62 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 // Actualizar stats según la pestaña
                 actualizarEstadisticas(tabName);
                 
-                if (tabName === 'mercado') {
-                    limpiarVistaMercado();
-                    mostrarEmptyStateMercado();
-                    
-                    // Fallback: si el select de barrios quedó vacío, repoblarlo
-                    setTimeout(() => {
-                        const select = document.getElementById('market-zona');
-                        if (select && select.options.length <= 1) {
-                            cargarBarriosDisponibles();
-                        }
-                    }, 300);
-                } else if (tabName === 'barrios') {
-                    cargarBarrios();
+                if (tabName === 'analisis') {
+                    // Restaurar el último subtab visitado (default: precios-barrios)
+                    const ultimoSubtab = localStorage.getItem('ultimo_subtab') || 'precios-barrios';
+                    mostrarSubTab(ultimoSubtab);
                 } else if (tabName === 'configuracion') {
                     cargarHorariosAdmin();
                 } else if (tabName === 'contactos-web') {
                     cargarContactosWeb().then(() => actualizarEstadisticas('contactos-web'));
                 } else if (tabName === 'consultas-chat') {
                     cargarConsultasChat().then(() => actualizarEstadisticas('consultas-chat'));
-                } else if (tabName === 'precios-barrios') {
-                    cargarPreciosBarrios();
                 }
             }
 
             localStorage.setItem('ultima_tab', tabName);
-        
+        }
+
+
+        function mostrarSubTab(nombre) {
+            // Ocultar todos los sub-tabs
+            document.querySelectorAll('.subtab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.subtab').forEach(el => el.classList.remove('active'));
+            
+            // Activar el sub-tab correspondiente
+            const content = document.getElementById(`subtab-${nombre}`);
+            const button = document.querySelector(`.subtab[onclick="mostrarSubTab('${nombre}')"]`);
+            
+            if (content) content.classList.add('active');
+            if (button) button.classList.add('active');
+            
+            // Ejecutar carga de datos según el sub-tab
+            if (nombre === 'precios-barrios') {
+                cargarPreciosBarrios();
+            } else if (nombre === 'barrios') {
+                cargarBarrios();
+            } else if (nombre === 'mercado') {
+                limpiarVistaMercado();
+                mostrarEmptyStateMercado();
+                setTimeout(() => {
+                    const select = document.getElementById('market-zona');
+                    if (select && select.options.length <= 1) {
+                        cargarBarriosDisponibles();
+                    }
+                }, 300);
+            } else if (nombre === 'propiedades') {
+                if (todasLasPropiedades && todasLasPropiedades.length > 0) {
+                    mostrarPropiedades(todasLasPropiedades);
+                } else {
+                    mostrarLoading('propiedades-container', 'Cargando propiedades...');
+                    fetchConClave('/api/propiedades').then(props => {
+                        todasLasPropiedades = props;
+                        mostrarPropiedades(props);
+                    });
+                }
+            }
+            
+            localStorage.setItem('ultimo_subtab', nombre);
         }
 
         async function mostrarModalNuevaCita() {
@@ -3961,7 +4038,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
 
                 cargarBarriosDisponibles();
 
-                const ultimaTab = localStorage.getItem('ultima_tab') || 'resumen';
+                const ultimaTab = localStorage.getItem('ultima_tab') || 'contactos-web';
                 mostrarTab(ultimaTab);
 
                 // document.getElementById('user-info').innerHTML = `
@@ -5497,7 +5574,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
 
         function renderizarGraficoPrecios(registros, operacionFiltro) {
             // Buscamos el contenedor padre (el div con height:300px) por su estructura, no por el canvas
-            const statCard = document.querySelector('#tab-precios-barrios .stat-card');
+            const statCard = document.querySelector('#subtab-precios-barrios .stat-card');
             if (!statCard) return;
             
             let container = statCard.querySelector('div[style*="height: 300px"]');
