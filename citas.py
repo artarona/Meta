@@ -219,6 +219,24 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None,
             except Exception as e:
                 log(f"⚠️ Error asegurando persona/conversación para cita: {e}", "WARNING")
 
+            # ✅ NUEVO: Resolver id_temporal → id (crm.citas.propiedad_id es integer)
+            propiedad_id_int = None
+            if propiedad_id:
+                try:
+                    propiedad_id_int = int(propiedad_id)
+                except (ValueError, TypeError):
+                    # No es número → buscar por id_temporal
+                    cursor.execute(
+                        "SELECT id FROM core.propiedades WHERE id_temporal = %s",
+                        (str(propiedad_id),)
+                    )
+                    row = cursor.fetchone()
+                    if row:
+                        propiedad_id_int = row[0]
+                        log(f"✅ Resuelto id_temporal '{propiedad_id}' → id {propiedad_id_int}")
+                    else:
+                        log(f"⚠️ Propiedad con id_temporal='{propiedad_id}' no encontrada. Se guardará como NULL.", "WARNING")
+
             # Asegurar columna opcional para el event_id (idempotente)
             cursor.execute("ALTER TABLE crm.citas ADD COLUMN IF NOT EXISTS google_event_id VARCHAR(255)")
 
@@ -232,7 +250,7 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None,
             """, (
                 persona_id, conversacion_id,
                 nombre, email, telefono, user_id,
-                fecha, hora, propiedad_id, notas
+                fecha, hora, propiedad_id_int, notas
             ))
 
             db_record_id = cursor.fetchone()[0]
