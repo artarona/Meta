@@ -1475,106 +1475,7 @@ R    <div class="container">
             </div>
         </div>
 
-        <!-- Tab Configuración -->
-        <div id="tab-configuracion" class="tab-content" role="tabpanel" aria-labelledby="configuracion-tab">
-            <h2>⚙️ Configuración</h2>
-            <div style="max-width: 600px; margin: 0 auto;">
-                <div class="form-group">
-                    <label class="form-label">Auto-refresh:</label>
-                    <select class="form-control" id="refresh-interval" onchange="actualizarRefreshInterval()">
-                        <option value="0">Desactivado</option>
-                        <option value="30">Cada 30 segundos</option>
-                        <option value="60" selected>Cada 1 minuto</option>
-                        <option value="300">Cada 5 minutos</option>
-                        <option value="600">Cada 10 minutos</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Notificaciones:</label>
-                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox" id="notif-citas" checked> Nuevas citas
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox" id="notif-leads" checked> Nuevos leads
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox" id="notif-recordatorios" checked> Recordatorios
-                        </label>
-                    </div>
-                </div>
-
-                <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border);">
-                    <h3>📅 Días y Horarios de Visita</h3>
-                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
-                        Configura la disponibilidad para visitas. Podes definir horarios generales o específicos por propiedad.
-                    </p>
-
-                    <div class="form-group">
-                        <label class="form-label">Propiedad a configurar:</label>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <select id="propiedad-horario-selector" class="form-control" onchange="cambiarPropiedadConfig()">
-                                <option value="global">🌐 Global (Todas las propiedades)</option>
-                                <!-- Se poblará con propiedades -->
-                            </select>
-                            <button id="btn-borrar-config-prop" class="btn btn-danger" style="display: none;" onclick="borrarConfigPropiedad()">
-                                🗑️ Borrar Específica
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Días Habilitados:</label>
-                        <div style="display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 0.5rem;">
-                            <label style="display: flex; align-items: center; gap: 0.3rem;">
-                                <input type="checkbox" name="dia-visita" value="0"> Lun
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 0.3rem;">
-                                <input type="checkbox" name="dia-visita" value="1"> Mar
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 0.3rem;">
-                                <input type="checkbox" name="dia-visita" value="2"> Mié
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 0.3rem;">
-                                <input type="checkbox" name="dia-visita" value="3"> Jue
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 0.3rem;">
-                                <input type="checkbox" name="dia-visita" value="4"> Vie
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 0.3rem;">
-                                <input type="checkbox" name="dia-visita" value="5"> Sáb
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 0.3rem;">
-                                <input type="checkbox" name="dia-visita" value="6"> Dom
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="form-group" style="margin-top: 1.5rem;">
-                        <label class="form-label">Franjas Horarias:</label>
-                        <div id="horarios-lista" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
-                            <!-- Los horarios se cargarán aquí -->
-                        </div>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <input type="time" id="nuevo-horario-input" class="form-control" style="width: 150px;">
-                            <button class="btn btn-outline" onclick="agregarHorarioAdmin()">➕ Añadir Hora</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border);">
-                    <button class="btn btn-primary" onclick="guardarConfiguracionCompleta()">
-                        💾 Guardar Configuración
-                    </button>
-                    <button class="btn" style="background-color: var(--warning); color: white; margin-left: 1rem;"
-                        onclick="ejecutarTareasDiarias()">
-                        🚀 Ejecutar Tareas Diarias
-                    </button>
-                </div>
-            </div>
-        </div>
-
+  
         <!-- Tab Mercado -->
         <!-- Tab Mercado -->
         <div id="subtab-mercado" class="subtab-content" role="tabpanel">
@@ -1687,6 +1588,110 @@ R    <div class="container">
                 <!-- Barrios cargados dinámicamente -->
             </div>
         </div>
+        </div>
+
+        <!-- Tab Configuración -->
+        
+        
+        <div id="tab-configuracion" class="tab-content" role="tabpanel" aria-labelledby="configuracion-tab">
+            <h2>⚙️ Configuración</h2>
+            <div style="max-width: 600px; margin: 0 auto;">
+                <div class="form-group">
+                    <label class="form-label">Auto-refresh:</label>
+                    <select class="form-control" id="refresh-interval" onchange="actualizarRefreshInterval()">
+                        <option value="0">Desactivado</option>
+                        <option value="30">Cada 30 segundos</option>
+                        <option value="60" selected>Cada 1 minuto</option>
+                        <option value="300">Cada 5 minutos</option>
+                        <option value="600">Cada 10 minutos</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notificaciones:</label>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="notif-citas" checked> Nuevas citas
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="notif-leads" checked> Nuevos leads
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="notif-recordatorios" checked> Recordatorios
+                        </label>
+                    </div>
+                </div>
+
+                <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border);">
+                    <h3>📅 Días y Horarios de Visita</h3>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
+                        Configura la disponibilidad para visitas. Podes definir horarios generales o específicos por propiedad.
+                    </p>
+
+                    <div class="form-group">
+                        <label class="form-label">Propiedad a configurar:</label>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <select id="propiedad-horario-selector" class="form-control" onchange="cambiarPropiedadConfig()">
+                                <option value="global">🌐 Global (Todas las propiedades)</option>
+                                <!-- Se poblará con propiedades -->
+                            </select>
+                            <button id="btn-borrar-config-prop" class="btn btn-danger" style="display: none;" onclick="borrarConfigPropiedad()">
+                                🗑️ Borrar Específica
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Días Habilitados:</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 0.5rem;">
+                            <label style="display: flex; align-items: center; gap: 0.3rem;">
+                                <input type="checkbox" name="dia-visita" value="0"> Lun
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.3rem;">
+                                <input type="checkbox" name="dia-visita" value="1"> Mar
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.3rem;">
+                                <input type="checkbox" name="dia-visita" value="2"> Mié
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.3rem;">
+                                <input type="checkbox" name="dia-visita" value="3"> Jue
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.3rem;">
+                                <input type="checkbox" name="dia-visita" value="4"> Vie
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.3rem;">
+                                <input type="checkbox" name="dia-visita" value="5"> Sáb
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.3rem;">
+                                <input type="checkbox" name="dia-visita" value="6"> Dom
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 1.5rem;">
+                        <label class="form-label">Franjas Horarias:</label>
+                        <div id="horarios-lista" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+                            <!-- Los horarios se cargarán aquí -->
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <input type="time" id="nuevo-horario-input" class="form-control" style="width: 150px;">
+                            <button class="btn btn-outline" onclick="agregarHorarioAdmin()">➕ Añadir Hora</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border);">
+                    <button class="btn btn-primary" onclick="guardarConfiguracionCompleta()">
+                        💾 Guardar Configuración
+                    </button>
+                    <button class="btn" style="background-color: var(--warning); color: white; margin-left: 1rem;"
+                        onclick="ejecutarTareasDiarias()">
+                        🚀 Ejecutar Tareas Diarias
+                    </button>
+                </div>
+            </div>
+        </div>
+
 
         <!-- Modal Detalle/Editar Barrio -->
         <div class="modal" id="modal-editar-barrio">
