@@ -2578,7 +2578,11 @@ R    <div class="container">
                         </div>
                         
                         <div class="card-content">
-                            <h3 style="margin: 0 0 1rem 0; font-size: 1.2rem;">Cliente ${lead.user_id ? lead.user_id.slice(-4) : 'N/A'}</h3>
+                            <h3 style="margin: 0 0 1rem 0; font-size: 1.2rem;">
+                                ${lead.nombre && lead.nombre !== 'Anónimo' 
+                                    ? `👤 ${lead.nombre}` 
+                                    : `🚫 Anónimo`}
+                            </h3>
                             
                             <div class="card-row">
                                 <span>📞</span>

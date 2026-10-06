@@ -1787,9 +1787,20 @@ def api_leads():
         cursor = conn.cursor()
         
         cursor.execute("""
-            SELECT id, fecha, telefono, nombre, propiedad_id, propiedad_titulo, accion, detalles
-            FROM leads 
-            ORDER BY fecha DESC
+            SELECT 
+                l.id, 
+                l.fecha, 
+                l.telefono, 
+                l.nombre, 
+                l.propiedad_id, 
+                l.propiedad_titulo, 
+                l.accion, 
+                l.detalles,
+                l.persona_id,
+                p.nombre AS persona_nombre
+            FROM crm.leads l
+            LEFT JOIN core.personas p ON p.id = l.persona_id
+            ORDER BY l.fecha DESC
             LIMIT 1000
         """)
         
@@ -1797,11 +1808,25 @@ def api_leads():
         
         leads_formateados = []
         for lead in leads:
+            
+            # Prioridad del nombre: persona_nombre (JOIN) > nombre del lead > "Anónimo"
+            persona_nombre = lead[9] if len(lead) > 9 else None
+            nombre_lead = lead[3]
+            if persona_nombre:
+                nombre_final = persona_nombre
+            elif nombre_lead and not nombre_lead.startswith('Cliente ') and not nombre_lead.startswith('Cliente:'):
+                nombre_final = nombre_lead
+            else:
+                nombre_final = 'Anónimo'
+
             leads_formateados.append({
                 "id": lead[0],
                 "timestamp": lead[1].isoformat() if lead[1] else None,
                 "user_id": lead[2],
-                "nombre": lead[3],
+                "nombre": nombre_final,
+                "nombre_original": nombre_lead,     # por si querés ver el original
+                "persona_id": lead[8] if len(lead) > 8 else None,
+                "persona_nombre": persona_nombre,   # el nombre desde core.personas
                 "propiedad_id": lead[4],
                 "propiedad_titulo": lead[5],
                 "accion": lead[6],
