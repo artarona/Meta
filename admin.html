@@ -165,6 +165,55 @@
             color: #991b1b;
         }
 
+
+                /* Fila de accesos rápidos (Análisis, Configuración) */
+        .utility-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .utility-btn {
+            padding: 0.6rem 1.1rem;
+            border-radius: var(--radius-md);
+            background: white;
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .utility-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .utility-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        @media (max-width: 768px) {
+            .utility-row {
+                justify-content: stretch;
+            }
+            .utility-btn {
+                flex: 1;
+                justify-content: center;
+            }
+        }
+
         .tabs {
             display: flex;
             flex-wrap: wrap;
@@ -1156,7 +1205,18 @@ R    <div class="container">
             <!-- Estadísticas cargadas dinámicamente -->
         </div>
 
-                <div class="tabs" role="tablist">
+        
+                <!-- Fila de accesos rápidos -->
+        <div class="utility-row">
+            <button class="utility-btn" onclick="mostrarTab('analisis')" id="btn-analisis">
+                <span>📊</span> Análisis Estadísticos
+            </button>
+            <button class="utility-btn" onclick="mostrarTab('configuracion')" id="btn-configuracion">
+                <span>⚙️</span> Configuración
+            </button>
+        </div>
+        
+        <div class="tabs" role="tablist">
             <button class="tab active" onclick="mostrarTab('citas')" role="tab" aria-selected="true"
                 aria-controls="tab-citas">
                 <span>📅</span> Citas Agendadas
@@ -1172,14 +1232,6 @@ R    <div class="container">
             <button class="tab" onclick="mostrarTab('consultas-chat')" role="tab" aria-selected="false"
                 aria-controls="tab-consultas-chat">
                 <span>💬</span> Consultas Chat
-            </button>
-            <button class="tab" onclick="mostrarTab('analisis')" role="tab" aria-selected="false"
-                aria-controls="tab-analisis">
-                <span>📊</span> Análisis Estadísticos
-            </button>
-            <button class="tab" onclick="mostrarTab('configuracion')" role="tab" aria-selected="false"
-                aria-controls="tab-configuracion">
-                <span>⚙️</span> Configuración
             </button>
         </div>
 
@@ -3649,26 +3701,37 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
 
         function mostrarTab(tabName) {
             currentTab = tabName;
+            
+            // Ocultar todos los tab-content
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
             });
 
+            // Desactivar todos los botones (.tab y .utility-btn)
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.classList.remove('active');
             });
+            document.querySelectorAll('.utility-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
 
+            // Activar el tab-content correspondiente
             const tabContent = document.getElementById(`tab-${tabName}`);
-            const tabButton = document.querySelector(`.tab[onclick="mostrarTab('${tabName}')"]`);
-
-            if (tabContent && tabButton) {
+            
+            if (tabContent) {
                 tabContent.classList.add('active');
-                tabButton.classList.add('active');
+                
+                // Buscar el botón que activa este tab (puede estar en .tabs o en .utility-row)
+                const tabButton = document.querySelector(`.tab[onclick="mostrarTab('${tabName}')"]`);
+                const utilityButton = document.querySelector(`.utility-btn[onclick="mostrarTab('${tabName}')"]`);
+                
+                if (tabButton) tabButton.classList.add('active');
+                if (utilityButton) utilityButton.classList.add('active');
                 
                 // Actualizar stats según la pestaña
                 actualizarEstadisticas(tabName);
                 
                 if (tabName === 'analisis') {
-                    // Restaurar el último subtab visitado (default: precios-barrios)
                     const ultimoSubtab = localStorage.getItem('ultimo_subtab') || 'precios-barrios';
                     mostrarSubTab(ultimoSubtab);
                 } else if (tabName === 'configuracion') {
@@ -3682,7 +3745,6 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
 
             localStorage.setItem('ultima_tab', tabName);
         }
-
 
         function mostrarSubTab(nombre) {
             // Ocultar todos los sub-tabs
