@@ -3,7 +3,7 @@ from googleapiclient.discovery import build
 from google.oauth2 import service_account
 import json
 import os
-
+from database import get_db_connection, upsert_persona, crear_conversacion, vincular_persona_a_conversacion_y_leads
 from config import *
 from database import *
 from utils import log, analizar_hora, analizar_fecha
@@ -208,18 +208,31 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None,
         if conn:
             cursor = conn.cursor()
 
+            # ✅ NUEVO: Asegurar persona y conversación antes de la cita
+            persona_id = None
+            conversacion_id = None
+            try:
+                persona_id = upsert_persona(nombre, telefono, 'whatsapp')
+                conversacion_id = crear_conversacion(user_id, persona_id, 'whatsapp')
+                vincular_persona_a_conversacion_y_leads(conversacion_id, persona_id, telefono)
+                log(f"✅ Persona {persona_id} y conversación {conversacion_id} vinculadas para cita")
+            except Exception as e:
+                log(f"⚠️ Error asegurando persona/conversación para cita: {e}", "WARNING")
+
             # Asegurar columna opcional para el event_id (idempotente)
-            cursor.execute("ALTER TABLE citas ADD COLUMN IF NOT EXISTS google_event_id VARCHAR(255)")
+            cursor.execute("ALTER TABLE crm.citas ADD COLUMN IF NOT EXISTS google_event_id VARCHAR(255)")
 
             cursor.execute("""
-                INSERT INTO citas (
-                    nombre, email, telefono, fecha_cita, hora_cita,
-                    propiedad_id, notas
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO crm.citas (
+                    persona_id, conversacion_id,
+                    nombre, email, telefono, user_id,
+                    fecha_cita, hora_cita, propiedad_id, notas
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             """, (
-                nombre, email, telefono, fecha, hora,
-                propiedad_id, notas
+                persona_id, conversacion_id,
+                nombre, email, telefono, user_id,
+                fecha, hora, propiedad_id, notas
             ))
 
             db_record_id = cursor.fetchone()[0]
@@ -249,7 +262,7 @@ def crear_cita(user_id, nombre, telefono, fecha, hora, propiedad_id, email=None,
             if conn:
                 try:
                     cursor.execute(
-                        "UPDATE citas SET google_event_id = %s WHERE id = %s",
+                        "UPDATE crm.citas SET google_event_id = %s WHERE id = %s",
                         (event_id, nueva_cita.get('db_id'))
                     )
                     conn.commit()

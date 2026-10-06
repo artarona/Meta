@@ -98,21 +98,19 @@ def init_db(conn):
     try:
         cursor = conn.cursor()
         log("🔄 Verificando esquema de base de datos...")
-        
+
         # 0. REPARACIÓN: Detectar tablas con IDs incompatibles (ej: id de tipo texto)
         cursor.execute("""
             DO $$ 
             DECLARE 
                 id_type text;
             BEGIN 
-                -- Verificar citas
                 SELECT data_type INTO id_type FROM information_schema.columns 
                 WHERE table_name = 'citas' AND column_name = 'id';
                 IF id_type IS NOT NULL AND id_type != 'integer' THEN
                     EXECUTE 'ALTER TABLE citas RENAME TO citas_old_' || to_char(now(), 'YYYYMMDD_HH24MISS');
                 END IF;
 
-                -- Verificar leads
                 SELECT data_type INTO id_type FROM information_schema.columns 
                 WHERE table_name = 'leads' AND column_name = 'id';
                 IF id_type IS NOT NULL AND id_type != 'integer' THEN
@@ -145,15 +143,11 @@ def init_db(conn):
                 propiedad_id VARCHAR(50),
                 estado VARCHAR(20) DEFAULT 'pendiente',
                 notas TEXT,
-                
-                -- Nuevas columnas para recordatorios
                 recordatorio_enviado BOOLEAN DEFAULT FALSE,
                 recordatorio_enviado_en TIMESTAMP,
                 recordatorio_horario VARCHAR(5) DEFAULT '09:00',
                 recordatorio_respuesta TEXT,
                 recordatorio_fecha_respuesta TIMESTAMP,
-                
-                -- Nuevas columnas para feedback
                 feedback_enviado BOOLEAN DEFAULT FALSE,
                 feedback_enviado_en TIMESTAMP,
                 modificacion TIMESTAMP DEFAULT NOW()
@@ -232,76 +226,86 @@ def init_db(conn):
                 created_at TIMESTAMP DEFAULT NOW()
             );
         """)
-        
-        # 2. Asegurar columnas adicionales
+
+        # 2. Asegurar columnas adicionales (solo ADD COLUMN y cosas seguras)
         cursor.execute("""
-        ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
-        ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_titulo VARCHAR(200);
-        
-        -- Aumentar tamaño de columnas para IDs de Meta (Messenger/Instagram)
-        ALTER TABLE leads ALTER COLUMN telefono TYPE VARCHAR(100);
-        
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS user_id VARCHAR(100);
-        ALTER TABLE citas ALTER COLUMN user_id TYPE VARCHAR(100);
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS nombre VARCHAR(100);
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS email VARCHAR(100);
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS telefono VARCHAR(100);
-        ALTER TABLE citas ALTER COLUMN telefono TYPE VARCHAR(100);
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS fecha_cita DATE;
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS hora_cita VARCHAR(10);
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS estado VARCHAR(20);
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS notas TEXT;
-        
-        -- Nuevas columnas para recordatorios
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_enviado BOOLEAN DEFAULT FALSE;
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_enviado_en TIMESTAMP;
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_horario VARCHAR(5) DEFAULT '09:00';
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_respuesta TEXT;
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_fecha_respuesta TIMESTAMP;
-        
-        -- Nuevas columnas para feedback
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS feedback_enviado BOOLEAN DEFAULT FALSE;
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS feedback_enviado_en TIMESTAMP;
-        ALTER TABLE citas ADD COLUMN IF NOT EXISTS modificacion TIMESTAMP DEFAULT NOW();
-        
-        -- Columnas para user_states si la tabla ya existía
-        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS tipo_seleccionado VARCHAR(50);
-        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS ambientes_seleccionados INTEGER;
-        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS ultima_accion VARCHAR(50);
-        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS cita_seleccionada_modificar TEXT;
-        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS citas_para_modificar TEXT;
-        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS fecha_cita_actualizacion VARCHAR(20);
-        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS hora_cita_actualizacion VARCHAR(10);
-        ALTER TABLE user_states ADD COLUMN IF NOT EXISTS cita_id_a_modificar VARCHAR(50);
-    """)
-        
+            ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
+            ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedad_titulo VARCHAR(200);
+
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS user_id VARCHAR(100);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS nombre VARCHAR(100);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS email VARCHAR(100);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS telefono VARCHAR(100);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS fecha_cita DATE;
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS hora_cita VARCHAR(10);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS propiedad_id VARCHAR(50);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS estado VARCHAR(20);
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS notas TEXT;
+
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_enviado BOOLEAN DEFAULT FALSE;
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_enviado_en TIMESTAMP;
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_horario VARCHAR(5) DEFAULT '09:00';
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_respuesta TEXT;
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS recordatorio_fecha_respuesta TIMESTAMP;
+
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS feedback_enviado BOOLEAN DEFAULT FALSE;
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS feedback_enviado_en TIMESTAMP;
+            ALTER TABLE citas ADD COLUMN IF NOT EXISTS modificacion TIMESTAMP DEFAULT NOW();
+
+            ALTER TABLE user_states ADD COLUMN IF NOT EXISTS tipo_seleccionado VARCHAR(50);
+            ALTER TABLE user_states ADD COLUMN IF NOT EXISTS ambientes_seleccionados INTEGER;
+            ALTER TABLE user_states ADD COLUMN IF NOT EXISTS ultima_accion VARCHAR(50);
+            ALTER TABLE user_states ADD COLUMN IF NOT EXISTS cita_seleccionada_modificar TEXT;
+            ALTER TABLE user_states ADD COLUMN IF NOT EXISTS citas_para_modificar TEXT;
+            ALTER TABLE user_states ADD COLUMN IF NOT EXISTS fecha_cita_actualizacion VARCHAR(20);
+            ALTER TABLE user_states ADD COLUMN IF NOT EXISTS hora_cita_actualizacion VARCHAR(10);
+            ALTER TABLE user_states ADD COLUMN IF NOT EXISTS cita_id_a_modificar VARCHAR(50);
+        """)
+
+        # 2b. ALTER COLUMN TYPE protegidos contra errores de vista
+        #     Si una vista (ej: core.interacciones) depende de la columna,
+        #     PostgreSQL bloquea el ALTER. Lo capturamos y seguimos.
+        cursor.execute("""
+            DO $$ BEGIN
+                ALTER TABLE leads ALTER COLUMN telefono TYPE VARCHAR(100);
+            EXCEPTION WHEN OTHERS THEN
+                NULL;
+            END $$;
+
+            DO $$ BEGIN
+                ALTER TABLE citas ALTER COLUMN user_id TYPE VARCHAR(100);
+            EXCEPTION WHEN OTHERS THEN
+                NULL;
+            END $$;
+
+            DO $$ BEGIN
+                ALTER TABLE citas ALTER COLUMN telefono TYPE VARCHAR(100);
+            EXCEPTION WHEN OTHERS THEN
+                NULL;
+            END $$;
+        """)
+
         # 3. Asegurar secuencias para tablas existentes
         cursor.execute("""
             DO $$ 
             BEGIN 
-                -- Secuencias para leads
                 IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'leads_id_seq') THEN
                     CREATE SEQUENCE leads_id_seq;
                     ALTER TABLE leads ALTER COLUMN id SET DEFAULT nextval('leads_id_seq');
                     ALTER SEQUENCE leads_id_seq OWNED BY leads.id;
                 END IF;
-                
-                -- Secuencias para citas
+
                 IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'citas_id_seq') THEN
                     CREATE SEQUENCE citas_id_seq;
                     ALTER TABLE citas ALTER COLUMN id SET DEFAULT nextval('citas_id_seq');
                     ALTER SEQUENCE citas_id_seq OWNED BY citas.id;
                 END IF;
 
-                -- Secuencias para user_states (no necesita seq porque user_id es PK)
-                
-                -- Sincronizar secuencias (Usamos EXECUTE para evitar errores de compilación)
                 EXECUTE 'SELECT setval(''leads_id_seq'', COALESCE((SELECT MAX(id) FROM leads), 0) + 1, false)';
                 EXECUTE 'SELECT setval(''citas_id_seq'', COALESCE((SELECT MAX(id) FROM citas), 0) + 1, false)';
             END $$;
         """)
-        
+
         conn.commit()
         log("✅ Esquema de base de datos verificado y actualizado (incluye tabla user_states)")
         return True
@@ -312,31 +316,44 @@ def init_db(conn):
         return False
 
 
-def guardar_en_postgresql(telefono, nombre, accion, detalles=""):
-    """Guardar lead/cita en PostgreSQL de Render"""
+def guardar_en_postgresql(telefono, nombre, accion, detalles="", persona_id=None):
+    """Guardar lead en crm.leads. Si no viene persona_id, hace upsert por teléfono."""
     with db_session() as conn:
         if not conn:
             return None
         try:
             log(f"🔄 Iniciando guardado en DB: Tel: {telefono}, Acción: {accion}", user_id=telefono)
-            # Asegurar esquema
             init_db(conn)
-            
             cursor = conn.cursor()
-            
-            # Insertar en leads (log general de actividad)
+
+            # ✅ NUEVO: Asegurar persona antes de insertar el lead
+            if persona_id is None and telefono and nombre:
+                # Llamar fuera de la conexión actual para no mezclar transacciones
+                pass  # se hace después, en la misma transacción, sin cerrar conn
+
+            # ✅ NUEVO: Upsert persona dentro de la misma transacción
+            if persona_id is None and telefono:
+                nombre_limpio = (nombre or '').strip() or f'Cliente {str(telefono)[-4:]}'
+                cursor.execute("""
+                    INSERT INTO core.personas (nombre, telefono, origen, created_at, updated_at)
+                    VALUES (%s, %s, 'whatsapp', NOW(), NOW())
+                    ON CONFLICT (telefono) DO UPDATE
+                      SET nombre = EXCLUDED.nombre,
+                          updated_at = NOW()
+                    RETURNING id
+                """, (nombre_limpio, telefono))
+                persona_id = cursor.fetchone()[0]
+
+            # ✅ INSERT con persona_id y schema explícito
             cursor.execute("""
-                INSERT INTO leads (telefono, nombre, accion, detalles)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO crm.leads (persona_id, telefono, nombre, accion, detalles, fuente, fecha)
+                VALUES (%s, %s, %s, %s, %s, 'whatsapp', NOW())
                 RETURNING id
-            """, (telefono, nombre, accion, detalles))
-            
+            """, (persona_id, telefono, nombre, accion, detalles))
             lead_id = cursor.fetchone()[0]
             conn.commit()
-            
-            log(f"✅ Guardado en PostgreSQL exitoso - ID: {lead_id}", user_id=telefono)
+            log(f"✅ Lead guardado en crm.leads - ID: {lead_id}, persona_id: {persona_id}", user_id=telefono)
             return lead_id
-            
         except Exception as e:
             log(f"❌ ERROR en guardar_en_postgresql: {e}", "ERROR", user_id=telefono)
             if conn:
@@ -944,5 +961,140 @@ def registrar_mensaje_procesado(message_id):
     except Exception as e:
         log(f"❌ Error en registrar_mensaje_procesado({message_id}): {e}", "ERROR")
         return True   # ← Si falla la DB, mejor procesar que perder el mensaje
+    
+# ============================================================
+# INTEGRACIÓN CON core / crm (personas, conversaciones, mensajes)
+# ============================================================
+
+def upsert_persona(nombre, telefono, origen='whatsapp'):
+    """
+    Crea o actualiza una persona en core.personas.
+    Usa ON CONFLICT (telefono) → requiere UNIQUE en core.personas.telefono.
+    Devuelve persona_id (int) o None si falla.
+    """
+    if not telefono:
+        return None
+    conn = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return None
+        cursor = conn.cursor()
+        # Normalizar nombre (por si viene vacío)
+        nombre_limpio = (nombre or '').strip() or f'Cliente {str(telefono)[-4:]}'
+        cursor.execute("""
+            INSERT INTO core.personas (nombre, telefono, origen, created_at, updated_at)
+            VALUES (%s, %s, %s, NOW(), NOW())
+            ON CONFLICT (telefono) DO UPDATE
+              SET nombre = EXCLUDED.nombre,
+                  updated_at = NOW()
+            RETURNING id
+        """, (nombre_limpio, telefono, origen))
+        persona_id = cursor.fetchone()[0]
+        conn.commit()
+        log(f"✅ upsert_persona: id={persona_id}, tel={telefono}, nombre={nombre_limpio}")
+        return persona_id
+    except Exception as e:
+        log(f"❌ Error en upsert_persona({telefono}): {e}", "ERROR")
+        if conn: conn.rollback()
+        return None
+    finally:
+        if conn: conn.close()
+
+
+def crear_conversacion(user_id, persona_id=None, plataforma='whatsapp'):
+    """
+    Crea o recupera una conversación por user_id en crm.conversaciones.
+    Requiere UNIQUE en crm.conversaciones.user_id.
+    Devuelve conversacion_id (int) o None si falla.
+    """
+    if not user_id:
+        return None
+    conn = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return None
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO crm.conversaciones (user_id, persona_id, plataforma, estado, iniciada_en)
+            VALUES (%s, %s, %s, 'activa', NOW())
+            ON CONFLICT (user_id) DO UPDATE
+              SET persona_id = COALESCE(EXCLUDED.persona_id, crm.conversaciones.persona_id),
+                  estado = 'activa'
+            RETURNING id
+        """, (user_id, persona_id, plataforma))
+        conv_id = cursor.fetchone()[0]
+        conn.commit()
+        log(f"✅ crear_conversacion: id={conv_id}, user_id={user_id}, persona_id={persona_id}")
+        return conv_id
+    except Exception as e:
+        log(f"❌ Error en crear_conversacion({user_id}): {e}", "ERROR")
+        if conn: conn.rollback()
+        return None
+    finally:
+        if conn: conn.close()
+
+
+def guardar_mensaje(conversacion_id, direccion, contenido, tipo='texto', metadata=None):
+    """
+    Registra un mensaje individual en crm.mensajes.
+    direccion: 'in' (del usuario) | 'out' (del bot)
+    Devuelve message_id (int) o None si falla.
+    """
+    if not conversacion_id:
+        return None
+    conn = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return None
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO crm.mensajes (conversacion_id, direccion, contenido, tipo, enviado_en, metadata)
+            VALUES (%s, %s, %s, %s, NOW(), %s)
+            RETURNING id
+        """, (conversacion_id, direccion, contenido, tipo, json.dumps(metadata or {})))
+        msg_id = cursor.fetchone()[0]
+        conn.commit()
+        return msg_id
+    except Exception as e:
+        log(f"❌ Error en guardar_mensaje({conversacion_id}): {e}", "ERROR")
+        if conn: conn.rollback()
+        return None
+    finally:
+        if conn: conn.close()
+
+
+def vincular_persona_a_conversacion_y_leads(conversacion_id, persona_id, telefono):
+    """
+    Vincula la conversación y todos los leads huérfanos de ese teléfono a la persona.
+    """
+    if not persona_id or not telefono:
+        return
+    conn = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return
+        cursor = conn.cursor()
+        if conversacion_id:
+            cursor.execute("""
+                UPDATE crm.conversaciones
+                SET persona_id = %s
+                WHERE id = %s AND persona_id IS NULL
+            """, (persona_id, conversacion_id))
+        cursor.execute("""
+            UPDATE crm.leads
+            SET persona_id = %s
+            WHERE telefono = %s AND persona_id IS NULL
+        """, (persona_id, telefono))
+        conn.commit()
+        log(f"✅ Vínculo persona {persona_id} → conv {conversacion_id} + leads de {telefono}")
+    except Exception as e:
+        log(f"❌ Error vinculando: {e}", "ERROR")
+        if conn: conn.rollback()
+    finally:
+        if conn: conn.close()
 
 

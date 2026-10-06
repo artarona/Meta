@@ -939,16 +939,60 @@ def webhook():
                     return False
                 
                 # ✅ PASO 1: Guardar el platform en el estado del usuario
-                from database import obtener_estado_usuario, actualizar_estado_usuario
+                # ✅ PASO 1: Guardar el platform en el estado del usuario
+                from database import (
+                    obtener_estado_usuario, 
+                    actualizar_estado_usuario,
+                    upsert_persona,
+                    crear_conversacion,
+                    guardar_mensaje,
+                    vincular_persona_a_conversacion_y_leads,
+                )
+                
+                # ═══════════════════════════════════════════════════════════════
+                # ✅ NUEVO: Crear conversación y registrar mensaje entrante
+                # ═══════════════════════════════════════════════════════════════
+                conversacion_id = crear_conversacion(from_id, persona_id=None, plataforma=platform)
+                if conversacion_id and message_text:
+                    guardar_mensaje(conversacion_id, 'in', message_text, 'texto')
+                # ═══════════════════════════════════════════════════════════════
                 
                 # Obtener estado del usuario
                 estado_usuario = obtener_estado_usuario(from_id)
+                
+                # ═══════════════════════════════════════════════════════════
+                # ✅ NUEVO: Integración con core.personas / crm.conversaciones / crm.mensajes
+                # ═══════════════════════════════════════════════════════════
+                from database import upsert_persona, crear_conversacion, guardar_mensaje, vincular_persona_a_conversacion_y_leads
+                
+                conversacion_id = crear_conversacion(from_id, persona_id=None, plataforma=platform)
+                if conversacion_id and message_text:
+                    guardar_mensaje(conversacion_id, 'in', message_text, 'texto')
+                # ═══════════════════════════════════════════════════════════
+                
                 
                 # Guardar platform si es diferente
                 if estado_usuario.get('platform') != platform:
                     estado_usuario['platform'] = platform
                     actualizar_estado_usuario(from_id, estado_usuario)
                     log(f"📱 Platform guardado en DB para {from_id}: {platform}")
+                
+                # ✅ NUEVO: Si el bot ya capturó el nombre, hacer upsert y vincular
+                nombre_cliente = estado_usuario.get('nombre_cliente')
+                if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
+                    estado_usuario['data'] = {}
+
+                if (nombre_cliente 
+                    and nombre_cliente.lower().strip() not in ('ninguno', '')
+                    and not estado_usuario['data'].get('_persona_creada')):
+                    
+                    persona_id = upsert_persona(nombre_cliente, from_id, 'whatsapp')
+                    if persona_id:
+                        vincular_persona_a_conversacion_y_leads(conversacion_id, persona_id, from_id)
+                        estado_usuario['data']['_persona_creada'] = True
+                        actualizar_estado_usuario(from_id, estado_usuario)
+                        log(f"✅ Persona {persona_id} vinculada a conv {conversacion_id}")
+                
                 
                 # Normalizar texto para comandos de usuario y botones
                 processed_text = message_text.strip().lower()
@@ -3307,6 +3351,8 @@ def get_contactos_web():
                 EXISTS (SELECT FROM information_schema.tables 
                         WHERE table_schema = 'dante' AND table_name = 'formularios')
         """)
+        
+        
         tablas_existen = cursor.fetchone()[0]
         
         if not tablas_existen:
@@ -3326,7 +3372,10 @@ def get_contactos_web():
                 p.documento, p.origen, p.notas, p.created_at, p.updated_at,
                 f.interes, f.presupuesto, f.pagina_origen, f.user_agent, f.ip_address,
                 (SELECT COUNT(*) FROM dante.formularios WHERE persona_id = p.id) AS total_formularios,
-                (SELECT COUNT(*) FROM dante.consultas_chat WHERE persona_id = p.id) AS total_consultas
+                (SELECT COUNT(*) FROM dante.consultas_chat WHERE persona_id = p.id) AS total_consultas,
+                (SELECT COUNT(*) FROM crm.leads WHERE persona_id = p.id) AS total_leads_wa,
+                (SELECT COUNT(*) FROM crm.conversaciones WHERE persona_id = p.id) AS total_conversaciones,
+                (SELECT COUNT(*) FROM crm.citas WHERE persona_id = p.id) AS total_citas
             FROM core.personas p
             LEFT JOIN dante.formularios f ON f.persona_id = p.id
             ORDER BY p.id, f.created_at DESC
@@ -3334,6 +3383,12 @@ def get_contactos_web():
         
         contactos = []
         for row in cursor.fetchall():
+            # Calcular canales donde apareció
+            canales = []
+            if (row[15] or 0) > 0: canales.append('web_form')
+            if (row[16] or 0) > 0: canales.append('web_ia')
+            if (row[17] or 0) > 0 or (row[18] or 0) > 0: canales.append('whatsapp')
+            
             contactos.append({
                 'id': row[0],
                 'nombre': row[1] or '',
@@ -3351,7 +3406,11 @@ def get_contactos_web():
                 'user_agent': row[13] or '',
                 'ip_address': row[14] or '',
                 'total_formularios': row[15] or 0,
-                'total_consultas': row[16] or 0
+                'total_consultas': row[16] or 0,
+                'total_leads_wa': row[17] or 0,
+                'total_conversaciones': row[18] or 0,
+                'total_citas': row[19] or 0,
+                'canales': canales
             })
         
         cursor.close()
@@ -3768,6 +3827,87 @@ def debug_db_verbose():
             "host_contiene_plain_dawn": "plain-dawn" in host,
         }
     return {"error": "No se pudo parsear DATABASE_URL", "url_prefix": url[:50]}
+
+# ============================================================
+# ENDPOINT DE TEST: Ejecuta el bot SIN enviar a Meta
+# ============================================================
+@app.route("/test/bot-response", methods=["GET"])
+def test_bot_response():
+    """
+    Ejecuta get_bot_response() y guarda todo en DB, pero NO envía
+    nada a Meta. Ideal para probar mientras WhatsApp está en review.
+    
+    Uso: /test/bot-response?user_id=5491151511579&text=hola
+    """
+    user_id = request.args.get("user_id")
+    text = request.args.get("text", "hola")
+    
+    if not user_id:
+        return jsonify({"error": "Falta parámetro user_id"}), 400
+    
+    try:
+        # ✅ Importar acá para evitar circular imports al arrancar
+        from database import crear_conversacion, guardar_mensaje
+        from utils import log
+        
+        # 1. Asegurar conversación
+        conversacion_id = crear_conversacion(user_id, persona_id=None, plataforma='whatsapp')
+        
+        # 2. Guardar mensaje entrante
+        mensaje_in_id = None
+        if conversacion_id:
+            mensaje_in_id = guardar_mensaje(conversacion_id, 'in', text, 'texto')
+        
+        # 3. Ejecutar el bot
+        respuesta = get_bot_response(text, user_id)
+        
+        # 4. Normalizar la respuesta para saber si es texto o trigger
+        tipo_respuesta = "texto"
+        texto_respuesta = None
+        
+        if respuesta == "WELCOME_FLOW_TRIGGER":
+            tipo_respuesta = "welcome_flow"
+            texto_respuesta = "[Menú de bienvenida interactivo]"
+        elif isinstance(respuesta, str) and respuesta.startswith("PHOTOS_TRIGGER|"):
+            tipo_respuesta = "photos_trigger"
+            texto_respuesta = respuesta
+        elif isinstance(respuesta, str) and respuesta.startswith("OFFER_MEETING_TRIGGER|"):
+            tipo_respuesta = "offer_meeting"
+            texto_respuesta = respuesta
+        elif isinstance(respuesta, list):
+            tipo_respuesta = "lista_respuestas"
+            texto_respuesta = f"[{len(respuesta)} mensajes]"
+        elif isinstance(respuesta, dict):
+            tipo_respuesta = "interactive"
+            texto_respuesta = respuesta.get("body", str(respuesta))
+        else:
+            texto_respuesta = str(respuesta)
+        
+        # 5. Guardar mensaje saliente (simulado)
+        mensaje_out_id = None
+        if conversacion_id and texto_respuesta:
+            mensaje_out_id = guardar_mensaje(
+                conversacion_id, 'out', texto_respuesta[:2000], 'texto'
+            )
+        
+        return jsonify({
+            "ok": True,
+            "user_id": user_id,
+            "input": text,
+            "conversacion_id": conversacion_id,
+            "mensaje_in_id": mensaje_in_id,
+            "mensaje_out_id": mensaje_out_id,
+            "tipo_respuesta": tipo_respuesta,
+            "respuesta_preview": texto_respuesta[:200] if texto_respuesta else None
+        })
+        
+    except Exception as e:
+        import traceback
+        log(f"❌ Error en test_bot_response: {e}", "ERROR")
+        log(traceback.format_exc(), "ERROR")
+        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
+
+
 
 if __name__ == "__main__":
 

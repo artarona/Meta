@@ -4,12 +4,29 @@ import time
 from config import *
 from utils import log, normalizar_numero_argentina
 from io import BytesIO
-from database import registrar_lead, cargar_propiedades_cached
+from database import registrar_lead, cargar_propiedades_cached, crear_conversacion, guardar_mensaje
 from config import ADMIN_NUMBER
 from logic.response_builder import WhatsAppResponse
 
 
 processed_message_ids = set()
+
+def _registrar_mensaje_saliente(user_id, contenido, tipo='texto'):
+    """
+    Registra un mensaje saliente (del bot al usuario) en crm.mensajes.
+    Es defensivo: nunca interrumpe el envío si falla.
+    """
+    try:
+        if not user_id or not contenido:
+            return
+        conv_id = crear_conversacion(user_id, persona_id=None, plataforma='whatsapp')
+        if conv_id:
+            # Truncar contenido a algo razonable para no reventar la DB
+            contenido_str = str(contenido)[:4000]
+            guardar_mensaje(conv_id, 'out', contenido_str, tipo)
+    except Exception as e:
+        log(f"⚠️ No se pudo registrar mensaje saliente: {e}", "WARNING")
+
 
 def send_whatsapp_message(to_number, message_text):
     """Envía un mensaje de WhatsApp usando texto directo"""
@@ -41,6 +58,10 @@ def send_whatsapp_message(to_number, message_text):
             result = response.json()
             message_id = result.get('messages', [{}])[0].get('id', 'N/A')
             log(f"✅ Mensaje enviado exitosamente - ID: {message_id}")
+            
+            # ✅ NUEVO: Registrar mensaje saliente
+            _registrar_mensaje_saliente(to_number, message_text, 'texto')
+            
             return {"status": "success", "message_id": message_id}
         else:
             error_data = response.json() if response.content else {}
@@ -239,6 +260,8 @@ def send_whatsapp_image(to_number, image_url, caption=""):
         
         if response.status_code == 200:
             log(f"✅ Imagen enviada: {image_url}")
+            # ✅ NUEVO: Registrar como mensaje de tipo imagen
+            _registrar_mensaje_saliente(to_number, f"[Imagen] {caption or image_url}", 'imagen')
             return True
         else:
             log(f"❌ Error enviando imagen")
@@ -304,6 +327,12 @@ def send_whatsapp_interactive_buttons(to_number, text_body, buttons, header_text
         if response.status_code == 200:
             result = response.json()
             message_id = result.get('messages', [{}])[0].get('id', 'N/A')
+            
+            # ✅ NUEVO: Registrar mensaje saliente (botones se guardan como texto plano)
+            botones_txt = ' | '.join([b.get('title', '') for b in buttons if b.get('title')])
+            contenido = f"{header_text or ''}\n{text_body}\n[Botones: {botones_txt}]".strip()
+            _registrar_mensaje_saliente(to_number, contenido, 'botones')
+            
             return {"status": "success", "message_id": message_id}
         else:
             error_data = response.json() if response.content else {}
@@ -381,6 +410,15 @@ def send_whatsapp_list_menu(to_number, text_body, button_text, sections, header_
         if response.status_code == 200:
             result = response.json()
             message_id = result.get('messages', [{}])[0].get('id', 'N/A')
+            
+            # ✅ NUEVO: Registrar mensaje saliente (lista)
+            opciones_txt = []
+            for sec in sections:
+                for row in sec.get('rows', []):
+                    opciones_txt.append(row.get('title', ''))
+            contenido = f"{header_text or ''}\n{text_body}\n[Opciones: {', '.join(opciones_txt)}]".strip()
+            _registrar_mensaje_saliente(to_number, contenido, 'lista')
+            
             return {"status": "success", "message_id": message_id}
         else:
             error_data = response.json() if response.content else {}
