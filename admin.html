@@ -2166,9 +2166,33 @@ R    <div class="container">
                             </div>
                             ` : ''}
                             
+                            <!-- ✅ NUEVO: Canales donde interactuó -->
+                            <div style="margin-top: 1rem; padding: 0.75rem; background: #f0fdf4; border-radius: 6px; border-left: 3px solid var(--success);">
+                                <strong style="font-size: 0.8rem;">📡 Canales:</strong>
+                                <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.4rem;">
+                                    ${(c.canales && c.canales.length > 0) 
+                                        ? c.canales.map(canal => {
+                                            const config = {
+                                                'whatsapp': { emoji: '💬', label: 'WhatsApp', bg: '#dcfce7', color: '#166534' },
+                                                'web_form': { emoji: '🌐', label: 'Formulario', bg: '#dbeafe', color: '#1e40af' },
+                                                'web_ia':   { emoji: '🤖', label: 'Chat IA',    bg: '#fef3c7', color: '#92400e' }
+                                            }[canal] || { emoji: '📍', label: canal, bg: '#f1f5f9', color: '#475569' };
+                                            return `<span style="background: ${config.bg}; color: ${config.color}; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">${config.emoji} ${config.label}</span>`;
+                                        }).join('')
+                                        : '<span style="color: var(--text-muted); font-size: 0.8rem;">Sin actividad registrada</span>'
+                                    }
+                                </div>
+                            </div>
+                            
+                            <!-- ✅ Métricas completas -->
                             <div class="card-row" style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">
                                 <span>📊</span>
-                                <span>${c.total_formularios} formularios | ${c.total_consultas} consultas</span>
+                                <span>
+                                    🌐 ${c.total_formularios} form | 
+                                    🤖 ${c.total_consultas} chat | 
+                                    💬 ${c.total_leads_wa} leads | 
+                                    📅 ${c.total_citas} citas
+                                </span>
                             </div>
                             
                             <div class="card-row" style="font-size: 0.8rem; color: var(--text-muted);">
