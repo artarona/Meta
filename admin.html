@@ -5364,13 +5364,17 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 }
 
                 // 2. Cargar Propiedades para el selector (si no están cargadas)
+                // 2. Cargar Propiedades para el selector
                 if (propiedadesParaSelector.length === 0) {
                     const props = await fetchConClave('/api/propiedades');
                     if (props) {
                         propiedadesParaSelector = props;
-                        poblarSelectorPropiedadesHorarios();
                     }
                 }
+                
+                // ⭐ SIEMPRE poblar el selector
+                poblarSelectorPropiedadesHorarios();
+
 
                 renderizarHorariosAdmin();
             } catch (error) {
