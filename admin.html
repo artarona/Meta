@@ -1190,9 +1190,9 @@ R    <div class="container">
             </div>
             <!-- Botones de sincronización en el header -->
             <div style="position: absolute; top: 1rem; right: 2rem; display: flex; align-items: center; gap: 0.6rem;">
-                <button onclick="sincronizarCitas()" title="Sincronizar citas con PostgreSQL"
+                <button onclick="sincronizarCitas()" title="Sincronizar citas legacy desde citas.json a PostgreSQL (solo si tenés citas viejas sin migrar)"
                     style="background: rgba(139,92,246,0.85); color: white; border: none; border-radius: 8px; padding: 0.45rem 0.9rem; cursor: pointer; font-size: 0.82rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem; backdrop-filter: blur(6px); transition: background 0.2s;" onmouseover="this.style.background='rgba(109,40,217,0.95)'" onmouseout="this.style.background='rgba(139,92,246,0.85)'">
-                    🔄 PostgreSQL
+                    🔄 Sync legacy
                 </button>
                 <button onclick="sincronizarTodoGoogleCal()" title="Sincronizar todo con Google Calendar"
                     style="background: rgba(255,255,255,0.12); color: white; border: 1.5px solid rgba(255,255,255,0.45); border-radius: 8px; padding: 0.45rem 0.9rem; cursor: pointer; font-size: 0.82rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem; backdrop-filter: blur(6px); transition: background 0.2s;" onmouseover="this.style.background='rgba(66,133,244,0.5)'" onmouseout="this.style.background='rgba(255,255,255,0.12)'">
@@ -5528,6 +5528,12 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                     configHorariosActual.propiedades[propId] = JSON.parse(JSON.stringify(configHorariosActual.configuracion_global));
                 }
                 configHorariosActual.propiedades[propId].dias_habiles = diasHabilitados;
+
+                // ✅ Actualizar el _titulo con el nombre actual de la propiedad
+                const propActual = propiedadesParaSelector.find(p => p.id === propId);
+                if (propActual && propActual.titulo) {
+                    configHorariosActual.propiedades[propId]._titulo = propActual.titulo;
+                }
             }
 
             try {
