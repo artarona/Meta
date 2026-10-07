@@ -1858,17 +1858,48 @@ R    <div class="container">
                         <option value="cancelada">Cancelada</option>
                     </select>
                 </div>
+                
                 <div class="form-group">
                     <label class="form-label">Notas</label>
-                    <textarea class="form-control" id="edit-cita-notas" rows="3"></textarea>
+                    <textarea class="form-control" id="edit-contacto-notas" rows="3"></textarea>
                 </div>
+
+                <!-- ✅ NUEVO: Datos del formulario -->
+                <div style="margin-top: 1rem; padding: 1rem; background: #f0f9ff; border-radius: 8px; border-left: 3px solid var(--primary);">
+                    <h4 style="margin: 0 0 1rem 0; font-size: 0.9rem;">📋 Datos del Formulario</h4>
+
+                    <div class="form-group">
+                        <label class="form-label">Interés</label>
+                        <select class="form-control" id="edit-contacto-interes">
+                            <option value="">Sin especificar</option>
+                            <option value="compra">Compra</option>
+                            <option value="venta">Venta</option>
+                            <option value="alquiler">Alquiler</option>
+                            <option value="tasacion">Tasación</option>
+                            <option value="consulta">Consulta</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Presupuesto</label>
+                        <input type="text" class="form-control" id="edit-contacto-presupuesto" placeholder="Ej: 150.000 USD">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">Página de origen</label>
+                        <input type="text" class="form-control" id="edit-contacto-pagina" readonly style="background: #f8fafc; cursor: not-allowed;">
+                    </div>
+                </div>
+
                 <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                    <button type="button" class="btn btn-danger" style="flex: 1;" 
-                        onclick="confirmarEliminarCita(document.getElementById('edit-cita-id').value)">🗑️ Eliminar</button>
+                    <button type="button" class="btn btn-danger" style="flex: 1;"
+                        onclick="eliminarContactoWeb(document.getElementById('edit-contacto-id').value)">🗑️ Eliminar</button>
                     <button type="button" class="btn btn-outline" style="flex: 1;"
-                        onclick="cerrarModal('modal-editar-cita')">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Guardar Cambios</button>
+                        onclick="cerrarModal('modal-editar-contacto-web')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Guardar</button>
                 </div>
+
+
             </form>
         </div>
     </div>
@@ -1900,7 +1931,7 @@ R    <div class="container">
     </div>
 
     
-        <!-- Modal Editar Contacto Web -->
+    <!-- Modal Editar Contacto Web -->
     <div class="modal" id="modal-editar-contacto-web">
         <div class="modal-content">
             <div class="modal-header">
@@ -2343,6 +2374,7 @@ R    <div class="container">
             const c = todosLosContactosWeb.find(x => x.id === id);
             if (!c) return;
 
+            // Datos de la persona
             document.getElementById('edit-contacto-id').value = c.id;
             document.getElementById('edit-contacto-nombre').value = c.nombre || '';
             document.getElementById('edit-contacto-email').value = c.email || '';
@@ -2351,6 +2383,11 @@ R    <div class="container">
             document.getElementById('edit-contacto-documento').value = c.documento || '';
             document.getElementById('edit-contacto-notas').value = c.notas || '';
 
+            // ✅ Datos del formulario
+            document.getElementById('edit-contacto-interes').value = c.interes || '';
+            document.getElementById('edit-contacto-presupuesto').value = c.presupuesto || '';
+            document.getElementById('edit-contacto-pagina').value = c.pagina_origen || '(sin dato)';
+
             document.getElementById('modal-editar-contacto-web').classList.add('active');
         }
 
@@ -2358,12 +2395,16 @@ R    <div class="container">
             event.preventDefault();
             const id = document.getElementById('edit-contacto-id').value;
             const data = {
+                // Datos de la persona
                 nombre: document.getElementById('edit-contacto-nombre').value,
                 email: document.getElementById('edit-contacto-email').value,
                 telefono: document.getElementById('edit-contacto-telefono').value,
                 telefono_alt: document.getElementById('edit-contacto-telefono-alt').value,
                 documento: document.getElementById('edit-contacto-documento').value,
-                notas: document.getElementById('edit-contacto-notas').value
+                notas: document.getElementById('edit-contacto-notas').value,
+                // ✅ Datos del formulario
+                interes: document.getElementById('edit-contacto-interes').value,
+                presupuesto: document.getElementById('edit-contacto-presupuesto').value
             };
 
             try {

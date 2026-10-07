@@ -3450,7 +3450,7 @@ def get_contactos_web():
 
 @app.route("/api/contactos-web/<int:persona_id>", methods=["PUT"])
 def update_contacto_web(persona_id):
-    """Actualiza un contacto web"""
+    """Actualiza un contacto web (persona + último formulario)"""
     key = request.args.get('key')
     if key != ADMIN_ACCESS_KEY:
         return jsonify({"error": "Unauthorized"}), 403
@@ -3462,6 +3462,8 @@ def update_contacto_web(persona_id):
             return jsonify({"error": "DB no disponible"}), 500
         
         cursor = conn.cursor()
+        
+        # 1. Actualizar core.personas
         cursor.execute("""
             UPDATE core.personas 
             SET nombre = %s, email = %s, telefono = %s, telefono_alt = %s,
@@ -3476,13 +3478,33 @@ def update_contacto_web(persona_id):
             data.get('notas'),
             persona_id
         ))
+        
+        # 2. Actualizar el último formulario (si existe y si vienen datos)
+        interes = data.get('interes')
+        presupuesto = data.get('presupuesto')
+        
+        if interes is not None or presupuesto is not None:
+            cursor.execute("""
+                UPDATE dante.formularios
+                SET interes = COALESCE(%s, interes),
+                    presupuesto = COALESCE(%s, presupuesto)
+                WHERE id = (
+                    SELECT id FROM dante.formularios 
+                    WHERE persona_id = %s 
+                    ORDER BY created_at DESC 
+                    LIMIT 1
+                )
+            """, (interes or None, presupuesto or None, persona_id))
+        
         conn.commit()
         cursor.close()
         conn.close()
-        log(f"✅ Contacto web {persona_id} actualizado")
+        log(f"✅ Contacto web {persona_id} actualizado (persona + formulario)")
         return jsonify({"status": "success", "message": "Contacto actualizado"})
     except Exception as e:
         log(f"❌ Error en update contacto web: {e}", "ERROR")
+        import traceback
+        log(traceback.format_exc(), "ERROR")
         return jsonify({"error": str(e)}), 500
 
 
