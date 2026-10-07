@@ -1272,6 +1272,7 @@ R    <div class="container">
             <div class="pagination" id="citas-pagination"></div>
         </div>
 
+
         <!-- Tab Leads -->
         <div id="tab-leads" class="tab-content" role="tabpanel" aria-labelledby="leads-tab">
             <div class="tab-header">
@@ -1286,13 +1287,11 @@ R    <div class="container">
                         <option value="web">Web</option>
                         <option value="referido">Referido</option>
                     </select>
+                    <button class="btn btn-outline" id="btn-toggle-agrupacion-leads" onclick="toggleAgrupacionLeads()" title="Ver cada acción individual (modo debug)">
+                        🔍 Debug: OFF
+                    </button>
                 </div>
             </div>
-            <div class="leads-grid" id="leads-container">
-                <!-- Leads cargados dinámicamente -->
-            </div>
-            <div class="pagination" id="leads-pagination"></div>
-        </div>
 
                 <!-- Tab Contactos Web -->
         <div id="tab-contactos-web" class="tab-content" role="tabpanel" aria-labelledby="contactos-web-tab">
@@ -2066,6 +2065,9 @@ R    <div class="container">
         let todosLosContactosWeb = [];
         let todasLasConsultasChat = [];
         let conversacionesChatGlobales = [];
+        // ✅ Toggle de agrupación de leads
+        let agrupacionLeadsActiva = localStorage.getItem('debug_leads') === 'true';
+        let conversacionesLeadsGlobales = [];
         let todosLosPreciosBarrios = {};
         let preciosChart = null;
         let refreshInterval = null;
@@ -2508,6 +2510,73 @@ R    <div class="container">
             return conversaciones.sort((a, b) => b.ultima_fecha - a.ultima_fecha);
         }
 
+        function agruparLeads(leads) {
+            if (!leads || leads.length === 0) return [];
+
+            // Ordenar por fecha ascendente
+            const ordenados = [...leads].sort((a, b) =>
+                new Date(a.timestamp) - new Date(b.timestamp)
+            );
+
+            const conversaciones = [];
+            let actual = null;
+
+            ordenados.forEach(lead => {
+                const fecha = new Date(lead.timestamp);
+
+                const mismoGrupo = actual
+                    && actual.user_id === lead.user_id
+                    && (fecha - actual.ultima_fecha) <= VENTANA_CONVERSACION_MS;
+
+                if (mismoGrupo) {
+                    actual.leads.push(lead);
+                    actual.ultima_fecha = fecha;
+                    actual.total_acciones++;
+                    actual.ultimo_lead = lead;
+                } else {
+                    actual = {
+                        group_id: lead.id,
+                        user_id: lead.user_id,
+                        nombre: lead.nombre,
+                        leads: [lead],
+                        inicio: fecha,
+                        ultima_fecha: fecha,
+                        total_acciones: 1,
+                        ultimo_lead: lead
+                    };
+                    conversaciones.push(actual);
+                }
+            });
+
+            // Más recientes primero
+            return conversaciones.sort((a, b) => b.ultima_fecha - a.ultima_fecha);
+        }
+
+
+        // ============================================================
+        // 🔄 TOGGLE DE AGRUPACIÓN DE LEADS (Debug)
+        // ============================================================
+        function toggleAgrupacionLeads() {
+            agrupacionLeadsActiva = !agrupacionLeadsActiva;
+            localStorage.setItem('debug_leads', agrupacionLeadsActiva);
+
+            const btn = document.getElementById('btn-toggle-agrupacion-leads');
+            if (btn) {
+                btn.textContent = agrupacionLeadsActiva ? '🔍 Debug: ON' : '🔄 Debug: OFF';
+                btn.classList.toggle('active', agrupacionLeadsActiva);
+            }
+
+            // Re-renderizar
+            mostrarLeads(todosLosLeads);
+        }
+
+        // Actualizar el texto del botón al cargar
+        function actualizarBotonDebugLeads() {
+            const btn = document.getElementById('btn-toggle-agrupacion-leads');
+            if (!btn) return;
+            btn.textContent = agrupacionLeadsActiva ? '🔍 Debug: ON' : '🔄 Debug: OFF';
+            btn.classList.toggle('active', agrupacionLeadsActiva);
+        }
 
 
         function mostrarConsultasChat(consultas) {
@@ -2876,49 +2945,153 @@ R    <div class="container">
         }
 
         // Mostrar leads
-        function mostrarLeads(leads) {
+                function mostrarLeads(leads) {
             const container = document.getElementById('leads-container');
+            if (!container) return;
 
             if (!leads || leads.length === 0) {
                 mostrarEmptyState('leads-container', 'No hay leads registrados', '👤');
                 return;
             }
 
+            // Toggle: modo debug = individuales, modo normal = agrupados
+            if (agrupacionLeadsActiva) {
+                mostrarLeadsIndividuales(leads);
+            } else {
+                mostrarLeadsAgrupados(leads);
+            }
+        }
+
+        function mostrarLeadsAgrupados(leads) {
+            const container = document.getElementById('leads-container');
+            const grupos = agruparLeads(leads);
+            conversacionesLeadsGlobales = grupos;
+
+            let html = '';
+            grupos.forEach((grupo, idx) => {
+                const l = grupo.ultimo_lead;
+                const fechaFormateada = formatearFecha(grupo.ultima_fecha.toISOString());
+                const duracion = Math.round((grupo.ultima_fecha - grupo.inicio) / 60000);
+
+                const badgeAccion = l.accion === 'lead_completo' ? 'status-confirmada'
+                    : l.accion === 'cita_agendada' ? 'status-confirmada'
+                    : l.accion === 'lead_caliente_oferta' ? 'status-cancelada'
+                    : 'status-pendiente';
+
+                const emojiAccion = l.accion === 'cita_agendada' ? '📅'
+                    : l.accion === 'lead_completo' ? '✅'
+                    : l.accion === 'ver_detalle' ? '👀'
+                    : l.accion === 'click_me_interesa' ? '🎯'
+                    : l.accion === 'tasacion' ? '🏠'
+                    : l.accion === 'lead_caliente_oferta' ? '🔥'
+                    : '📌';
+
+                const badgeTotal = grupo.total_acciones > 1
+                    ? `<span class="status-badge status-pendiente" style="font-size: 0.7rem; padding: 2px 8px;">🔥 ${grupo.total_acciones} eventos</span>`
+                    : '';
+
+                html += `
+                    <div class="lead-card" data-id="${grupo.user_id}">
+                        <div class="card-header">
+                            <span class="card-id">#${grupo.user_id ? grupo.user_id.slice(-6) : 'N/A'}</span>
+                            <span class="status-badge ${badgeAccion}">
+                                ${emojiAccion} ${(l.accion || 'N/A').toUpperCase()}
+                            </span>
+                        </div>
+
+                        <div class="card-content">
+                            <h3 style="margin: 0 0 1rem 0; font-size: 1.2rem;">
+                                ${grupo.nombre && grupo.nombre !== 'Anónimo' ? `👤 ${grupo.nombre}` : `🚫 Anónimo`}
+                            </h3>
+
+                            <div class="card-row">
+                                <span>📞</span>
+                                <span>${grupo.user_id || 'N/A'}</span>
+                            </div>
+
+                            ${badgeTotal ? `<div style="margin-top: 0.5rem;">${badgeTotal}</div>` : ''}
+
+                            <div class="card-row">
+                                <span>📅</span>
+                                <span>${fechaFormateada}${duracion > 0 ? ` · ⏱️ ${duracion} min` : ''}</span>
+                            </div>
+
+                            ${l.propiedad_titulo ? `
+                            <div class="card-row">
+                                <span>🏠</span>
+                                <span>${l.propiedad_titulo}</span>
+                            </div>
+                            ` : ''}
+
+                            ${l.detalle ? `
+                            <div style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 6px; font-size: 0.9rem;">
+                                <strong>📝 Último detalle:</strong><br>
+                                ${l.detalle.substring(0, 150)}${l.detalle.length > 150 ? '...' : ''}
+                            </div>
+                            ` : ''}
+                        </div>
+
+                        <div class="card-actions">
+                            <button class="btn btn-primary" onclick="verHistorialLeadPorIndice(${idx})">
+                                👁️ Ver historial
+                            </button>
+                            <button class="btn btn-primary" onclick="contactarLead('${grupo.user_id}')">
+                                📞 WA
+                            </button>
+                            <button class="btn btn-primary" onclick="abrirModalMensaje('${grupo.user_id}', '${grupo.nombre || ''}')" style="background: #059669;">
+                                💬 Responder
+                            </button>
+                            <button class="btn btn-outline" onclick="agendarCitaDesdeLead('${grupo.user_id}')">
+                                📅 Cita
+                            </button>
+                            <button class="btn btn-danger" onclick="eliminarGrupoLeads(${idx})">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function mostrarLeadsIndividuales(leads) {
+            const container = document.getElementById('leads-container');
+
             let html = '';
             leads.forEach(lead => {
                 const fecha = lead.timestamp ? formatearFecha(lead.timestamp) : 'Fecha no disponible';
+                const badge = lead.accion === 'lead_completo' ? 'status-confirmada' : 'status-pendiente';
 
                 html += `
                     <div class="lead-card" data-id="${lead.user_id || lead.id}">
                         <div class="card-header">
                             <span class="card-id">#${lead.user_id ? lead.user_id.slice(-6) : 'N/A'}</span>
-                            <span class="status-badge ${lead.accion === 'lead_completo' ? 'status-confirmada' : 'status-pendiente'}">
-                                ${lead.accion === 'lead_completo' ? '📞 CONTACTADO' : '🆕 NUEVO'}
+                            <span class="status-badge ${badge}">
+                                ${lead.accion === 'lead_completo' ? '📞 CONTACTADO' : '🆕 ' + (lead.accion || 'NUEVO').toUpperCase()}
                             </span>
                         </div>
-                        
+
                         <div class="card-content">
                             <h3 style="margin: 0 0 1rem 0; font-size: 1.2rem;">
-                                ${lead.nombre && lead.nombre !== 'Anónimo' 
-                                    ? `👤 ${lead.nombre}` 
-                                    : `🚫 Anónimo`}
+                                ${lead.nombre && lead.nombre !== 'Anónimo' ? `👤 ${lead.nombre}` : `🚫 Anónimo`}
                             </h3>
-                            
+
                             <div class="card-row">
                                 <span>📞</span>
                                 <span>${lead.user_id || 'N/A'}</span>
                             </div>
-                            
+
                             <div class="card-row">
                                 <span>📅</span>
                                 <span>${fecha}</span>
                             </div>
-                            
+
                             <div class="card-row">
                                 <span>📊</span>
                                 <span>Acción: ${lead.accion || 'N/A'}</span>
                             </div>
-                            
+
                             ${lead.detalle ? `
                             <div style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 6px; font-size: 0.9rem;">
                                 <strong>📝 Detalle:</strong><br>
@@ -2926,7 +3099,7 @@ R    <div class="container">
                             </div>
                             ` : ''}
                         </div>
-                        
+
                         <div class="card-actions">
                             <button class="btn btn-primary" onclick="contactarLead('${lead.user_id}')">
                                 📞 WA Personal
@@ -2949,6 +3122,112 @@ R    <div class="container">
             });
 
             container.innerHTML = html;
+        }
+
+
+
+                // ============================================================
+        // 👁️ HISTORIAL DE LEADS AGRUPADOS
+        // ============================================================
+        function verHistorialLeadPorIndice(idx) {
+            const grupo = conversacionesLeadsGlobales[idx];
+            if (!grupo) {
+                mostrarToast('❌ Grupo no encontrado', 'error');
+                return;
+            }
+            verHistorialLead(grupo);
+        }
+
+        function verHistorialLead(grupo) {
+            // Usar el mismo modal de "Ver Respuesta IA" reutilizándolo
+            const container = document.getElementById('detalle-consulta-content');
+            if (!container) return;
+
+            let accionesHTML = '';
+            grupo.leads.forEach((l, i) => {
+                const hora = new Date(l.timestamp).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+                const fecha = new Date(l.timestamp).toLocaleDateString('es-AR');
+
+                const emoji = l.accion === 'cita_agendada' ? '📅'
+                    : l.accion === 'lead_completo' ? '✅'
+                    : l.accion === 'ver_detalle' ? '👀'
+                    : l.accion === 'click_me_interesa' ? '🎯'
+                    : l.accion === 'tasacion' ? '🏠'
+                    : l.accion === 'lead_caliente_oferta' ? '🔥'
+                    : l.accion === 'ver_fotos' ? '📷'
+                    : '📌';
+
+                accionesHTML += `
+                    <div style="margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-light);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <strong style="font-size: 0.95rem;">
+                                ${emoji} ${(l.accion || 'N/A').replace(/_/g, ' ').toUpperCase()}
+                            </strong>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">${fecha} ${hora}</span>
+                        </div>
+
+                        ${l.propiedad_titulo ? `
+                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem;">
+                            🏠 ${l.propiedad_titulo} ${l.propiedad_id ? `(${l.propiedad_id})` : ''}
+                        </div>
+                        ` : ''}
+
+                        ${l.detalle ? `
+                        <div style="background: #f8fafc; padding: 0.6rem; border-radius: 6px; font-size: 0.85rem; border-left: 3px solid var(--primary);">
+                            ${l.detalle}
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+
+            const duracion = Math.round((grupo.ultima_fecha - grupo.inicio) / 60000);
+            const fechaInicio = grupo.inicio.toLocaleString('es-AR');
+
+            const html = `
+                <div style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid var(--border);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="font-size: 1.1rem;">${grupo.nombre || 'Anónimo'}</strong>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">📞 ${grupo.user_id}</div>
+                        </div>
+                        <span class="status-badge status-confirmada">WhatsApp</span>
+                    </div>
+                    <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">
+                        📅 ${fechaInicio}
+                        · 🔥 ${grupo.total_acciones} evento${grupo.total_acciones !== 1 ? 's' : ''}
+                        · ⏱️ ${duracion} min
+                    </div>
+                </div>
+
+                <div style="max-height: 60vh; overflow-y: auto;">
+                    ${accionesHTML}
+                </div>
+            `;
+
+            container.innerHTML = html;
+            document.getElementById('modal-ver-respuesta-ia').classList.add('active');
+        }
+
+        async function eliminarGrupoLeads(idx) {
+            const grupo = conversacionesLeadsGlobales[idx];
+            if (!grupo) return;
+
+            const msg = `¿Eliminar los ${grupo.total_acciones} eventos de ${grupo.nombre || grupo.user_id}?\n\nEsta acción no se puede deshacer.`;
+            if (!confirm(msg)) return;
+
+            try {
+                let eliminados = 0;
+                for (const l of grupo.leads) {
+                    const res = await fetchConClave(`/api/leads/${l.id}`, { method: 'DELETE' });
+                    eliminados++;
+                }
+                mostrarToast(`✅ ${eliminados} evento${eliminados !== 1 ? 's' : ''} eliminado${eliminados !== 1 ? 's' : ''}`, 'success');
+                await cargarDatos();
+            } catch (error) {
+                console.error('Error eliminando grupo:', error);
+                mostrarToast('❌ Error al eliminar', 'error');
+            }
         }
 
         // Mostrar propiedades
@@ -4320,6 +4599,7 @@ Hola ${cita.nombre}, este es un recordatorio de tu cita:
                 actualizarRefreshInterval();
 
                 cargarBarriosDisponibles();
+                actualizarBotonDebugLeads();
 
                 const ultimaTab = localStorage.getItem('ultima_tab') || 'contactos-web';
                 mostrarTab(ultimaTab);
