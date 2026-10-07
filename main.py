@@ -3483,7 +3483,8 @@ def update_contacto_web(persona_id):
         interes = data.get('interes')
         presupuesto = data.get('presupuesto')
         
-        if interes is not None or presupuesto is not None:
+        if interes or presupuesto:
+            # Intentar actualizar el más reciente
             cursor.execute("""
                 UPDATE dante.formularios
                 SET interes = COALESCE(%s, interes),
@@ -3495,6 +3496,20 @@ def update_contacto_web(persona_id):
                     LIMIT 1
                 )
             """, (interes or None, presupuesto or None, persona_id))
+            
+            # Si no existía formulario previo, crearlo
+            if cursor.rowcount == 0:
+                cursor.execute("""
+                    INSERT INTO dante.formularios 
+                    (persona_id, interes, presupuesto, pagina_origen, created_at)
+                    VALUES (%s, %s, %s, %s, NOW())
+                """, (
+                    persona_id,
+                    interes or None,
+                    presupuesto or None,
+                    '(cargado desde admin)'
+                ))
+                log(f"✅ Formulario creado para persona {persona_id}")
         
         conn.commit()
         cursor.close()
