@@ -2065,6 +2065,7 @@ R    <div class="container">
         let currentTab = 'citas';  // Pestaña activa actual
         let todosLosContactosWeb = [];
         let todasLasConsultasChat = [];
+        let conversacionesChatGlobales = [];
         let todosLosPreciosBarrios = {};
         let preciosChart = null;
         let refreshInterval = null;
@@ -2455,6 +2456,60 @@ R    <div class="container">
             }
         }
 
+        // ============================================================
+        // 💬 AGRUPACIÓN DE CONSULTAS EN CONVERSACIONES
+        // ============================================================
+        const VENTANA_CONVERSACION_MS = 30 * 60 * 1000; // 30 minutos
+
+        function agruparConversaciones(consultas) {
+            if (!consultas || consultas.length === 0) return [];
+
+            // Ordenar por fecha ascendente
+            const ordenadas = [...consultas].sort((a, b) =>
+                new Date(a.created_at) - new Date(b.created_at)
+            );
+
+            const conversaciones = [];
+            let actual = null;
+
+            ordenadas.forEach(c => {
+                const fecha = new Date(c.created_at);
+
+                const mismaConversacion = actual
+                    && actual.persona_id === c.persona_id
+                    && actual.canal === c.canal
+                    && (fecha - actual.ultima_fecha) <= VENTANA_CONVERSACION_MS;
+
+                if (mismaConversacion) {
+                    // Agregar al grupo actual
+                    actual.mensajes.push(c);
+                    actual.ultima_fecha = fecha;
+                    actual.total_consultas++;
+                    actual.ultima_consulta = c;
+                } else {
+                    // Nueva conversación
+                    actual = {
+                        conversacion_id: c.id,   // id del primer mensaje
+                        persona_id: c.persona_id,
+                        nombre: c.nombre,
+                        email: c.email,
+                        canal: c.canal,
+                        mensajes: [c],
+                        inicio: fecha,
+                        ultima_fecha: fecha,
+                        total_consultas: 1,
+                        ultima_consulta: c
+                    };
+                    conversaciones.push(actual);
+                }
+            });
+
+            // Más recientes primero
+            return conversaciones.sort((a, b) => b.ultima_fecha - a.ultima_fecha);
+        }
+
+
+
         function mostrarConsultasChat(consultas) {
             const container = document.getElementById('consultas-chat-container');
             if (!container) return;
@@ -2464,46 +2519,58 @@ R    <div class="container">
                 return;
             }
 
+            // ✅ Agrupar en conversaciones
+            const conversaciones = agruparConversaciones(consultas);
+            conversacionesChatGlobales = conversaciones;   // ← NUEVA
+
             let html = '';
-            consultas.forEach(c => {
-                const fechaFormateada = c.created_at ? formatearFecha(c.created_at) : 'N/A';
-                const hora = c.created_at ? new Date(c.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '';
-                const canalBadge = c.canal ? `<span class="status-badge status-confirmada" style="font-size: 0.7rem; padding: 2px 8px;">${c.canal}</span>` : '';
-                const searchBadge = c.search_performed ? `<span class="status-badge status-pendiente" style="font-size: 0.7rem; padding: 2px 8px;">🔍 ${c.results_count} props</span>` : '';
+            conversaciones.forEach(conv => {
+                const c = conv.ultima_consulta;
+                const fechaFormateada = formatearFecha(conv.ultima_fecha.toISOString());
+                const hora = conv.ultima_fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+                const canalBadge = conv.canal ? `<span class="status-badge status-confirmada" style="font-size: 0.7rem; padding: 2px 8px;">${conv.canal}</span>` : '';
+                const totalBadge = conv.total_consultas > 1
+                    ? `<span class="status-badge status-pendiente" style="font-size: 0.7rem; padding: 2px 8px;">💬 ${conv.total_consultas} mensajes</span>`
+                    : '';
+                const searchBadge = c.search_performed
+                    ? `<span class="status-badge status-pendiente" style="font-size: 0.7rem; padding: 2px 8px;">🔍 ${c.results_count} props</span>`
+                    : '';
 
                 html += `
-                    <div class="lead-card">
+                    <div class="lead-card" data-persona="${conv.persona_id}" data-inicio="${conv.inicio.toISOString()}">
                         <div class="card-header">
-                            <span class="card-id">#${c.id}</span>
+                            <span class="card-id">#${conv.conversacion_id}</span>
                             ${canalBadge}
                         </div>
-                        
+
                         <div class="card-content">
-                            <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem;">${c.nombre || 'Anónimo'}</h3>
-                            ${c.email ? `<div style="font-size: 0.85rem; color: var(--text-muted);">📧 ${c.email}</div>` : ''}
-                            
+                            <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem;">${conv.nombre || 'Anónimo'}</h3>
+                            ${conv.email ? `<div style="font-size: 0.85rem; color: var(--text-muted);">📧 ${conv.email}</div>` : ''}
+
+                            ${totalBadge ? `<div style="margin-top: 0.5rem;">${totalBadge}</div>` : ''}
+
                             <div style="margin-top: 1rem; padding: 0.75rem; background: #eff6ff; border-radius: 6px; border-left: 3px solid var(--primary);">
-                                <strong style="font-size: 0.85rem;">💬 Usuario:</strong>
+                                <strong style="font-size: 0.85rem;">💬 Última consulta:</strong>
                                 <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;">${(c.mensaje || '').substring(0, 150)}${c.mensaje && c.mensaje.length > 150 ? '...' : ''}</p>
                             </div>
-                            
+
                             <div style="margin-top: 0.5rem; padding: 0.75rem; background: #f0fdf4; border-radius: 6px; border-left: 3px solid var(--success);">
                                 <strong style="font-size: 0.85rem;">🤖 Dante:</strong>
                                 <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem;">${(c.respuesta_ia || '').substring(0, 120)}${c.respuesta_ia && c.respuesta_ia.length > 120 ? '...' : ''}</p>
                             </div>
-                            
+
                             <div class="card-row" style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">
                                 <span>📅</span>
                                 <span>${fechaFormateada} ${hora}</span>
                             </div>
                             ${searchBadge}
                         </div>
-                        
+
                         <div class="card-actions" style="grid-template-columns: 1fr 1fr;">
-                            <button class="btn btn-primary" onclick="verDetalleConsulta(${c.id})">
-                                👁️ Ver completa
+                            <button class="btn btn-primary" onclick="verConversacionCompletaPorIndice(${conversaciones.indexOf(conv)})">
+                                👁️ Ver conversación
                             </button>
-                            <button class="btn btn-danger" onclick="eliminarConsulta(${c.id})">
+                            <button class="btn btn-danger" onclick="eliminarConversacion(${conv.persona_id}, '${conv.inicio.toISOString()}')">
                                 🗑️ Eliminar
                             </button>
                         </div>
@@ -2512,6 +2579,106 @@ R    <div class="container">
             });
 
             container.innerHTML = html;
+        }
+
+
+        function verConversacionCompleta(conv) {
+            const container = document.getElementById('detalle-consulta-content');
+            if (!container) return;
+
+            let mensajesHTML = '';
+            conv.mensajes.forEach((m, i) => {
+                const hora = new Date(m.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+
+                mensajesHTML += `
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <strong style="font-size: 0.85rem; color: var(--text-muted);">Mensaje ${i + 1}</strong>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">${hora}</span>
+                        </div>
+
+                        <div style="background: #eff6ff; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.5rem; border-left: 4px solid var(--primary);">
+                            <strong style="font-size: 0.8rem;">💬 Usuario:</strong>
+                            <p style="margin: 0.4rem 0 0 0; white-space: pre-wrap; font-size: 0.9rem;">${m.mensaje || ''}</p>
+                        </div>
+
+                        <div style="background: #f0fdf4; padding: 0.75rem; border-radius: 8px; border-left: 4px solid var(--success);">
+                            <strong style="font-size: 0.8rem;">🤖 Dante:</strong>
+                            <p style="margin: 0.4rem 0 0 0; white-space: pre-wrap; font-size: 0.85rem;">${m.respuesta_ia || ''}</p>
+                        </div>
+                    </div>
+                `;
+            });
+
+            const html = `
+                <div style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="font-size: 1.1rem;">${conv.nombre || 'Anónimo'}</strong>
+                            ${conv.email ? `<div style="font-size: 0.85rem; color: var(--text-muted);">${conv.email}</div>` : ''}
+                        </div>
+                        <span class="status-badge status-confirmada">${conv.canal || 'web'}</span>
+                    </div>
+                    <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">
+                        📅 ${new Date(conv.inicio).toLocaleString('es-AR')}
+                        · 💬 ${conv.total_consultas} mensaje${conv.total_consultas !== 1 ? 's' : ''}
+                        · ⏱️ ${Math.round((conv.ultima_fecha - conv.inicio) / 60000)} min
+                    </div>
+                </div>
+
+                <div style="max-height: 60vh; overflow-y: auto;">
+                    ${mensajesHTML}
+                </div>
+            `;
+
+            container.innerHTML = html;
+            document.getElementById('modal-ver-respuesta-ia').classList.add('active');
+        }
+
+        function verConversacionCompletaPorIndice(idx) {
+            const conv = conversacionesChatGlobales[idx];
+            if (!conv) {
+                mostrarToast('❌ Conversación no encontrada', 'error');
+                return;
+            }
+            verConversacionCompleta(conv);
+        }
+
+        async function eliminarConversacion(personaId, inicioISO) {
+            const confirmMsg = '¿Eliminar esta conversación completa?\n\nSe borrarán TODOS los mensajes de este usuario entre esas fechas.';
+            if (!confirm(confirmMsg)) return;
+
+            try {
+                mostrarToast('Eliminando conversación...', 'info');
+
+                // Filtrar las consultas que pertenecen a la misma conversación
+                const inicio = new Date(inicioISO);
+                const consultasAEliminar = todasLasConsultasChat.filter(c => {
+                    if (c.persona_id !== personaId) return false;
+                    const fecha = new Date(c.created_at);
+                    const diff = fecha - inicio;
+                    return diff >= 0 && diff <= VENTANA_CONVERSACION_MS;
+                });
+
+                if (consultasAEliminar.length === 0) {
+                    mostrarToast('⚠️ No hay mensajes para eliminar', 'warning');
+                    return;
+                }
+
+                // Eliminar cada una
+                let eliminadas = 0;
+                for (const c of consultasAEliminar) {
+                    const res = await fetchConClave(`/api/consultas-chat/${c.id}`, { method: 'DELETE' });
+                    if (res && res.status === 'success') eliminadas++;
+                }
+
+                mostrarToast(`✅ ${eliminadas} mensaje${eliminadas !== 1 ? 's' : ''} eliminado${eliminadas !== 1 ? 's' : ''}`, 'success');
+                await cargarConsultasChat();
+                if (currentTab === 'consultas-chat') actualizarEstadisticas('consultas-chat');
+            } catch (error) {
+                console.error('Error eliminando conversación:', error);
+                mostrarToast('❌ Error al eliminar', 'error');
+            }
         }
 
         function filtrarConsultasChat(termino) {
