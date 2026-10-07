@@ -1811,6 +1811,7 @@ R    <div class="container">
     </div>
 
     <!-- Modal Editar Cita -->
+    <!-- Modal Editar Cita -->
     <div class="modal" id="modal-editar-cita">
         <div class="modal-content">
             <div class="modal-header">
@@ -1831,8 +1832,7 @@ R    <div class="container">
                     <div style="display: flex; gap: 1rem;">
                         <div style="flex: 1;">
                             <label class="form-label">Fecha</label>
-                            <input type="text" class="form-control" id="edit-cita-fecha" placeholder="Seleccionar fecha"
-                                required>
+                            <input type="text" class="form-control" id="edit-cita-fecha" placeholder="Seleccionar fecha" required>
                         </div>
                         <div style="flex: 1;">
                             <label class="form-label">Hora</label>
@@ -1844,8 +1844,7 @@ R    <div class="container">
                 </div>
                 <div class="form-group" style="position: relative;">
                     <label class="form-label">Propiedad</label>
-                    <input type="text" class="form-control" id="edit-cita-propiedad-search"
-                        placeholder="🔍 Buscar propiedad..." autocomplete="off">
+                    <input type="text" class="form-control" id="edit-cita-propiedad-search" placeholder="🔍 Buscar propiedad..." autocomplete="off">
                     <input type="hidden" id="edit-cita-propiedad-id">
                     <div id="edit-propiedad-results" class="search-results-dropdown" style="display: none;"></div>
                 </div>
@@ -1858,7 +1857,77 @@ R    <div class="container">
                         <option value="cancelada">Cancelada</option>
                     </select>
                 </div>
-                
+                <div class="form-group">
+                    <label class="form-label">Notas</label>
+                    <textarea class="form-control" id="edit-cita-notas" rows="3"></textarea>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-danger" style="flex: 1;"
+                        onclick="confirmarEliminarCita(document.getElementById('edit-cita-id').value)">🗑️ Eliminar</button>
+                    <button type="button" class="btn btn-outline" style="flex: 1;"
+                        onclick="cerrarModal('modal-editar-cita')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- Modal Editar Lead -->
+    <div class="modal" id="modal-editar-lead">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin: 0;">👥 Editar Lead</h3>
+                <button class="modal-close" onclick="cerrarModal('modal-editar-lead')">×</button>
+            </div>
+            <form id="form-editar-lead" onsubmit="guardarEdicionLead(event)">
+                <input type="hidden" id="edit-lead-id">
+                <div class="form-group">
+                    <label class="form-label">Nombre / Alias</label>
+                    <input type="text" class="form-control" id="edit-lead-nombre">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Detalles / Notas</label>
+                    <textarea class="form-control" id="edit-lead-detalles" rows="4"></textarea>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn btn-outline" style="flex: 1;"
+                        onclick="cerrarModal('modal-editar-lead')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    
+    <!-- Modal Editar Contacto Web -->
+    <!-- Modal Editar Contacto Web -->
+    <div class="modal" id="modal-editar-contacto-web">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin: 0;">🌐 Editar Contacto Web</h3>
+                <button class="modal-close" onclick="cerrarModal('modal-editar-contacto-web')">×</button>
+            </div>
+            <form id="form-editar-contacto-web" onsubmit="guardarEdicionContactoWeb(event)">
+                <input type="hidden" id="edit-contacto-id">
+                <div class="form-group">
+                    <label class="form-label">Nombre</label>
+                    <input type="text" class="form-control" id="edit-contacto-nombre" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" id="edit-contacto-email">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Teléfono</label>
+                    <input type="tel" class="form-control" id="edit-contacto-telefono">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Teléfono Alternativo</label>
+                    <input type="tel" class="form-control" id="edit-contacto-telefono-alt">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Documento</label>
+                    <input type="text" class="form-control" id="edit-contacto-documento">
+                </div>
                 <div class="form-group">
                     <label class="form-label">Notas</label>
                     <textarea class="form-control" id="edit-contacto-notas" rows="3"></textarea>
@@ -1896,79 +1965,6 @@ R    <div class="container">
                     </div>
                 </div>
 
-                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                    <button type="button" class="btn btn-danger" style="flex: 1;"
-                        onclick="eliminarContactoWeb(document.getElementById('edit-contacto-id').value)">🗑️ Eliminar</button>
-                    <button type="button" class="btn btn-outline" style="flex: 1;"
-                        onclick="cerrarModal('modal-editar-contacto-web')">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Guardar</button>
-                </div>
-
-
-            </form>
-        </div>
-    </div>
-
-    <!-- Modal Editar Lead -->
-    <div class="modal" id="modal-editar-lead">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 style="margin: 0;">👥 Editar Lead</h3>
-                <button class="modal-close" onclick="cerrarModal('modal-editar-lead')">×</button>
-            </div>
-            <form id="form-editar-lead" onsubmit="guardarEdicionLead(event)">
-                <input type="hidden" id="edit-lead-id">
-                <div class="form-group">
-                    <label class="form-label">Nombre / Alias</label>
-                    <input type="text" class="form-control" id="edit-lead-nombre">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Detalles / Notas</label>
-                    <textarea class="form-control" id="edit-lead-detalles" rows="4"></textarea>
-                </div>
-                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                    <button type="button" class="btn btn-outline" style="flex: 1;"
-                        onclick="cerrarModal('modal-editar-lead')">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Guardar Cambios</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    
-    <!-- Modal Editar Contacto Web -->
-    <div class="modal" id="modal-editar-contacto-web">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 style="margin: 0;">🌐 Editar Contacto Web</h3>
-                <button class="modal-close" onclick="cerrarModal('modal-editar-contacto-web')">×</button>
-            </div>
-            <form id="form-editar-contacto-web" onsubmit="guardarEdicionContactoWeb(event)">
-                <input type="hidden" id="edit-contacto-id">
-                <div class="form-group">
-                    <label class="form-label">Nombre</label>
-                    <input type="text" class="form-control" id="edit-contacto-nombre" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Email</label>
-                    <input type="email" class="form-control" id="edit-contacto-email">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Teléfono</label>
-                    <input type="tel" class="form-control" id="edit-contacto-telefono">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Teléfono Alternativo</label>
-                    <input type="tel" class="form-control" id="edit-contacto-telefono-alt">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Documento</label>
-                    <input type="text" class="form-control" id="edit-contacto-documento">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Notas</label>
-                    <textarea class="form-control" id="edit-contacto-notas" rows="3"></textarea>
-                </div>
                 <div style="display: flex; gap: 1rem; margin-top: 2rem;">
                     <button type="button" class="btn btn-danger" style="flex: 1;"
                         onclick="eliminarContactoWeb(document.getElementById('edit-contacto-id').value)">🗑️ Eliminar</button>
