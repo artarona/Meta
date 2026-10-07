@@ -3395,7 +3395,7 @@ def get_contactos_web():
             SELECT DISTINCT ON (p.id)
                 p.id, p.nombre, p.email, p.telefono, p.telefono_alt,
                 p.documento, p.origen, p.notas, p.created_at, p.updated_at,
-                f.interes, f.presupuesto, f.pagina_origen, f.user_agent, f.ip_address,
+                f.interes, f.presupuesto, f.mensaje, f.pagina_origen, f.user_agent, f.ip_address,
                 (SELECT COUNT(*) FROM dante.formularios WHERE persona_id = p.id) AS total_formularios,
                 (SELECT COUNT(*) FROM dante.consultas_chat WHERE persona_id = p.id) AS total_consultas,
                 (SELECT COUNT(*) FROM crm.leads WHERE persona_id = p.id) AS total_leads_wa,
@@ -3410,9 +3410,9 @@ def get_contactos_web():
         for row in cursor.fetchall():
             # Calcular canales donde apareció
             canales = []
-            if (row[15] or 0) > 0: canales.append('web_form')
-            if (row[16] or 0) > 0: canales.append('web_ia')
-            if (row[17] or 0) > 0 or (row[18] or 0) > 0: canales.append('whatsapp')
+            if (row[16] or 0) > 0: canales.append('web_form')   # antes 15
+            if (row[17] or 0) > 0: canales.append('web_ia')     # antes 16
+            if (row[18] or 0) > 0 or (row[19] or 0) > 0: canales.append('whatsapp')  # antes 17, 18
             
             contactos.append({
                 'id': row[0],
@@ -3427,14 +3427,15 @@ def get_contactos_web():
                 'updated_at': row[9].isoformat() if row[9] else None,
                 'interes': row[10] or '',
                 'presupuesto': row[11] or '',
-                'pagina_origen': row[12] or '',
-                'user_agent': row[13] or '',
-                'ip_address': row[14] or '',
-                'total_formularios': row[15] or 0,
-                'total_consultas': row[16] or 0,
-                'total_leads_wa': row[17] or 0,
-                'total_conversaciones': row[18] or 0,
-                'total_citas': row[19] or 0,
+                'mensaje_form': row[12] or '',      # ✅ NUEVO
+                'pagina_origen': row[13] or '',      # antes row[12]
+                'user_agent': row[14] or '',          # antes row[13]
+                'ip_address': row[15] or '',          # antes row[14]
+                'total_formularios': row[16] or 0,    # antes row[15]
+                'total_consultas': row[17] or 0,      # antes row[16]
+                'total_leads_wa': row[18] or 0,       # antes row[17]
+                'total_conversaciones': row[19] or 0, # antes row[18]
+                'total_citas': row[20] or 0,          # antes row[19]
                 'canales': canales
             })
         
@@ -3732,7 +3733,7 @@ def exportar_unificado_multihoja():
                 SELECT DISTINCT ON (p.id)
                     p.id, p.nombre, p.email, p.telefono, p.telefono_alt,
                     p.documento, p.origen, p.notas, p.created_at, p.updated_at,
-                    f.interes, f.presupuesto, f.pagina_origen, f.ip_address,
+                    f.interes, f.presupuesto, f.mensaje, f.pagina_origen, f.user_agent, f.ip_address,
                     (SELECT COUNT(*) FROM dante.formularios WHERE persona_id = p.id) AS total_formularios,
                     (SELECT COUNT(*) FROM dante.consultas_chat WHERE persona_id = p.id) AS total_consultas
                 FROM core.personas p

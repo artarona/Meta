@@ -1885,6 +1885,11 @@ R    <div class="container">
                         <input type="text" class="form-control" id="edit-contacto-presupuesto" placeholder="Ej: 150.000 USD">
                     </div>
 
+                    <div class="form-group">
+                        <label class="form-label">Mensaje del cliente</label>
+                        <textarea class="form-control" id="edit-contacto-mensaje" rows="3" readonly style="background: #f8fafc;"></textarea>
+                    </div>
+
                     <div class="form-group" style="margin-bottom: 0;">
                         <label class="form-label">Página de origen</label>
                         <input type="text" class="form-control" id="edit-contacto-pagina" readonly style="background: #f8fafc; cursor: not-allowed;">
@@ -2370,9 +2375,15 @@ R    <div class="container">
             mostrarContactosWeb(filtrados);
         }
 
-        function abrirEditarContactoWeb(id) {
+        async function abrirEditarContactoWeb(id) {
+            // ✅ Recargar contactos del backend antes de abrir el modal
+            await cargarContactosWeb();
+            
             const c = todosLosContactosWeb.find(x => x.id === id);
-            if (!c) return;
+            if (!c) {
+                mostrarToast('❌ Contacto no encontrado', 'error');
+                return;
+            }
 
             // Datos de la persona
             document.getElementById('edit-contacto-id').value = c.id;
