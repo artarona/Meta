@@ -1986,7 +1986,7 @@ R    <div class="container">
     <div class="modal" id="modal-ver-respuesta-ia">
         <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header">
-                <h3 style="margin: 0;">💬 Detalle de la Consulta</h3>
+                <h3 style="margin: 0;" id="modal-detalle-titulo">💬 Detalle de la Consulta</h3>
                 <button class="modal-close" onclick="cerrarModal('modal-ver-respuesta-ia')">×</button>
             </div>
             <div id="detalle-consulta-content" style="max-height: 70vh; overflow-y: auto;">
@@ -2708,6 +2708,7 @@ R    <div class="container">
             `;
 
             container.innerHTML = html;
+            document.getElementById('modal-detalle-titulo').textContent = '💬 Conversación';
             document.getElementById('modal-ver-respuesta-ia').classList.add('active');
         }
 
@@ -3213,6 +3214,7 @@ R    <div class="container">
             `;
 
             container.innerHTML = html;
+            document.getElementById('modal-detalle-titulo').textContent = '📋 Historial de Leads';
             document.getElementById('modal-ver-respuesta-ia').classList.add('active');
         }
 
