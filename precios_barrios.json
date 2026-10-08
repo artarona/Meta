@@ -23,11 +23,11 @@
     "zona": "chacarita",
     "operacion": "venta",
     "tipo": "departamento",
-    "fecha": "2026-06-15T11:52:34.743824",
-    "precio_usado_m2": 2636.3636363636365,
-    "precio_nuevo_m2": 4097.222222222223,
-    "cantidad_usados": 71,
-    "cantidad_nuevos": 16
+    "fecha": "2026-10-03T22:05:26.801007",
+    "precio_usado_m2": 2773.4057071960297,
+    "precio_nuevo_m2": 4017.1875,
+    "cantidad_usados": 72,
+    "cantidad_nuevos": 12
   },
   "liniers_venta_departamento": {
     "zona": "liniers",
@@ -83,11 +83,11 @@
     "zona": "villa urquiza",
     "operacion": "venta",
     "tipo": "departamento",
-    "fecha": "2026-09-22T09:42:26.796745",
-    "precio_usado_m2": 2857.1428571428573,
-    "precio_nuevo_m2": 4023.809523809524,
-    "cantidad_usados": 38,
-    "cantidad_nuevos": 5
+    "fecha": "2026-10-03T17:59:51.000600",
+    "precio_usado_m2": 2674.637999122422,
+    "precio_nuevo_m2": 4038.4615384615386,
+    "cantidad_usados": 58,
+    "cantidad_nuevos": 11
   },
   "recoleta_venta_departamento": {
     "zona": "recoleta",
@@ -123,21 +123,21 @@
     "zona": "nuñez",
     "operacion": "venta",
     "tipo": "departamento",
-    "fecha": "2026-09-23T00:21:07.382521",
-    "precio_usado_m2": 2619.0476190476193,
-    "precio_nuevo_m2": 5965.277777777777,
-    "cantidad_usados": 77,
+    "fecha": "2026-10-03T22:31:23.977234",
+    "precio_usado_m2": 2862.227807486631,
+    "precio_nuevo_m2": 5529.336996336997,
+    "cantidad_usados": 74,
     "cantidad_nuevos": 14
   },
   "colegiales_venta_departamento": {
     "zona": "colegiales",
     "operacion": "venta",
     "tipo": "departamento",
-    "fecha": "2026-06-15T16:41:02.159939",
-    "precio_usado_m2": 2730.756097560976,
-    "precio_nuevo_m2": 4378.368421052632,
-    "cantidad_usados": 68,
-    "cantidad_nuevos": 19
+    "fecha": "2026-10-03T16:30:13.511159",
+    "precio_usado_m2": 2600.0,
+    "precio_nuevo_m2": 4008.8619402985078,
+    "cantidad_usados": 61,
+    "cantidad_nuevos": 10
   },
   "congreso_venta_departamento": {
     "zona": "congreso",
@@ -173,11 +173,11 @@
     "zona": "la boca",
     "operacion": "venta",
     "tipo": "departamento",
-    "fecha": "2026-06-21T21:08:19.098941",
-    "precio_usado_m2": 1350.0,
-    "precio_nuevo_m2": 3193.548387096774,
-    "cantidad_usados": 62,
-    "cantidad_nuevos": 22
+    "fecha": "2026-10-03T15:37:39.771988",
+    "precio_usado_m2": 1567.9824561403507,
+    "precio_nuevo_m2": 3769.2,
+    "cantidad_usados": 68,
+    "cantidad_nuevos": 13
   },
   "villa crespo_venta_departamento": {
     "zona": "villa crespo",
@@ -223,11 +223,11 @@
     "zona": "flores",
     "operacion": "alquiler",
     "tipo": "departamento",
-    "fecha": "2026-06-15T20:43:30.475863",
-    "precio_usado_m2": 16363.636363636364,
-    "precio_nuevo_m2": 23913.043478260868,
-    "cantidad_usados": 82,
-    "cantidad_nuevos": 7
+    "fecha": "2026-10-03T18:32:53.059472",
+    "precio_usado_m2": 16800.0,
+    "precio_nuevo_m2": 24757.90513833992,
+    "cantidad_usados": 61,
+    "cantidad_nuevos": 10
   },
   "congreso_alquiler_departamento": {
     "zona": "congreso",
@@ -243,21 +243,21 @@
     "zona": "colegiales",
     "operacion": "alquiler",
     "tipo": "departamento",
-    "fecha": "2026-09-18T21:57:07.052403",
-    "precio_usado_m2": 20588.235294117647,
-    "precio_nuevo_m2": 31481.48148148148,
-    "cantidad_usados": 62,
-    "cantidad_nuevos": 7
+    "fecha": "2026-10-03T22:44:47.515285",
+    "precio_usado_m2": 20638.94523326572,
+    "precio_nuevo_m2": 28869.04761904762,
+    "cantidad_usados": 60,
+    "cantidad_nuevos": 12
   },
   "chacarita_alquiler_departamento": {
     "zona": "chacarita",
     "operacion": "alquiler",
     "tipo": "departamento",
-    "fecha": "2026-06-15T21:18:07.778051",
-    "precio_usado_m2": 20606.060606060608,
-    "precio_nuevo_m2": 29687.5,
-    "cantidad_usados": 64,
-    "cantidad_nuevos": 4
+    "fecha": "2026-10-03T23:04:06.058549",
+    "precio_usado_m2": 19039.938556067587,
+    "precio_nuevo_m2": 25000.0,
+    "cantidad_usados": 56,
+    "cantidad_nuevos": 9
   },
   "caballito_alquiler_departamento": {
     "zona": "caballito",
@@ -323,11 +323,11 @@
     "zona": "villa urquiza",
     "operacion": "alquiler",
     "tipo": "departamento",
-    "fecha": "2026-06-15T22:02:47.875065",
-    "precio_usado_m2": 19555.555555555555,
-    "precio_nuevo_m2": 27500.0,
-    "cantidad_usados": 35,
-    "cantidad_nuevos": 4
+    "fecha": "2026-10-03T18:02:20.980332",
+    "precio_usado_m2": 19833.333333333332,
+    "precio_nuevo_m2": 25931.034482758623,
+    "cantidad_usados": 63,
+    "cantidad_nuevos": 12
   },
   "villa crespo_alquiler_departamento": {
     "zona": "villa crespo",
@@ -558,5 +558,165 @@
     "precio_nuevo_m2": 22629.032258064515,
     "cantidad_usados": 57,
     "cantidad_nuevos": 10
+  },
+  "mataderos_venta_departamento": {
+    "zona": "mataderos",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-10-03T15:17:05.622006",
+    "precio_usado_m2": 2313.253012048193,
+    "precio_nuevo_m2": 3323.293172690763,
+    "cantidad_usados": 67,
+    "cantidad_nuevos": 12
+  },
+  "mataderos_venta_casa": {
+    "zona": "mataderos",
+    "operacion": "venta",
+    "tipo": "casa",
+    "fecha": "2026-10-03T15:23:57.337456",
+    "precio_usado_m2": 1299.3197278911564,
+    "precio_nuevo_m2": 2879.581151832461,
+    "cantidad_usados": 63,
+    "cantidad_nuevos": 11
+  },
+  "barracas_alquiler_casa": {
+    "zona": "barracas",
+    "operacion": "alquiler",
+    "tipo": "casa",
+    "fecha": "2026-10-03T16:01:27.978671",
+    "precio_usado_m2": 13541.059988351775,
+    "precio_nuevo_m2": 0,
+    "cantidad_usados": 4,
+    "cantidad_nuevos": 0
+  },
+  "pompeya_alquiler_ph": {
+    "zona": "pompeya",
+    "operacion": "alquiler",
+    "tipo": "ph",
+    "fecha": "2026-10-03T16:33:52.010912",
+    "precio_usado_m2": 16987.17948717949,
+    "precio_nuevo_m2": 0,
+    "cantidad_usados": 24,
+    "cantidad_nuevos": 0
+  },
+  "villa urquiza_alquiler_ph": {
+    "zona": "villa urquiza",
+    "operacion": "alquiler",
+    "tipo": "ph",
+    "fecha": "2026-10-03T18:07:57.139164",
+    "precio_usado_m2": 17241.379310344826,
+    "precio_nuevo_m2": 24561.40350877193,
+    "cantidad_usados": 41,
+    "cantidad_nuevos": 7
+  },
+  "villa urquiza_venta_terreno": {
+    "zona": "villa urquiza",
+    "operacion": "venta",
+    "tipo": "terreno",
+    "fecha": "2026-10-03T18:18:01.247468",
+    "precio_usado_m2": 1666.4814814814815,
+    "precio_nuevo_m2": 3375.0,
+    "cantidad_usados": 68,
+    "cantidad_nuevos": 11
+  },
+  "parque patricios_alquiler_ph": {
+    "zona": "parque patricios",
+    "operacion": "alquiler",
+    "tipo": "ph",
+    "fecha": "2026-10-03T18:30:39.335876",
+    "precio_usado_m2": 15000.0,
+    "precio_nuevo_m2": 24333.333333333336,
+    "cantidad_usados": 17,
+    "cantidad_nuevos": 4
+  },
+  "puerto madero_venta_departamento": {
+    "zona": "puerto madero",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-10-03T20:51:12.649164",
+    "precio_usado_m2": 5385.167464114833,
+    "precio_nuevo_m2": 9084.677419354839,
+    "cantidad_usados": 58,
+    "cantidad_nuevos": 10
+  },
+  "puerto madero_alquiler_departamento": {
+    "zona": "puerto madero",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-10-03T20:27:52.699695",
+    "precio_usado_m2": 29761.904761904763,
+    "precio_nuevo_m2": 40959.75232198142,
+    "cantidad_usados": 3,
+    "cantidad_nuevos": 2
+  },
+  "puerto madero_alquiler_oficina": {
+    "zona": "puerto madero",
+    "operacion": "alquiler",
+    "tipo": "oficina",
+    "fecha": "2026-10-03T20:38:58.571084",
+    "precio_usado_m2": 0,
+    "precio_nuevo_m2": 22222.222222222223,
+    "cantidad_usados": 0,
+    "cantidad_nuevos": 1
+  },
+  "villa ortuzar_alquiler_departamento": {
+    "zona": "villa ortuzar",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-10-03T23:06:45.940282",
+    "precio_usado_m2": 18377.192982456138,
+    "precio_nuevo_m2": 28571.428571428572,
+    "cantidad_usados": 74,
+    "cantidad_nuevos": 14
+  },
+  "villa ortuzar_venta_departamento": {
+    "zona": "villa ortuzar",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-10-03T23:09:35.615758",
+    "precio_usado_m2": 2614.705882352941,
+    "precio_nuevo_m2": 3641.098484848485,
+    "cantidad_usados": 77,
+    "cantidad_nuevos": 14
+  },
+  "flores_venta_departamento": {
+    "zona": "flores",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-10-06T11:34:08.983512",
+    "precio_usado_m2": 1926.0752688172042,
+    "precio_nuevo_m2": 3000.0,
+    "cantidad_usados": 76,
+    "cantidad_nuevos": 13
+  },
+  "floresta_venta_departamento": {
+    "zona": "floresta",
+    "operacion": "venta",
+    "tipo": "departamento",
+    "fecha": "2026-10-06T11:51:34.733857",
+    "precio_usado_m2": 1671.1628378378377,
+    "precio_nuevo_m2": 2480.0,
+    "cantidad_usados": 74,
+    "cantidad_nuevos": 13
+  },
+  "floresta_venta_ph": {
+    "zona": "floresta",
+    "operacion": "venta",
+    "tipo": "ph",
+    "fecha": "2026-10-06T13:49:35.277476",
+    "precio_usado_m2": 1311.4754098360656,
+    "precio_nuevo_m2": 2077.314814814815,
+    "cantidad_usados": 79,
+    "cantidad_nuevos": 14
+  },
+  "agronomia_alquiler_departamento": {
+    "zona": "agronomia",
+    "operacion": "alquiler",
+    "tipo": "departamento",
+    "fecha": "2026-10-06T16:39:56.696759",
+    "precio_usado_m2": 16666.666666666668,
+    "precio_nuevo_m2": 21111.11111111111,
+    "cantidad_usados": 48,
+    "cantidad_nuevos": 9
   }
 }
