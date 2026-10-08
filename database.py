@@ -949,9 +949,10 @@ def registrar_mensaje_procesado(message_id):
         
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO mensajes_procesados (message_id) VALUES (%s)
+            INSERT INTO public.mensajes_procesados (message_id) 
+            VALUES (%s)
             ON CONFLICT (message_id) DO NOTHING
-            RETURNING id
+            RETURNING message_id
         """, (message_id,))
         inserted = cursor.fetchone()
         conn.commit()
