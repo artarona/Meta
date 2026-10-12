@@ -52,7 +52,7 @@
         .container {
             max-width: 1750px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 12px;
             display: grid;
             grid-template-columns: 280px 1fr;
             grid-template-rows: auto auto 1fr;
@@ -60,7 +60,7 @@
                 "header  header"
                 "stats   stats"
                 "tabs    content";
-            gap: 1.5rem;
+            gap: 0.75rem;
             height: 100vh;
             box-sizing: border-box;
             overflow: hidden;
@@ -81,9 +81,9 @@
         .header {
             background: linear-gradient(135deg, #232deb 0%, #1a23b9 100%);
             color: white;
-            padding: 2.5rem 2rem;
+            padding: 0.9rem 1.5rem;
             border-radius: var(--radius-lg);
-            margin-bottom: 2rem;
+            margin-bottom: 0rem;
             box-shadow: var(--shadow-md);
             position: relative;
             overflow: hidden;
@@ -100,17 +100,17 @@
         }
 
         .header h1 {
-            margin: 0 0 0.5rem 0;
-            font-size: 2.2rem;
+            margin: 0 0 0.15rem 0;
+            font-size: 1.5rem;
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.6rem;
         }
 
         .header p {
             margin: 0;
             opacity: 0.9;
-            font-size: 1.1rem;
+            font-size: 0.85rem;
         }
 
         .user-info {
@@ -128,14 +128,20 @@
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 0rem;
+        }
+
+        /* La etiqueta ("Citas Agendadas", "Leads Totales", etc.) */
+        .stat-card > div:not(.stat-number):not(.stat-trend) {
+            font-size: 0.85rem;         /* ⬅️ nuevo */
+            margin-bottom: 0.15rem;
         }
 
         .stat-card {
             background: white;
-            padding: 1.5rem;
+            padding: 0.85rem 1rem;
             border-radius: var(--radius-md);
             box-shadow: var(--shadow-sm);
             transition: transform 0.2s, box-shadow 0.2s;
@@ -160,9 +166,9 @@
         }
 
         .stat-number {
-            font-size: 2.5rem;
+            font-size: 1.6rem;
             font-weight: 800;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.15rem;
             background: linear-gradient(135deg, #1e3c72, #3b82f6);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -170,8 +176,8 @@
         }
 
         .stat-trend {
-            font-size: 0.875rem;
-            padding: 0.25rem 0.5rem;
+            font-size: 0.72rem;
+            padding: 0.15rem 0.4rem;
             border-radius: var(--radius-sm);
             display: inline-flex;
             align-items: center;
@@ -1378,7 +1384,7 @@
 </head>
 
 <body>
-R    <div class="container">
+    <div class="container">
         <div class="header">
             <h1 style="display: flex; align-items: center; gap: 1rem;">
                 <img src="imgs/llave.png" alt="Logo"
