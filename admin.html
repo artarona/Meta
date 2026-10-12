@@ -71,7 +71,6 @@
         .tabs       { grid-area: tabs; }
 
 
-
         /* Elementos que ocupan las 2 columnas */
         .header,
         .stats-grid,
@@ -271,6 +270,57 @@
             border-radius: var(--radius-sm);
             white-space: normal;
             line-height: 1.3;
+        }
+
+        .tab-icon {
+            font-size: 1.25rem;
+            flex-shrink: 0;
+            width: 24px;
+            text-align: center;
+        }
+
+        .tab-text {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .tab-text strong {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: inherit;
+        }
+
+        .tab-text small {
+            font-size: 0.7rem;
+            font-weight: 400;
+            opacity: 0.7;
+            line-height: 1.2;
+            margin-top: 2px;
+            white-space: normal;
+        }
+
+        .tab.active {
+            background: #eff6ff;
+            color: var(--primary);
+            border-left-color: var(--primary);
+        }
+
+        .tab:hover:not(.active) {
+            background: #f8fafc;
+            color: var(--text-main);
+        }
+
+        .tab-section {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            font-weight: 700;
+            padding: 0.6rem 0.85rem 0.3rem 0.85rem;
+            margin-top: 0.25rem;
+            opacity: 0.65;
         }
 
         .tab-icon {
@@ -1259,10 +1309,6 @@
             }
         }
 
-
-        /* ======================================== */
-        /* RESPONSIVE: LAYOUT LATERAL + 2 CARDS     */
-        /* ======================================== */
         /* ======================================== */
         /* RESPONSIVE: LAYOUT LATERAL + 2 CARDS     */
         /* ======================================== */
@@ -1361,17 +1407,7 @@ R    <div class="container">
         </div>
 
         
-                <!-- Fila de accesos rápidos -->
-        <div class="utility-row">
-            <button class="utility-btn" onclick="mostrarTab('analisis')" id="btn-analisis">
-                <span>📊</span> Análisis Estadísticos
-            </button>
-            <button class="utility-btn" onclick="mostrarTab('configuracion')" id="btn-configuracion">
-                <span>⚙️</span> Configuración
-            </button>
-        </div>
-        
-                <div class="tabs" role="tablist">
+        <div class="tabs" role="tablist">
 
             <!-- ============ PRINCIPAL ============ -->
             <div class="tab-section">Principal</div>
@@ -1408,10 +1444,11 @@ R    <div class="container">
                 </span>
             </button>
 
+            
             <!-- ============ ESTADÍSTICAS ============ -->
             <div class="tab-section">Análisis Estadísticos</div>
 
-            <button class="tab" onclick="mostrarTab('precios-barrios')" role="tab" aria-selected="false" aria-controls="tab-precios-barrios">
+            <button class="tab" onclick="mostrarTab('analisis'); mostrarSubTab('precios-barrios')" role="tab" aria-selected="false" aria-controls="tab-precios-barrios">
                 <span class="tab-icon">📊</span>
                 <span class="tab-text">
                     <strong>Precios por Barrio</strong>
@@ -1419,7 +1456,7 @@ R    <div class="container">
                 </span>
             </button>
 
-            <button class="tab" onclick="mostrarTab('propiedades')" role="tab" aria-selected="false" aria-controls="tab-propiedades">
+            <button class="tab" onclick="mostrarTab('analisis'); mostrarSubTab('propiedades')" role="tab" aria-selected="false" aria-controls="tab-propiedades">
                 <span class="tab-icon">🏠</span>
                 <span class="tab-text">
                     <strong>Propiedades</strong>
@@ -1427,7 +1464,7 @@ R    <div class="container">
                 </span>
             </button>
 
-            <button class="tab" onclick="mostrarTab('mercado')" role="tab" aria-selected="false" aria-controls="tab-mercado">
+            <button class="tab" onclick="mostrarTab('analisis'); mostrarSubTab('mercado')" role="tab" aria-selected="false" aria-controls="tab-mercado">
                 <span class="tab-icon">📈</span>
                 <span class="tab-text">
                     <strong>Análisis de Mercado</strong>
@@ -1435,7 +1472,7 @@ R    <div class="container">
                 </span>
             </button>
 
-            <button class="tab" onclick="mostrarTab('barrios')" role="tab" aria-selected="false" aria-controls="tab-barrios">
+            <button class="tab" onclick="mostrarTab('analisis'); mostrarSubTab('barrios')" role="tab" aria-selected="false" aria-controls="tab-barrios">
                 <span class="tab-icon">🏙️</span>
                 <span class="tab-text">
                     <strong>Entorno / Barrios</strong>
@@ -1446,7 +1483,7 @@ R    <div class="container">
             <!-- ============ HERRAMIENTAS ============ -->
             <div class="tab-section">Herramientas</div>
 
-            <button class="tab" onclick="mostrarTab('exportar')" role="tab" aria-selected="false" aria-controls="tab-exportar">
+            <button class="tab" onclick="mostrarTab('analisis'); mostrarSubTab('exportar')" role="tab" aria-selected="false" aria-controls="tab-exportar">
                 <span class="tab-icon">📤</span>
                 <span class="tab-text">
                     <strong>Exportar Datos</strong>
