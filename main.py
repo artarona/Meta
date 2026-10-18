@@ -268,7 +268,14 @@ def catalog_feed():
 # ========== GESTIÓN DE ESTADO DE USUARIOS ==========
 # Nota: estados_usuarios ahora se gestiona centralizadamente en database.py
 
-processed_message_ids = deque(maxlen=1000)  # Aumentado para manejar más mensajes
+processed_message_ids = deque(maxlen=1000)
+
+# Limpiar el deque cada vez que arranca el worker
+def limpiar_deque_al_iniciar():
+    processed_message_ids.clear()
+    log("🧹 Deque de mensajes procesados limpiado al iniciar worker")
+
+limpiar_deque_al_iniciar()
 
 # ========== CONEXIÓN A POSTGRESQL (Render) ==========
 
@@ -930,6 +937,10 @@ def webhook():
             
             log(f"📱 Plataforma detectada: {platform}")
             
+            
+            
+            
+            
             # ============================================================
             # FUNCIÓN INTERNA: procesar_mensaje_unificado
             # ============================================================
@@ -1119,8 +1130,15 @@ def webhook():
                     if "messages" in value:
                         for message in value["messages"]:
                             m_id = message.get("id")
+                            
+                            # 🔕 Ignorar el test oficial de Meta (no es mensaje real)
+                            #   ID: ABGGFlA5Fpa · From: 16315551181 (número ficticio)
+                            if m_id == "ABGGFlA5Fpa":
+                                log(f"ℹ️ Test de Meta recibido (ID {m_id}) — ignorado silenciosamente")
+                                continue
+                            
                             if m_id in processed_message_ids:
-                                log(f"⚠️ Mensaje {m_id} ya en memoria, ignorando", "WARNING")
+                                log(f"ℹ️ Mensaje {m_id} ya procesado (duplicado)", "DEBUG")
                                 continue
                             processed_message_ids.append(m_id)
                             
