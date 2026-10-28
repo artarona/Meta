@@ -332,17 +332,28 @@ def guardar_en_postgresql(telefono, nombre, accion, detalles="", persona_id=None
                 pass  # se hace después, en la misma transacción, sin cerrar conn
 
             # ✅ NUEVO: Upsert persona dentro de la misma transacción
+            # ✅ Upsert persona dentro de la misma transacción (con CASE para no perder nombres reales)
             if persona_id is None and telefono:
                 nombre_limpio = (nombre or '').strip() or f'Cliente {str(telefono)[-4:]}'
                 cursor.execute("""
                     INSERT INTO core.personas (nombre, telefono, origen, created_at, updated_at)
                     VALUES (%s, %s, 'whatsapp', NOW(), NOW())
                     ON CONFLICT (telefono) DO UPDATE
-                      SET nombre = EXCLUDED.nombre,
+                      SET nombre = CASE
+                              WHEN LEFT(EXCLUDED.nombre, 8) = 'Usuario ' THEN core.personas.nombre
+                              WHEN LEFT(EXCLUDED.nombre, 8) = 'Cliente ' THEN core.personas.nombre
+                              ELSE EXCLUDED.nombre
+                          END,
                           updated_at = NOW()
                     RETURNING id
                 """, (nombre_limpio, telefono))
-                persona_id = cursor.fetchone()[0]
+                row = cursor.fetchone()
+                if not row:
+                    log(f"⚠️ guardar_en_postgresql: RETURNING sin filas para tel={telefono}", "WARNING")
+                    conn.rollback()
+                    return None
+                persona_id = row[0]
+                log(f"✅ guardar_en_postgresql: persona_id={persona_id}, tel={telefono}, nombre={nombre_limpio}")
 
             # ✅ INSERT con persona_id y schema explícito
             cursor.execute("""
@@ -596,9 +607,27 @@ def registrar_lead(user_id, propiedad_id, accion, detalle=""):
             except:
                 pass
                 
-        # Si sigue siendo genérico, intentar ponerle los últimos 4 dígitos
-        if nombre_cliente == "Cliente WhatsApp" and len(str(user_id)) >= 4:
-            nombre_cliente = f"Cliente {str(user_id)[-4:]}"
+
+        # Si sigue siendo genérico, intentar usar el nombre real del estado
+        if nombre_cliente in ("Cliente WhatsApp", "") and len(str(user_id)) >= 4:
+            # Primero intentar recuperar el nombre real desde la DB
+            try:
+                conn_check = get_db_connection()
+                if conn_check:
+                    cur = conn_check.cursor()
+                    cur.execute("SELECT nombre FROM core.personas WHERE telefono = %s", (str(user_id),))
+                    row = cur.fetchone()
+                    cur.close()
+                    conn_check.close()
+                    if row and row[0] and not row[0].startswith('Cliente ') and not row[0].startswith('Usuario '):
+                        nombre_cliente = row[0]
+                    else:
+                        nombre_cliente = f"Cliente {str(user_id)[-4:]}"
+                else:
+                    nombre_cliente = f"Cliente {str(user_id)[-4:]}"
+            except Exception as e:
+                log(f"⚠️ Error recuperando nombre real para {user_id}: {e}", "WARNING")
+                nombre_cliente = f"Cliente {str(user_id)[-4:]}"
         
         detalles_completos = f"{detalle} | Propiedad: {nombre_propiedad} (ID: {propiedad_id})"
         
@@ -988,6 +1017,7 @@ def upsert_persona(nombre, telefono, origen='whatsapp'):
             ON CONFLICT (telefono) DO UPDATE
               SET nombre = CASE
                       WHEN LEFT(EXCLUDED.nombre, 8) = 'Usuario ' THEN core.personas.nombre
+                      WHEN LEFT(EXCLUDED.nombre, 8) = 'Cliente ' THEN core.personas.nombre
                       ELSE EXCLUDED.nombre
                   END,
                   updated_at = NOW()
