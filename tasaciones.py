@@ -1268,7 +1268,7 @@ def manejar_tasacion_datos_telefono(text, estado_usuario, user_id):
 
 
 def manejar_tasacion_datos_email(text, estado_usuario, user_id):
-    """Paso 3: captura el email, guarda en DB y notifica al agente."""
+    """Paso 3: captura el email, actualiza la persona existente y notifica al agente."""
     email_raw = (text or "").strip()
 
     if email_raw.upper() in ("NO", "NO TENGO", "SIN EMAIL", "NINGUNO"):
@@ -1288,30 +1288,71 @@ def manejar_tasacion_datos_email(text, estado_usuario, user_id):
     datos = estado_usuario['data'].setdefault('datos_contacto_tasacion', {})
     datos['email'] = email
 
-    # Contexto de la tasación (por si falta)
+    # Contexto de la tasación
     tasacion_data = estado_usuario['data'].get('datos_tasacion', {})
+    platform = estado_usuario.get('platform', 'messenger')
 
-    # ✅ 1. Guardar/actualizar persona en core.personas
-    persona_id = None
+    # ============================================================
+    # ✅ 1. Actualizar la persona EXISTENTE (creada por Fix 1)
+    #       No crear una nueva con el teléfono real → evita duplicados.
+    # ============================================================
+    persona_id = estado_usuario.get('data', {}).get('persona_id')
+
     try:
-        from database import upsert_persona, get_db_connection
-        platform = estado_usuario.get('platform', 'messenger')
-        persona_id = upsert_persona(datos['nombre'], datos['telefono'], platform)
-        if persona_id and email:
-            conn = get_db_connection()
-            if conn:
-                cur = conn.cursor()
-                cur.execute(
-                    "UPDATE core.personas SET email = %s, updated_at = NOW() WHERE id = %s",
-                    (email, persona_id),
-                )
+        from database import get_db_connection, upsert_persona
+        conn = get_db_connection()
+        if not conn:
+            log("⚠️ Sin DB para actualizar persona desde tasación", "WARNING")
+        else:
+            cur = conn.cursor()
+            if persona_id:
+                # ✅ Persona ya existe (Fix 1) → actualizar nombre, email, tel_alt
+                cur.execute("""
+                    UPDATE core.personas
+                    SET nombre = %s,
+                        email = COALESCE(%s, email),
+                        telefono_alt = COALESCE(telefono_alt, %s),
+                        updated_at = NOW()
+                    WHERE id = %s
+                """, (
+                    datos['nombre'],
+                    email or None,
+                    datos['telefono'],
+                    persona_id
+                ))
+                log(f"✅ Persona {persona_id} actualizada con datos de tasación "
+                    f"(nombre={datos['nombre']}, tel_alt={datos['telefono']}, email={email or 'sin email'})")
                 conn.commit()
                 cur.close()
                 conn.close()
+            else:
+                # ⚠️ Fallback: no había persona previa → crear con teléfono real
+                cur.close()
+                conn.close()
+                log(f"⚠️ Sin persona_id previo para {platform}:{user_id} → creando nueva en fallback")
+                persona_id = upsert_persona(datos['nombre'], datos['telefono'], platform)
+                if persona_id:
+                    # Guardar el persona_id en el estado para futuros usos
+                    estado_usuario['data']['persona_id'] = persona_id
+                    # Actualizar email si vino
+                    if email:
+                        conn = get_db_connection()
+                        if conn:
+                            cur = conn.cursor()
+                            cur.execute(
+                                "UPDATE core.personas SET email = %s, updated_at = NOW() WHERE id = %s",
+                                (email, persona_id)
+                            )
+                            conn.commit()
+                            cur.close()
+                            conn.close()
+                    log(f"✅ Persona {persona_id} creada en fallback (tel={datos['telefono']})")
     except Exception as e:
-        log(f"⚠️ Error guardando persona desde tasación: {e}", "WARNING")
+        log(f"⚠️ Error actualizando persona desde tasación: {e}", "WARNING")
 
-    # ✅ 2. Guardar en dante.formularios (para que aparezca en Contactos Web)
+    # ============================================================
+    # ✅ 2. Guardar formulario en dante.formularios (Contactos Web)
+    # ============================================================
     try:
         from database import get_db_connection
         conn = get_db_connection()
@@ -1322,7 +1363,8 @@ def manejar_tasacion_datos_email(text, estado_usuario, user_id):
                 f"{tasacion_data.get('barrio', '?')}, "
                 f"{tasacion_data.get('m2', '?')} m², "
                 f"estado {tasacion_data.get('estado', '?')}, "
-                f"operación {tasacion_data.get('operacion', '?')}"
+                f"operación {tasacion_data.get('operacion', '?')}. "
+                f"Teléfono real: {datos['telefono']}"
             )
             cur.execute("""
                 INSERT INTO dante.formularios
@@ -1333,16 +1375,18 @@ def manejar_tasacion_datos_email(text, estado_usuario, user_id):
                 'tasacion',
                 None,
                 mensaje_resumen,
-                f"tasacion_virtual_{estado_usuario.get('platform', 'desconocido')}",
+                f"tasacion_virtual_{platform}",
             ))
             conn.commit()
             cur.close()
             conn.close()
+            log(f"✅ Formulario de tasación guardado para persona {persona_id}")
     except Exception as e:
         log(f"⚠️ Error guardando formulario de tasación: {e}", "WARNING")
 
+    # ============================================================
     # ✅ 3. Notificar al agente con TODOS los datos
-    platform = estado_usuario.get('platform', 'desconocido')
+    # ============================================================
     notificar_agente(
         "📞 *SOLICITUD DE TASACIÓN PROFESIONAL*\n"
         f"👤 Nombre: *{datos['nombre']}*\n"
@@ -1350,11 +1394,14 @@ def manejar_tasacion_datos_email(text, estado_usuario, user_id):
         f"📧 Email: {email or '(no proporcionado)'}\n"
         f"💬 Canal: {platform}\n"
         f"🆔 ID {platform}: {user_id}\n"
+        f"🆔 Persona ID: {persona_id}\n"
         f"🏠 {tasacion_data.get('tipo', '?')} en {tasacion_data.get('barrio', '?')} "
         f"({tasacion_data.get('m2', '?')} m²)"
     )
 
+    # ============================================================
     # ✅ 4. Limpiar estado
+    # ============================================================
     estado_usuario['paso'] = 'menu_principal'
     if isinstance(estado_usuario.get('data'), dict):
         estado_usuario['data'].pop('datos_contacto_tasacion', None)

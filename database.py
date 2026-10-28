@@ -987,8 +987,11 @@ def upsert_persona(nombre, telefono, origen='whatsapp'):
             INSERT INTO core.personas (nombre, telefono, origen, created_at, updated_at)
             VALUES (%s, %s, %s, NOW(), NOW())
             ON CONFLICT (telefono) DO UPDATE
-              SET nombre = EXCLUDED.nombre,
-                  updated_at = NOW()
+            SET nombre = CASE
+                    WHEN EXCLUDED.nombre LIKE 'Usuario %' THEN core.personas.nombre
+                    ELSE EXCLUDED.nombre
+                END,
+                updated_at = NOW()
             RETURNING id
         """, (nombre_limpio, telefono, origen))
         persona_id = cursor.fetchone()[0]

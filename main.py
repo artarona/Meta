@@ -1039,16 +1039,40 @@ def webhook():
                 if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
                     estado_usuario['data'] = {}
 
-                if (nombre_cliente 
+                # ============================================================
+                # ✅ FIX: Para IG/FB, garantizar persona_id desde el 1er mensaje
+                #    (así cada usuario tiene su propia tarjeta en el CRM)
+                # ============================================================
+                if platform in ('instagram', 'messenger', 'facebook'):
+                    if not estado_usuario['data'].get('persona_id'):
+                        # Nombre placeholder: si no hay nombre real todavía,
+                        # usamos algo identificable por usuario
+                        nombre_para_persona = nombre_cliente
+                        if (not nombre_para_persona 
+                            or nombre_para_persona.lower().strip() in ('ninguno', '')):
+                            sufijo = str(from_id)[-6:] if from_id else 'unknown'
+                            nombre_para_persona = f"Usuario {platform.capitalize()} #{sufijo}"
+
+                        persona_id = upsert_persona(nombre_para_persona, from_id, platform)
+                        if persona_id:
+                            vincular_persona_a_conversacion_y_leads(conversacion_id, persona_id, from_id)
+                            estado_usuario['data']['_persona_creada'] = True
+                            estado_usuario['data']['persona_id'] = persona_id
+                            actualizar_estado_usuario(from_id, estado_usuario)
+                            log(f"✅ Persona {persona_id} creada/vinculada para {platform}:{from_id} (nombre='{nombre_para_persona}')")
+
+                # ============================================================
+                # Para WhatsApp: se mantiene el comportamiento original
+                # ============================================================
+                elif (nombre_cliente 
                     and nombre_cliente.lower().strip() not in ('ninguno', '')
                     and not estado_usuario['data'].get('_persona_creada')):
                     
                     persona_id = upsert_persona(nombre_cliente, from_id, platform)
-                    # persona_id = upsert_persona(nombre_cliente, from_id, 'whatsapp')
                     if persona_id:
                         vincular_persona_a_conversacion_y_leads(conversacion_id, persona_id, from_id)
                         estado_usuario['data']['_persona_creada'] = True
-                        estado_usuario['data']['persona_id'] = persona_id          # ← NUEVO
+                        estado_usuario['data']['persona_id'] = persona_id
                         actualizar_estado_usuario(from_id, estado_usuario)
                         log(f"✅ Persona {persona_id} vinculada a conv {conversacion_id} (origen={platform})")
                 
