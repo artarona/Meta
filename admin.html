@@ -2577,7 +2577,12 @@
             contactos.forEach(c => {
                 const origenBadge = c.origen ? `<span class="status-badge status-confirmada" style="font-size: 0.7rem; padding: 2px 8px;">${c.origen}</span>` : '';
                 const fechaFormateada = c.created_at ? formatearFecha(c.created_at) : 'N/A';
-                
+
+                // ✅ Desglose por canal (por si el backend ya manda los campos; si no, cae a 0)
+                const consultasWeb = c.consultas_web || 0;
+                const consultasIG  = c.consultas_ig  || 0;
+                const consultasFB  = c.consultas_fb  || 0;
+
                 html += `
                     <div class="lead-card" data-id="${c.id}">
                         <div class="card-header">
@@ -2619,16 +2624,19 @@
                             </div>
                             ` : ''}
                             
-                            <!-- ✅ NUEVO: Canales donde interactuó -->
+                            <!-- ✅ Canales donde interactuó -->
                             <div style="margin-top: 1rem; padding: 0.75rem; background: #f0fdf4; border-radius: 6px; border-left: 3px solid var(--success);">
                                 <strong style="font-size: 0.8rem;">📡 Canales:</strong>
                                 <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.4rem;">
                                     ${(c.canales && c.canales.length > 0) 
                                         ? c.canales.map(canal => {
                                             const config = {
-                                                'whatsapp': { emoji: '💬', label: 'WhatsApp', bg: '#dcfce7', color: '#166534' },
-                                                'web_form': { emoji: '🌐', label: 'Formulario', bg: '#dbeafe', color: '#1e40af' },
-                                                'web_ia':   { emoji: '🤖', label: 'Chat IA',    bg: '#fef3c7', color: '#92400e' }
+                                                'whatsapp':  { emoji: '💬', label: 'WhatsApp',   bg: '#dcfce7', color: '#166534' },
+                                                'web_form':  { emoji: '🌐', label: 'Formulario', bg: '#dbeafe', color: '#1e40af' },
+                                                'web_ia':    { emoji: '🤖', label: 'Chat IA',    bg: '#fef3c7', color: '#92400e' },
+                                                'instagram': { emoji: '📸', label: 'Instagram',  bg: '#fce7f3', color: '#9d174d' },
+                                                'messenger': { emoji: '💬', label: 'Messenger',  bg: '#e0e7ff', color: '#3730a3' },
+                                                'facebook':  { emoji: '💬', label: 'Facebook',   bg: '#e0e7ff', color: '#3730a3' }
                                             }[canal] || { emoji: '📍', label: canal, bg: '#f1f5f9', color: '#475569' };
                                             return `<span style="background: ${config.bg}; color: ${config.color}; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">${config.emoji} ${config.label}</span>`;
                                         }).join('')
@@ -2641,10 +2649,13 @@
                             <div class="card-row" style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">
                                 <span>📊</span>
                                 <span>
-                                    🌐 ${c.total_formularios} form | 
-                                    🤖 ${c.total_consultas} chat | 
-                                    💬 ${c.total_leads_wa} leads | 
-                                    📅 ${c.total_citas} citas
+                                    🌐 ${c.total_formularios || 0} form | 
+                                    🤖 ${consultasWeb} chat | 
+                                    💬 ${c.total_leads_wa || 0} leads | 
+                                    📅 ${c.total_citas || 0} citas
+                                    ${consultasIG > 0 || consultasFB > 0 
+                                        ? ` | 📸 ${consultasIG} IG · 💬 ${consultasFB} FB` 
+                                        : ''}
                                 </span>
                             </div>
                             

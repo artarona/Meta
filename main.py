@@ -11,7 +11,7 @@ from logic.barrio_data import GASTRONOMY_DATA, FINANCIAL_DATA  # Importar datos 
     # if key != ADMIN_ACCESS_KEY:
     #     return jsonify({"error": "Unauthorized"}), 403
 
-
+from database import upsert_persona, crear_conversacion, guardar_mensaje, vincular_persona_a_conversacion_y_leads
 from flask import Flask, request, jsonify, send_from_directory, send_file
 # === IMPORTACIONES PARA BARRIOS E IA ===
 import sqlite3
@@ -937,7 +937,47 @@ def webhook():
             
             log(f"📱 Plataforma detectada: {platform}")
             
-            
+    def _extraer_texto_respuesta(resp):
+        if resp is None:
+            return ""
+        if isinstance(resp, str):
+            return resp
+        if isinstance(resp, dict):
+            return resp.get('body') or resp.get('text') or str(resp)
+        if isinstance(resp, list):
+            partes = []
+            for r in resp:
+                if isinstance(r, dict):
+                    partes.append(r.get('body') or r.get('text') or '')
+                else:
+                    partes.append(str(r))
+            return " ".join(p for p in partes if p)
+        return str(resp)
+
+
+    def _registrar_consulta_chat_crm(persona_id, mensaje, respuesta, canal):
+        """Registra IG/FB en dante.consultas_chat para que el CRM las muestre."""
+        try:
+            conn = get_db_connection()
+            if not conn:
+                log(f"⚠️ Sin DB para registrar consulta {canal}", "WARNING")
+                return
+            cursor = conn.cursor()
+            respuesta_txt = _extraer_texto_respuesta(respuesta)
+            cursor.execute("""
+                INSERT INTO dante.consultas_chat
+                    (persona_id, mensaje, respuesta_ia, canal,
+                    search_performed, results_count, created_at)
+                VALUES (%s, %s, %s, %s, FALSE, 0, NOW())
+                RETURNING id
+            """, (persona_id, (mensaje or '')[:4000],
+                respuesta_txt[:4000], canal))
+            new_id = cursor.fetchone()[0]
+            conn.commit(); cursor.close(); conn.close()
+            log(f"✅ Consulta {canal} guardada en dante.consultas_chat (id={new_id})")
+        except Exception as e:
+            log(f"⚠️ Error registrando consulta {canal}: {e}", "WARNING")
+            import traceback; log(traceback.format_exc(), "WARNING")            
             
             
             
@@ -974,11 +1014,11 @@ def webhook():
                 # ═══════════════════════════════════════════════════════════
                 # ✅ NUEVO: Integración con core.personas / crm.conversaciones / crm.mensajes
                 # ═══════════════════════════════════════════════════════════
-                from database import upsert_persona, crear_conversacion, guardar_mensaje, vincular_persona_a_conversacion_y_leads
+                # from database import upsert_persona, crear_conversacion, guardar_mensaje, vincular_persona_a_conversacion_y_leads
                 
-                conversacion_id = crear_conversacion(from_id, persona_id=None, plataforma=platform)
-                if conversacion_id and message_text:
-                    guardar_mensaje(conversacion_id, 'in', message_text, 'texto')
+                # conversacion_id = crear_conversacion(from_id, persona_id=None, plataforma=platform)
+                # if conversacion_id and message_text:
+                #     guardar_mensaje(conversacion_id, 'in', message_text, 'texto')
                 # ═══════════════════════════════════════════════════════════
                 
                 
@@ -997,13 +1037,14 @@ def webhook():
                     and nombre_cliente.lower().strip() not in ('ninguno', '')
                     and not estado_usuario['data'].get('_persona_creada')):
                     
-                    persona_id = upsert_persona(nombre_cliente, from_id, 'whatsapp')
+                    persona_id = upsert_persona(nombre_cliente, from_id, platform)
+                    # persona_id = upsert_persona(nombre_cliente, from_id, 'whatsapp')
                     if persona_id:
                         vincular_persona_a_conversacion_y_leads(conversacion_id, persona_id, from_id)
                         estado_usuario['data']['_persona_creada'] = True
+                        estado_usuario['data']['persona_id'] = persona_id          # ← NUEVO
                         actualizar_estado_usuario(from_id, estado_usuario)
-                        log(f"✅ Persona {persona_id} vinculada a conv {conversacion_id}")
-                
+                        log(f"✅ Persona {persona_id} vinculada a conv {conversacion_id} (origen={platform})")
                 
                 # Normalizar texto para comandos de usuario y botones
                 processed_text = message_text.strip().lower()
@@ -1040,6 +1081,11 @@ def webhook():
                     response_text = get_bot_response_campana(message_text, from_id)
                 else:
                     response_text = get_bot_response(message_text, from_id)
+                    
+                # ✅ NUEVO: registrar IG/FB en dante.consultas_chat → aparecen en el CRM
+                if platform in ('instagram', 'messenger', 'facebook'):
+                    pid = estado_usuario.get('data', {}).get('persona_id')
+                    _registrar_consulta_chat_crm(pid, message_text, response_text, platform)
                 
                 # Despacho de respuesta
                 base_url = request.host_url.rstrip('/')
