@@ -970,7 +970,7 @@ def registrar_mensaje_procesado(message_id):
 def upsert_persona(nombre, telefono, origen='whatsapp'):
     """
     Crea o actualiza una persona en core.personas.
-    Usa ON CONFLICT (telefono) → requiere UNIQUE en core.personas.telefono.
+    Preserva el nombre real si el nuevo nombre es placeholder ('Usuario ...').
     Devuelve persona_id (int) o None si falla.
     """
     if not telefono:
@@ -981,20 +981,25 @@ def upsert_persona(nombre, telefono, origen='whatsapp'):
         if not conn:
             return None
         cursor = conn.cursor()
-        # Normalizar nombre (por si viene vacío)
         nombre_limpio = (nombre or '').strip() or f'Cliente {str(telefono)[-4:]}'
         cursor.execute("""
             INSERT INTO core.personas (nombre, telefono, origen, created_at, updated_at)
             VALUES (%s, %s, %s, NOW(), NOW())
             ON CONFLICT (telefono) DO UPDATE
-            SET nombre = CASE
-                    WHEN EXCLUDED.nombre LIKE 'Usuario %' THEN core.personas.nombre
-                    ELSE EXCLUDED.nombre
-                END,
-                updated_at = NOW()
+              SET nombre = CASE
+                      WHEN LEFT(EXCLUDED.nombre, 8) = 'Usuario ' THEN core.personas.nombre
+                      ELSE EXCLUDED.nombre
+                  END,
+                  updated_at = NOW()
             RETURNING id
         """, (nombre_limpio, telefono, origen))
-        persona_id = cursor.fetchone()[0]
+        row = cursor.fetchone()
+        if not row:
+            # No debería pasar con ON CONFLICT DO UPDATE, pero por las dudas
+            log(f"⚠️ upsert_persona: RETURNING sin filas para tel={telefono}", "WARNING")
+            conn.rollback()
+            return None
+        persona_id = row[0]
         conn.commit()
         log(f"✅ upsert_persona: id={persona_id}, tel={telefono}, nombre={nombre_limpio}")
         return persona_id

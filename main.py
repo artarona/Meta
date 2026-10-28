@@ -992,89 +992,79 @@ def webhook():
             # ============================================================
             def procesar_mensaje_unificado(from_id, message_text, platform, message_id=None):
                 """Lógica centralizada para procesar un mensaje de cualquier plataforma"""
-                if not from_id or not message_text:
-                    return False
-                
-                # ✅ PASO 1: Guardar el platform en el estado del usuario
-                # ✅ PASO 1: Guardar el platform en el estado del usuario
-                from database import (
-                    obtener_estado_usuario, 
-                    actualizar_estado_usuario,
-                    upsert_persona,
-                    crear_conversacion,
-                    guardar_mensaje,
-                    vincular_persona_a_conversacion_y_leads,
-                )
-                
-                # ═══════════════════════════════════════════════════════════════
-                # ✅ NUEVO: Crear conversación y registrar mensaje entrante
-                # ═══════════════════════════════════════════════════════════════
-                conversacion_id = crear_conversacion(from_id, persona_id=None, plataforma=platform)
-                if conversacion_id and message_text:
-                    guardar_mensaje(conversacion_id, 'in', message_text, 'texto')
-                # ═══════════════════════════════════════════════════════════════
-                
-                # Obtener estado del usuario
-                estado_usuario = obtener_estado_usuario(from_id)
-                
-                # ═══════════════════════════════════════════════════════════
-                # ✅ NUEVO: Integración con core.personas / crm.conversaciones / crm.mensajes
-                # ═══════════════════════════════════════════════════════════
-                # from database import upsert_persona, crear_conversacion, guardar_mensaje, vincular_persona_a_conversacion_y_leads
-                
-                # conversacion_id = crear_conversacion(from_id, persona_id=None, plataforma=platform)
-                # if conversacion_id and message_text:
-                #     guardar_mensaje(conversacion_id, 'in', message_text, 'texto')
-                # ═══════════════════════════════════════════════════════════
-                
-                
-                # Guardar platform si es diferente
-                if estado_usuario.get('platform') != platform:
-                    estado_usuario['platform'] = platform
-                    actualizar_estado_usuario(from_id, estado_usuario)
-                    log(f"📱 Platform guardado en DB para {from_id}: {platform}")
-                
-                # ✅ NUEVO: Si el bot ya capturó el nombre, hacer upsert y vincular
-                nombre_cliente = estado_usuario.get('nombre_cliente')
-                if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
-                    estado_usuario['data'] = {}
+            if not from_id or not message_text:
+                return False
+            
+            # ✅ PASO 1: Guardar el platform en el estado del usuario
+            from database import (
+                obtener_estado_usuario, 
+                actualizar_estado_usuario,
+                upsert_persona,
+                crear_conversacion,
+                guardar_mensaje,
+                vincular_persona_a_conversacion_y_leads,
+            )
+            
+            # ═══════════════════════════════════════════════════════════════
+            # ✅ NUEVO: Crear conversación y registrar mensaje entrante
+            # ═══════════════════════════════════════════════════════════════
+            conversacion_id = crear_conversacion(from_id, persona_id=None, plataforma=platform)
+            if conversacion_id and message_text:
+                guardar_mensaje(conversacion_id, 'in', message_text, 'texto')
+            # ═══════════════════════════════════════════════════════════════
+            
+            # Obtener estado del usuario
+            estado_usuario = obtener_estado_usuario(from_id)
+            
+            # Guardar platform si es diferente
+            if estado_usuario.get('platform') != platform:
+                estado_usuario['platform'] = platform
+                actualizar_estado_usuario(from_id, estado_usuario)
+                log(f"📱 Platform guardado en DB para {from_id}: {platform}")
+            
+            # ✅ NUEVO: Si el bot ya capturó el nombre, hacer upsert y vincular
+            nombre_cliente = estado_usuario.get('nombre_cliente')
+            if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
+                estado_usuario['data'] = {}
 
-                # ============================================================
-                # ✅ FIX: Para IG/FB, garantizar persona_id desde el 1er mensaje
-                #    (así cada usuario tiene su propia tarjeta en el CRM)
-                # ============================================================
-                if platform in ('instagram', 'messenger', 'facebook'):
-                    if not estado_usuario['data'].get('persona_id'):
-                        # Nombre placeholder: si no hay nombre real todavía,
-                        # usamos algo identificable por usuario
-                        nombre_para_persona = nombre_cliente
-                        if (not nombre_para_persona 
-                            or nombre_para_persona.lower().strip() in ('ninguno', '')):
-                            sufijo = str(from_id)[-6:] if from_id else 'unknown'
-                            nombre_para_persona = f"Usuario {platform.capitalize()} #{sufijo}"
+            # ============================================================
+            # ✅ FIX: Para IG/FB, garantizar persona_id desde el 1er mensaje
+            #    (así cada usuario tiene su propia tarjeta en el CRM)
+            # ============================================================
+            if platform in ('instagram', 'messenger', 'facebook'):
+                if not estado_usuario['data'].get('persona_id'):
+                    # Nombre placeholder: si no hay nombre real todavía,
+                    # usamos algo identificable por usuario
+                    nombre_para_persona = nombre_cliente
+                    if (not nombre_para_persona 
+                        or nombre_para_persona.lower().strip() in ('ninguno', '')):
+                        sufijo = str(from_id)[-6:] if from_id else 'unknown'
+                        nombre_para_persona = f"Usuario {platform.capitalize()} #{sufijo}"
 
-                        persona_id = upsert_persona(nombre_para_persona, from_id, platform)
-                        if persona_id:
-                            vincular_persona_a_conversacion_y_leads(conversacion_id, persona_id, from_id)
-                            estado_usuario['data']['_persona_creada'] = True
-                            estado_usuario['data']['persona_id'] = persona_id
-                            actualizar_estado_usuario(from_id, estado_usuario)
-                            log(f"✅ Persona {persona_id} creada/vinculada para {platform}:{from_id} (nombre='{nombre_para_persona}')")
-
-                # ============================================================
-                # Para WhatsApp: se mantiene el comportamiento original
-                # ============================================================
-                elif (nombre_cliente 
-                    and nombre_cliente.lower().strip() not in ('ninguno', '')
-                    and not estado_usuario['data'].get('_persona_creada')):
-                    
-                    persona_id = upsert_persona(nombre_cliente, from_id, platform)
+                    persona_id = upsert_persona(nombre_para_persona, from_id, platform)
                     if persona_id:
                         vincular_persona_a_conversacion_y_leads(conversacion_id, persona_id, from_id)
                         estado_usuario['data']['_persona_creada'] = True
                         estado_usuario['data']['persona_id'] = persona_id
                         actualizar_estado_usuario(from_id, estado_usuario)
-                        log(f"✅ Persona {persona_id} vinculada a conv {conversacion_id} (origen={platform})")
+                        log(f"✅ Persona {persona_id} creada/vinculada para {platform}:{from_id} (nombre='{nombre_para_persona}')")
+                    else:
+                        log(f"❌ upsert_persona FALLÓ para {platform}:{from_id} (nombre='{nombre_para_persona}') — persona_id NO seteado. Revisar database.py", "WARNING")
+
+            # ============================================================
+            # Para WhatsApp: se mantiene el comportamiento original
+            # ============================================================
+            elif (nombre_cliente 
+                and nombre_cliente.lower().strip() not in ('ninguno', '')
+                and not estado_usuario['data'].get('_persona_creada')):
+                
+                persona_id = upsert_persona(nombre_cliente, from_id, platform)
+                if persona_id:
+                    vincular_persona_a_conversacion_y_leads(conversacion_id, persona_id, from_id)
+                    estado_usuario['data']['_persona_creada'] = True
+                    estado_usuario['data']['persona_id'] = persona_id
+                    actualizar_estado_usuario(from_id, estado_usuario)
+                    log(f"✅ Persona {persona_id} vinculada a conv {conversacion_id} (origen={platform})")
                 
                 # Normalizar texto para comandos de usuario y botones
                 processed_text = message_text.strip().lower()
@@ -3963,6 +3953,22 @@ def get_precios_barrios():
         log(traceback.format_exc(), "ERROR")
         return jsonify({"success": False, "error": str(e), "data": {}}), 500
 
+
+
+@app.route("/debug/upsert-persona", methods=["GET"])
+def debug_upsert_persona():
+    """Muestra el código fuente de upsert_persona que está corriendo AHORA."""
+    import inspect
+    from database import upsert_persona as up
+    source = inspect.getsource(up)
+    return jsonify({
+        "module": up.__module__,              # ¿es 'database'?
+        "tiene_left": "LEFT(EXCLUDED.nombre" in source,
+        "tiene_like": "LIKE 'Usuario" in source,
+        "tiene_check_row": "if not row" in source,
+        "tiene_check_len": "len(row)" in source,
+        "source": source,
+    })
 
 
 @app.route("/debug-db-verbose", methods=["GET"])
