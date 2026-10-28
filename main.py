@@ -985,6 +985,7 @@ def webhook():
                 log(f"❌ Objeto no reconocido: {obj_type}")
                 return jsonify({"status": "unsupported_object"}), 200
             
+
             log(f"📱 Plataforma detectada: {platform}")
             
             # ============================================================
@@ -992,81 +993,76 @@ def webhook():
             # ============================================================
             def procesar_mensaje_unificado(from_id, message_text, platform, message_id=None):
                 """Lógica centralizada para procesar un mensaje de cualquier plataforma"""
-            if not from_id or not message_text:
-                return False
-            
-            # ✅ PASO 1: Guardar el platform en el estado del usuario
-            from database import (
-                obtener_estado_usuario, 
-                actualizar_estado_usuario,
-                upsert_persona,
-                crear_conversacion,
-                guardar_mensaje,
-                vincular_persona_a_conversacion_y_leads,
-            )
-            
-            # ═══════════════════════════════════════════════════════════════
-            # ✅ NUEVO: Crear conversación y registrar mensaje entrante
-            # ═══════════════════════════════════════════════════════════════
-            conversacion_id = crear_conversacion(from_id, persona_id=None, plataforma=platform)
-            if conversacion_id and message_text:
-                guardar_mensaje(conversacion_id, 'in', message_text, 'texto')
-            # ═══════════════════════════════════════════════════════════════
-            
-            # Obtener estado del usuario
-            estado_usuario = obtener_estado_usuario(from_id)
-            
-            # Guardar platform si es diferente
-            if estado_usuario.get('platform') != platform:
-                estado_usuario['platform'] = platform
-                actualizar_estado_usuario(from_id, estado_usuario)
-                log(f"📱 Platform guardado en DB para {from_id}: {platform}")
-            
-            # ✅ NUEVO: Si el bot ya capturó el nombre, hacer upsert y vincular
-            nombre_cliente = estado_usuario.get('nombre_cliente')
-            if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
-                estado_usuario['data'] = {}
+                if not from_id or not message_text:
+                    return False
+                
+                # ✅ PASO 1: Guardar el platform en el estado del usuario
+                from database import (
+                    obtener_estado_usuario, 
+                    actualizar_estado_usuario,
+                    upsert_persona,
+                    crear_conversacion,
+                    guardar_mensaje,
+                    vincular_persona_a_conversacion_y_leads,
+                )
+                
+                # Crear conversación y registrar mensaje entrante
+                conversacion_id = crear_conversacion(from_id, persona_id=None, plataforma=platform)
+                if conversacion_id and message_text:
+                    guardar_mensaje(conversacion_id, 'in', message_text, 'texto')
+                
+                # Obtener estado del usuario
+                estado_usuario = obtener_estado_usuario(from_id)
+                
+                # Guardar platform si es diferente
+                if estado_usuario.get('platform') != platform:
+                    estado_usuario['platform'] = platform
+                    actualizar_estado_usuario(from_id, estado_usuario)
+                    log(f"📱 Platform guardado en DB para {from_id}: {platform}")
+                
+                # ✅ FIX: Si el bot ya capturó el nombre, hacer upsert y vincular
+                nombre_cliente = estado_usuario.get('nombre_cliente')
+                if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
+                    estado_usuario['data'] = {}
 
-            # ============================================================
-            # ✅ FIX: Para IG/FB, garantizar persona_id desde el 1er mensaje
-            #    (así cada usuario tiene su propia tarjeta en el CRM)
-            # ============================================================
-            if platform in ('instagram', 'messenger', 'facebook'):
-                if not estado_usuario['data'].get('persona_id'):
-                    # Nombre placeholder: si no hay nombre real todavía,
-                    # usamos algo identificable por usuario
-                    nombre_para_persona = nombre_cliente
-                    if (not nombre_para_persona 
-                        or nombre_para_persona.lower().strip() in ('ninguno', '')):
-                        sufijo = str(from_id)[-6:] if from_id else 'unknown'
-                        nombre_para_persona = f"Usuario {platform.capitalize()} #{sufijo}"
+                # ============================================================
+                # FIX: Para IG/FB, garantizar persona_id desde el 1er mensaje
+                # ============================================================
+                if platform in ('instagram', 'messenger', 'facebook'):
+                    if not estado_usuario['data'].get('persona_id'):
+                        nombre_para_persona = nombre_cliente
+                        if (not nombre_para_persona 
+                            or nombre_para_persona.lower().strip() in ('ninguno', '')):
+                            sufijo = str(from_id)[-6:] if from_id else 'unknown'
+                            nombre_para_persona = f"Usuario {platform.capitalize()} #{sufijo}"
 
-                    persona_id = upsert_persona(nombre_para_persona, from_id, platform)
+                        persona_id = upsert_persona(nombre_para_persona, from_id, platform)
+                        if persona_id:
+                            vincular_persona_a_conversacion_y_leads(conversacion_id, persona_id, from_id)
+                            estado_usuario['data']['_persona_creada'] = True
+                            estado_usuario['data']['persona_id'] = persona_id
+                            actualizar_estado_usuario(from_id, estado_usuario)
+                            log(f"✅ Persona {persona_id} creada/vinculada para {platform}:{from_id} (nombre='{nombre_para_persona}')")
+                        else:
+                            log(f"❌ upsert_persona FALLÓ para {platform}:{from_id} — persona_id NO seteado", "WARNING")
+
+                # WhatsApp: comportamiento original
+                elif (nombre_cliente 
+                    and nombre_cliente.lower().strip() not in ('ninguno', '')
+                    and not estado_usuario['data'].get('_persona_creada')):
+                    
+                    persona_id = upsert_persona(nombre_cliente, from_id, platform)
                     if persona_id:
                         vincular_persona_a_conversacion_y_leads(conversacion_id, persona_id, from_id)
                         estado_usuario['data']['_persona_creada'] = True
                         estado_usuario['data']['persona_id'] = persona_id
                         actualizar_estado_usuario(from_id, estado_usuario)
-                        log(f"✅ Persona {persona_id} creada/vinculada para {platform}:{from_id} (nombre='{nombre_para_persona}')")
-                    else:
-                        log(f"❌ upsert_persona FALLÓ para {platform}:{from_id} (nombre='{nombre_para_persona}') — persona_id NO seteado. Revisar database.py", "WARNING")
-
-            # ============================================================
-            # Para WhatsApp: se mantiene el comportamiento original
-            # ============================================================
-            elif (nombre_cliente 
-                and nombre_cliente.lower().strip() not in ('ninguno', '')
-                and not estado_usuario['data'].get('_persona_creada')):
+                        log(f"✅ Persona {persona_id} vinculada a conv {conversacion_id} (origen={platform})")
                 
-                persona_id = upsert_persona(nombre_cliente, from_id, platform)
-                if persona_id:
-                    vincular_persona_a_conversacion_y_leads(conversacion_id, persona_id, from_id)
-                    estado_usuario['data']['_persona_creada'] = True
-                    estado_usuario['data']['persona_id'] = persona_id
-                    actualizar_estado_usuario(from_id, estado_usuario)
-                    log(f"✅ Persona {persona_id} vinculada a conv {conversacion_id} (origen={platform})")
-                
-                # Normalizar texto para comandos de usuario y botones
+                # ============================================================
+                # A PARTIR DE ACÁ: código para TODAS las plataformas
+                # (normalización, bot, dispatch)
+                # ============================================================
                 processed_text = message_text.strip().lower()
                 emoji_digit_map = {
                     "0️⃣": "0", "1️⃣": "1", "2️⃣": "2", "3️⃣": "3", "4️⃣": "4",
@@ -1074,35 +1070,31 @@ def webhook():
                 }
                 processed_text = emoji_digit_map.get(processed_text, processed_text)
                 
-                # Diccionario de alias
-                # Diccionario de alias
                 boton_a_numero = {
                     "opcion_1": "1", "opcion_2": "2", "opcion_3": "3", "opcion_4": "4",
                     "opcion_5": "5", "opcion_6": "6", "opcion_7": "7", "opcion_tasacion": "10",
                     "opcion_salir": "s", "volver_menu": "9", "salir_chat": "0",
                     "venta": "1", "alquiler": "2", "comprar": "1", "asesor": "5",
                     "c_menu": "m", "c_salir": "s",
-                    # Agregar específicamente para opción 7 (Todos los Inmuebles)
                     "7": "7", "opcion_7": "7"
                 }
                 
                 if processed_text in boton_a_numero:
                     message_text = boton_a_numero[processed_text]
                 else:
-                    # Normalización de títulos con emojis
                     texto_normalizado = processed_text.replace('🏠', '').replace('🔑', '').replace('🏢', '').replace('📋', '').replace('❓', '').replace('👤', '').replace('🌐', '').replace('📈', '').strip()
                     message_text = boton_a_numero.get(texto_normalizado, message_text.strip())
                 
                 log(f"👤 [{platform}] Usuario: {from_id}, Input: '{message_text}'")
                 
-                # Obtener respuesta del bot según el TIPO_MENU
+                # Obtener respuesta del bot según TIPO_MENU
                 if TIPO_MENU == 1:
                     from campana_handlers import get_bot_response_campana
                     response_text = get_bot_response_campana(message_text, from_id)
                 else:
                     response_text = get_bot_response(message_text, from_id)
                     
-                # ✅ NUEVO: registrar IG/FB en dante.consultas_chat → aparecen en el CRM
+                # Registrar IG/FB en dante.consultas_chat
                 if platform in ('instagram', 'messenger', 'facebook'):
                     pid = estado_usuario.get('data', {}).get('persona_id')
                     _registrar_consulta_chat_crm(pid, message_text, response_text, platform)
@@ -1146,7 +1138,6 @@ def webhook():
                         confirmacion = "📸 *Enviando fotos...* Esto puede tardar unos segundos.\n\nEnvía 'Hola' para volver al menú."
                         return send_whatsapp_message(from_id, confirmacion)
                     
-                    # Delegamos TODO el envío a whatsapp_api.py
                     from whatsapp_api import send_message
                     return send_message(from_id, resp, platform=platform)
                 
@@ -1190,15 +1181,12 @@ def webhook():
                     continue
                 
                 # Flujo para WhatsApp (changes -> value -> messages)
-                # Flujo para WhatsApp (changes -> value -> messages)
                 for change in entry.get("changes", []):
                     value = change.get("value", {})
                     if "messages" in value:
                         for message in value["messages"]:
                             m_id = message.get("id")
                             
-                            # 🔕 Ignorar el test oficial de Meta (no es mensaje real)
-                            #   ID: ABGGFlA5Fpa · From: 16315551181 (número ficticio)
                             if m_id == "ABGGFlA5Fpa":
                                 log(f"ℹ️ Test de Meta recibido (ID {m_id}) — ignorado silenciosamente")
                                 continue
@@ -1226,12 +1214,10 @@ def webhook():
                                 elif int_type == "list_reply":
                                     m_text = interactive.get("list_reply", {}).get("id", "")
                                 elif int_type == "nfm_reply":
-                                    # RESPUESTA DE META FLOW
                                     m_text = "FLOW_RESPONSE_TRIGGER"
                                     flow_response = interactive.get("nfm_reply", {}).get("response_json")
                                     if flow_response:
                                         try:
-                                            # Guardar la respuesta cruda para procesarla en el handler
                                             from database import obtener_estado_usuario, actualizar_estado_usuario
                                             est = obtener_estado_usuario(from_num)
                                             est['last_flow_response'] = json.loads(flow_response)
@@ -1249,18 +1235,14 @@ def webhook():
             
             return jsonify({"status": "processed", "count": mensajes_procesados}), 200
         
-        
         except Exception as e:
             import traceback
             log(f"❌ Error procesando webhook: {str(e)}")
             log(f"❌ Traceback: {traceback.format_exc()}")
             return jsonify({"status": "error", "error": str(e)}), 500
-        
+
+
 # ========== GESTIÓN DE CITAS ==========
-
-
-
-
 
 def manejar_confirmacion_recordatorio(text, estado_usuario, user_id):
     """Maneja la respuesta del usuario al recordatorio de cita"""
