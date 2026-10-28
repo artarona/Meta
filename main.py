@@ -864,13 +864,63 @@ def debug_save_test():
                 "message": "No se pudo guardar en PostgreSQL",
                 "timestamp": datetime.now().isoformat()
             }), 500
-            
+
     except Exception as e:
         return jsonify({
             "status": "error",
             "message": str(e),
             "timestamp": datetime.now().isoformat()
         }), 500
+
+
+# ========== HELPERS PARA REGISTRAR CONSULTAS IG/FB EN EL CRM ==========
+
+def _extraer_texto_respuesta(resp):
+    if resp is None:
+        return ""
+    if isinstance(resp, str):
+        return resp
+    if isinstance(resp, dict):
+        return resp.get('body') or resp.get('text') or str(resp)
+    if isinstance(resp, list):
+        partes = []
+        for r in resp:
+            if isinstance(r, dict):
+                partes.append(r.get('body') or r.get('text') or '')
+            else:
+                partes.append(str(r))
+        return " ".join(p for p in partes if p)
+    return str(resp)
+
+
+def _registrar_consulta_chat_crm(persona_id, mensaje, respuesta, canal):
+    """Registra IG/FB en dante.consultas_chat para que el CRM las muestre."""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            log(f"⚠️ Sin DB para registrar consulta {canal}", "WARNING")
+            return
+        cursor = conn.cursor()
+        respuesta_txt = _extraer_texto_respuesta(respuesta)
+        cursor.execute("""
+            INSERT INTO dante.consultas_chat
+                (persona_id, mensaje, respuesta_ia, canal,
+                 search_performed, results_count, created_at)
+            VALUES (%s, %s, %s, %s, FALSE, 0, NOW())
+            RETURNING id
+        """, (
+            persona_id,
+            (mensaje or '')[:4000],
+            respuesta_txt[:4000],
+            canal
+        ))
+        new_id = cursor.fetchone()[0]
+        conn.commit()
+        cursor.close()
+        conn.close()
+        log(f"✅ Consulta {canal} guardada en dante.consultas_chat (id={new_id})")
+    except Exception as e:
+        log(f"⚠️ Error registrando consulta {canal}: {e}", "WARNING")
 
 
 @app.route("/webhook", methods=["GET", "POST"])
@@ -936,50 +986,6 @@ def webhook():
                 return jsonify({"status": "unsupported_object"}), 200
             
             log(f"📱 Plataforma detectada: {platform}")
-            
-    def _extraer_texto_respuesta(resp):
-        if resp is None:
-            return ""
-        if isinstance(resp, str):
-            return resp
-        if isinstance(resp, dict):
-            return resp.get('body') or resp.get('text') or str(resp)
-        if isinstance(resp, list):
-            partes = []
-            for r in resp:
-                if isinstance(r, dict):
-                    partes.append(r.get('body') or r.get('text') or '')
-                else:
-                    partes.append(str(r))
-            return " ".join(p for p in partes if p)
-        return str(resp)
-
-
-    def _registrar_consulta_chat_crm(persona_id, mensaje, respuesta, canal):
-        """Registra IG/FB en dante.consultas_chat para que el CRM las muestre."""
-        try:
-            conn = get_db_connection()
-            if not conn:
-                log(f"⚠️ Sin DB para registrar consulta {canal}", "WARNING")
-                return
-            cursor = conn.cursor()
-            respuesta_txt = _extraer_texto_respuesta(respuesta)
-            cursor.execute("""
-                INSERT INTO dante.consultas_chat
-                    (persona_id, mensaje, respuesta_ia, canal,
-                    search_performed, results_count, created_at)
-                VALUES (%s, %s, %s, %s, FALSE, 0, NOW())
-                RETURNING id
-            """, (persona_id, (mensaje or '')[:4000],
-                respuesta_txt[:4000], canal))
-            new_id = cursor.fetchone()[0]
-            conn.commit(); cursor.close(); conn.close()
-            log(f"✅ Consulta {canal} guardada en dante.consultas_chat (id={new_id})")
-        except Exception as e:
-            log(f"⚠️ Error registrando consulta {canal}: {e}", "WARNING")
-            import traceback; log(traceback.format_exc(), "WARNING")            
-            
-            
             
             # ============================================================
             # FUNCIÓN INTERNA: procesar_mensaje_unificado
