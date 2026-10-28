@@ -1169,35 +1169,201 @@ def _finalizar_tasacion_y_responder(user_id, estado_usuario, datos):
 
 
 def manejar_tasacion_contacto(text_lower, estado_usuario, user_id):
-    """Maneja la respuesta final del flujo de tasación"""
-    # Mapear IDs de botones del menú interactivo
+    """Maneja la respuesta final del flujo de tasación."""
     mapeo_botones = {
         "1": "1",
         "2": "2",
         "m": "menu",
         "s": "salir"
     }
-    
     comando = mapeo_botones.get(text_lower, text_lower)
-    
+    platform = estado_usuario.get('platform', 'whatsapp')
+    es_fb_ig = platform in ("messenger", "facebook", "instagram")
+
     if comando == "1":
-        notificar_agente(f"📞 *SOLICITUD DE TASACIÓN PROFESIONAL*\n📞 Tel: +{user_id}\nEl cliente solicitó contacto humano después de la tasación virtual.")
-        estado_usuario['paso'] = 'menu_principal'
+        # ✅ WhatsApp: ya tiene el teléfono → notificación directa
+        if not es_fb_ig:
+            notificar_agente(
+                f"📞 *SOLICITUD DE TASACIÓN PROFESIONAL*\n"
+                f"📞 Tel: +{user_id}\n"
+                f"El cliente solicitó contacto humano después de la tasación virtual."
+            )
+            estado_usuario['paso'] = 'menu_principal'
+            actualizar_estado_usuario(user_id, estado_usuario)
+            return "✅ ¡Perfecto! Un asesor se pondrá en contacto con vos a la brevedad para coordinar la visita."
+
+        # ✅ FB/IG: no tenemos datos → pedir nombre primero
+        estado_usuario['paso'] = 'tasacion_datos_nombre'
+        if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
+            estado_usuario['data'] = {}
+        if 'datos_contacto_tasacion' not in estado_usuario['data']:
+            estado_usuario['data']['datos_contacto_tasacion'] = {}
         actualizar_estado_usuario(user_id, estado_usuario)
-        return "✅ ¡Perfecto! Un asesor se pondrá en contacto con vos a la brevedad para coordinar la visita."
-    
+        return (
+            "✅ *¡Perfecto!* Para que un asesor pueda contactarte y coordinar la visita, "
+            "necesito algunos datos.\n\n"
+            "📝 *¿Cuál es tu nombre completo?*\n\n"
+            "_(Ej: Juan Pérez)_"
+        )
+
     elif comando == "menu":
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "WELCOME_FLOW_TRIGGER"
-    
+
     elif comando == "salir":
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "🏠¡Gracias por confiar en Dante Propiedades! 🗝️"
-    
+
     else:
         estado_usuario['paso'] = 'menu_principal'
         actualizar_estado_usuario(user_id, estado_usuario)
         return "🏠 Entendido. Si necesitás algo más, acá estoy 🗝️. 😊"
-        
+
+# ============================================================
+# CAPTURA DE DATOS DE CONTACTO (solo FB/IG)
+# ============================================================
+
+def manejar_tasacion_datos_nombre(text, estado_usuario, user_id):
+    """Paso 1: captura el nombre completo."""
+    nombre = (text or "").strip()
+    if len(nombre) < 3:
+        return "⚠️ Por favor ingresá tu *nombre completo* (mínimo 3 caracteres)."
+
+    if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
+        estado_usuario['data'] = {}
+    datos = estado_usuario['data'].setdefault('datos_contacto_tasacion', {})
+    datos['nombre'] = nombre
+    estado_usuario['paso'] = 'tasacion_datos_telefono'
+    actualizar_estado_usuario(user_id, estado_usuario)
+
+    return (
+        f"✅ Nombre: *{nombre}*\n\n"
+        "📞 *¿Cuál es tu número de teléfono?*\n\n"
+        "_(Ej: 11 5432 2345, o 1154322345)_"
+    )
+
+
+def manejar_tasacion_datos_telefono(text, estado_usuario, user_id):
+    """Paso 2: captura y valida el teléfono."""
+    telefono_raw = (text or "").strip()
+    solo_digitos = "".join(c for c in telefono_raw if c.isdigit())
+    if len(solo_digitos) < 8:
+        return "⚠️ Por favor ingresá un *teléfono válido* (al menos 8 dígitos)."
+
+    if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
+        estado_usuario['data'] = {}
+    datos = estado_usuario['data'].setdefault('datos_contacto_tasacion', {})
+    datos['telefono'] = solo_digitos
+    estado_usuario['paso'] = 'tasacion_datos_email'
+    actualizar_estado_usuario(user_id, estado_usuario)
+
+    return (
+        f"✅ Teléfono: *{solo_digitos}*\n\n"
+        "📧 *¿Cuál es tu correo electrónico?*\n\n"
+        "_(Ej: juan@hotmail.com)_\n\n"
+        "💡 Si no querés darlo, envía *NO*."
+    )
+
+
+def manejar_tasacion_datos_email(text, estado_usuario, user_id):
+    """Paso 3: captura el email, guarda en DB y notifica al agente."""
+    email_raw = (text or "").strip()
+
+    if email_raw.upper() in ("NO", "NO TENGO", "SIN EMAIL", "NINGUNO"):
+        email = ""
+    else:
+        # Validación simple
+        if "@" not in email_raw or "." not in email_raw.split("@")[-1]:
+            return (
+                "⚠️ El email no parece válido.\n\n"
+                "📧 Ingresá un correo *válido* (ej: juan@hotmail.com)\n"
+                "o envía *NO* si preferís no darlo."
+            )
+        email = email_raw
+
+    if 'data' not in estado_usuario or not isinstance(estado_usuario['data'], dict):
+        estado_usuario['data'] = {}
+    datos = estado_usuario['data'].setdefault('datos_contacto_tasacion', {})
+    datos['email'] = email
+
+    # Contexto de la tasación (por si falta)
+    tasacion_data = estado_usuario['data'].get('datos_tasacion', {})
+
+    # ✅ 1. Guardar/actualizar persona en core.personas
+    persona_id = None
+    try:
+        from database import upsert_persona, get_db_connection
+        platform = estado_usuario.get('platform', 'messenger')
+        persona_id = upsert_persona(datos['nombre'], datos['telefono'], platform)
+        if persona_id and email:
+            conn = get_db_connection()
+            if conn:
+                cur = conn.cursor()
+                cur.execute(
+                    "UPDATE core.personas SET email = %s, updated_at = NOW() WHERE id = %s",
+                    (email, persona_id),
+                )
+                conn.commit()
+                cur.close()
+                conn.close()
+    except Exception as e:
+        log(f"⚠️ Error guardando persona desde tasación: {e}", "WARNING")
+
+    # ✅ 2. Guardar en dante.formularios (para que aparezca en Contactos Web)
+    try:
+        from database import get_db_connection
+        conn = get_db_connection()
+        if conn:
+            cur = conn.cursor()
+            mensaje_resumen = (
+                f"Tasación virtual: {tasacion_data.get('tipo', '?')} en "
+                f"{tasacion_data.get('barrio', '?')}, "
+                f"{tasacion_data.get('m2', '?')} m², "
+                f"estado {tasacion_data.get('estado', '?')}, "
+                f"operación {tasacion_data.get('operacion', '?')}"
+            )
+            cur.execute("""
+                INSERT INTO dante.formularios
+                    (persona_id, interes, presupuesto, mensaje, pagina_origen, created_at)
+                VALUES (%s, %s, %s, %s, %s, NOW())
+            """, (
+                persona_id,
+                'tasacion',
+                None,
+                mensaje_resumen,
+                f"tasacion_virtual_{estado_usuario.get('platform', 'desconocido')}",
+            ))
+            conn.commit()
+            cur.close()
+            conn.close()
+    except Exception as e:
+        log(f"⚠️ Error guardando formulario de tasación: {e}", "WARNING")
+
+    # ✅ 3. Notificar al agente con TODOS los datos
+    platform = estado_usuario.get('platform', 'desconocido')
+    notificar_agente(
+        "📞 *SOLICITUD DE TASACIÓN PROFESIONAL*\n"
+        f"👤 Nombre: *{datos['nombre']}*\n"
+        f"📞 Teléfono: *{datos['telefono']}*\n"
+        f"📧 Email: {email or '(no proporcionado)'}\n"
+        f"💬 Canal: {platform}\n"
+        f"🆔 ID {platform}: {user_id}\n"
+        f"🏠 {tasacion_data.get('tipo', '?')} en {tasacion_data.get('barrio', '?')} "
+        f"({tasacion_data.get('m2', '?')} m²)"
+    )
+
+    # ✅ 4. Limpiar estado
+    estado_usuario['paso'] = 'menu_principal'
+    if isinstance(estado_usuario.get('data'), dict):
+        estado_usuario['data'].pop('datos_contacto_tasacion', None)
+    actualizar_estado_usuario(user_id, estado_usuario)
+
+    return (
+        "✅ *¡Perfecto!* Ya tenemos tus datos.\n\n"
+        f"👤 {datos['nombre']}\n"
+        f"📞 {datos['telefono']}\n"
+        f"📧 {email or '(sin email)'}\n\n"
+        "Un asesor se pondrá en contacto con vos a la brevedad para coordinar la visita. 🏠"
+    )

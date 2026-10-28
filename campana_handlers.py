@@ -164,7 +164,9 @@ def get_bot_response_campana(text, user_id):
         from tasaciones import (
             manejar_tasacion_operacion, manejar_tasacion_barrio_seleccion, 
             manejar_tasacion_tipo, manejar_tasacion_m2, 
-            manejar_tasacion_estado, manejar_tasacion_contacto
+            manejar_tasacion_estado, manejar_tasacion_contacto,
+            manejar_tasacion_datos_nombre, manejar_tasacion_datos_telefono,
+            manejar_tasacion_datos_email,
         )
         resp = None
         if paso_actual == 'tasacion_operacion':
@@ -179,6 +181,12 @@ def get_bot_response_campana(text, user_id):
             resp = manejar_tasacion_estado(text_lower, estado_usuario, user_id)
         elif paso_actual == 'tasacion_esperando_contacto':
             resp = manejar_tasacion_contacto(text_lower, estado_usuario, user_id)
+        elif paso_actual == 'tasacion_datos_nombre':        # ← NUEVO
+            resp = manejar_tasacion_datos_nombre(text, estado_usuario, user_id)
+        elif paso_actual == 'tasacion_datos_telefono':      # ← NUEVO
+            resp = manejar_tasacion_datos_telefono(text, estado_usuario, user_id)
+        elif paso_actual == 'tasacion_datos_email':         # ← NUEVO
+            resp = manejar_tasacion_datos_email(text, estado_usuario, user_id)
             
         if resp == "WELCOME_FLOW_TRIGGER":
             estado_usuario['paso'] = 'campana_intent'
